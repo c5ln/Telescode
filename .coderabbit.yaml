@@ -8,7 +8,6 @@ reviews:
   auto_review:
     enabled: true
     drafts: false
-  drafts: false
   instructions: "Be concise and direct. Only flag significant issues — bugs, logic errors, security concerns, or clear violations of project conventions. Skip minor style nitpicks."
 
 chat:
