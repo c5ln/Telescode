@@ -5,8 +5,9 @@ reviews:
   high_level_summary: false
   review_details: false
   poem: false
-  auto_review: true
-  drafts: false
+  auto_review:
+    enabled: true
+    drafts: false
   instructions: "Be concise and direct. Only flag significant issues — bugs, logic errors, security concerns, or clear violations of project conventions. Skip minor style nitpicks."
 
 chat:
