@@ -1,14 +1,20 @@
 # Telescode
-Telescode
+
+> A telescope for your codebase.
+
+---
 
 ## Branching Convention
-Github flow <br />
- 
-main: main branch <br />
-feat: 기능 추가 <br />
-fix: 버그 수정 <br />
-refactor: 코드 리팩토링 <br />
-docs: README.md 수정 등 문서 작업 <br />
-chore: 기타 등등 <br />
 
-모든 PR에 코드 리뷰 진행 <br />
+This project follows [GitHub Flow](https://docs.github.com/en/get-started/using-github/github-flow).
+
+| Prefix      | Purpose                         |
+| ----------- | ------------------------------- |
+| `main`      | Stable, production-ready branch |
+| `feat/`     | New features                    |
+| `fix/`      | Bug fixes                       |
+| `refactor/` | Code refactoring                |
+| `docs/`     | Documentation changes           |
+| `chore/`    | Miscellaneous tasks             |
+
+All PRs require a code review before merging.
