@@ -87,11 +87,7 @@ target_compile_definitions(imnodes PRIVATE IMGUI_DEFINE_MATH_OPERATORS)
 target_link_libraries(imnodes PUBLIC imgui)
 
 # ── Telescode executable ──────────────────────────────────────────────────────
-if(WIN32)
-    add_executable(Telescode WIN32 src/main.cpp)
-else()
-    add_executable(Telescode src/main.cpp)
-endif()
+add_executable(Telescode src/main.cpp)
 target_include_directories(Telescode PRIVATE
     ${tree-sitter_SOURCE_DIR}/lib/include
 )
