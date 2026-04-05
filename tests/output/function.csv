@@ -1,0 +1,8 @@
+function_id,parent_id,function_name,nesting_depth,is_async,start_line,end_line,parent_type
+simple_class.py::Animal::speak,simple_class.py::Animal,speak,1,0,1,2,class
+simple_class.py::Animal::eat,simple_class.py::Animal,eat,1,1,4,5,class
+simple_class.py::Dog::__init__,simple_class.py::Dog,__init__,1,0,9,10,class
+simple_class.py::Dog::bark,simple_class.py::Dog,bark,1,0,12,13,class
+module_functions.py::greet,module_functions.py,greet,0,0,3,4,file
+module_functions.py::process_files,module_functions.py,process_files,0,0,6,13,file
+module_functions.py::process_files::inner_helper,module_functions.py::process_files,inner_helper,1,0,10,11,file

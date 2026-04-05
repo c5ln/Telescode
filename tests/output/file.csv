@@ -1,0 +1,5 @@
+file_id,file_name,path,language,loc
+simple_class.py,simple_class.py,/home/cheonsh/Telescode/tests/fixtures/simple_class.py,python,14
+empty_file.py,empty_file.py,/home/cheonsh/Telescode/tests/fixtures/empty_file.py,python,0
+module_functions.py,module_functions.py,/home/cheonsh/Telescode/tests/fixtures/module_functions.py,python,14
+imports_only.py,imports_only.py,/home/cheonsh/Telescode/tests/fixtures/imports_only.py,python,4

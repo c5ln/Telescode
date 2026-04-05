@@ -1,0 +1,13 @@
+function_id,param_name,ordinal
+simple_class.py::Animal::speak,self,0
+simple_class.py::Animal::speak,sound,1
+simple_class.py::Animal::eat,self,0
+simple_class.py::Animal::eat,food,1
+simple_class.py::Animal::eat,quantity,2
+simple_class.py::Dog::__init__,self,0
+simple_class.py::Dog::__init__,name,1
+simple_class.py::Dog::bark,self,0
+module_functions.py::greet,name,0
+module_functions.py::greet,greeting,1
+module_functions.py::process_files,directory,0
+module_functions.py::process_files::inner_helper,x,0

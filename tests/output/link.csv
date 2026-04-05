@@ -1,0 +1,14 @@
+source_id,target_id,link_type
+simple_class.py::Animal,Base,INHERITS
+simple_class.py::Dog,Animal,INHERITS
+simple_class.py::Dog,Serializable,INHERITS
+simple_class.py::Dog::bark,speak,CALLS
+dataclass,simple_class.py::Dog::__init__,DECORATES
+module_functions.py,os,IMPORTS
+module_functions.py,pathlib,IMPORTS
+module_functions.py::process_files,os.listdir,CALLS
+module_functions.py::process_files,greet,CALLS
+imports_only.py,sys,IMPORTS
+imports_only.py,json,IMPORTS
+imports_only.py,collections,IMPORTS
+imports_only.py,typing,IMPORTS

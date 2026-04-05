@@ -1,0 +1,3 @@
+class_id,file_id,class_name,start_line,end_line
+simple_class.py::Animal,simple_class.py,Animal,0,5
+simple_class.py::Dog,simple_class.py,Dog,8,13
