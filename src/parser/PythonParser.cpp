@@ -12,6 +12,7 @@
 #include <unordered_map>
 #include <set>
 #include <tuple>
+#include <iostream>
 
 extern "C" const TSLanguage* tree_sitter_python();
 
@@ -541,16 +542,48 @@ ParseResult PythonParser::parseFile(const std::string& filePath,
     return result;
 }
 
-std::vector<ParseResult> PythonParser::parseDirectory(const std::string& dirPath) {
+std::vector<ParseResult> PythonParser::parseDirectory(
+    const std::string& dirPath,
+    const std::string& allowedRoot)
+{
     std::vector<ParseResult> results;
     fs::path root = fs::absolute(dirPath);
 
+    // Whitelist boundary check: dirPath must be within allowedRoot.
+    if (!allowedRoot.empty()) {
+        fs::path boundary = fs::absolute(allowedRoot).lexically_normal();
+        fs::path normRoot  = root.lexically_normal();
+        // lexically_relative returns a path from boundary to normRoot.
+        // If the first component is "..", normRoot is outside boundary.
+        fs::path rel = normRoot.lexically_relative(boundary);
+        if (rel.empty() || *rel.begin() == "..") {
+            std::cerr << "[PythonParser] Rejected: '" << normRoot.string()
+                      << "' is outside the allowed root '" << boundary.string() << "'\n";
+            return results;
+        }
+    }
+
     std::error_code ec;
-    for (auto& entry : fs::recursive_directory_iterator(root,
-                            fs::directory_options::skip_permission_denied, ec)) {
-        if (ec) { ec.clear(); continue; }
+    fs::recursive_directory_iterator it(root,
+        fs::directory_options::skip_permission_denied, ec);
+    fs::recursive_directory_iterator end;
+
+    for (; !ec && it != end; it.increment(ec)) {
+        if (ec) { ec.clear(); break; }
+
+        const auto& entry = *it;
+
+        if (entry.is_directory()) continue;
         if (!entry.is_regular_file()) continue;
         if (entry.path().extension() != ".py") continue;
+
+        // Whitelist file-level guard: skip files outside the allowed root.
+        if (!allowedRoot.empty()) {
+            fs::path boundary = fs::absolute(allowedRoot).lexically_normal();
+            fs::path filePath = fs::absolute(entry.path()).lexically_normal();
+            fs::path rel = filePath.lexically_relative(boundary);
+            if (rel.empty() || *rel.begin() == "..") continue;
+        }
 
         ParseResult pr = parseFile(entry.path().string(), root.string());
         results.push_back(std::move(pr));
