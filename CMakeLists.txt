@@ -44,6 +44,7 @@ FetchContent_Declare(
 )
 
 # ── Fetch all ─────────────────────────────────────────────────────────────────
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(tree-sitter SDL3 imgui imnodes)
 
 # tree-sitter-python has no CMakeLists — fetch manually
@@ -86,8 +87,20 @@ target_include_directories(imnodes PUBLIC ${imnodes_SOURCE_DIR})
 target_compile_definitions(imnodes PRIVATE IMGUI_DEFINE_MATH_OPERATORS)
 target_link_libraries(imnodes PUBLIC imgui)
 
+# ── SQLite static library (bundled amalgamation) ──────────────────────────────
+add_library(sqlite3 STATIC
+    ${CMAKE_SOURCE_DIR}/third_party/sqlite/sqlite3.c
+)
+target_include_directories(sqlite3 PUBLIC
+    ${CMAKE_SOURCE_DIR}/third_party/sqlite
+)
+set_target_properties(sqlite3 PROPERTIES C_STANDARD 11)
+
 # ── Telescode executable ──────────────────────────────────────────────────────
-add_executable(Telescode src/main.cpp)
+add_executable(Telescode
+    src/main.cpp
+    src/db.cpp
+)
 target_include_directories(Telescode PRIVATE
     ${tree-sitter_SOURCE_DIR}/lib/include
 )
@@ -97,4 +110,5 @@ target_link_libraries(Telescode PRIVATE
     SDL3::SDL3-static
     imgui
     imnodes
+    sqlite3
 )

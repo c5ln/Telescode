@@ -60,6 +60,11 @@ vcpkg_installed/
 conan/
 .conan/
 
+# SQLite databases
+*.db
+*.db-shm
+*.db-wal
+
 # Secrets & credentials
 .env
 .env.*
