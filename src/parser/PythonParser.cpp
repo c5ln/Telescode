@@ -397,12 +397,14 @@ static void handleDecoratedDef(TSNode node, TraversalContext& ctx) {
         // Skip decorator nodes (already handled above)
     }
 
-    // Determine the decorated entity's ID
+    // Determine the decorated entity's ID.
+    // Prefer class over function: handleClassDef() may emit methods as side-effects,
+    // so when both counts grow we must pick the class, not the first new method.
     std::string decoratedId;
-    if (ctx.result.functions.size() > prevFuncSize) {
-        decoratedId = ctx.result.functions[prevFuncSize].function_id;
-    } else if (ctx.result.classes.size() > prevClassSize) {
+    if (ctx.result.classes.size() > prevClassSize) {
         decoratedId = ctx.result.classes[prevClassSize].class_id;
+    } else if (ctx.result.functions.size() > prevFuncSize) {
+        decoratedId = ctx.result.functions[prevFuncSize].function_id;
     }
 
     if (!decoratedId.empty()) {
@@ -457,6 +459,110 @@ static void collectCalls(TSNode node, const std::string& funcId,
     uint32_t count = ts_node_child_count(node);
     for (uint32_t i = 0; i < count; ++i) {
         collectCalls(ts_node_child(node, i), funcId, src, result);
+    }
+}
+
+// ─── resolveCallTargets ──────────────────────────────────────────────────────
+// Within-file pass: resolve raw callee names in CALLS links to function_ids.
+// Handles: plain identifiers, self.method and cls.method patterns.
+
+static void resolveCallTargets(ParseResult& result) {
+    // Build lookup: function_name -> list of function_ids
+    std::unordered_map<std::string, std::vector<std::string>> nameToIds;
+    for (const auto& fn : result.functions) {
+        nameToIds[fn.function_name].push_back(fn.function_id);
+    }
+
+    // Build function_id -> parent_id / parent_type lookup
+    std::unordered_map<std::string, std::string> funcToParent;
+    std::unordered_map<std::string, std::string> funcToParentType;
+    for (const auto& fn : result.functions) {
+        funcToParent[fn.function_id]     = fn.parent_id;
+        funcToParentType[fn.function_id] = fn.parent_type;
+    }
+
+    for (auto& link : result.links) {
+        if (link.link_type != "CALLS") continue;
+
+        std::string raw = link.target_id;
+        bool resolved = false;
+
+        // Case 1: "self.method_name" or "cls.method_name" — resolve within caller's class
+        bool isSelf = (raw.rfind("self.", 0) == 0 && raw.size() > 5);
+        bool isCls  = (raw.rfind("cls.", 0) == 0 && raw.size() > 4);
+        if (isSelf || isCls) {
+            std::string methodName = isSelf ? raw.substr(5) : raw.substr(4);
+            auto pit = funcToParent.find(link.source_id);
+            if (pit != funcToParent.end() &&
+                funcToParentType[link.source_id] == "class") {
+                std::string expected = pit->second + "::" + methodName;
+                auto it = nameToIds.find(methodName);
+                if (it != nameToIds.end()) {
+                    for (const auto& fid : it->second) {
+                        if (fid == expected) {
+                            link.target_id = expected;
+                            resolved = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            // Fallback: treat as plain name
+            if (!resolved) raw = methodName;
+        }
+
+        if (resolved) continue;
+
+        // Case 2: attribute call other than self/cls (e.g. "obj.method") — skip
+        if (raw.find('.') != std::string::npos) continue;
+
+        // Case 3: plain identifier
+        {
+            auto it = nameToIds.find(raw);
+            if (it != nameToIds.end()) {
+                if (it->second.size() == 1) {
+                    link.target_id = it->second[0];
+                } else {
+                    // Multiple matches: prefer same-parent scope
+                    auto pit = funcToParent.find(link.source_id);
+                    std::string callerParent = (pit != funcToParent.end()) ? pit->second : "";
+                    std::string best;
+                    for (const auto& fid : it->second) {
+                        auto fpit = funcToParent.find(fid);
+                        if (fpit != funcToParent.end() && fpit->second == callerParent) {
+                            best = fid;
+                            break;
+                        }
+                    }
+                    link.target_id = best.empty() ? it->second[0] : best;
+                }
+            }
+        }
+    }
+}
+
+// ─── resolveCrossFileCallTargets ─────────────────────────────────────────────
+// Cross-file pass: after all files are parsed, resolve remaining raw CALLS
+// targets using the global function_name -> function_id map.
+
+static void resolveCrossFileCallTargets(
+    std::vector<ParseResult>& results,
+    const std::unordered_map<std::string, std::vector<std::string>>& globalNameToIds)
+{
+    for (auto& pr : results) {
+        for (auto& link : pr.links) {
+            if (link.link_type != "CALLS") continue;
+            // Already resolved (full path contains "::")
+            if (link.target_id.find("::") != std::string::npos) continue;
+            // Attribute call — skip
+            if (link.target_id.find('.') != std::string::npos) continue;
+
+            auto it = globalNameToIds.find(link.target_id);
+            if (it != globalNameToIds.end() && it->second.size() == 1) {
+                link.target_id = it->second[0];
+            }
+            // Ambiguous (multiple files define same name) — leave as raw
+        }
     }
 }
 
@@ -522,6 +628,8 @@ ParseResult PythonParser::parseFile(const std::string& filePath,
     }
 
     ts_tree_delete(tree);
+
+    resolveCallTargets(result);
 
     // Deduplicate links to satisfy PRIMARY KEY (source_id, target_id, link_type)
     // Same (source, target, type) can be generated multiple times, e.g.:
@@ -589,5 +697,17 @@ std::vector<ParseResult> PythonParser::parseDirectory(
         ParseResult pr = parseFile(entry.path().string(), root.string());
         results.push_back(std::move(pr));
     }
+
+    // ── Phase B: cross-file CALLS resolve ────────────────────────────────────
+    {
+        std::unordered_map<std::string, std::vector<std::string>> globalNameToIds;
+        for (const auto& pr : results) {
+            for (const auto& fn : pr.functions) {
+                globalNameToIds[fn.function_name].push_back(fn.function_id);
+            }
+        }
+        resolveCrossFileCallTargets(results, globalNameToIds);
+    }
+
     return results;
 }
