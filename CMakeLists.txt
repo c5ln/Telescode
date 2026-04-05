@@ -70,7 +70,7 @@ add_library(imgui STATIC
     ${imgui_SOURCE_DIR}/imgui_tables.cpp
     ${imgui_SOURCE_DIR}/imgui_widgets.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_sdlgpu3.cpp
 )
 target_include_directories(imgui PUBLIC
     ${imgui_SOURCE_DIR}
@@ -86,13 +86,17 @@ target_include_directories(imnodes PUBLIC ${imnodes_SOURCE_DIR})
 target_compile_definitions(imnodes PRIVATE IMGUI_DEFINE_MATH_OPERATORS)
 target_link_libraries(imnodes PUBLIC imgui)
 
-# ── OpenGL ────────────────────────────────────────────────────────────────────
-find_package(OpenGL REQUIRED)
+# ── SQLite static library (bundled amalgamation) ──────────────────────────────
+add_library(sqlite3 STATIC
+    ${CMAKE_SOURCE_DIR}/third_party/sqlite/sqlite3.c
+)
+target_include_directories(sqlite3 PUBLIC
+    ${CMAKE_SOURCE_DIR}/third_party/sqlite
+)
+set_target_properties(sqlite3 PROPERTIES C_STANDARD 11)
 
 # ── Telescode executable ──────────────────────────────────────────────────────
-add_executable(Telescode
-    src/main.cpp
-)
+add_executable(Telescode src/main.cpp)
 target_include_directories(Telescode PRIVATE
     ${tree-sitter_SOURCE_DIR}/lib/include
 )
@@ -100,7 +104,7 @@ target_link_libraries(Telescode PRIVATE
     tree-sitter
     tree-sitter-python
     SDL3::SDL3-static
-    OpenGL::GL
     imgui
     imnodes
+    sqlite3
 )
