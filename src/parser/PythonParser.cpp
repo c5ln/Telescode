@@ -573,6 +573,7 @@ std::vector<ParseResult> PythonParser::parseDirectory(
 
         const auto& entry = *it;
 
+        if (entry.is_symlink()) continue;
         if (entry.is_directory()) continue;
         if (!entry.is_regular_file()) continue;
         if (entry.path().extension() != ".py") continue;
