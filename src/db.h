@@ -1,6 +1,6 @@
 #pragma once
 
-#include <sqlite3.h>
+struct sqlite3;
 
 // Opens (or creates) telescode.db at the given path.
 // Applies WAL pragmas and creates all tables if they do not exist.

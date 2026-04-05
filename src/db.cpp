@@ -1,5 +1,6 @@
 #include "db.h"
 
+#include <sqlite3.h>
 #include <cstdio>
 
 static const char* kInitSQL =
@@ -64,11 +65,15 @@ static const char* kInitSQL =
 
 int initDb(const char* dbPath, sqlite3** db)
 {
+    if (!dbPath || !db) return SQLITE_MISUSE;
+    *db = nullptr;
+
     int rc = sqlite3_open(dbPath, db);
     if (rc != SQLITE_OK) {
         std::fprintf(stderr, "initDb: cannot open '%s': %s\n",
-                     dbPath, sqlite3_errmsg(*db));
+                     dbPath, *db ? sqlite3_errmsg(*db) : "unknown error");
         sqlite3_close(*db);
+        *db = nullptr;
         return rc;
     }
 
@@ -78,6 +83,7 @@ int initDb(const char* dbPath, sqlite3** db)
         std::fprintf(stderr, "initDb: schema init failed: %s\n", errMsg);
         sqlite3_free(errMsg);
         sqlite3_close(*db);
+        *db = nullptr;
         return rc;
     }
 
