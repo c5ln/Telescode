@@ -10,6 +10,8 @@
 #include <algorithm>
 #include <stdexcept>
 #include <unordered_map>
+#include <set>
+#include <tuple>
 
 extern "C" const TSLanguage* tree_sitter_python();
 
@@ -519,6 +521,23 @@ ParseResult PythonParser::parseFile(const std::string& filePath,
     }
 
     ts_tree_delete(tree);
+
+    // Deduplicate links to satisfy PRIMARY KEY (source_id, target_id, link_type)
+    // Same (source, target, type) can be generated multiple times, e.g.:
+    //   - CALLS: same callee invoked N times in one function body
+    //   - IMPORTS: same module imported at top-level and inside a function
+    {
+        std::set<std::tuple<std::string, std::string, std::string>> seen;
+        std::vector<LinkEntity> unique;
+        unique.reserve(result.links.size());
+        for (auto& link : result.links) {
+            if (seen.emplace(link.source_id, link.target_id, link.link_type).second) {
+                unique.push_back(std::move(link));
+            }
+        }
+        result.links = std::move(unique);
+    }
+
     return result;
 }
 
