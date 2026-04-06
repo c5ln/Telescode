@@ -96,3 +96,8 @@ desktop.ini
 *.sdf
 *.opensdf
 .vs/
+
+
+tests/**
+docs/**
+output/**
