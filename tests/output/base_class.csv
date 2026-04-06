@@ -1,0 +1,4 @@
+class_id,base_class_name,ordinal
+simple_class.py::Animal,Base,0
+simple_class.py::Dog,Animal,0
+simple_class.py::Dog,Serializable,1
