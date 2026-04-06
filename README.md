@@ -39,7 +39,7 @@ Analyzes complexity along two axes.
 Uses PageRank and Betweenness Centrality to determine module importance and recommend an optimal reading order.
 
 - **PageRank** — Assigns higher scores to modules that are more frequently referenced (imported/called) by other modules, identifying core modules in the codebase.
-- **Betweenness Centrality** — Measures how many shortest paths between all pairs of nodes pass through a given node. Intuitively, it answers the question: "Can other modules be reached without going through this one?" Just as a hub person who must be involved in every new client acquisition is important in a company. The time complexity is O(VE) for V vertices and E edges, so vertex sampling is used for approximation on large codebases.
+- **Betweenness Centrality** — This metric measures how many shortest paths between all pairs of nodes pass through a given node. Intuitively, it answers the question: "Can other modules be reached without going through this one?" This is similar to a "hub" person in a company who must be involved in every new client acquisition. The time complexity is O(VE) for V vertices and E edges, so vertex sampling is used for approximation on large codebases.
 
 These two metrics are combined to recommend the reading order that allows developers to grasp the codebase most efficiently — answering "which module should I read first?"
 
