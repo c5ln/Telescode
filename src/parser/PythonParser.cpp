@@ -615,12 +615,17 @@ ParseResult PythonParser::parseFile(const std::string& filePath,
 
     // Parse with tree-sitter
     TSParser* parser = static_cast<TSParser*>(m_parser);
+    //old_tree에 nullptr을 넘기므로 증분 파싱이 아니라 새 파싱
     TSTree* tree = ts_parser_parse_string(parser, nullptr,
-                                          src.c_str(), (uint32_t)src.size());
+                                          src.c_str(), (uint32_t)src.size()); 
     if (!tree) return result;
 
     TSNode root = ts_tree_root_node(tree);
 
+    // 노드의 텍스를 잘라낼 원본 소스(src)
+    // 추출한 entity에 태깅할 fileId
+    // 결과를 누적할 result
+    // 현재 스코프(class 안인지, function 안인지)를 추적할 상태(scopeStack) 
     TraversalContext ctx{src, fileId, result, {}};
     uint32_t count = ts_node_child_count(root);
     for (uint32_t i = 0; i < count; ++i) {
@@ -691,7 +696,7 @@ std::vector<ParseResult> PythonParser::parseDirectory(
             fs::path boundary = fs::absolute(allowedRoot).lexically_normal();
             fs::path filePath = fs::absolute(entry.path()).lexically_normal();
             fs::path rel = filePath.lexically_relative(boundary);
-            if (rel.empty() || *rel.begin() == "..") continue;
+            if (rel.empty() || *rel.begin() == "..") continue; // .. 나오면 boundary 밖이라는 뜻
         }
 
         ParseResult pr = parseFile(entry.path().string(), root.string());
