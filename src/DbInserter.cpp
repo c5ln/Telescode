@@ -26,7 +26,7 @@ int DbInserter::prepareStatements()
     int rc;
 
     rc = sqlite3_prepare_v2(db_,
-        "INSERT OR REPLACE INTO file(file_id, file_name, path, language, loc) VALUES(?,?,?,?,?);",
+        "INSERT OR REPLACE INTO file(file_id, file_name, language, loc) VALUES(?,?,?,?);",
         -1, &stmtFile_, nullptr);
     if (rc != SQLITE_OK) return rc;
 
@@ -75,9 +75,8 @@ int DbInserter::insertFile(const FileEntity& e)
     sqlite3_reset(stmtFile_);
     sqlite3_bind_text(stmtFile_, 1, e.file_id.c_str(),   -1, SQLITE_STATIC);
     sqlite3_bind_text(stmtFile_, 2, e.file_name.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmtFile_, 3, e.path.c_str(),      -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmtFile_, 4, e.language.c_str(),  -1, SQLITE_STATIC);
-    sqlite3_bind_int (stmtFile_, 5, e.loc);
+    sqlite3_bind_text(stmtFile_, 3, e.language.c_str(),  -1, SQLITE_STATIC);
+    sqlite3_bind_int (stmtFile_, 4, e.loc);
     int rc = sqlite3_step(stmtFile_);
     return (rc == SQLITE_DONE) ? SQLITE_OK : rc;
 }

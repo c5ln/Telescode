@@ -6,7 +6,6 @@
 struct FileEntity {
     std::string file_id;   // relative path from repo root
     std::string file_name; // basename
-    std::string path;      // absolute path
     std::string language;
     int loc;               // line count
 };

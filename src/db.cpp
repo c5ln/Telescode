@@ -11,7 +11,6 @@ static const char* kInitSQL =
     "CREATE TABLE IF NOT EXISTS file ("
     "    file_id   TEXT PRIMARY KEY,"
     "    file_name TEXT NOT NULL,"
-    "    path      TEXT NOT NULL,"
     "    language  TEXT NOT NULL,"
     "    loc       INTEGER NOT NULL"
     ");"

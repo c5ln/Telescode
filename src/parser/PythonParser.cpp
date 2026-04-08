@@ -609,7 +609,6 @@ ParseResult PythonParser::parseFile(const std::string& filePath,
 
     result.file.file_id  = fileId;
     result.file.file_name= absPath.filename().string();
-    result.file.path     = absPath.string();
     result.file.language = "python";
     result.file.loc      = loc;
 
