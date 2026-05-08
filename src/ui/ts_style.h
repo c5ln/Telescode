@@ -105,4 +105,84 @@ inline ImU32 ACCENT_SECONDARY_SUBTLE_U32 = 0;
 inline ImU32 ACCENT_FOCUS_U32            = 0;
 inline ImU32 ACCENT_FOCUS_SUBTLE_U32     = 0;
 
+// ┌─────────────────────────────────────────────────────────────────────────────┐
+// │  DPI scale                                                                  │
+// └─────────────────────────────────────────────────────────────────────────────┘
+
+// Set once at startup from SDL_GetDisplayContentScale() or user preference.
+// ALL sizing constants below are canonical 1× reference values.
+// Every usage site must multiply: e.g.  NODE_WIDTH * TS::ui_scale
+// ImGui is not a fluid-layout system — "responsive" means uniform DPI scale,
+// not CSS-style reflow.
+inline float ui_scale = 1.0f;
+
+// ┌─────────────────────────────────────────────────────────────────────────────┐
+// │  Sizing constants                                                           │
+// └─────────────────────────────────────────────────────────────────────────────┘
+
+// Node geometry
+inline constexpr float NODE_WIDTH      = 220.0f;
+inline constexpr float NODE_HEADER_H   =  52.0f;
+inline constexpr float NODE_METHOD_ROW =  22.0f;
+inline constexpr float NODE_ROUNDING   =  10.0f;
+inline constexpr float NODE_PADDING_X  =  12.0f;
+
+// Font sizes (px at 1×)
+inline constexpr float FONT_SIZE_BASE  = 13.0f;  // Inter Regular  — body, sidebar
+inline constexpr float FONT_SIZE_SMALL = 11.5f;  // Inter Regular  — subtitles, badges
+inline constexpr float FONT_SIZE_MONO  = 11.5f;  // JetBrains Mono — method signatures
+
+// Layout
+inline constexpr float SIDEBAR_W  = 280.0f;
+inline constexpr float HEADER_H   =  56.0f;
+inline constexpr float SEQUENCE_H = 180.0f;
+
+// Zoom
+inline constexpr float ZOOM_MIN         = 0.40f;
+inline constexpr float ZOOM_MAX         = 2.00f;
+inline constexpr float ZOOM_STEP_SCROLL = 0.05f;
+inline constexpr float ZOOM_STEP_BTN   = 0.10f;
+
+// ┌─────────────────────────────────────────────────────────────────────────────┐
+// │  Font pointers                                                              │
+// │  All nullptr until LoadFonts() returns.                                     │
+// │  SEQUENCE: LoadFonts() -> (font atlas built on first NewFrame) -> render   │
+// │  Never call ImGui::PushFont(TS::FONT_*) before LoadFonts() has been called. │
+// └─────────────────────────────────────────────────────────────────────────────┘
+
+inline ImFont* FONT_BASE   = nullptr; // Inter Regular  13px  — body, sidebar
+inline ImFont* FONT_MEDIUM = nullptr; // Inter Medium   13px  — node titles
+inline ImFont* FONT_SMALL  = nullptr; // Inter Regular  11.5px — subtitles, badges
+inline ImFont* FONT_MONO   = nullptr; // JetBrains Mono 11.5px — method signatures
+
+// ┌─────────────────────────────────────────────────────────────────────────────┐
+// │  LoadFonts                                                                  │
+// └─────────────────────────────────────────────────────────────────────────────┘
+
+// Loads Inter Regular/Medium and JetBrains Mono from assets/fonts/ relative to
+// the working directory. Falls back to ImGui's embedded default if a file is
+// missing so the app always runs.
+//
+// MUST be called after ImGui::CreateContext() and BEFORE ImGui::NewFrame().
+// The font atlas is built lazily on the first NewFrame() call.
+inline void LoadFonts(ImGuiIO& io)
+{
+    io.Fonts->Clear();
+
+    const float base_sz  = FONT_SIZE_BASE  * ui_scale;
+    const float small_sz = FONT_SIZE_SMALL * ui_scale;
+    const float mono_sz  = FONT_SIZE_MONO  * ui_scale;
+
+    FONT_BASE   = io.Fonts->AddFontFromFileTTF("assets/fonts/Inter-Regular.ttf",        base_sz);
+    FONT_MEDIUM = io.Fonts->AddFontFromFileTTF("assets/fonts/Inter-Medium.ttf",         base_sz);
+    FONT_SMALL  = io.Fonts->AddFontFromFileTTF("assets/fonts/Inter-Regular.ttf",        small_sz);
+    FONT_MONO   = io.Fonts->AddFontFromFileTTF("assets/fonts/JetBrainsMono-Regular.ttf", mono_sz);
+
+    // Graceful fallback: use ImGui's embedded ProggyClean if any file is absent.
+    if (!FONT_BASE)   FONT_BASE   = io.Fonts->AddFontDefault();
+    if (!FONT_MEDIUM) FONT_MEDIUM = io.Fonts->AddFontDefault();
+    if (!FONT_SMALL)  FONT_SMALL  = io.Fonts->AddFontDefault();
+    if (!FONT_MONO)   FONT_MONO   = io.Fonts->AddFontDefault();
+}
+
 } // namespace TS
