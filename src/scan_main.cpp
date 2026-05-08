@@ -13,7 +13,7 @@ int main(int argc, char* argv[]) {
     }
     const char* repoPath    = argv[1];
     const char* dbPath      = argv[2];
-    const char* allowedRoot = (argc == 4) ? argv[3] : "";
+    const char* allowedRoot = (argc == 4) ? argv[3] : repoPath;
 
     PythonParser parser;
     auto results = parser.parseDirectory(repoPath, allowedRoot);

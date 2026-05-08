@@ -205,6 +205,7 @@ int DbInserter::insertAll(const char* dbPath,
     rc = sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);
     if (rc != SQLITE_OK) goto rollback;
 
+    inserter.finalizeStatements();
     sqlite3_close(db);
     return SQLITE_OK;
 
