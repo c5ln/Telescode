@@ -79,4 +79,30 @@ inline constexpr ImVec4 ACCENT_SECONDARY_SUBTLE = { 0.871f, 0.980f, 0.953f, 1.0f
 inline constexpr ImVec4 ACCENT_FOCUS        = { 0.984f, 0.749f, 0.141f, 1.0f }; // #fbbf24
 inline constexpr ImVec4 ACCENT_FOCUS_SUBTLE = { 0.996f, 0.953f, 0.780f, 1.0f }; // #fef3c7
 
+// ┌─────────────────────────────────────────────────────────────────────────────┐
+// │  ImU32 variants — for ImDrawList call sites                                 │
+// │  Zero-initialised here; precomputed once by ApplyStyle() at startup.        │
+// │  Usage: ImDrawList::AddRectFilled(..., TS::PANEL_U32)                       │
+// │  Never call ColorConvertFloat4ToU32 inline at draw time.                    │
+// └─────────────────────────────────────────────────────────────────────────────┘
+
+inline ImU32 BG_U32                      = 0;
+inline ImU32 BG_SOFT_U32                 = 0;
+inline ImU32 PANEL_U32                   = 0;
+inline ImU32 PANEL_2_U32                 = 0;
+inline ImU32 LINE_U32                    = 0;
+inline ImU32 INK_U32                     = 0;
+inline ImU32 INK_2_U32                   = 0;
+inline ImU32 INK_3_U32                   = 0;
+inline ImU32 MUTED_U32                   = 0;
+inline ImU32 NIGHT_U32                   = 0;
+inline ImU32 NIGHT_2_U32                 = 0;
+inline ImU32 NIGHT_LINE_U32              = 0;
+inline ImU32 ACCENT_PRIMARY_U32          = 0;
+inline ImU32 ACCENT_PRIMARY_SUBTLE_U32   = 0;
+inline ImU32 ACCENT_SECONDARY_U32        = 0;
+inline ImU32 ACCENT_SECONDARY_SUBTLE_U32 = 0;
+inline ImU32 ACCENT_FOCUS_U32            = 0;
+inline ImU32 ACCENT_FOCUS_SUBTLE_U32     = 0;
+
 } // namespace TS
