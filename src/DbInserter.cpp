@@ -156,19 +156,15 @@ int DbInserter::insertAll(const char* dbPath,
         return rc;
     }
 
-    rc = sqlite3_exec(db, "DELETE FROM file;", nullptr, nullptr, nullptr);
+    rc = sqlite3_exec(db, "BEGIN;", nullptr, nullptr, nullptr);
     if (rc != SQLITE_OK) {
-        inserter.finalizeStatements();  // finalize stmts BEFORE closing db
+        inserter.finalizeStatements();
         sqlite3_close(db);
         return rc;
     }
 
-    rc = sqlite3_exec(db, "BEGIN;", nullptr, nullptr, nullptr);
-    if (rc != SQLITE_OK) {
-        inserter.finalizeStatements();  // finalize stmts BEFORE closing db
-        sqlite3_close(db);
-        return rc;
-    }
+    rc = sqlite3_exec(db, "DELETE FROM file;", nullptr, nullptr, nullptr);
+    if (rc != SQLITE_OK) goto rollback;
 
     for (const ParseResult& r : results) {
         rc = inserter.insertFile(r.file);
@@ -208,6 +204,7 @@ int DbInserter::insertAll(const char* dbPath,
 
 rollback:
     sqlite3_exec(db, "ROLLBACK;", nullptr, nullptr, nullptr);
+    inserter.finalizeStatements();
     sqlite3_close(db);
     return rc;
 }
