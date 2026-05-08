@@ -1,7 +1,9 @@
-#include "DbInserter.h"
+#include "db/DbInserter.h"
+#include "parser/ParserRegistry.h"
 #include "parser/PythonParser.h"
 #include <sqlite3.h>
 #include <cstdio>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -15,8 +17,9 @@ int main(int argc, char* argv[]) {
     const char* dbPath      = argv[2];
     const char* allowedRoot = (argc == 4) ? argv[3] : repoPath;
 
-    PythonParser parser;
-    auto results = parser.parseDirectory(repoPath, allowedRoot);
+    ParserRegistry registry;
+    registry.registerParser(".py", std::make_unique<PythonParser>());
+    auto results = registry.parseDirectory(repoPath, allowedRoot);
 
     std::fprintf(stdout, "[scan] Parsed %zu files.\n", results.size());
 
