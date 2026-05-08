@@ -144,6 +144,49 @@ int DbInserter::insertLink(const LinkEntity& e)
     return (rc == SQLITE_DONE) ? SQLITE_OK : rc;
 }
 
+// ── insertResults ─────────────────────────────────────────────────────────────
+
+int DbInserter::insertResults(sqlite3* db,
+                               const std::vector<ParseResult>& results)
+{
+    DbInserter inserter(db);
+    int rc = inserter.prepareStatements();
+    if (rc != SQLITE_OK) return rc;
+    // ~DbInserter() finalizes statements on any return path
+
+    for (const ParseResult& r : results) {
+        rc = inserter.insertFile(r.file);
+        if (rc != SQLITE_OK) return rc;
+
+        for (const ClassEntity& c : r.classes) {
+            rc = inserter.insertClass(c);
+            if (rc != SQLITE_OK) return rc;
+        }
+
+        for (const BaseClassEntity& b : r.base_classes) {
+            rc = inserter.insertBaseClass(b);
+            if (rc != SQLITE_OK) return rc;
+        }
+
+        for (const FunctionEntity& f : r.functions) {
+            rc = inserter.insertFunction(f);
+            if (rc != SQLITE_OK) return rc;
+        }
+
+        for (const ParamEntity& p : r.params) {
+            rc = inserter.insertParam(p);
+            if (rc != SQLITE_OK) return rc;
+        }
+
+        for (const LinkEntity& l : r.links) {
+            rc = inserter.insertLink(l);
+            if (rc != SQLITE_OK) return rc;
+        }
+    }
+
+    return SQLITE_OK;
+}
+
 // ── insertAll ─────────────────────────────────────────────────────────────────
 
 int DbInserter::insertAll(const char* dbPath,
@@ -153,65 +196,23 @@ int DbInserter::insertAll(const char* dbPath,
     int rc = initDb(dbPath, &db);
     if (rc != SQLITE_OK) return rc;
 
-    DbInserter inserter(db);
-
-    rc = inserter.prepareStatements();
-    if (rc != SQLITE_OK) {
-        inserter.finalizeStatements();  // finalize stmts BEFORE closing db
-        sqlite3_close(db);
-        return rc;
-    }
-
     rc = sqlite3_exec(db, "BEGIN;", nullptr, nullptr, nullptr);
-    if (rc != SQLITE_OK) {
-        inserter.finalizeStatements();
-        sqlite3_close(db);
-        return rc;
-    }
+    if (rc != SQLITE_OK) { sqlite3_close(db); return rc; }
 
     rc = sqlite3_exec(db, "DELETE FROM file;", nullptr, nullptr, nullptr);
     if (rc != SQLITE_OK) goto rollback;
 
-    for (const ParseResult& r : results) {
-        rc = inserter.insertFile(r.file);
-        if (rc != SQLITE_OK) goto rollback;
-
-        for (const ClassEntity& c : r.classes) {
-            rc = inserter.insertClass(c);
-            if (rc != SQLITE_OK) goto rollback;
-        }
-
-        for (const BaseClassEntity& b : r.base_classes) {
-            rc = inserter.insertBaseClass(b);
-            if (rc != SQLITE_OK) goto rollback;
-        }
-
-        for (const FunctionEntity& f : r.functions) {
-            rc = inserter.insertFunction(f);
-            if (rc != SQLITE_OK) goto rollback;
-        }
-
-        for (const ParamEntity& p : r.params) {
-            rc = inserter.insertParam(p);
-            if (rc != SQLITE_OK) goto rollback;
-        }
-
-        for (const LinkEntity& l : r.links) {
-            rc = inserter.insertLink(l);
-            if (rc != SQLITE_OK) goto rollback;
-        }
-    }
+    rc = insertResults(db, results);
+    if (rc != SQLITE_OK) goto rollback;
 
     rc = sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);
     if (rc != SQLITE_OK) goto rollback;
 
-    inserter.finalizeStatements();
     sqlite3_close(db);
     return SQLITE_OK;
 
 rollback:
     sqlite3_exec(db, "ROLLBACK;", nullptr, nullptr, nullptr);
-    inserter.finalizeStatements();
     sqlite3_close(db);
     return rc;
 }

@@ -100,7 +100,7 @@ set_target_properties(sqlite3 PROPERTIES C_STANDARD 11)
 # ── Telescode executable ──────────────────────────────────────────────────────
 add_executable(Telescode
     src/main.cpp
-    src/db.cpp
+    src/db/db.cpp
 )
 target_include_directories(Telescode PRIVATE
     ${tree-sitter_SOURCE_DIR}/lib/include
@@ -142,15 +142,35 @@ endif()
 # ── TelescodeScanner executable ───────────────────────────────────────────────
 add_executable(TelescodeScanner
     src/scan_main.cpp
-    src/DbInserter.cpp
-    src/db.cpp
+    src/db/DbInserter.cpp
+    src/db/db.cpp
     src/parser/PythonParser.cpp
+    src/parser/ParserRegistry.cpp
 )
 target_include_directories(TelescodeScanner PRIVATE
     ${tree-sitter_SOURCE_DIR}/lib/include
     src
 )
 target_link_libraries(TelescodeScanner PRIVATE
+    tree-sitter
+    tree-sitter-python
+    sqlite3
+)
+
+# ── TelescodeUpdater executable ───────────────────────────────────────────────
+add_executable(TelescodeUpdater
+    src/update_main.cpp
+    src/db/DbUpdater.cpp
+    src/db/DbInserter.cpp
+    src/db/db.cpp
+    src/parser/PythonParser.cpp
+    src/parser/ParserRegistry.cpp
+)
+target_include_directories(TelescodeUpdater PRIVATE
+    ${tree-sitter_SOURCE_DIR}/lib/include
+    src
+)
+target_link_libraries(TelescodeUpdater PRIVATE
     tree-sitter
     tree-sitter-python
     sqlite3

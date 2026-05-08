@@ -11,6 +11,11 @@ public:
     static int insertAll(const char* dbPath,
                          const std::vector<ParseResult>& results);
 
+    // Insert results into an already-open db without managing the transaction.
+    // Caller is responsible for BEGIN/COMMIT/ROLLBACK.
+    static int insertResults(sqlite3* db,
+                             const std::vector<ParseResult>& results);
+
 private:
     explicit DbInserter(sqlite3* db);
     ~DbInserter();
