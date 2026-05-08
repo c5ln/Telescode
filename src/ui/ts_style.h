@@ -60,9 +60,9 @@ inline constexpr ImVec4 INK_3 = { 0.486f, 0.522f, 0.592f, 1.0f }; // #7c8597
 inline constexpr ImVec4 MUTED = { 0.604f, 0.639f, 0.702f, 1.0f }; // #9aa3b3
 
 // ── Header / canvas dark bar ──────────────────────────────────────────────────
-inline constexpr ImVec4 NIGHT      = { 0.047f, 0.086f, 0.149f, 1.0f }; // #0c1626
-inline constexpr ImVec4 NIGHT_2    = { 0.059f, 0.110f, 0.188f, 1.0f }; // #0f1c30
-inline constexpr ImVec4 NIGHT_LINE = { 0.122f, 0.188f, 0.314f, 1.0f }; // #1f3050
+inline constexpr ImVec4 HEADER      = { 0.047f, 0.086f, 0.149f, 1.0f }; // #0c1626
+inline constexpr ImVec4 HEADER_2    = { 0.059f, 0.110f, 0.188f, 1.0f }; // #0f1c30
+inline constexpr ImVec4 HEADER_LINE = { 0.122f, 0.188f, 0.314f, 1.0f }; // #1f3050
 
 // ── Accent: Primary — purple ──────────────────────────────────────────────────
 // Semantic role: primary interactive colour, selection highlight.
@@ -95,9 +95,9 @@ inline ImU32 INK_U32                     = 0;
 inline ImU32 INK_2_U32                   = 0;
 inline ImU32 INK_3_U32                   = 0;
 inline ImU32 MUTED_U32                   = 0;
-inline ImU32 NIGHT_U32                   = 0;
-inline ImU32 NIGHT_2_U32                 = 0;
-inline ImU32 NIGHT_LINE_U32              = 0;
+inline ImU32 HEADER_U32                   = 0;
+inline ImU32 HEADER_2_U32                 = 0;
+inline ImU32 HEADER_LINE_U32              = 0;
 inline ImU32 ACCENT_PRIMARY_U32          = 0;
 inline ImU32 ACCENT_PRIMARY_SUBTLE_U32   = 0;
 inline ImU32 ACCENT_SECONDARY_U32        = 0;
@@ -207,9 +207,9 @@ inline void ApplyStyle()
     INK_2_U32                   = ImGui::ColorConvertFloat4ToU32(INK_2);
     INK_3_U32                   = ImGui::ColorConvertFloat4ToU32(INK_3);
     MUTED_U32                   = ImGui::ColorConvertFloat4ToU32(MUTED);
-    NIGHT_U32                   = ImGui::ColorConvertFloat4ToU32(NIGHT);
-    NIGHT_2_U32                 = ImGui::ColorConvertFloat4ToU32(NIGHT_2);
-    NIGHT_LINE_U32              = ImGui::ColorConvertFloat4ToU32(NIGHT_LINE);
+    HEADER_U32                   = ImGui::ColorConvertFloat4ToU32(HEADER);
+    HEADER_2_U32                 = ImGui::ColorConvertFloat4ToU32(HEADER_2);
+    HEADER_LINE_U32              = ImGui::ColorConvertFloat4ToU32(HEADER_LINE);
     ACCENT_PRIMARY_U32          = ImGui::ColorConvertFloat4ToU32(ACCENT_PRIMARY);
     ACCENT_PRIMARY_SUBTLE_U32   = ImGui::ColorConvertFloat4ToU32(ACCENT_PRIMARY_SUBTLE);
     ACCENT_SECONDARY_U32        = ImGui::ColorConvertFloat4ToU32(ACCENT_SECONDARY);
@@ -254,10 +254,10 @@ inline void ApplyStyle()
     c[ImGuiCol_FrameBg]                   = PANEL_2;
     c[ImGuiCol_FrameBgHovered]            = Darken(PANEL_2, 0.04f);
     c[ImGuiCol_FrameBgActive]             = Darken(PANEL_2, 0.08f);
-    c[ImGuiCol_TitleBg]                   = NIGHT;
-    c[ImGuiCol_TitleBgActive]             = NIGHT_2;
-    c[ImGuiCol_TitleBgCollapsed]          = WithAlpha(NIGHT, 0.75f);
-    c[ImGuiCol_MenuBarBg]                 = NIGHT;
+    c[ImGuiCol_TitleBg]                   = HEADER;
+    c[ImGuiCol_TitleBgActive]             = HEADER_2;
+    c[ImGuiCol_TitleBgCollapsed]          = WithAlpha(HEADER, 0.75f);
+    c[ImGuiCol_MenuBarBg]                 = HEADER;
     c[ImGuiCol_ScrollbarBg]               = BG_SOFT;
     c[ImGuiCol_ScrollbarGrab]             = LINE;
     c[ImGuiCol_ScrollbarGrabHovered]      = INK_3;
