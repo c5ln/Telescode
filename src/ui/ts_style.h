@@ -185,4 +185,171 @@ inline void LoadFonts(ImGuiIO& io)
     if (!FONT_MONO)   FONT_MONO   = io.Fonts->AddFontDefault();
 }
 
+// ┌─────────────────────────────────────────────────────────────────────────────┐
+// │  ApplyStyle                                                                 │
+// └─────────────────────────────────────────────────────────────────────────────┘
+
+// Called ONCE at startup after ImGui::CreateContext() AND ImNodes::CreateContext().
+// Sets ImGuiStyle geometry + colors, ImNodesStyle geometry + colors, and
+// precomputes every *_U32 variant via ColorConvertFloat4ToU32.
+//
+// Hover/active variants are derived with Darken() so they track the base token
+// automatically — no separate hardcoded hex values for interactive states.
+inline void ApplyStyle()
+{
+    // ── Precompute U32 variants ────────────────────────────────────────────────
+    BG_U32                      = ImGui::ColorConvertFloat4ToU32(BG);
+    BG_SOFT_U32                 = ImGui::ColorConvertFloat4ToU32(BG_SOFT);
+    PANEL_U32                   = ImGui::ColorConvertFloat4ToU32(PANEL);
+    PANEL_2_U32                 = ImGui::ColorConvertFloat4ToU32(PANEL_2);
+    LINE_U32                    = ImGui::ColorConvertFloat4ToU32(LINE);
+    INK_U32                     = ImGui::ColorConvertFloat4ToU32(INK);
+    INK_2_U32                   = ImGui::ColorConvertFloat4ToU32(INK_2);
+    INK_3_U32                   = ImGui::ColorConvertFloat4ToU32(INK_3);
+    MUTED_U32                   = ImGui::ColorConvertFloat4ToU32(MUTED);
+    NIGHT_U32                   = ImGui::ColorConvertFloat4ToU32(NIGHT);
+    NIGHT_2_U32                 = ImGui::ColorConvertFloat4ToU32(NIGHT_2);
+    NIGHT_LINE_U32              = ImGui::ColorConvertFloat4ToU32(NIGHT_LINE);
+    ACCENT_PRIMARY_U32          = ImGui::ColorConvertFloat4ToU32(ACCENT_PRIMARY);
+    ACCENT_PRIMARY_SUBTLE_U32   = ImGui::ColorConvertFloat4ToU32(ACCENT_PRIMARY_SUBTLE);
+    ACCENT_SECONDARY_U32        = ImGui::ColorConvertFloat4ToU32(ACCENT_SECONDARY);
+    ACCENT_SECONDARY_SUBTLE_U32 = ImGui::ColorConvertFloat4ToU32(ACCENT_SECONDARY_SUBTLE);
+    ACCENT_FOCUS_U32            = ImGui::ColorConvertFloat4ToU32(ACCENT_FOCUS);
+    ACCENT_FOCUS_SUBTLE_U32     = ImGui::ColorConvertFloat4ToU32(ACCENT_FOCUS_SUBTLE);
+
+    // ── ImGuiStyle — geometry ─────────────────────────────────────────────────
+    ImGuiStyle& s = ImGui::GetStyle();
+
+    s.WindowRounding    = 10.0f;
+    s.ChildRounding     =  6.0f;
+    s.FrameRounding     =  6.0f;
+    s.PopupRounding     =  8.0f;
+    s.ScrollbarRounding =  6.0f;
+    s.GrabRounding      =  6.0f;
+    s.TabRounding       =  6.0f;
+
+    s.WindowBorderSize  = 1.0f;
+    s.ChildBorderSize   = 1.0f;
+    s.FrameBorderSize   = 0.0f;
+    s.PopupBorderSize   = 1.0f;
+
+    s.WindowPadding    = ImVec2(12.0f, 10.0f);
+    s.FramePadding     = ImVec2( 8.0f,  4.0f);
+    s.ItemSpacing      = ImVec2( 8.0f,  6.0f);
+    s.ItemInnerSpacing = ImVec2( 6.0f,  4.0f);
+    s.IndentSpacing    = 16.0f;
+    s.ScrollbarSize    = 12.0f;
+    s.GrabMinSize      =  8.0f;
+
+    // ── ImGuiStyle — colors ───────────────────────────────────────────────────
+    ImVec4* c = s.Colors;
+
+    c[ImGuiCol_Text]                      = INK;
+    c[ImGuiCol_TextDisabled]              = MUTED;
+    c[ImGuiCol_WindowBg]                  = BG;
+    c[ImGuiCol_ChildBg]                   = BG_SOFT;
+    c[ImGuiCol_PopupBg]                   = PANEL;
+    c[ImGuiCol_Border]                    = LINE;
+    c[ImGuiCol_BorderShadow]              = WithAlpha(INK, 0.0f);
+    c[ImGuiCol_FrameBg]                   = PANEL_2;
+    c[ImGuiCol_FrameBgHovered]            = Darken(PANEL_2, 0.04f);
+    c[ImGuiCol_FrameBgActive]             = Darken(PANEL_2, 0.08f);
+    c[ImGuiCol_TitleBg]                   = NIGHT;
+    c[ImGuiCol_TitleBgActive]             = NIGHT_2;
+    c[ImGuiCol_TitleBgCollapsed]          = WithAlpha(NIGHT, 0.75f);
+    c[ImGuiCol_MenuBarBg]                 = NIGHT;
+    c[ImGuiCol_ScrollbarBg]               = BG_SOFT;
+    c[ImGuiCol_ScrollbarGrab]             = LINE;
+    c[ImGuiCol_ScrollbarGrabHovered]      = INK_3;
+    c[ImGuiCol_ScrollbarGrabActive]       = INK_2;
+    c[ImGuiCol_CheckMark]                 = ACCENT_PRIMARY;
+    c[ImGuiCol_SliderGrab]                = ACCENT_PRIMARY;
+    c[ImGuiCol_SliderGrabActive]          = Darken(ACCENT_PRIMARY, 0.10f);
+    c[ImGuiCol_Button]                    = PANEL_2;
+    c[ImGuiCol_ButtonHovered]             = ACCENT_PRIMARY_SUBTLE;
+    c[ImGuiCol_ButtonActive]              = Darken(ACCENT_PRIMARY_SUBTLE, 0.08f);
+    c[ImGuiCol_Header]                    = ACCENT_PRIMARY_SUBTLE;
+    c[ImGuiCol_HeaderHovered]             = Darken(ACCENT_PRIMARY_SUBTLE, 0.04f);
+    c[ImGuiCol_HeaderActive]              = Darken(ACCENT_PRIMARY_SUBTLE, 0.10f);
+    c[ImGuiCol_Separator]                 = LINE;
+    c[ImGuiCol_SeparatorHovered]          = ACCENT_PRIMARY;
+    c[ImGuiCol_SeparatorActive]           = Darken(ACCENT_PRIMARY, 0.10f);
+    c[ImGuiCol_ResizeGrip]                = WithAlpha(ACCENT_PRIMARY, 0.20f);
+    c[ImGuiCol_ResizeGripHovered]         = WithAlpha(ACCENT_PRIMARY, 0.50f);
+    c[ImGuiCol_ResizeGripActive]          = ACCENT_PRIMARY;
+    c[ImGuiCol_TabHovered]                = ACCENT_PRIMARY_SUBTLE;
+    c[ImGuiCol_Tab]                       = PANEL_2;
+    c[ImGuiCol_TabSelected]               = PANEL;
+    c[ImGuiCol_TabSelectedOverline]       = ACCENT_PRIMARY;
+    c[ImGuiCol_TabDimmed]                 = BG_SOFT;
+    c[ImGuiCol_TabDimmedSelected]         = PANEL_2;
+    c[ImGuiCol_TabDimmedSelectedOverline] = WithAlpha(ACCENT_PRIMARY, 0.40f);
+    c[ImGuiCol_PlotLines]                 = ACCENT_PRIMARY;
+    c[ImGuiCol_PlotLinesHovered]          = ACCENT_SECONDARY;
+    c[ImGuiCol_PlotHistogram]             = ACCENT_FOCUS;
+    c[ImGuiCol_PlotHistogramHovered]      = Darken(ACCENT_FOCUS, 0.10f);
+    c[ImGuiCol_TableHeaderBg]             = PANEL_2;
+    c[ImGuiCol_TableBorderStrong]         = LINE;
+    c[ImGuiCol_TableBorderLight]          = WithAlpha(LINE, 0.50f);
+    c[ImGuiCol_TableRowBg]                = WithAlpha(PANEL, 0.0f);
+    c[ImGuiCol_TableRowBgAlt]             = WithAlpha(BG_SOFT, 0.50f);
+    c[ImGuiCol_TextLink]                  = ACCENT_PRIMARY;
+    c[ImGuiCol_TextSelectedBg]            = WithAlpha(ACCENT_PRIMARY, 0.25f);
+    c[ImGuiCol_DragDropTarget]            = ACCENT_FOCUS;
+    c[ImGuiCol_NavCursor]                 = ACCENT_PRIMARY;
+    c[ImGuiCol_NavWindowingHighlight]     = WithAlpha(ACCENT_PRIMARY, 0.70f);
+    c[ImGuiCol_NavWindowingDimBg]         = WithAlpha(INK, 0.20f);
+    c[ImGuiCol_ModalWindowDimBg]          = WithAlpha(INK, 0.35f);
+
+    // ── ImNodesStyle — geometry ───────────────────────────────────────────────
+    ImNodesStyle& ns = ImNodes::GetStyle();
+
+    ns.GridSpacing               = 24.0f;
+    ns.NodeCornerRounding        = NODE_ROUNDING;
+    ns.NodePadding               = ImVec2(NODE_PADDING_X, 6.0f);
+    ns.NodeBorderThickness       = 1.0f;
+    ns.LinkThickness             = 2.0f;
+    ns.LinkLineSegmentsPerLength = 0.1f;
+    ns.LinkHoverDistance         = 10.0f;
+    ns.PinCircleRadius           = 4.0f;
+    ns.PinQuadSideLength         = 7.0f;
+    ns.PinTriangleSideLength     = 9.5f;
+    ns.PinLineThickness          = 1.5f;
+    ns.PinHoverRadius            = 10.0f;
+    ns.PinOffset                 = 0.0f;
+    ns.Flags = ImNodesStyleFlags_NodeOutline | ImNodesStyleFlags_GridLines;
+
+    // ── ImNodesStyle — colors ─────────────────────────────────────────────────
+    unsigned int* nc = ns.Colors;
+
+    nc[ImNodesCol_NodeBackground]               = PANEL_U32;
+    nc[ImNodesCol_NodeBackgroundHovered]        = ImGui::ColorConvertFloat4ToU32(Darken(PANEL, 0.03f));
+    nc[ImNodesCol_NodeBackgroundSelected]       = ACCENT_PRIMARY_SUBTLE_U32;
+    nc[ImNodesCol_NodeOutline]                  = LINE_U32;
+    nc[ImNodesCol_TitleBar]                     = PANEL_2_U32;
+    nc[ImNodesCol_TitleBarHovered]              = ACCENT_PRIMARY_SUBTLE_U32;
+    nc[ImNodesCol_TitleBarSelected]             = ACCENT_PRIMARY_SUBTLE_U32;
+    nc[ImNodesCol_Link]                         = ACCENT_PRIMARY_U32;
+    nc[ImNodesCol_LinkHovered]                  = ImGui::ColorConvertFloat4ToU32(Darken(ACCENT_PRIMARY,   0.08f));
+    nc[ImNodesCol_LinkSelected]                 = ImGui::ColorConvertFloat4ToU32(Darken(ACCENT_PRIMARY,   0.15f));
+    nc[ImNodesCol_Pin]                          = ACCENT_SECONDARY_U32;
+    nc[ImNodesCol_PinHovered]                   = ImGui::ColorConvertFloat4ToU32(Darken(ACCENT_SECONDARY, 0.08f));
+    nc[ImNodesCol_BoxSelector]                  = ImGui::ColorConvertFloat4ToU32(WithAlpha(ACCENT_PRIMARY, 0.10f));
+    nc[ImNodesCol_BoxSelectorOutline]           = ACCENT_PRIMARY_U32;
+    nc[ImNodesCol_GridBackground]               = BG_SOFT_U32;
+    nc[ImNodesCol_GridLine]                     = LINE_U32;
+    nc[ImNodesCol_MiniMapBackground]            = ImGui::ColorConvertFloat4ToU32(WithAlpha(PANEL, 0.80f));
+    nc[ImNodesCol_MiniMapBackgroundHovered]     = ImGui::ColorConvertFloat4ToU32(WithAlpha(PANEL, 0.95f));
+    nc[ImNodesCol_MiniMapOutline]               = LINE_U32;
+    nc[ImNodesCol_MiniMapOutlineHovered]        = INK_3_U32;
+    nc[ImNodesCol_MiniMapNodeBackground]        = PANEL_2_U32;
+    nc[ImNodesCol_MiniMapNodeBackgroundHovered] = ImGui::ColorConvertFloat4ToU32(Darken(PANEL_2, 0.06f));
+    nc[ImNodesCol_MiniMapNodeBackgroundSelected]= ACCENT_PRIMARY_SUBTLE_U32;
+    nc[ImNodesCol_MiniMapNodeOutline]           = LINE_U32;
+    nc[ImNodesCol_MiniMapLink]                  = ACCENT_PRIMARY_U32;
+    nc[ImNodesCol_MiniMapLinkSelected]          = ImGui::ColorConvertFloat4ToU32(Darken(ACCENT_PRIMARY, 0.15f));
+    nc[ImNodesCol_MiniMapCanvas]                = BG_SOFT_U32;
+    nc[ImNodesCol_MiniMapCanvasOutline]         = LINE_U32;
+}
+
 } // namespace TS
