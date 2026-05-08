@@ -132,6 +132,13 @@ if(MSVC)
     target_compile_options(Telescode PRIVATE /utf-8)
 endif()
 
+# Enable the Warm Cream token preview panel (dev only -- off by default).
+# cmake -DTELESCODE_STYLE_PREVIEW=ON ..
+option(TELESCODE_STYLE_PREVIEW "Show Warm Cream token preview panel at startup" OFF)
+if(TELESCODE_STYLE_PREVIEW)
+    target_compile_definitions(Telescode PRIVATE TELESCODE_STYLE_PREVIEW)
+endif()
+
 # ── TelescodeScanner executable ───────────────────────────────────────────────
 add_executable(TelescodeScanner
     src/scan_main.cpp
