@@ -70,6 +70,7 @@ add_library(imgui STATIC
     ${imgui_SOURCE_DIR}/imgui_draw.cpp
     ${imgui_SOURCE_DIR}/imgui_tables.cpp
     ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+    ${imgui_SOURCE_DIR}/imgui_demo.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_sdlgpu3.cpp
 )
@@ -103,6 +104,19 @@ add_executable(Telescode
 )
 target_include_directories(Telescode PRIVATE
     ${tree-sitter_SOURCE_DIR}/lib/include
+    ${CMAKE_SOURCE_DIR}/src
+)
+
+# Copy font assets next to the executable so LoadFonts() can find them.
+add_custom_command(TARGET Telescode POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        "$<TARGET_FILE_DIR:Telescode>/assets/fonts"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/assets/fonts/Inter-Regular.ttf"
+        "${CMAKE_SOURCE_DIR}/assets/fonts/Inter-Medium.ttf"
+        "${CMAKE_SOURCE_DIR}/assets/fonts/JetBrainsMono-Regular.ttf"
+        "$<TARGET_FILE_DIR:Telescode>/assets/fonts/"
+    COMMENT "Copying fonts to build output"
 )
 target_link_libraries(Telescode PRIVATE
     tree-sitter
@@ -112,6 +126,18 @@ target_link_libraries(Telescode PRIVATE
     imnodes
     sqlite3
 )
+
+# MSVC requires /utf-8 to parse UTF-8 source files correctly on non-UTF-8 locales.
+if(MSVC)
+    target_compile_options(Telescode PRIVATE /utf-8)
+endif()
+
+# Enable the Warm Cream token preview panel (dev only -- off by default).
+# cmake -DTELESCODE_STYLE_PREVIEW=ON ..
+option(TELESCODE_STYLE_PREVIEW "Show Warm Cream token preview panel at startup" OFF)
+if(TELESCODE_STYLE_PREVIEW)
+    target_compile_definitions(Telescode PRIVATE TELESCODE_STYLE_PREVIEW)
+endif()
 
 # ── TelescodeScanner executable ───────────────────────────────────────────────
 add_executable(TelescodeScanner
