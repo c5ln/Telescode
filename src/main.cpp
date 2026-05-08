@@ -3,6 +3,10 @@
 #include <imgui_impl_sdl3.h>
 #include <imgui_impl_sdlgpu3.h>
 #include <imnodes.h>
+#include <tree_sitter/api.h>
+
+// Declared in tree-sitter-python grammar
+extern "C" const TSLanguage* tree_sitter_python();
 
 #include "ui/ts_style.h"
 
