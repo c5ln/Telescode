@@ -61,15 +61,13 @@ struct TraversalContext {
         return (int)scopeStack.size();
     }
 
-    // The immediate parent for a new function: its parent_id and parent_type
     std::string parentId() const {
         if (scopeStack.empty()) return fileId;
         return scopeStack.back().id;
     }
 
-    std::string parentType() const {
-        if (scopeStack.empty()) return "file";
-        return (scopeStack.back().kind == "class") ? "class" : "file";
+    bool parentIsClass() const {
+        return !scopeStack.empty() && scopeStack.back().kind == "class";
     }
 };
 
@@ -209,21 +207,22 @@ static void handleFunctionDef(TSNode node, TraversalContext& ctx, bool isAsync) 
 
     std::string funcName  = nodeText(nameNode, ctx.src);
     std::string parentId  = ctx.parentId();
-    std::string parentType= ctx.parentType();
     std::string funcId    = parentId + "::" + funcName;
 
     int startLine = (int)ts_node_start_point(node).row;
     int endLine   = (int)ts_node_end_point(node).row;
 
     FunctionEntity fe;
-    fe.function_id    = funcId;
-    fe.parent_id      = parentId;
-    fe.function_name  = funcName;
-    fe.parent_type    = parentType;
-    fe.nesting_depth  = ctx.nestingDepth();
-    fe.is_async       = isAsync ? 1 : 0;
-    fe.start_line     = startLine;
-    fe.end_line       = endLine;
+    fe.function_id   = funcId;
+    fe.function_name = funcName;
+    fe.nesting_depth = ctx.nestingDepth();
+    fe.is_async      = isAsync ? 1 : 0;
+    fe.start_line    = startLine;
+    fe.end_line      = endLine;
+    if (ctx.parentIsClass())
+        fe.class_id = parentId;
+    else
+        fe.file_id = ctx.fileId;
     ctx.result.functions.push_back(fe);
 
     // Parameters
@@ -473,12 +472,12 @@ static void resolveCallTargets(ParseResult& result) {
         nameToIds[fn.function_name].push_back(fn.function_id);
     }
 
-    // Build function_id -> parent_id / parent_type lookup
     std::unordered_map<std::string, std::string> funcToParent;
-    std::unordered_map<std::string, std::string> funcToParentType;
+    std::unordered_map<std::string, bool> funcIsMethod;
     for (const auto& fn : result.functions) {
-        funcToParent[fn.function_id]     = fn.parent_id;
-        funcToParentType[fn.function_id] = fn.parent_type;
+        bool isMethod = !fn.class_id.empty();
+        funcToParent[fn.function_id] = isMethod ? fn.class_id : fn.file_id;
+        funcIsMethod[fn.function_id] = isMethod;
     }
 
     for (auto& link : result.links) {
@@ -493,8 +492,7 @@ static void resolveCallTargets(ParseResult& result) {
         if (isSelf || isCls) {
             std::string methodName = isSelf ? raw.substr(5) : raw.substr(4);
             auto pit = funcToParent.find(link.source_id);
-            if (pit != funcToParent.end() &&
-                funcToParentType[link.source_id] == "class") {
+            if (pit != funcToParent.end() && funcIsMethod[link.source_id]) {
                 std::string expected = pit->second + "::" + methodName;
                 auto it = nameToIds.find(methodName);
                 if (it != nameToIds.end()) {

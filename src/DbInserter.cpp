@@ -41,7 +41,7 @@ int DbInserter::prepareStatements()
     if (rc != SQLITE_OK) return rc;
 
     rc = sqlite3_prepare_v2(db_,
-        "INSERT OR REPLACE INTO function(function_id, parent_id, parent_type, function_name, nesting_depth, is_async, start_line, end_line) VALUES(?,?,?,?,?,?,?,?);",
+        "INSERT OR REPLACE INTO function(function_id, file_id, class_id, function_name, nesting_depth, is_async, start_line, end_line) VALUES(?,?,?,?,?,?,?,?);",
         -1, &stmtFunction_, nullptr);
     if (rc != SQLITE_OK) return rc;
 
@@ -107,8 +107,14 @@ int DbInserter::insertFunction(const FunctionEntity& e)
 {
     sqlite3_reset(stmtFunction_);
     sqlite3_bind_text(stmtFunction_, 1, e.function_id.c_str(),   -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmtFunction_, 2, e.parent_id.c_str(),     -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmtFunction_, 3, e.parent_type.c_str(),   -1, SQLITE_STATIC);
+    if (e.file_id.empty())
+        sqlite3_bind_null(stmtFunction_, 2);
+    else
+        sqlite3_bind_text(stmtFunction_, 2, e.file_id.c_str(),   -1, SQLITE_STATIC);
+    if (e.class_id.empty())
+        sqlite3_bind_null(stmtFunction_, 3);
+    else
+        sqlite3_bind_text(stmtFunction_, 3, e.class_id.c_str(),  -1, SQLITE_STATIC);
     sqlite3_bind_text(stmtFunction_, 4, e.function_name.c_str(), -1, SQLITE_STATIC);
     sqlite3_bind_int (stmtFunction_, 5, e.nesting_depth);
     sqlite3_bind_int (stmtFunction_, 6, e.is_async);

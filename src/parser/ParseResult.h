@@ -25,10 +25,10 @@ struct BaseClassEntity {
 };
 
 struct FunctionEntity {
-    std::string function_id;   // parent_id::function_name
-    std::string parent_id;
+    std::string function_id;
+    std::string file_id;
+    std::string class_id;
     std::string function_name;
-    std::string parent_type;   // "file" or "class"
     int nesting_depth;
     int is_async;              // 0 or 1
     int start_line;            // 0-indexed
