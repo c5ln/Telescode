@@ -97,7 +97,8 @@ desktop.ini
 *.opensdf
 .vs/
 
-
+repos/*
+!repos/README.md
 tests/**
 docs/**
 output/**

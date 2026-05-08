@@ -113,14 +113,19 @@ target_link_libraries(Telescode PRIVATE
     sqlite3
 )
 
-# ── TelescodeParser executable ────────────────────────────────────────────────
-add_executable(TelescodeParser
-    src/parser_main.cpp
+# ── TelescodeScanner executable ───────────────────────────────────────────────
+add_executable(TelescodeScanner
+    src/scan_main.cpp
+    src/DbInserter.cpp
+    src/db.cpp
     src/parser/PythonParser.cpp
-    src/parser/CsvExporter.cpp
 )
-target_include_directories(TelescodeParser PRIVATE
+target_include_directories(TelescodeScanner PRIVATE
     ${tree-sitter_SOURCE_DIR}/lib/include
     src
 )
-target_link_libraries(TelescodeParser PRIVATE tree-sitter tree-sitter-python)
+target_link_libraries(TelescodeScanner PRIVATE
+    tree-sitter
+    tree-sitter-python
+    sqlite3
+)
