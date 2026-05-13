@@ -65,7 +65,6 @@ public:
     // DB를 읽어 reading_sequence를 계산하고 결과를 DB에 쓴 뒤 반환한다.
     static AlgoRunResult run(const char* dbPath, const AlgoConfig& cfg);
 
-private:
     // Pass 1(파일) 결과와 Pass 2(함수/클래스) 결과를 ReadingEntry 목록으로 합친다.
     // - 파일 엔티티: file_rank = Pass 1 순서 (1-indexed)
     // - 함수/클래스: 파일별 그룹화 후 global_rank → local_rank 변환 (1-indexed)

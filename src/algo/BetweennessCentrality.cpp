@@ -89,6 +89,11 @@ std::vector<double> SamplingBrandesStrategy::compute(const Graph& g) const
     return bc;
 }
 
+std::vector<double> ZeroBCStrategy::compute(const Graph& g) const
+{
+    return std::vector<double>(static_cast<std::size_t>(g.size()), 0.0);
+}
+
 std::unique_ptr<IBCStrategy> make_bc_strategy(int V, const AlgoConfig& cfg, PassLevel level)
 {
     if (level == PassLevel::File) {
@@ -105,8 +110,7 @@ std::unique_ptr<IBCStrategy> make_bc_strategy(int V, const AlgoConfig& cfg, Pass
         }
     } else {
         if (!cfg.enable_p2_bc) {
-            // Return zero BC (empty exact run on empty-ish graph is fine; use sampling with k=0-safe path)
-            return std::make_unique<ExactBrandesStrategy>();
+            return std::make_unique<ZeroBCStrategy>();
         }
         if (V < cfg.bc_p2_exact_v) {
             return std::make_unique<ExactBrandesStrategy>();
