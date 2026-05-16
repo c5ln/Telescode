@@ -9,6 +9,7 @@
 extern "C" const TSLanguage* tree_sitter_python();
 
 #include "ui/ts_style.h"
+#include "ui/ts_app.h"
 
 #ifdef TELESCODE_STYLE_PREVIEW
 #include "dev/style_preview.h"
@@ -24,7 +25,7 @@ int main(int, char**)
 
     SDL_Window* window = SDL_CreateWindow(
         "Telescode",
-        1280, 800,
+        1280, 900,
         SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY
     );
     if (!window) {
@@ -35,6 +36,7 @@ int main(int, char**)
     // DPI scale -- set before LoadFonts so font sizes are correct
     TS::ui_scale = SDL_GetDisplayContentScale(SDL_GetDisplayForWindow(window));
     if (TS::ui_scale < 0.5f) TS::ui_scale = 1.0f;
+    SDL_SetWindowMinimumSize(window, 0, (int)(900.0f * TS::ui_scale));
 
     SDL_GPUDevice* gpu = SDL_CreateGPUDevice(
         SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_DXIL | SDL_GPU_SHADERFORMAT_METALLIB,
@@ -92,6 +94,8 @@ int main(int, char**)
         ImGui_ImplSDLGPU3_NewFrame();
         ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
+
+        TS::DrawAppShell();
 
 #ifdef TELESCODE_STYLE_PREVIEW
         TS::DrawStylePreview();
