@@ -65,14 +65,14 @@ void DrawAppShell()
     // ── Sidebar ──────────────────────────────────────────────────────────────
     dl->AddRectFilled({0.0f, body_y}, {sidebar_w, body_y + body_h}, TS::PANEL_U32);
 
-    // Collapse toggle: button pinned to the bottom of the sidebar.
+    // Collapse toggle: fixed-size button at the upper-left of the sidebar.
+    // Width is always k_icon_rail_w so the button doesn't resize on expand/collapse.
     const float tgl_h = k_toggle_h * s;
-    const float tgl_y = body_y + body_h - tgl_h;
-    ImGui::SetCursorScreenPos({0.0f, tgl_y});
+    ImGui::SetCursorScreenPos({0.0f, body_y});
     ImGui::PushStyleColor(ImGuiCol_Button,        TS::PANEL_2);
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Darken(TS::PANEL_2, 0.06f));
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Darken(TS::PANEL_2, 0.12f));
-    if (ImGui::Button(s_sidebar_collapsed ? ">##sb" : "<##sb", {sidebar_w, tgl_h}))
+    if (ImGui::Button(s_sidebar_collapsed ? ">##sb" : "<##sb", {k_icon_rail_w * s, tgl_h}))
         s_sidebar_collapsed = !s_sidebar_collapsed;
     ImGui::PopStyleColor(3);
 
