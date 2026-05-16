@@ -21,7 +21,8 @@ namespace {
     constexpr float k_rail_h      = 120.0f;
     constexpr float k_rail_strip  = 32.0f;
     constexpr float k_toggle_h    = 32.0f;  // sidebar collapse button height
-    constexpr float k_chevron_w   = 48.0f;  // rail chevron button width
+    constexpr float k_chevron_w   = 48.0f;  // rail chevron button width  -- constant across open/collapsed
+    constexpr float k_chevron_h   = 32.0f;  // rail chevron button height -- constant across open/collapsed
 }
 
 static bool s_sidebar_collapsed = false;
@@ -88,7 +89,7 @@ void DrawAppShell()
 
     // Chevron toggle: upper-right corner of the rail, fixed height.
     const float chev_w = k_chevron_w * s;
-    const float chev_h = k_toggle_h  * s;
+    const float chev_h = k_chevron_h * s;
     ImGui::SetCursorScreenPos({canvas_x + canvas_w - chev_w, rail_y});
     ImGui::PushStyleColor(ImGuiCol_Button,        TS::PANEL_2);
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Darken(TS::PANEL_2, 0.06f));
