@@ -19,7 +19,7 @@ namespace {
     constexpr float k_sidebar_w   = 280.0f;
     constexpr float k_icon_rail_w = 40.0f;
     constexpr float k_rail_h      = 120.0f;
-    constexpr float k_rail_strip  = 24.0f;
+    constexpr float k_rail_strip  = 32.0f;
     constexpr float k_toggle_h    = 32.0f;  // sidebar collapse button height
     constexpr float k_chevron_w   = 48.0f;  // rail chevron button width
 }
