@@ -41,7 +41,7 @@ void DrawAppShell()
     const float body_y   = header_h;
     const float body_h   = dh - header_h;
     const float canvas_x = sidebar_w;
-    const float canvas_w = dw - sidebar_w;
+    const float canvas_w = (dw > sidebar_w) ? (dw - sidebar_w) : 0.0f;
     // Guard: canvas_h never goes negative if window is smaller than expected.
     const float canvas_h = (body_h > rail_h) ? (body_h - rail_h) : 0.0f;
     const float rail_y   = body_y + canvas_h;
@@ -90,7 +90,8 @@ void DrawAppShell()
     // Chevron toggle: upper-right corner of the rail, fixed height.
     const float chev_w = k_chevron_w * s;
     const float chev_h = k_chevron_h * s;
-    ImGui::SetCursorScreenPos({canvas_x + canvas_w - chev_w, rail_y});
+    const float chev_x = (canvas_w > chev_w) ? (canvas_x + canvas_w - chev_w) : canvas_x;
+    ImGui::SetCursorScreenPos({chev_x, rail_y});
     ImGui::PushStyleColor(ImGuiCol_Button,        TS::PANEL_2);
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Darken(TS::PANEL_2, 0.06f));
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Darken(TS::PANEL_2, 0.12f));
