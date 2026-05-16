@@ -100,6 +100,7 @@ set_target_properties(sqlite3 PROPERTIES C_STANDARD 11)
 # ── Telescode executable ──────────────────────────────────────────────────────
 add_executable(Telescode
     src/main.cpp
+    src/ui/ts_app.cpp
     src/db/db.cpp
 )
 target_include_directories(Telescode PRIVATE
