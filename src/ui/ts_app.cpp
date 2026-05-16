@@ -1,11 +1,10 @@
 // src/ui/ts_app.cpp
-// Static app shell — five layout zones, collapse toggles, no content.
+// Static app shell — four layout zones, collapse toggles, no content.
 //
 // Zone summary:
 //   Header        full width, 48px, always visible       (TS::HEADER)
 //   Sidebar       left, 280px | 40px icon rail           (TS::PANEL)
 //   Canvas        fills remaining space                   (TS::BG_SOFT)
-//   Toolbar       floating child, top-left of canvas     (TS::PANEL)
 //   Sequence rail bottom, 120px | 24px strip             (TS::PANEL)
 
 #include "ts_app.h"
@@ -23,9 +22,6 @@ namespace {
     constexpr float k_rail_strip  = 24.0f;
     constexpr float k_toggle_h    = 32.0f;  // sidebar collapse button height
     constexpr float k_chevron_w   = 48.0f;  // rail chevron button width
-    constexpr float k_toolbar_w   = 44.0f;
-    constexpr float k_toolbar_h   = 140.0f;
-    constexpr float k_pad         = 8.0f;   // toolbar inset from canvas edge
 }
 
 static bool s_sidebar_collapsed = false;
@@ -84,14 +80,6 @@ void DrawAppShell()
     dl->AddRectFilled({canvas_x, body_y},
                       {canvas_x + canvas_w, body_y + canvas_h},
                       TS::BG_SOFT_U32);
-
-    // ── Toolbar (floating child, overlaid on top-left of canvas) ─────────────
-    ImGui::SetCursorScreenPos({canvas_x + k_pad * s, body_y + k_pad * s});
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, TS::PANEL);
-    ImGui::BeginChild("##toolbar", {k_toolbar_w * s, k_toolbar_h * s}, false,
-                      ImGuiWindowFlags_NoScrollbar);
-    ImGui::EndChild();
-    ImGui::PopStyleColor();
 
     // ── Sequence Rail ─────────────────────────────────────────────────────────
     dl->AddRectFilled({canvas_x, rail_y},
