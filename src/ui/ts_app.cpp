@@ -86,13 +86,14 @@ void DrawAppShell()
                       {canvas_x + canvas_w, rail_y + rail_h},
                       TS::PANEL_U32);
 
-    // Chevron toggle: right edge of the rail.
+    // Chevron toggle: upper-right corner of the rail, fixed height.
     const float chev_w = k_chevron_w * s;
+    const float chev_h = k_toggle_h  * s;
     ImGui::SetCursorScreenPos({canvas_x + canvas_w - chev_w, rail_y});
     ImGui::PushStyleColor(ImGuiCol_Button,        TS::PANEL_2);
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Darken(TS::PANEL_2, 0.06f));
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Darken(TS::PANEL_2, 0.12f));
-    if (ImGui::Button(s_rail_collapsed ? "^##rail" : "v##rail", {chev_w, rail_h}))
+    if (ImGui::Button(s_rail_collapsed ? "^##rail" : "v##rail", {chev_w, chev_h}))
         s_rail_collapsed = !s_rail_collapsed;
     ImGui::PopStyleColor(3);
 
