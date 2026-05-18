@@ -107,6 +107,7 @@ set_target_properties(sqlite3 PROPERTIES C_STANDARD 11)
 add_executable(Telescode
     src/main.cpp
     src/ui/ts_app.cpp
+    src/ui/ts_canvas.cpp
     src/db/db.cpp
 )
 target_include_directories(Telescode PRIVATE
@@ -133,6 +134,7 @@ target_link_libraries(Telescode PRIVATE
     imnodes
     sqlite3
 )
+target_compile_definitions(Telescode PRIVATE IMGUI_DEFINE_MATH_OPERATORS)
 
 # MSVC requires /utf-8 to parse UTF-8 source files correctly on non-UTF-8 locales.
 if(MSVC)
@@ -217,3 +219,18 @@ add_executable(AlgoTests
 target_include_directories(AlgoTests PRIVATE src)
 target_link_libraries(AlgoTests PRIVATE algo GTest::gtest_main)
 add_test(NAME AlgoTests COMMAND AlgoTests)
+
+add_executable(CanvasTests
+    tests/ui/test_ts_canvas.cpp
+    src/ui/ts_canvas.cpp
+)
+target_include_directories(CanvasTests PRIVATE
+    ${imgui_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/src
+)
+target_link_libraries(CanvasTests PRIVATE
+    imgui
+    imnodes
+    GTest::gtest_main
+)
+add_test(NAME CanvasTests COMMAND CanvasTests)

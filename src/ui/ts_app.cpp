@@ -9,6 +9,7 @@
 
 #include "ts_app.h"
 #include "ts_style.h"
+#include "ts_canvas.h"
 #include <imgui.h>
 
 namespace TS {
@@ -78,9 +79,7 @@ void DrawAppShell()
     ImGui::PopStyleColor(3);
 
     // ── Canvas ────────────────────────────────────────────────────────────────
-    dl->AddRectFilled({canvas_x, body_y},
-                      {canvas_x + canvas_w, body_y + canvas_h},
-                      TS::BG_SOFT_U32);
+    TS::DrawCanvas({canvas_x, body_y}, {canvas_w, canvas_h});
 
     // ── Sequence Rail ─────────────────────────────────────────────────────────
     dl->AddRectFilled({canvas_x, rail_y},
