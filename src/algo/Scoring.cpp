@@ -87,11 +87,11 @@ std::vector<double> ScoreCombiner::combine(const std::vector<double>& pr,
                                             double beta)
 {
     const std::size_t N = pr.size();
-    if (N == 0) return {};
+    if (N == 0 || bc.size() != N) return {};
 
     const double total = alpha + beta;
-    const double w_pr  = alpha / total;
-    const double w_bc  = beta  / total;
+    const double w_pr  = (total != 0.0) ? alpha / total : 0.5;
+    const double w_bc  = (total != 0.0) ? beta  / total : 0.5;
 
     auto pr_norm = minmax_normalize(pr);
     auto bc_norm = minmax_normalize(bc);
