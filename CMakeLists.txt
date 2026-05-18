@@ -45,7 +45,13 @@ FetchContent_Declare(
 
 # ── Fetch all ─────────────────────────────────────────────────────────────────
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(tree-sitter SDL3 imgui imnodes)
+FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG        v1.15.2
+)
+
+FetchContent_MakeAvailable(tree-sitter SDL3 imgui imnodes googletest)
 
 # tree-sitter-python has no CMakeLists — fetch manually
 FetchContent_GetProperties(tree-sitter-python)
@@ -176,3 +182,38 @@ target_link_libraries(TelescodeUpdater PRIVATE
     tree-sitter-python
     sqlite3
 )
+
+# ── algo static library ────────────────────────────────────────────────────────
+add_library(algo STATIC
+    src/algo/Graph.cpp
+    src/algo/GraphBuilder.cpp
+    src/algo/Scoring.cpp
+    src/algo/BetweennessCentrality.cpp
+    src/algo/ReadingSequencer.cpp
+    src/algo/AlgoRunner.cpp
+    src/algo/AlgoDbWriter.cpp
+    src/db/db.cpp
+)
+target_include_directories(algo PUBLIC src)
+target_link_libraries(algo PUBLIC sqlite3)
+
+# ── TelescodeAlgo executable ──────────────────────────────────────────────────
+add_executable(TelescodeAlgo
+    src/algo_main.cpp
+)
+target_include_directories(TelescodeAlgo PRIVATE src)
+target_link_libraries(TelescodeAlgo PRIVATE algo sqlite3)
+
+# ── Unit tests ────────────────────────────────────────────────────────────────
+enable_testing()
+
+add_executable(AlgoTests
+    tests/algo/test_reading_sequencer.cpp
+    tests/algo/test_pagerank.cpp
+    tests/algo/test_score_combiner.cpp
+    tests/algo/test_betweenness_centrality.cpp
+    tests/algo/test_algo_merge.cpp
+)
+target_include_directories(AlgoTests PRIVATE src)
+target_link_libraries(AlgoTests PRIVATE algo GTest::gtest_main)
+add_test(NAME AlgoTests COMMAND AlgoTests)
