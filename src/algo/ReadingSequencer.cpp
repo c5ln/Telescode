@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <functional>
 #include <queue>
+#include <stdexcept>
 #include <vector>
 
 std::vector<NodeId> ReadingSequencer::sequence(const Graph&               g,
@@ -11,6 +12,8 @@ std::vector<NodeId> ReadingSequencer::sequence(const Graph&               g,
 {
     const int N = g.size();
     if (N == 0) return {};
+    if (combined_score.size() < static_cast<std::size_t>(N))
+        throw std::invalid_argument("ReadingSequencer: combined_score.size() < g.size()");
 
     // Step 1: find SCCs and build condensation
     auto sccs = SCCFinder::find(g);
