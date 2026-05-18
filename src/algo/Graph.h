@@ -3,6 +3,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <cstdint>
 
 using NodeId = uint32_t;
 

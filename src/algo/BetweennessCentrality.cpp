@@ -77,6 +77,7 @@ std::vector<double> SamplingBrandesStrategy::compute(const Graph& g) const
     }
 
     const int samples = std::min(k, N);
+    if (samples == 0) return bc;
     for (int i = 0; i < samples; ++i)
         brandes_source(g, static_cast<NodeId>(order[i]), bc);
 
