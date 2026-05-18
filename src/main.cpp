@@ -10,6 +10,7 @@ extern "C" const TSLanguage* tree_sitter_python();
 
 #include "ui/ts_style.h"
 #include "ui/ts_app.h"
+#include "ui/ts_canvas.h"
 
 #ifdef TELESCODE_STYLE_PREVIEW
 #include "dev/style_preview.h"
@@ -132,6 +133,7 @@ int main(int, char**)
     SDL_WaitForGPUIdle(gpu);
     ImGui_ImplSDL3_Shutdown();
     ImGui_ImplSDLGPU3_Shutdown();
+    TS::ShutdownCanvas();           // free imnodes editor context before DestroyContext
     ImNodes::DestroyContext();
     ImGui::DestroyContext();
     SDL_ReleaseWindowFromGPUDevice(gpu, window);
