@@ -87,10 +87,14 @@ void DrawCanvas(ImVec2 pos, ImVec2 size)
         const float t  = 1.0f - expf(-dt * ZOOM_SMOOTH_SPEED);
         s_zoom = s_zoom + (s_zoom_target - s_zoom) * t;
         if (fabsf(s_zoom - s_zoom_target) < 0.0005f)
-            s_zoom = s_zoom_target;  // snap to avoid endless micro-lerp
+        {
+            s_zoom = s_zoom_target;
+            s_anchor_world  = { 0.0f, 0.0f };  // animation done — release pan lock
+            s_anchor_screen = { 0.0f, 0.0f };
+        }
 
         // Keep anchor world point fixed on screen while animating.
-        if (s_zoom != s_zoom_target || s_anchor_world.x != 0.0f || s_anchor_world.y != 0.0f)
+        if (s_anchor_world.x != 0.0f || s_anchor_world.y != 0.0f)
         {
             const ImVec2 new_pan = {
                 s_anchor_screen.x - canvas_origin.x - s_anchor_world.x * s_zoom,
