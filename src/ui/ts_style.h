@@ -152,11 +152,17 @@ inline float ui_scale = 1.0f;
 // +-----------------------------------------------------------------------------+
 
 // Node geometry
-inline constexpr float NODE_WIDTH      = 220.0f;
-inline constexpr float NODE_HEADER_H   =  52.0f;
-inline constexpr float NODE_METHOD_ROW =  22.0f;
-inline constexpr float NODE_ROUNDING   =  10.0f;
-inline constexpr float NODE_PADDING_X  =  12.0f;
+inline constexpr float NODE_WIDTH            = 220.0f;
+inline constexpr float NODE_HEADER_H         =  52.0f;
+inline constexpr float NODE_METHOD_ROW       =  22.0f;
+inline constexpr float NODE_ROUNDING         =  10.0f;
+inline constexpr float NODE_PADDING_X        =  12.0f;
+inline constexpr float NODE_PADDING_Y        =   6.0f;
+inline constexpr float NODE_BORDER_THICKNESS =   1.0f;
+inline constexpr float NODE_GRID_SPACING     =  24.0f;
+inline constexpr float LINK_THICKNESS        =   2.0f;
+inline constexpr float PIN_CIRCLE_RADIUS     =   4.0f;
+inline constexpr float PIN_HOVER_RADIUS      =  10.0f;
 
 // Font sizes (px at 1x)
 inline constexpr float FONT_SIZE_BASE  = 13.0f;  // Inter Regular  -- body, sidebar
@@ -467,18 +473,18 @@ inline void ApplyStyle()
     // -- ImNodesStyle -- geometry ----------------------------------------------
     ImNodesStyle& ns = ImNodes::GetStyle();
 
-    ns.GridSpacing               = 24.0f;
+    ns.GridSpacing               = NODE_GRID_SPACING;
     ns.NodeCornerRounding        = NODE_ROUNDING;
-    ns.NodePadding               = ImVec2(NODE_PADDING_X, 6.0f);
-    ns.NodeBorderThickness       = 1.0f;
-    ns.LinkThickness             = 2.0f;
+    ns.NodePadding               = ImVec2(NODE_PADDING_X, NODE_PADDING_Y);
+    ns.NodeBorderThickness       = NODE_BORDER_THICKNESS;
+    ns.LinkThickness             = LINK_THICKNESS;
     ns.LinkLineSegmentsPerLength = 0.1f;
     ns.LinkHoverDistance         = 10.0f;
-    ns.PinCircleRadius           = 4.0f;
+    ns.PinCircleRadius           = PIN_CIRCLE_RADIUS;
     ns.PinQuadSideLength         = 7.0f;
     ns.PinTriangleSideLength     = 9.5f;
     ns.PinLineThickness          = 1.5f;
-    ns.PinHoverRadius            = 10.0f;
+    ns.PinHoverRadius            = PIN_HOVER_RADIUS;
     ns.PinOffset                 = 0.0f;
     ns.Flags = ImNodesStyleFlags_NodeOutline | ImNodesStyleFlags_GridLines;
 

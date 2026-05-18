@@ -115,14 +115,14 @@ void DrawCanvas(ImVec2 pos, ImVec2 size)
 
     // 6. PushStyleVar before BeginNodeEditor
     const float z = s_zoom * TS::ui_scale;
-    ImNodes::PushStyleVar(ImNodesStyleVar_GridSpacing,        24.0f * z);
-    ImNodes::PushStyleVar(ImNodesStyleVar_NodeCornerRounding, 10.0f * z);
-    ImNodes::PushStyleVar(ImNodesStyleVar_NodeBorderThickness, 1.0f * z);
-    ImNodes::PushStyleVar(ImNodesStyleVar_LinkThickness,       2.0f * z);
-    ImNodes::PushStyleVar(ImNodesStyleVar_PinCircleRadius,     4.0f * z);
-    ImNodes::PushStyleVar(ImNodesStyleVar_PinHoverRadius,     10.0f * z);
+    ImNodes::PushStyleVar(ImNodesStyleVar_GridSpacing,         TS::NODE_GRID_SPACING     * z);
+    ImNodes::PushStyleVar(ImNodesStyleVar_NodeCornerRounding,  TS::NODE_ROUNDING         * z);
+    ImNodes::PushStyleVar(ImNodesStyleVar_NodeBorderThickness, TS::NODE_BORDER_THICKNESS * z);
+    ImNodes::PushStyleVar(ImNodesStyleVar_LinkThickness,       TS::LINK_THICKNESS        * z);
+    ImNodes::PushStyleVar(ImNodesStyleVar_PinCircleRadius,     TS::PIN_CIRCLE_RADIUS     * z);
+    ImNodes::PushStyleVar(ImNodesStyleVar_PinHoverRadius,      TS::PIN_HOVER_RADIUS      * z);
     ImNodes::PushStyleVar(ImNodesStyleVar_PinOffset,           0.0f);
-    ImNodes::PushStyleVar(ImNodesStyleVar_NodePadding, ImVec2(12.0f * z, 6.0f * z));
+    ImNodes::PushStyleVar(ImNodesStyleVar_NodePadding, ImVec2(TS::NODE_PADDING_X * z, TS::NODE_PADDING_Y * z));
     // Total: 8 pushes
 
     // 6. Begin node editor
