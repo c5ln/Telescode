@@ -8,8 +8,11 @@
 #include "ts_style.h"
 
 namespace {
-    static float                 s_zoom    = 1.0f;
-    static ImNodesEditorContext* s_context = nullptr;
+    static float                 s_zoom         = 1.0f;
+    static float                 s_zoom_target  = 1.0f;
+    static ImVec2                s_anchor_world  = { 0.0f, 0.0f };
+    static ImVec2                s_anchor_screen = { 0.0f, 0.0f };
+    static ImNodesEditorContext* s_context      = nullptr;
 
     constexpr float k_zoom_label_pad_x = 8.0f;
     constexpr float k_zoom_label_pad_y = 20.0f;
@@ -20,7 +23,7 @@ namespace TS {
 // ── Accessors ─────────────────────────────────────────────────────────────────
 
 float GetCanvasZoom()        { return s_zoom; }
-void  SetCanvasZoom(float z) { s_zoom = ImClamp(z, ZOOM_MIN, ZOOM_MAX); }
+void  SetCanvasZoom(float z) { s_zoom = s_zoom_target = ImClamp(z, ZOOM_MIN, ZOOM_MAX); }
 
 // ── Coordinate transforms ─────────────────────────────────────────────────────
 
@@ -51,46 +54,62 @@ void DrawCanvas(ImVec2 pos, ImVec2 size)
     ImGui::PopStyleVar();
     ImGui::PopStyleColor();
 
-    // 3. Scroll zoom (only when canvas window is hovered)
+    const ImVec2 canvas_origin = ImGui::GetWindowPos();
+
+    // 3. Scroll: update target zoom and store cursor anchor
     if (ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows))
     {
         const float wheel = ImGui::GetIO().MouseWheel;
         if (wheel != 0.0f)
         {
-            const float old_zoom = s_zoom;
-            const float new_zoom = ImClamp(old_zoom + wheel * ZOOM_STEP_SCROLL,
-                                           ZOOM_MIN, ZOOM_MAX);
-            if (new_zoom != old_zoom)
+            const float new_target = ImClamp(s_zoom_target + wheel * ZOOM_STEP_SCROLL,
+                                             ZOOM_MIN, ZOOM_MAX);
+            if (new_target != s_zoom_target)
             {
-                const ImVec2 mouse         = ImGui::GetIO().MousePos;
-                const ImVec2 canvas_origin = ImGui::GetWindowPos();
-                const ImVec2 old_pan       = ImNodes::EditorContextGetPanning();
-
-                const ImVec2 cursor_in_grid = {
-                    mouse.x - canvas_origin.x - old_pan.x,
-                    mouse.y - canvas_origin.y - old_pan.y
+                // Store world-space anchor under cursor at current displayed zoom.
+                // This point will remain fixed on screen throughout the animation.
+                const ImVec2 mouse   = ImGui::GetIO().MousePos;
+                const ImVec2 old_pan = ImNodes::EditorContextGetPanning();
+                s_anchor_screen = mouse;
+                s_anchor_world  = {
+                    (mouse.x - canvas_origin.x - old_pan.x) / s_zoom,
+                    (mouse.y - canvas_origin.y - old_pan.y) / s_zoom
                 };
-                const float ratio = 1.0f - new_zoom / old_zoom;
-                const ImVec2 new_pan = {
-                    old_pan.x + cursor_in_grid.x * ratio,
-                    old_pan.y + cursor_in_grid.y * ratio
-                };
-
-                s_zoom = new_zoom;
-                ImNodes::EditorContextResetPanning(new_pan);
-                ImGui::GetIO().MouseWheel = 0.0f;  // prevent imnodes built-in scroll
+                s_zoom_target = new_target;
             }
+            ImGui::GetIO().MouseWheel = 0.0f;  // prevent imnodes built-in scroll
         }
     }
 
-    // 4. Fit-to-view (F key while canvas is focused)
+    // 4. Smooth zoom: lerp s_zoom toward s_zoom_target each frame
+    {
+        const float dt = ImGui::GetIO().DeltaTime;
+        const float t  = 1.0f - expf(-dt * ZOOM_SMOOTH_SPEED);
+        s_zoom = s_zoom + (s_zoom_target - s_zoom) * t;
+        if (fabsf(s_zoom - s_zoom_target) < 0.0005f)
+            s_zoom = s_zoom_target;  // snap to avoid endless micro-lerp
+
+        // Keep anchor world point fixed on screen while animating.
+        if (s_zoom != s_zoom_target || s_anchor_world.x != 0.0f || s_anchor_world.y != 0.0f)
+        {
+            const ImVec2 new_pan = {
+                s_anchor_screen.x - canvas_origin.x - s_anchor_world.x * s_zoom,
+                s_anchor_screen.y - canvas_origin.y - s_anchor_world.y * s_zoom
+            };
+            ImNodes::EditorContextResetPanning(new_pan);
+        }
+    }
+
+    // 5. Fit-to-view (F key while canvas is focused)
     if (ImGui::IsWindowFocused() && ImGui::IsKeyPressed(ImGuiKey_F))
     {
-        s_zoom = 1.0f;
+        s_zoom = s_zoom_target = 1.0f;
+        s_anchor_world  = { 0.0f, 0.0f };
+        s_anchor_screen = { 0.0f, 0.0f };
         ImNodes::EditorContextResetPanning({ size.x * 0.5f, size.y * 0.5f });
     }
 
-    // 5. PushStyleVar before BeginNodeEditor
+    // 6. PushStyleVar before BeginNodeEditor
     const float z = s_zoom * TS::ui_scale;
     ImNodes::PushStyleVar(ImNodesStyleVar_GridSpacing,        24.0f * z);
     ImNodes::PushStyleVar(ImNodesStyleVar_NodeCornerRounding, 10.0f * z);

@@ -169,10 +169,11 @@ inline constexpr float HEADER_H   =  56.0f;
 inline constexpr float SEQUENCE_H = 180.0f;
 
 // Zoom
-inline constexpr float ZOOM_MIN         = 0.40f;
-inline constexpr float ZOOM_MAX         = 2.00f;
-inline constexpr float ZOOM_STEP_SCROLL = 0.05f;
-inline constexpr float ZOOM_STEP_BTN    = 0.10f;
+inline constexpr float ZOOM_MIN          = 0.40f;
+inline constexpr float ZOOM_MAX          = 2.00f;
+inline constexpr float ZOOM_STEP_SCROLL  = 0.15f;
+inline constexpr float ZOOM_STEP_BTN     = 0.10f;
+inline constexpr float ZOOM_SMOOTH_SPEED = 12.0f; // exponential smoothing rate (higher = snappier)
 
 // +-----------------------------------------------------------------------------+
 // |  Font pointers                                                              |
