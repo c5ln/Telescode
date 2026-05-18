@@ -60,17 +60,26 @@ static uint64_t get_uint64(sqlite3* db, const char* key, uint64_t def)
     return val;
 }
 
-static void upsert(sqlite3* db, const char* key, const char* value)
+static int upsert(sqlite3* db, const char* key, const char* value)
 {
     sqlite3_stmt* stmt = nullptr;
-    sqlite3_prepare_v2(db,
+    int rc = sqlite3_prepare_v2(db,
         "INSERT INTO reading_sequence_config(config_key, config_value) VALUES(?,?)"
         " ON CONFLICT(config_key) DO UPDATE SET config_value=excluded.config_value;",
         -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        std::fprintf(stderr, "AlgoDbWriter upsert: prepare failed: %s\n", sqlite3_errmsg(db));
+        return rc;
+    }
     sqlite3_bind_text(stmt, 1, key,   -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 2, value, -1, SQLITE_STATIC);
-    sqlite3_step(stmt);
+    rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
+    if (rc != SQLITE_DONE) {
+        std::fprintf(stderr, "AlgoDbWriter upsert: step failed: %s\n", sqlite3_errmsg(db));
+        return rc;
+    }
+    return SQLITE_OK;
 }
 
 // ── AlgoDbWriter::loadConfig ─────────────────────────────────────────────────
@@ -163,18 +172,22 @@ int AlgoDbWriter::insertAll(sqlite3* db, const AlgoRunResult& result)
 int AlgoDbWriter::updateConfig(sqlite3* db, const AlgoConfig& cfg)
 {
     char buf[64];
+    int rc = SQLITE_OK;
 
     auto d = [&](const char* k, double v) {
+        if (rc != SQLITE_OK) return;
         std::snprintf(buf, sizeof(buf), "%.17g", v);
-        upsert(db, k, buf);
+        rc = upsert(db, k, buf);
     };
     auto i = [&](const char* k, int v) {
+        if (rc != SQLITE_OK) return;
         std::snprintf(buf, sizeof(buf), "%d", v);
-        upsert(db, k, buf);
+        rc = upsert(db, k, buf);
     };
     auto u = [&](const char* k, uint64_t v) {
+        if (rc != SQLITE_OK) return;
         std::snprintf(buf, sizeof(buf), "%llu", static_cast<unsigned long long>(v));
-        upsert(db, k, buf);
+        rc = upsert(db, k, buf);
     };
 
     d("alpha",         cfg.alpha);
@@ -191,21 +204,12 @@ int AlgoDbWriter::updateConfig(sqlite3* db, const AlgoConfig& cfg)
     i("bc_p2_fixed_k", cfg.bc_p2_fixed_k);
     i("bc_k_min",      cfg.bc_k_min);
     u("bc_seed",       cfg.bc_seed);
+    if (rc != SQLITE_OK) return rc;
 
     char ts[32];
     std::time_t now = std::time(nullptr);
     std::snprintf(ts, sizeof(ts), "%lld", static_cast<long long>(now));
-    sqlite3_stmt* stmt = nullptr;
-    sqlite3_prepare_v2(db,
-        "INSERT INTO reading_sequence_config(config_key, config_value) VALUES('last_computed_at',?)"
-        " ON CONFLICT(config_key) DO UPDATE SET config_value=excluded.config_value;",
-        -1, &stmt, nullptr);
-    if (stmt) {
-        sqlite3_bind_text(stmt, 1, ts, -1, SQLITE_STATIC);
-        sqlite3_step(stmt);
-        sqlite3_finalize(stmt);
-    }
-    return SQLITE_OK;
+    return upsert(db, "last_computed_at", ts);
 }
 
 // ── AlgoDbWriter::write ───────────────────────────────────────────────────────
