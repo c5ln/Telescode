@@ -101,7 +101,7 @@ void GraphBuilder::build_func_graph(sqlite3* db, Graph& g)
 {
     sqlite3_stmt* stmt = nullptr;
     sqlite3_prepare_v2(db,
-        "SELECT source_id, target_id FROM link"
+        "SELECT DISTINCT source_id, target_id FROM link"
         " WHERE link_type IN ('CALLS', 'INHERITS');",
         -1, &stmt, nullptr);
     if (!stmt) return;
