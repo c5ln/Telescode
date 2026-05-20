@@ -132,15 +132,12 @@ void DrawCanvas(ImVec2 pos, ImVec2 size)
     // 6. Begin node editor
     ImNodes::BeginNodeEditor();
 
-    // 7. Select the pre-baked LOD font nearest to current zoom,
-    //    then correct only the small fractional remainder with SetWindowFontScale.
-    //    This avoids upscaling a rasterized bitmap (which causes blurriness).
-    const int   font_lod   = TS::GetFontLOD(s_zoom);
-    const float correction = s_zoom / TS::FONT_LOD_SCALES[font_lod];
-    ImGui::SetWindowFontScale(correction);
+    // 7. Camera transform: everything inside the node editor scales by s_zoom.
+    //    Font sharpness is handled per-text-section inside DrawNode via LOD fonts.
+    ImGui::SetWindowFontScale(s_zoom);
 
     // 8. Class diagram
-    TS::DrawClassDiagramContent(s_graph, font_lod);
+    TS::DrawClassDiagramContent(s_graph, s_zoom);
 
     // 10. Restore font scale before ending editor
     ImGui::SetWindowFontScale(1.0f);

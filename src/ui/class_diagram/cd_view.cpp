@@ -12,9 +12,16 @@ namespace {
 
 static std::unordered_set<int> s_positioned;
 
-void DrawNode(const CDNode& node, bool selected, bool dimmed, int font_lod)
+void DrawNode(const CDNode& node, bool selected, bool dimmed, float zoom)
 {
+    // Camera (SetWindowFontScale(zoom)) handles all sizing — node_w stays in world units.
     const float node_w = TS::NODE_WIDTH * TS::ui_scale;
+
+    // LOD font selection: pick the pre-baked size nearest to zoom.
+    // correction = zoom / LOD_scale so the LOD font renders at base_size in camera space,
+    // and the camera then scales it to base_size * zoom on screen → native resolution.
+    const int   lod        = TS::GetFontLOD(zoom);
+    const float correction = zoom / TS::FONT_LOD_SCALES[lod];
 
     ImU32 title_col;
     ImU32 bg_col;
@@ -46,17 +53,20 @@ void DrawNode(const CDNode& node, bool selected, bool dimmed, int font_lod)
     const ImVec4 ink_col  = dimmed ? TS::WithAlpha(TS::INK,   0.4f) : TS::INK;
     const ImVec4 ink3_col = dimmed ? TS::WithAlpha(TS::INK_3, 0.4f) : TS::INK_3;
 
-    ImGui::PushFont(TS::FONT_MEDIUM_LOD[font_lod]);
+    // Override camera scale locally so LOD font renders at native resolution.
+    ImGui::SetWindowFontScale(correction);
+    ImGui::PushFont(TS::FONT_MEDIUM_LOD[lod]);
     ImGui::PushStyleColor(ImGuiCol_Text, ink_col);
     ImGui::TextUnformatted(node.class_name.c_str());
     ImGui::PopStyleColor();
     ImGui::PopFont();
 
-    ImGui::PushFont(TS::FONT_SMALL_LOD[font_lod]);
+    ImGui::PushFont(TS::FONT_SMALL_LOD[lod]);
     ImGui::PushStyleColor(ImGuiCol_Text, ink3_col);
     ImGui::TextUnformatted(node.package.c_str());
     ImGui::PopStyleColor();
     ImGui::PopFont();
+    ImGui::SetWindowFontScale(zoom); // restore camera
 
     ImNodes::EndNodeTitleBar();
 
@@ -72,13 +82,15 @@ void DrawNode(const CDNode& node, bool selected, bool dimmed, int font_lod)
     ImGui::PopStyleColor();
 
     // ── Method rows ────────────────────────────────────────────────────────
-    ImGui::PushFont(TS::FONT_MONO_LOD[font_lod]);
+    ImGui::SetWindowFontScale(correction);
+    ImGui::PushFont(TS::FONT_MONO_LOD[lod]);
     ImGui::PushStyleColor(ImGuiCol_Text,
         dimmed ? TS::WithAlpha(TS::INK_2, 0.4f) : TS::INK_2);
     for (const auto& m : node.methods)
         ImGui::Text("%c %s(%s): %s", m.access, m.name.c_str(), m.params.c_str(), m.ret_type.c_str());
     ImGui::PopStyleColor();
     ImGui::PopFont();
+    ImGui::SetWindowFontScale(zoom); // restore camera
 
     // ── Output pin: hidden, anchors outgoing edges on right ────────────────
     ImNodes::BeginOutputAttribute(CDPinOut(node.node_id), ImNodesPinShape_Circle);
@@ -98,7 +110,7 @@ void DrawNode(const CDNode& node, bool selected, bool dimmed, int font_lod)
 
 } // anonymous namespace
 
-void DrawClassDiagramContent(CDGraph& graph, int font_lod)
+void DrawClassDiagramContent(CDGraph& graph, float zoom)
 {
     // Set initial grid positions (once per node per session)
     for (const auto& node : graph.nodes) {
@@ -122,7 +134,7 @@ void DrawClassDiagramContent(CDGraph& graph, int font_lod)
     for (const auto& node : graph.nodes) {
         const bool sel    = (node.node_id == graph.selected_node_id);
         const bool dimmed = has_selection && !sel && !connected.count(node.node_id);
-        DrawNode(node, sel, dimmed, font_lod);
+        DrawNode(node, sel, dimmed, zoom);
     }
 
     // ── Edges ──────────────────────────────────────────────────────────────

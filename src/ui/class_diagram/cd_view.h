@@ -11,7 +11,7 @@
 
 namespace TS {
 
-void DrawClassDiagramContent(CDGraph& graph, int font_lod);
+void DrawClassDiagramContent(CDGraph& graph, float zoom);
 void UpdateClassDiagramInteraction(CDGraph& graph);
 
 } // namespace TS
