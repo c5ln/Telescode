@@ -12,7 +12,7 @@ namespace {
 
 static std::unordered_set<int> s_positioned;
 
-void DrawNode(const CDNode& node, bool selected, bool dimmed)
+void DrawNode(const CDNode& node, bool selected, bool dimmed, int font_lod)
 {
     const float node_w = TS::NODE_WIDTH * TS::ui_scale;
 
@@ -46,13 +46,13 @@ void DrawNode(const CDNode& node, bool selected, bool dimmed)
     const ImVec4 ink_col  = dimmed ? TS::WithAlpha(TS::INK,   0.4f) : TS::INK;
     const ImVec4 ink3_col = dimmed ? TS::WithAlpha(TS::INK_3, 0.4f) : TS::INK_3;
 
-    ImGui::PushFont(TS::FONT_MEDIUM);
+    ImGui::PushFont(TS::FONT_MEDIUM_LOD[font_lod]);
     ImGui::PushStyleColor(ImGuiCol_Text, ink_col);
     ImGui::TextUnformatted(node.class_name.c_str());
     ImGui::PopStyleColor();
     ImGui::PopFont();
 
-    ImGui::PushFont(TS::FONT_SMALL);
+    ImGui::PushFont(TS::FONT_SMALL_LOD[font_lod]);
     ImGui::PushStyleColor(ImGuiCol_Text, ink3_col);
     ImGui::TextUnformatted(node.package.c_str());
     ImGui::PopStyleColor();
@@ -72,7 +72,7 @@ void DrawNode(const CDNode& node, bool selected, bool dimmed)
     ImGui::PopStyleColor();
 
     // ── Method rows ────────────────────────────────────────────────────────
-    ImGui::PushFont(TS::FONT_MONO);
+    ImGui::PushFont(TS::FONT_MONO_LOD[font_lod]);
     ImGui::PushStyleColor(ImGuiCol_Text,
         dimmed ? TS::WithAlpha(TS::INK_2, 0.4f) : TS::INK_2);
     for (const auto& m : node.methods)
@@ -98,7 +98,7 @@ void DrawNode(const CDNode& node, bool selected, bool dimmed)
 
 } // anonymous namespace
 
-void DrawClassDiagramContent(CDGraph& graph)
+void DrawClassDiagramContent(CDGraph& graph, int font_lod)
 {
     // Set initial grid positions (once per node per session)
     for (const auto& node : graph.nodes) {
@@ -122,7 +122,7 @@ void DrawClassDiagramContent(CDGraph& graph)
     for (const auto& node : graph.nodes) {
         const bool sel    = (node.node_id == graph.selected_node_id);
         const bool dimmed = has_selection && !sel && !connected.count(node.node_id);
-        DrawNode(node, sel, dimmed);
+        DrawNode(node, sel, dimmed, font_lod);
     }
 
     // ── Edges ──────────────────────────────────────────────────────────────

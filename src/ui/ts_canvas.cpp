@@ -132,11 +132,15 @@ void DrawCanvas(ImVec2 pos, ImVec2 size)
     // 6. Begin node editor
     ImNodes::BeginNodeEditor();
 
-    // 7. Apply zoom to font scale inside child window
-    ImGui::SetWindowFontScale(s_zoom);
+    // 7. Select the pre-baked LOD font nearest to current zoom,
+    //    then correct only the small fractional remainder with SetWindowFontScale.
+    //    This avoids upscaling a rasterized bitmap (which causes blurriness).
+    const int   font_lod   = TS::GetFontLOD(s_zoom);
+    const float correction = s_zoom / TS::FONT_LOD_SCALES[font_lod];
+    ImGui::SetWindowFontScale(correction);
 
     // 8. Class diagram
-    TS::DrawClassDiagramContent(s_graph);
+    TS::DrawClassDiagramContent(s_graph, font_lod);
 
     // 10. Restore font scale before ending editor
     ImGui::SetWindowFontScale(1.0f);
