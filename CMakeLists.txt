@@ -108,6 +108,7 @@ add_executable(Telescode
     src/main.cpp
     src/ui/ts_app.cpp
     src/ui/ts_canvas.cpp
+    src/ui/class_diagram/cd_view.cpp
     src/db/db.cpp
 )
 target_include_directories(Telescode PRIVATE
