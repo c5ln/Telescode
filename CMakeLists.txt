@@ -109,6 +109,7 @@ add_executable(Telescode
     src/ui/ts_app.cpp
     src/ui/ts_canvas.cpp
     src/ui/class_diagram/cd_view.cpp
+    src/ui/class_diagram/cd_builder.cpp
     src/db/db.cpp
 )
 target_include_directories(Telescode PRIVATE
@@ -224,6 +225,8 @@ add_test(NAME AlgoTests COMMAND AlgoTests)
 add_executable(CanvasTests
     tests/ui/test_ts_canvas.cpp
     src/ui/ts_canvas.cpp
+    src/ui/class_diagram/cd_view.cpp
+    src/ui/class_diagram/cd_builder.cpp
 )
 target_include_directories(CanvasTests PRIVATE
     ${imgui_SOURCE_DIR}
@@ -232,6 +235,7 @@ target_include_directories(CanvasTests PRIVATE
 target_link_libraries(CanvasTests PRIVATE
     imgui
     imnodes
+    sqlite3
     GTest::gtest_main
 )
 add_test(NAME CanvasTests COMMAND CanvasTests)

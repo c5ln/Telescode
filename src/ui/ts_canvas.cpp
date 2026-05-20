@@ -7,6 +7,7 @@
 #include <imnodes.h>
 #include "ts_style.h"
 #include "class_diagram/cd_view.h"
+#include "class_diagram/cd_builder.h"
 
 namespace {
     static float                 s_zoom         = 1.0f;
@@ -19,46 +20,6 @@ namespace {
     constexpr float k_zoom_label_pad_y = 20.0f;
 
     static TS::CDGraph s_graph;
-    static bool        s_graph_init = false;
-
-    void InitTestGraph()
-    {
-        // OrderService (center, selected by default)
-        s_graph.nodes.push_back({
-            0, "order.service::OrderService", "OrderService", "order.service",
-            {
-                {'+', "createOrder", "req", "Order"},
-                {'+', "getOrder",    "id",  "Order"},
-                {'+', "cancelOrder", "id",  "void"},
-                {'+', "validateOrder","req", "void"},
-            },
-            {300.0f, 200.0f}
-        });
-        // WebController
-        s_graph.nodes.push_back({
-            1, "web.controller::WebController", "WebController", "web.controller",
-            {
-                {'+', "createOrder", "req", "Response"},
-                {'+', "getOrder",    "id",  "Response"},
-                {'+', "cancelOrder", "id",  "Response"},
-            },
-            {-200.0f, -150.0f}
-        });
-        // PaymentService
-        s_graph.nodes.push_back({
-            2, "payment.service::PaymentService", "PaymentService", "payment.service",
-            {
-                {'+', "authorize", "payment", "void"},
-                {'+', "capture",   "payment", "void"},
-            },
-            {-200.0f, 550.0f}
-        });
-
-        // WebController --dependency--> OrderService
-        s_graph.edges.push_back({0, 1, 0, TS::CDEdgeType::Dependency});
-        // OrderService --association--> PaymentService
-        s_graph.edges.push_back({1, 0, 2, TS::CDEdgeType::Association});
-    }
 }
 
 namespace TS {
@@ -80,11 +41,8 @@ void DrawCanvas(ImVec2 pos, ImVec2 size)
     if (size.x <= 0.0f || size.y <= 0.0f) return;
 
     // 1. EditorContext -- initialise once.
-    if (!s_context) {
+    if (!s_context)
         s_context = ImNodes::EditorContextCreate();
-        InitTestGraph();
-        s_graph_init = true;
-    }
     ImNodes::EditorContextSet(s_context);
 
     // 2. BeginChild
@@ -202,6 +160,13 @@ void DrawCanvas(ImVec2 pos, ImVec2 size)
 
     // 14. End child
     ImGui::EndChild();
+}
+
+// ── InitCanvasFromDB ──────────────────────────────────────────────────────────
+
+void InitCanvasFromDB(sqlite3* db)
+{
+    s_graph = BuildCDGraph(db);
 }
 
 // ── ShutdownCanvas ────────────────────────────────────────────────────────────

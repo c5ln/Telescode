@@ -11,12 +11,13 @@ extern "C" const TSLanguage* tree_sitter_python();
 #include "ui/ts_style.h"
 #include "ui/ts_app.h"
 #include "ui/ts_canvas.h"
+#include <sqlite3.h>
 
 #ifdef TELESCODE_STYLE_PREVIEW
 #include "dev/style_preview.h"
 #endif
 
-int main(int, char**)
+int main(int argc, char** argv)
 {
     // -- SDL init ---------------------------------------------------------------
     if (!SDL_Init(SDL_INIT_VIDEO)) {
@@ -65,6 +66,14 @@ int main(int, char**)
 
     TS::LoadFonts(io);   // must precede NewFrame
     TS::ApplyStyle();    // sets ImGuiStyle, ImNodesStyle, precomputes _U32
+
+    // Load class diagram from DB if path provided as first argument.
+    if (argc > 1) {
+        sqlite3* db = nullptr;
+        if (sqlite3_open_v2(argv[1], &db, SQLITE_OPEN_READONLY, nullptr) == SQLITE_OK)
+            TS::InitCanvasFromDB(db);
+        sqlite3_close(db);
+    }
 
     ImGui_ImplSDL3_InitForSDLGPU(window);
     ImGui_ImplSDLGPU3_InitInfo gpu_info = {};
