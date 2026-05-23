@@ -14,7 +14,7 @@ static std::unordered_set<int> s_positioned;
 
 void DrawNode(const CDNode& node, bool selected, bool dimmed, float zoom)
 {
-    // Camera (SetWindowFontScale(zoom)) handles all sizing — node_w stays in world units.
+    // Camera (imnodes zoom transform) handles all sizing — node_w stays in world units.
     const float node_w = TS::NODE_WIDTH * TS::ui_scale;
 
     // LOD font selection: pick the pre-baked size nearest to zoom.

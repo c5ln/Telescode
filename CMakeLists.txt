@@ -239,3 +239,18 @@ target_link_libraries(CanvasTests PRIVATE
     GTest::gtest_main
 )
 add_test(NAME CanvasTests COMMAND CanvasTests)
+
+add_executable(DiagramTests
+    tests/ui/test_cd_arrowhead.cpp
+    src/ui/class_diagram/cd_arrowhead.cpp
+)
+target_include_directories(DiagramTests PRIVATE
+    ${imgui_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/src
+)
+target_compile_definitions(DiagramTests PRIVATE IMGUI_DEFINE_MATH_OPERATORS)
+target_link_libraries(DiagramTests PRIVATE
+    imgui
+    GTest::gtest_main
+)
+add_test(NAME DiagramTests COMMAND DiagramTests)
