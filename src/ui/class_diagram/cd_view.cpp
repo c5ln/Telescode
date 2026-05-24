@@ -97,15 +97,17 @@ void DrawNode(const CDNode& node, bool selected, bool dimmed, float zoom)
     DrawDivider();
 
     // ── Pins: left (input) and right (output) at divider position ────────────
-    // Placed here so no blank space appears between fields and the divider.
-    // Pin circles are invisible (radius = 0); bezier endpoints sit at this Y.
+    // ItemSpacing.y is zeroed so 0-height Dummy attributes don't push the cursor
+    // down and create blank space before the method rows.
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,
+        ImVec2(ImGui::GetStyle().ItemSpacing.x, 0.0f));
     ImNodes::BeginInputAttribute(CDPinLeft(node.node_id), ImNodesPinShape_Circle);
     ImGui::Dummy({node_w, 0.0f});
     ImNodes::EndInputAttribute();
-
     ImNodes::BeginOutputAttribute(CDPinRight(node.node_id), ImNodesPinShape_Circle);
     ImGui::Dummy({node_w, 0.0f});
     ImNodes::EndOutputAttribute();
+    ImGui::PopStyleVar();
 
     // ── Method rows ───────────────────────────────────────────────────────────
     ImGui::SetWindowFontScale(correction);
