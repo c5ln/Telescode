@@ -228,6 +228,7 @@ add_executable(CanvasTests
     src/ui/ts_canvas.cpp
     src/ui/class_diagram/cd_view.cpp
     src/ui/class_diagram/cd_builder.cpp
+    src/ui/class_diagram/cd_arrowhead.cpp
 )
 target_include_directories(CanvasTests PRIVATE
     ${imgui_SOURCE_DIR}

@@ -201,8 +201,8 @@ inline ImFont* FONT_MONO   = nullptr; // JetBrains Mono 11.5px -- methods     (=
 // |  SetWindowFontScale(zoom / FONT_LOD_SCALES[lod]) corrects the remainder.   |
 // +-----------------------------------------------------------------------------+
 
-inline constexpr int   FONT_LOD_COUNT              = 4;
-inline constexpr float FONT_LOD_SCALES[FONT_LOD_COUNT] = { 0.5f, 1.0f, 1.5f, 2.0f };
+inline constexpr int   FONT_LOD_COUNT              = 13;
+inline constexpr float FONT_LOD_SCALES[FONT_LOD_COUNT] = { 0.5f, 0.625f, 0.75f, 0.875f, 1.0f, 1.125f, 1.25f, 1.365f, 1.5f, 1.625f, 1.75f, 1.875f, 2.0f };
 
 inline ImFont* FONT_MEDIUM_LOD[FONT_LOD_COUNT] = {};
 inline ImFont* FONT_SMALL_LOD [FONT_LOD_COUNT] = {};
