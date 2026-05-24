@@ -38,8 +38,8 @@ struct CDNode {
     ImVec2      pos;        // initial grid position
 };
 
-inline int CDPinIn (int node_id) { return node_id * 2;     }
-inline int CDPinOut(int node_id) { return node_id * 2 + 1; }
+inline int CDPinLeft (int node_id) { return node_id * 2;     }
+inline int CDPinRight(int node_id) { return node_id * 2 + 1; }
 
 // Relationship between two class nodes.
 enum class CDEdgeType {

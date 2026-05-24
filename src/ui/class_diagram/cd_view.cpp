@@ -5,7 +5,6 @@
 #include "../ts_style.h"
 #include <imgui.h>
 #include <imnodes.h>
-#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -13,16 +12,11 @@ namespace TS {
 namespace {
 
 static std::unordered_set<int> s_positioned;
-static std::unordered_map<int, float> s_pin_y;
 
 void DrawNode(const CDNode& node, bool selected, bool dimmed, float zoom)
 {
-    // node_w scales with zoom so Dummy widgets, dividers, and text all grow together.
     const float node_w = TS::NODE_WIDTH * TS::ui_scale * zoom;
 
-    // LOD font selection: pick the pre-baked size nearest to zoom.
-    // correction = zoom / LOD_scale so the LOD font renders at base_size in camera space,
-    // and the camera then scales it to base_size * zoom on screen → native resolution.
     const int   lod        = TS::GetFontLOD(zoom);
     const float correction = zoom / TS::FONT_LOD_SCALES[lod];
 
@@ -39,24 +33,28 @@ void DrawNode(const CDNode& node, bool selected, bool dimmed, float zoom)
         bg_col    = TS::PANEL_U32;
     }
 
-    ImNodes::PushColorStyle(ImNodesCol_TitleBar,              title_col);
-    ImNodes::PushColorStyle(ImNodesCol_TitleBarHovered,       title_col);
-    ImNodes::PushColorStyle(ImNodesCol_TitleBarSelected,      title_col);
-    ImNodes::PushColorStyle(ImNodesCol_NodeBackground,        bg_col);
-    ImNodes::PushColorStyle(ImNodesCol_NodeBackgroundHovered, bg_col);
-    ImNodes::PushColorStyle(ImNodesCol_NodeBackgroundSelected,bg_col);
+    ImNodes::PushColorStyle(ImNodesCol_TitleBar,               title_col);
+    ImNodes::PushColorStyle(ImNodesCol_TitleBarHovered,        title_col);
+    ImNodes::PushColorStyle(ImNodesCol_TitleBarSelected,       title_col);
+    ImNodes::PushColorStyle(ImNodesCol_NodeBackground,         bg_col);
+    ImNodes::PushColorStyle(ImNodesCol_NodeBackgroundHovered,  bg_col);
+    ImNodes::PushColorStyle(ImNodesCol_NodeBackgroundSelected, bg_col);
     ImNodes::PushStyleVar(ImNodesStyleVar_PinCircleRadius, 0.0f);
     ImNodes::PushStyleVar(ImNodesStyleVar_PinHoverRadius,  0.0f);
 
     ImNodes::BeginNode(node.node_id);
 
-    // ── Title bar: class name + package ────────────────────────────────────
+    // Prev-frame geometry for divider width
+    const float  pad_x     = TS::NODE_PADDING_X * zoom * TS::ui_scale;
+    const ImVec2 prev_sz   = ImNodes::GetNodeDimensions(node.node_id);
+    const float  divider_w = (prev_sz.x > 1.0f) ? (prev_sz.x - 2.0f * pad_x) : node_w;
+
+    // ── Title bar ─────────────────────────────────────────────────────────────
     ImNodes::BeginNodeTitleBar();
 
     const ImVec4 ink_col  = dimmed ? TS::WithAlpha(TS::INK,   0.4f) : TS::INK;
     const ImVec4 ink3_col = dimmed ? TS::WithAlpha(TS::INK_3, 0.4f) : TS::INK_3;
 
-    // Override camera scale locally so LOD font renders at native resolution.
     ImGui::SetWindowFontScale(correction);
     ImGui::PushFont(TS::FONT_MEDIUM_LOD[lod]);
     ImGui::PushStyleColor(ImGuiCol_Text, ink_col);
@@ -69,28 +67,11 @@ void DrawNode(const CDNode& node, bool selected, bool dimmed, float zoom)
     ImGui::TextUnformatted(node.package.c_str());
     ImGui::PopStyleColor();
     ImGui::PopFont();
-    ImGui::SetWindowFontScale(zoom); // restore camera
+    ImGui::SetWindowFontScale(zoom);
 
     ImNodes::EndNodeTitleBar();
 
-    // ── Input pin: hidden, anchors incoming edges on left ──────────────────
-    ImNodes::BeginInputAttribute(CDPinIn(node.node_id), ImNodesPinShape_Circle);
-    s_pin_y[node.node_id] = ImGui::GetCursorScreenPos().y;
-    ImGui::Dummy({node_w, 0.0f});
-    ImNodes::EndInputAttribute();
-
-    // ── Divider ────────────────────────────────────────────────────────────
-    // ImGui::Separator() draws across the entire canvas window (imnodes uses
-    // BeginGroup/EndGroup, not child windows per node). Draw manually instead.
-    //
-    // The node's final width is unknown until EndNode() runs. We read the
-    // previous frame's outer rect (still valid during BeginNode/EndNode) and
-    // subtract both horizontal paddings to get the inner content width.
-    // Falls back to node_w on the very first frame (Rect not yet set).
-    const float  pad_x     = TS::NODE_PADDING_X * zoom * TS::ui_scale;
-    const ImVec2 prev_sz   = ImNodes::GetNodeDimensions(node.node_id);
-    const float  divider_w = (prev_sz.x > 1.0f) ? (prev_sz.x - 2.0f * pad_x) : node_w;
-
+    // ── Divider helper ────────────────────────────────────────────────────────
     auto DrawDivider = [&]() {
         const ImVec2 p   = ImGui::GetCursorScreenPos();
         const ImU32  col = dimmed
@@ -99,7 +80,8 @@ void DrawNode(const CDNode& node, bool selected, bool dimmed, float zoom)
         ImGui::GetWindowDrawList()->AddLine(p, {p.x + divider_w, p.y}, col, 1.0f);
         ImGui::Dummy({node_w, 1.0f});
     };
-    // ── Field rows ─────────────────────────────────────────────────────────
+
+    // ── Field rows ────────────────────────────────────────────────────────────
     ImGui::SetWindowFontScale(correction);
     ImGui::PushFont(TS::FONT_MONO_LOD[lod]);
     ImGui::PushStyleColor(ImGuiCol_Text,
@@ -109,12 +91,23 @@ void DrawNode(const CDNode& node, bool selected, bool dimmed, float zoom)
     }
     ImGui::PopStyleColor();
     ImGui::PopFont();
-    ImGui::SetWindowFontScale(zoom); // restore camera
+    ImGui::SetWindowFontScale(zoom);
 
-    // ── Divider (fields / methods) ─────────────────────────────────────────
+    // ── Divider (fields / methods) ────────────────────────────────────────────
     DrawDivider();
 
-    // ── Method rows ────────────────────────────────────────────────────────
+    // ── Pins: left (input) and right (output) at divider position ────────────
+    // Placed here so no blank space appears between fields and the divider.
+    // Pin circles are invisible (radius = 0); bezier endpoints sit at this Y.
+    ImNodes::BeginInputAttribute(CDPinLeft(node.node_id), ImNodesPinShape_Circle);
+    ImGui::Dummy({node_w, 0.0f});
+    ImNodes::EndInputAttribute();
+
+    ImNodes::BeginOutputAttribute(CDPinRight(node.node_id), ImNodesPinShape_Circle);
+    ImGui::Dummy({node_w, 0.0f});
+    ImNodes::EndOutputAttribute();
+
+    // ── Method rows ───────────────────────────────────────────────────────────
     ImGui::SetWindowFontScale(correction);
     ImGui::PushFont(TS::FONT_MONO_LOD[lod]);
     ImGui::PushStyleColor(ImGuiCol_Text,
@@ -124,12 +117,7 @@ void DrawNode(const CDNode& node, bool selected, bool dimmed, float zoom)
     }
     ImGui::PopStyleColor();
     ImGui::PopFont();
-    ImGui::SetWindowFontScale(zoom); // restore camera
-
-    // ── Output pin: hidden, anchors outgoing edges on right ────────────────
-    ImNodes::BeginOutputAttribute(CDPinOut(node.node_id), ImNodesPinShape_Circle);
-    ImGui::Dummy({node_w, 0.0f});
-    ImNodes::EndOutputAttribute();
+    ImGui::SetWindowFontScale(zoom);
 
     ImNodes::EndNode();
 
@@ -146,7 +134,6 @@ void DrawNode(const CDNode& node, bool selected, bool dimmed, float zoom)
 
 void DrawClassDiagramContent(CDGraph& graph, float zoom)
 {
-    // Set initial grid positions (once per node per session)
     for (const auto& node : graph.nodes) {
         if (!s_positioned.count(node.node_id)) {
             ImNodes::SetNodeGridSpacePos(node.node_id, node.pos);
@@ -154,7 +141,7 @@ void DrawClassDiagramContent(CDGraph& graph, float zoom)
         }
     }
 
-    // ── Highlight/dim sets ─────────────────────────────────────────────────
+    // ── Highlight/dim sets ────────────────────────────────────────────────────
     const bool has_selection = (graph.selected_node_id != -1);
     std::unordered_set<int> connected;
     if (has_selection) {
@@ -164,16 +151,15 @@ void DrawClassDiagramContent(CDGraph& graph, float zoom)
         }
     }
 
-    // ── Nodes ──────────────────────────────────────────────────────────────
+    // ── Nodes ─────────────────────────────────────────────────────────────────
     for (const auto& node : graph.nodes) {
         const bool sel    = (node.node_id == graph.selected_node_id);
         const bool dimmed = has_selection && !sel && !connected.count(node.node_id);
         DrawNode(node, sel, dimmed, zoom);
     }
 
-    // ── Edges ──────────────────────────────────────────────────────────────
+    // ── Edges — nearest-pin routing ───────────────────────────────────────────
     for (const auto& edge : graph.edges) {
-        // Dim all edges that don't touch the selected node
         const bool edge_dimmed = has_selection &&
             edge.src_node_id != graph.selected_node_id &&
             edge.dst_node_id != graph.selected_node_id;
@@ -182,15 +168,22 @@ void DrawClassDiagramContent(CDGraph& graph, float zoom)
         if (edge_dimmed) {
             link_col = ImGui::ColorConvertFloat4ToU32(TS::WithAlpha(TS::MUTED, 0.2f));
         } else if (edge.type == CDEdgeType::Dependency) {
-            link_col = TS::MUTED_U32;       // lighter: dependency
+            link_col = TS::MUTED_U32;
         } else {
-            link_col = TS::INK_2_U32;       // darker:  association
+            link_col = TS::INK_2_U32;
         }
+
+        // Choose pins based on which node is geometrically to the left
+        const ImVec2 src_scr  = ImNodes::GetNodeScreenSpacePos(edge.src_node_id);
+        const ImVec2 dst_scr  = ImNodes::GetNodeScreenSpacePos(edge.dst_node_id);
+        const bool   src_left = (src_scr.x <= dst_scr.x);
+        const int from_pin = src_left ? CDPinRight(edge.src_node_id) : CDPinRight(edge.dst_node_id);
+        const int to_pin   = src_left ? CDPinLeft(edge.dst_node_id)  : CDPinLeft(edge.src_node_id);
 
         ImNodes::PushColorStyle(ImNodesCol_Link,         link_col);
         ImNodes::PushColorStyle(ImNodesCol_LinkHovered,  TS::ACCENT_PRIMARY_U32);
         ImNodes::PushColorStyle(ImNodesCol_LinkSelected, TS::ACCENT_PRIMARY_U32);
-        ImNodes::Link(edge.edge_id, CDPinOut(edge.src_node_id), CDPinIn(edge.dst_node_id));
+        ImNodes::Link(edge.edge_id, from_pin, to_pin);
         ImNodes::PopColorStyle();
         ImNodes::PopColorStyle();
         ImNodes::PopColorStyle();
@@ -199,12 +192,10 @@ void DrawClassDiagramContent(CDGraph& graph, float zoom)
 
 void DrawClassDiagramArrowheads(CDGraph& graph, float zoom)
 {
-    // Called after ImNodes::EndNodeEditor() so this draw list sits above all
-    // imnodes channels (nodes, links) after their ChannelsMerge.
-    ImDrawList*       dl       = ImGui::GetWindowDrawList();
-    const CDArrowDims arrow    = CDScaleArrowhead(zoom * TS::ui_scale);
+    ImDrawList*       dl        = ImGui::GetWindowDrawList();
+    const CDArrowDims arrow     = CDScaleArrowhead(zoom * TS::ui_scale);
     const float       outline_w = TS::LINK_THICKNESS * zoom * TS::ui_scale;
-    const bool        has_sel  = (graph.selected_node_id != -1);
+    const bool        has_sel   = (graph.selected_node_id != -1);
 
     for (const auto& edge : graph.edges) {
         const bool edge_dimmed = has_sel &&
@@ -220,14 +211,23 @@ void DrawClassDiagramArrowheads(CDGraph& graph, float zoom)
             col = TS::INK_2_U32;
         }
 
-        const ImVec2    node_pos = ImNodes::GetNodeScreenSpacePos(edge.dst_node_id);
-        const ImVec2    node_sz  = ImNodes::GetNodeDimensions(edge.dst_node_id);
-        const float     pin_y    = s_pin_y.count(edge.dst_node_id)
-                                       ? s_pin_y.at(edge.dst_node_id)
-                                       : node_pos.y + node_sz.y * 0.5f;
-        const ImVec2    pin_pos  = { node_pos.x, pin_y };
-        const CDArrowTri tri     = CDArrowVertices(pin_pos, {-1.0f, 0.0f},
-                                                   arrow.half_base, arrow.length);
+        const ImVec2 src_pos   = ImNodes::GetNodeScreenSpacePos(edge.src_node_id);
+        const ImVec2 dst_pos   = ImNodes::GetNodeScreenSpacePos(edge.dst_node_id);
+        const ImVec2 dst_sz    = ImNodes::GetNodeDimensions(edge.dst_node_id);
+        const float  dst_ctr_y = dst_pos.y + dst_sz.y * 0.5f;
+
+        ImVec2 tip_pos, arrow_dir;
+        if (src_pos.x <= dst_pos.x) {
+            // src is left of dst → arrow arrives at dst's left edge
+            tip_pos   = { dst_pos.x, dst_ctr_y };
+            arrow_dir = { -1.0f, 0.0f };
+        } else {
+            // src is right of dst → arrow arrives at dst's right edge
+            tip_pos   = { dst_pos.x + dst_sz.x, dst_ctr_y };
+            arrow_dir = { +1.0f, 0.0f };
+        }
+
+        const CDArrowTri tri = CDArrowVertices(tip_pos, arrow_dir, arrow.half_base, arrow.length);
         if (edge.type == CDEdgeType::Dependency) {
             dl->AddTriangle(tri.tip, tri.v1, tri.v2, col, outline_w);
         } else {
@@ -245,7 +245,7 @@ void UpdateClassDiagramInteraction(CDGraph& graph)
     if (n > 0) {
         std::vector<int> ids(static_cast<size_t>(n));
         ImNodes::GetSelectedNodes(ids.data());
-        graph.selected_node_id = ids[0];  // class diagram: single-selection semantics
+        graph.selected_node_id = ids[0];
     } else {
         graph.selected_node_id = -1;
     }
