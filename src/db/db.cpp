@@ -59,6 +59,13 @@ static const char* kInitSQL =
     "    link_type TEXT NOT NULL CHECK(link_type IN ('CALLS', 'INHERITS', 'IMPORTS', 'DECORATES')),"
     "    PRIMARY KEY (source_id, target_id, link_type)"
     ");"
+
+    "CREATE TABLE IF NOT EXISTS field ("
+    "    class_id   TEXT NOT NULL REFERENCES class(class_id) ON DELETE CASCADE,"
+    "    field_name TEXT NOT NULL,"
+    "    access     TEXT NOT NULL DEFAULT '+',"
+    "    PRIMARY KEY (class_id, field_name)"
+    ");"
     "CREATE INDEX IF NOT EXISTS idx_link_source ON link(source_id);"
     "CREATE INDEX IF NOT EXISTS idx_link_target ON link(target_id);"
     "CREATE INDEX IF NOT EXISTS idx_link_type   ON link(link_type);"

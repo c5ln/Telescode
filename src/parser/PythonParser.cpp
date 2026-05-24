@@ -80,6 +80,8 @@ static void handleImportFrom(TSNode node, TraversalContext& ctx);
 static void handleDecoratedDef(TSNode node, TraversalContext& ctx);
 static void collectCalls(TSNode node, const std::string& funcId,
                          const std::string& src, ParseResult& result);
+static void collectFields(TSNode node, const std::string& classId,
+                          const std::string& src, ParseResult& result);
 
 // ─── traversal ───────────────────────────────────────────────────────────────
 
@@ -282,6 +284,9 @@ static void handleFunctionDef(TSNode node, TraversalContext& ctx, bool isAsync) 
     TSNode bodyNode = childByFieldName(node, "body");
     if (!nodeIsNull(bodyNode)) {
         collectCalls(bodyNode, funcId, ctx.src, ctx.result);
+        // Collect self.attr assignments — only meaningful inside methods
+        if (ctx.parentIsClass())
+            collectFields(bodyNode, ctx.parentId(), ctx.src, ctx.result);
     }
 
     // Recurse into function body for nested definitions
@@ -415,6 +420,54 @@ static void handleDecoratedDef(TSNode node, TraversalContext& ctx) {
             ctx.result.links.push_back(link);
         }
     }
+}
+
+// ─── collectFields ───────────────────────────────────────────────────────────
+// Recursively traverse a method body looking for `self.attr = ...` assignments.
+// Does NOT descend into nested function_definition nodes.
+
+static char fieldAccess(const std::string& name)
+{
+    const bool dunder = name.size() >= 4 &&
+        name[0] == '_' && name[1] == '_' &&
+        name[name.size()-2] == '_' && name[name.size()-1] == '_';
+    if (dunder) return '\0'; // skip magic attrs
+    if (name.size() >= 2 && name[0] == '_' && name[1] == '_') return '-';
+    if (!name.empty() && name[0] == '_') return '#';
+    return '+';
+}
+
+static void collectFields(TSNode node, const std::string& classId,
+                          const std::string& src, ParseResult& result)
+{
+    if (nodeIsNull(node)) return;
+    std::string type = nodeType(node);
+
+    if (type == "function_definition") return; // nested func — skip
+
+    if (type == "assignment" || type == "annotated_assignment") {
+        TSNode left = childByFieldName(node, "left");
+        if (!nodeIsNull(left) && nodeType(left) == "attribute") {
+            TSNode obj  = childByFieldName(left, "object");
+            TSNode attr = childByFieldName(left, "attribute");
+            if (!nodeIsNull(obj) && !nodeIsNull(attr) &&
+                nodeType(obj) == "identifier" && nodeText(obj, src) == "self") {
+                std::string fname = nodeText(attr, src);
+                char access = fieldAccess(fname);
+                if (!fname.empty() && access != '\0') {
+                    FieldEntity fe;
+                    fe.class_id  = classId;
+                    fe.field_name = fname;
+                    fe.access    = access;
+                    result.fields.push_back(std::move(fe));
+                }
+            }
+        }
+    }
+
+    uint32_t count = ts_node_child_count(node);
+    for (uint32_t i = 0; i < count; ++i)
+        collectFields(ts_node_child(node, i), classId, src, result);
 }
 
 // ─── collectCalls ────────────────────────────────────────────────────────────

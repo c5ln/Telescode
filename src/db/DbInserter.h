@@ -31,6 +31,7 @@ private:
     int insertFunction(const FunctionEntity& e);
     int insertParam(const ParamEntity& e);
     int insertLink(const LinkEntity& e);
+    int insertField(const FieldEntity& e);
 
     sqlite3*      db_;
     sqlite3_stmt* stmtFile_;
@@ -39,4 +40,5 @@ private:
     sqlite3_stmt* stmtFunction_;
     sqlite3_stmt* stmtParam_;
     sqlite3_stmt* stmtLink_;
+    sqlite3_stmt* stmtField_;
 };

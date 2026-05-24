@@ -10,6 +10,12 @@
 
 namespace TS {
 
+// One field row: e.g. "- _name"
+struct CDField {
+    char        access;     // '+' public  '-' private  '#' protected
+    std::string name;
+};
+
 // One method row: e.g. "+ createOrder(req): Order"
 struct CDMethod {
     char        access;     // '+' public  '-' private  '#' protected  '~' package
@@ -27,6 +33,7 @@ struct CDNode {
     std::string class_id;   // FK → ClassEntity::class_id
     std::string class_name;
     std::string package;    // derived from file_id, shown below class_name
+    std::vector<CDField>  fields;
     std::vector<CDMethod> methods;
     ImVec2      pos;        // initial grid position
 };

@@ -131,7 +131,27 @@ CDGraph BuildCDGraph(sqlite3* db)
     }
     sqlite3_finalize(stmt);
 
-    // ── Step 4: Association edges — CALLS (function→function, class→class) ─
+    // ── Step 4: Fields → attach to nodes ──────────────────────────────────────
+    sqlite3_prepare_v2(db,
+        "SELECT class_id, field_name, access FROM field ORDER BY class_id, field_name;",
+        -1, &stmt, nullptr);
+
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        std::string cid   = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        std::string fname = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+        const char* acc   = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+
+        auto it = classToIdx.find(cid);
+        if (it == classToIdx.end()) continue;
+
+        CDField f;
+        f.access = acc ? acc[0] : '+';
+        f.name   = fname;
+        graph.nodes[it->second].fields.push_back(std::move(f));
+    }
+    sqlite3_finalize(stmt);
+
+    // ── Step 5: Association edges — CALLS (function→function, class→class) ─
     int edge_id = 0;
 
     sqlite3_prepare_v2(db,
@@ -155,7 +175,7 @@ CDGraph BuildCDGraph(sqlite3* db)
     }
     sqlite3_finalize(stmt);
 
-    // ── Step 5: Dependency edges — INHERITS (class→base_class_name) ────────
+    // ── Step 6: Dependency edges — INHERITS (class→base_class_name) ────────
     sqlite3_prepare_v2(db,
         "SELECT DISTINCT l.source_id, c2.class_id"
         "  FROM link l"
@@ -174,7 +194,7 @@ CDGraph BuildCDGraph(sqlite3* db)
     }
     sqlite3_finalize(stmt);
 
-    // ── Step 6: initial grid layout ────────────────────────────────────────
+    // ── Step 7: initial grid layout ────────────────────────────────────────
     AssignGridPositions(graph);
 
     return graph;

@@ -47,6 +47,12 @@ struct LinkEntity {
     std::string link_type; // CALLS, INHERITS, IMPORTS, DECORATES
 };
 
+struct FieldEntity {
+    std::string class_id;
+    std::string field_name;
+    char access; // '+' public  '-' private  '#' protected
+};
+
 struct ParseResult {
     FileEntity file;
     std::vector<ClassEntity> classes;
@@ -54,4 +60,5 @@ struct ParseResult {
     std::vector<FunctionEntity> functions;
     std::vector<ParamEntity> params;
     std::vector<LinkEntity> links;
+    std::vector<FieldEntity> fields;
 };

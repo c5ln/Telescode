@@ -109,6 +109,7 @@ add_executable(Telescode
     src/ui/ts_app.cpp
     src/ui/ts_canvas.cpp
     src/ui/class_diagram/cd_view.cpp
+    src/ui/class_diagram/cd_arrowhead.cpp
     src/ui/class_diagram/cd_builder.cpp
     src/db/db.cpp
 )

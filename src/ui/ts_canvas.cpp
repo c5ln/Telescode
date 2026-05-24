@@ -145,6 +145,9 @@ void DrawCanvas(ImVec2 pos, ImVec2 size)
     // 11. End node editor
     ImNodes::EndNodeEditor();
 
+    // 12. Arrowheads — drawn after EndNodeEditor so they sit above all imnodes channels.
+    TS::DrawClassDiagramArrowheads(s_graph, s_zoom);
+
     TS::UpdateClassDiagramInteraction(s_graph);
 
     // 12. Pop imnodes style vars

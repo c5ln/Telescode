@@ -12,6 +12,8 @@
 namespace TS {
 
 void DrawClassDiagramContent(CDGraph& graph, float zoom);
+// Call after ImNodes::EndNodeEditor() — draws arrowheads on top of all imnodes channels.
+void DrawClassDiagramArrowheads(CDGraph& graph, float zoom);
 void UpdateClassDiagramInteraction(CDGraph& graph);
 
 } // namespace TS
