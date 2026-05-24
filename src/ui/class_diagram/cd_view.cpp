@@ -79,15 +79,24 @@ void DrawNode(const CDNode& node, bool selected, bool dimmed, float zoom)
     ImGui::Dummy({node_w, 0.0f});
     ImNodes::EndInputAttribute();
 
-    // ── Divider (header / fields) ──────────────────────────────────────────
+    // ── Divider ────────────────────────────────────────────────────────────
     // ImGui::Separator() draws across the entire canvas window (imnodes uses
     // BeginGroup/EndGroup, not child windows per node). Draw manually instead.
+    //
+    // The node's final width is unknown until EndNode() runs. We read the
+    // previous frame's outer rect (still valid during BeginNode/EndNode) and
+    // subtract both horizontal paddings to get the inner content width.
+    // Falls back to node_w on the very first frame (Rect not yet set).
+    const float  pad_x     = TS::NODE_PADDING_X * zoom * TS::ui_scale;
+    const ImVec2 prev_sz   = ImNodes::GetNodeDimensions(node.node_id);
+    const float  divider_w = (prev_sz.x > 1.0f) ? (prev_sz.x - 2.0f * pad_x) : node_w;
+
     auto DrawDivider = [&]() {
         const ImVec2 p   = ImGui::GetCursorScreenPos();
         const ImU32  col = dimmed
             ? ImGui::ColorConvertFloat4ToU32(TS::WithAlpha(TS::LINE, 0.3f))
             : TS::LINE_U32;
-        ImGui::GetWindowDrawList()->AddLine(p, {p.x + node_w, p.y}, col, 1.0f);
+        ImGui::GetWindowDrawList()->AddLine(p, {p.x + divider_w, p.y}, col, 1.0f);
         ImGui::Dummy({node_w, 1.0f});
     };
     // ── Field rows ─────────────────────────────────────────────────────────
