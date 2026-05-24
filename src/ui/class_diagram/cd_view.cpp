@@ -17,8 +17,8 @@ static std::unordered_map<int, float> s_pin_y;
 
 void DrawNode(const CDNode& node, bool selected, bool dimmed, float zoom)
 {
-    // Camera (imnodes zoom transform) handles all sizing — node_w stays in world units.
-    const float node_w = TS::NODE_WIDTH * TS::ui_scale;
+    // node_w scales with zoom so Dummy widgets, dividers, and text all grow together.
+    const float node_w = TS::NODE_WIDTH * TS::ui_scale * zoom;
 
     // LOD font selection: pick the pre-baked size nearest to zoom.
     // correction = zoom / LOD_scale so the LOD font renders at base_size in camera space,
@@ -90,8 +90,6 @@ void DrawNode(const CDNode& node, bool selected, bool dimmed, float zoom)
         ImGui::GetWindowDrawList()->AddLine(p, {p.x + node_w, p.y}, col, 1.0f);
         ImGui::Dummy({node_w, 1.0f});
     };
-    DrawDivider();
-
     // ── Field rows ─────────────────────────────────────────────────────────
     ImGui::SetWindowFontScale(correction);
     ImGui::PushFont(TS::FONT_MONO_LOD[lod]);
