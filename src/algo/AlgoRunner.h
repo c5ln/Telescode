@@ -1,9 +1,9 @@
 #pragma once
 
 #include "AlgoConfig.h"
-#include "BetweennessCentrality.h"  // PassLevel
 #include "Graph.h"
 #include "GraphBuilder.h"           // GraphBuilderResult
+#include "Scoring.h"                // PassLevel
 #include <string>
 #include <vector>
 
