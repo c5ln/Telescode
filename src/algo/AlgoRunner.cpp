@@ -1,6 +1,5 @@
 #include "AlgoRunner.h"
 #include "AlgoDbWriter.h"
-#include "GraphBuilder.h"
 #include "ReadingSequencer.h"
 #include "Scoring.h"
 #include "db/db.h"

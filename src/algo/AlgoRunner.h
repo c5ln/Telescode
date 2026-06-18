@@ -1,8 +1,7 @@
 #pragma once
 
 #include "AlgoConfig.h"
-#include "Graph.h"
-#include "GraphBuilder.h"           // GraphBuilderResult
+#include "Graph.h"                  // Graph, GraphBuilderResult
 #include "Scoring.h"                // PassLevel
 #include <string>
 #include <vector>

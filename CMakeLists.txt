@@ -191,7 +191,6 @@ target_link_libraries(TelescodeUpdater PRIVATE
 # ── algo static library ────────────────────────────────────────────────────────
 add_library(algo STATIC
     src/algo/Graph.cpp
-    src/algo/GraphBuilder.cpp
     src/algo/Scoring.cpp
     src/algo/ReadingSequencer.cpp
     src/algo/AlgoRunner.cpp
