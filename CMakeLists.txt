@@ -108,6 +108,9 @@ add_executable(Telescode
     src/main.cpp
     src/ui/ts_app.cpp
     src/ui/ts_canvas.cpp
+    src/ui/class_diagram/cd_view.cpp
+    src/ui/class_diagram/cd_arrowhead.cpp
+    src/ui/class_diagram/cd_builder.cpp
     src/db/db.cpp
 )
 target_include_directories(Telescode PRIVATE
@@ -223,6 +226,9 @@ add_test(NAME AlgoTests COMMAND AlgoTests)
 add_executable(CanvasTests
     tests/ui/test_ts_canvas.cpp
     src/ui/ts_canvas.cpp
+    src/ui/class_diagram/cd_view.cpp
+    src/ui/class_diagram/cd_builder.cpp
+    src/ui/class_diagram/cd_arrowhead.cpp
 )
 target_include_directories(CanvasTests PRIVATE
     ${imgui_SOURCE_DIR}
@@ -231,6 +237,22 @@ target_include_directories(CanvasTests PRIVATE
 target_link_libraries(CanvasTests PRIVATE
     imgui
     imnodes
+    sqlite3
     GTest::gtest_main
 )
 add_test(NAME CanvasTests COMMAND CanvasTests)
+
+add_executable(DiagramTests
+    tests/ui/test_cd_arrowhead.cpp
+    src/ui/class_diagram/cd_arrowhead.cpp
+)
+target_include_directories(DiagramTests PRIVATE
+    ${imgui_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/src
+)
+target_compile_definitions(DiagramTests PRIVATE IMGUI_DEFINE_MATH_OPERATORS)
+target_link_libraries(DiagramTests PRIVATE
+    imgui
+    GTest::gtest_main
+)
+add_test(NAME DiagramTests COMMAND DiagramTests)

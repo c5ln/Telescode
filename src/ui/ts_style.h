@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <cmath>
 #include <imgui.h>
 #include <imnodes.h>
 
@@ -189,9 +190,34 @@ inline constexpr float ZOOM_SMOOTH_SPEED = 12.0f; // exponential smoothing rate 
 // +-----------------------------------------------------------------------------+
 
 inline ImFont* FONT_BASE   = nullptr; // Inter Regular  13px   -- body, sidebar
-inline ImFont* FONT_MEDIUM = nullptr; // Inter Medium   13px   -- node titles
-inline ImFont* FONT_SMALL  = nullptr; // Inter Regular  11.5px -- subtitles, badges
-inline ImFont* FONT_MONO   = nullptr; // JetBrains Mono 11.5px -- method signatures
+inline ImFont* FONT_MEDIUM = nullptr; // Inter Medium   13px   -- node titles (= LOD[1])
+inline ImFont* FONT_SMALL  = nullptr; // Inter Regular  11.5px -- subtitles   (= LOD[1])
+inline ImFont* FONT_MONO   = nullptr; // JetBrains Mono 11.5px -- methods     (= LOD[1])
+
+// +-----------------------------------------------------------------------------+
+// |  Multi-LOD canvas fonts                                                     |
+// |  Fonts pre-baked at 4 sizes spanning ZOOM_MIN..ZOOM_MAX.                   |
+// |  Use GetFontLOD(zoom) to select the index, then PushFont(*_LOD[lod]).      |
+// |  SetWindowFontScale(zoom / FONT_LOD_SCALES[lod]) corrects the remainder.   |
+// +-----------------------------------------------------------------------------+
+
+inline constexpr int   FONT_LOD_COUNT              = 13;
+inline constexpr float FONT_LOD_SCALES[FONT_LOD_COUNT] = { 0.5f, 0.625f, 0.75f, 0.875f, 1.0f, 1.125f, 1.25f, 1.365f, 1.5f, 1.625f, 1.75f, 1.875f, 2.0f };
+
+inline ImFont* FONT_MEDIUM_LOD[FONT_LOD_COUNT] = {};
+inline ImFont* FONT_SMALL_LOD [FONT_LOD_COUNT] = {};
+inline ImFont* FONT_MONO_LOD  [FONT_LOD_COUNT] = {};
+
+inline int GetFontLOD(float zoom)
+{
+    int   best      = 0;
+    float best_diff = fabsf(zoom - FONT_LOD_SCALES[0]);
+    for (int i = 1; i < FONT_LOD_COUNT; ++i) {
+        const float d = fabsf(zoom - FONT_LOD_SCALES[i]);
+        if (d < best_diff) { best_diff = d; best = i; }
+    }
+    return best;
+}
 
 // +-----------------------------------------------------------------------------+
 // |  LoadFonts                                                                  |
@@ -211,16 +237,31 @@ inline void LoadFonts(ImGuiIO& io)
     const float small_sz = FONT_SIZE_SMALL * ui_scale;
     const float mono_sz  = FONT_SIZE_MONO  * ui_scale;
 
-    FONT_BASE   = io.Fonts->AddFontFromFileTTF("assets/fonts/Inter-Regular.ttf",         base_sz);
-    FONT_MEDIUM = io.Fonts->AddFontFromFileTTF("assets/fonts/Inter-Medium.ttf",          base_sz);
-    FONT_SMALL  = io.Fonts->AddFontFromFileTTF("assets/fonts/Inter-Regular.ttf",         small_sz);
-    FONT_MONO   = io.Fonts->AddFontFromFileTTF("assets/fonts/JetBrainsMono-Regular.ttf", mono_sz);
+    // UI fonts (fixed size, not zoom-dependent)
+    FONT_BASE = io.Fonts->AddFontFromFileTTF("assets/fonts/Inter-Regular.ttf", base_sz);
+    if (!FONT_BASE) FONT_BASE = io.Fonts->AddFontDefault();
 
-    // Graceful fallback: use ImGui's embedded ProggyClean if any file is absent.
-    if (!FONT_BASE)   FONT_BASE   = io.Fonts->AddFontDefault();
-    if (!FONT_MEDIUM) FONT_MEDIUM = io.Fonts->AddFontDefault();
-    if (!FONT_SMALL)  FONT_SMALL  = io.Fonts->AddFontDefault();
-    if (!FONT_MONO)   FONT_MONO   = io.Fonts->AddFontDefault();
+    // Canvas fonts: one atlas entry per LOD scale.
+    // LOD[1] (1x) is also aliased to FONT_MEDIUM / FONT_SMALL / FONT_MONO.
+    for (int i = 0; i < FONT_LOD_COUNT; ++i) {
+        const float s = FONT_LOD_SCALES[i];
+
+        FONT_MEDIUM_LOD[i] = io.Fonts->AddFontFromFileTTF(
+            "assets/fonts/Inter-Medium.ttf", base_sz * s);
+        FONT_SMALL_LOD[i]  = io.Fonts->AddFontFromFileTTF(
+            "assets/fonts/Inter-Regular.ttf", small_sz * s);
+        FONT_MONO_LOD[i]   = io.Fonts->AddFontFromFileTTF(
+            "assets/fonts/JetBrainsMono-Regular.ttf", mono_sz * s);
+
+        if (!FONT_MEDIUM_LOD[i]) FONT_MEDIUM_LOD[i] = io.Fonts->AddFontDefault();
+        if (!FONT_SMALL_LOD[i])  FONT_SMALL_LOD[i]  = io.Fonts->AddFontDefault();
+        if (!FONT_MONO_LOD[i])   FONT_MONO_LOD[i]   = io.Fonts->AddFontDefault();
+    }
+
+    // Keep legacy pointers valid (LOD[1] == 1x scale)
+    FONT_MEDIUM = FONT_MEDIUM_LOD[1];
+    FONT_SMALL  = FONT_SMALL_LOD[1];
+    FONT_MONO   = FONT_MONO_LOD[1];
 }
 
 // +-----------------------------------------------------------------------------+

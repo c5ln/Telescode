@@ -12,6 +12,7 @@ DbInserter::DbInserter(sqlite3* db)
     , stmtFunction_(nullptr)
     , stmtParam_(nullptr)
     , stmtLink_(nullptr)
+    , stmtField_(nullptr)
 {}
 
 DbInserter::~DbInserter()
@@ -55,6 +56,11 @@ int DbInserter::prepareStatements()
         -1, &stmtLink_, nullptr);
     if (rc != SQLITE_OK) return rc;
 
+    rc = sqlite3_prepare_v2(db_,
+        "INSERT OR REPLACE INTO field(class_id, field_name, access) VALUES(?,?,?);",
+        -1, &stmtField_, nullptr);
+    if (rc != SQLITE_OK) return rc;
+
     return SQLITE_OK;
 }
 
@@ -66,6 +72,7 @@ void DbInserter::finalizeStatements()
     sqlite3_finalize(stmtFunction_);  stmtFunction_  = nullptr;
     sqlite3_finalize(stmtParam_);     stmtParam_     = nullptr;
     sqlite3_finalize(stmtLink_);      stmtLink_      = nullptr;
+    sqlite3_finalize(stmtField_);     stmtField_     = nullptr;
 }
 
 // ── Insert helpers ────────────────────────────────────────────────────────────
@@ -144,6 +151,17 @@ int DbInserter::insertLink(const LinkEntity& e)
     return (rc == SQLITE_DONE) ? SQLITE_OK : rc;
 }
 
+int DbInserter::insertField(const FieldEntity& e)
+{
+    const char access_str[2] = { e.access, '\0' };
+    sqlite3_reset(stmtField_);
+    sqlite3_bind_text(stmtField_, 1, e.class_id.c_str(),   -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmtField_, 2, e.field_name.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmtField_, 3, access_str,            -1, SQLITE_TRANSIENT);
+    int rc = sqlite3_step(stmtField_);
+    return (rc == SQLITE_DONE) ? SQLITE_OK : rc;
+}
+
 // ── insertResults ─────────────────────────────────────────────────────────────
 
 int DbInserter::insertResults(sqlite3* db,
@@ -180,6 +198,11 @@ int DbInserter::insertResults(sqlite3* db,
 
         for (const LinkEntity& l : r.links) {
             rc = inserter.insertLink(l);
+            if (rc != SQLITE_OK) return rc;
+        }
+
+        for (const FieldEntity& f : r.fields) {
+            rc = inserter.insertField(f);
             if (rc != SQLITE_OK) return rc;
         }
     }

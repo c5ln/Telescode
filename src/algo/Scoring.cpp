@@ -5,18 +5,10 @@
 #include <limits>
 #include <numeric>
 
-// ── PageRank ──────────────────────────────────────────────────────────────────
-//
-// Power-method PageRank with dangling-node redistribution.
-//
-// Edge A→B means A imports/calls B, so PR(B) accumulates → B read first.
-// Dangling nodes (out-degree 0) redistribute their mass uniformly across all nodes.
-//
-// PR(v) = (1-d)/N
-//       + d * Σ_{u→v} PR(u)/out(u)
-//       + d * (Σ_{dangling u} PR(u)) / N
-//
-// Convergence: Σ|PR_new - PR_old| < eps
+
+// 처음에 1/N으로 가중치를 나눠준 다음에 노드를 쭉 돌면서, out degree 방향의 node에게 가중치를 다시 나눠준다. (out degree 방향은 A가 B를 import한다면, A->B를 의미한다)
+// 이를 반복하다가 이전 PageRank와 새로운 PageRank의 차이가 일정 수준 미안이면 종료한다. 현재는 eps가 1e-6 = 10^(-6)이다.
+
 std::vector<double> PageRank::compute(const Graph& g, const AlgoConfig& cfg)
 {
     const int N = g.size();
@@ -102,3 +94,30 @@ std::vector<double> ScoreCombiner::combine(const std::vector<double>& pr,
 
     return score;
 }
+
+// 
+//   핵심 수식
+
+//   PR(v) = (1-d)/N
+//         + d * Σ_{u→v} PR(u)/out(u)
+//         + d * (Σ_{dangling u} PR(u)) / N
+
+//   - d (damping factor): 임의로 다른 노드로 점프할 확률의 반대. 보통 0.85
+//   - N: 전체 노드 수
+//   - out(u): u의 아웃 엣지 수
+
+//   ---
+//   동작 방식
+
+//   초기화 (28행): 모든 노드의 PR을 1/N으로 균등 분배.
+
+//   반복 루프 (35-58행):
+
+//   1. Dangling node 처리 (36-39행)
+//   아웃 엣지가 없는 노드들은 PR을 어디에도 흘려보내지 못하므로, 이들의 합을 모아 전체 노드에 균등 재분배.
+//   2. base 값 계산 (41행)
+//   (1-d)/N (임의 점프 확률) + dangling node 재분배량. 모든 노드가 기본으로 받는 값.
+//   3. 엣지를 통한 PR 전파 (45-49행)
+//   u → v 엣지가 있으면, u의 PR을 아웃 엣지 수로 나눠 v에 분배.
+//   4. 수렴 판정 (52-58행)
+//   이전 PR과 새 PR의 L1 차이(Σ|PR_new - PR_old|)가 eps 미만이면 종료.
