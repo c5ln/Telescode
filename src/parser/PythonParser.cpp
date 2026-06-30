@@ -798,18 +798,21 @@ ParseResult PythonParser::parseFile(const std::string& filePath,
 
     resolveCallTargets(result);
 
-    // Roll up cyclomatic complexity to file level
+    // Roll up per-function metrics to file level
     {
-        int maxCC = 0;
-        double sumCC = 0.0;
+        int maxCC = 0, maxBD = 0;
+        double sumCC = 0.0, sumBD = 0.0;
         for (const auto& fn : result.functions) {
-            if (fn.cyclomatic_complexity > maxCC)
-                maxCC = fn.cyclomatic_complexity;
+            if (fn.cyclomatic_complexity > maxCC) maxCC = fn.cyclomatic_complexity;
+            if (fn.max_block_depth       > maxBD) maxBD = fn.max_block_depth;
             sumCC += fn.cyclomatic_complexity;
+            sumBD += fn.max_block_depth;
         }
+        double n = (double)result.functions.size();
         result.file.max_cyclomatic_complexity = maxCC;
-        result.file.avg_cyclomatic_complexity =
-            result.functions.empty() ? 0.0 : sumCC / result.functions.size();
+        result.file.avg_cyclomatic_complexity = n > 0 ? sumCC / n : 0.0;
+        result.file.max_block_depth           = maxBD;
+        result.file.avg_block_depth           = n > 0 ? sumBD / n : 0.0;
     }
 
     // Deduplicate links to satisfy PRIMARY KEY (source_id, target_id, link_type)

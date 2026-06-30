@@ -10,6 +10,8 @@ struct FileEntity {
     int loc;               // line count
     int   max_cyclomatic_complexity; // max CC across functions in this file
     double avg_cyclomatic_complexity; // avg CC across functions in this file
+    int   max_block_depth;           // worst function's block nesting depth
+    double avg_block_depth;          // avg block nesting depth across functions
 };
 
 struct ClassEntity {

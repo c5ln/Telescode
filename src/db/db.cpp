@@ -14,7 +14,9 @@ static const char* kInitSQL =
     "    language                  TEXT NOT NULL,"
     "    loc                       INTEGER NOT NULL,"
     "    max_cyclomatic_complexity INTEGER NOT NULL DEFAULT 0,"
-    "    avg_cyclomatic_complexity REAL    NOT NULL DEFAULT 0.0"
+    "    avg_cyclomatic_complexity REAL    NOT NULL DEFAULT 0.0,"
+    "    max_block_depth           INTEGER NOT NULL DEFAULT 0,"
+    "    avg_block_depth           REAL    NOT NULL DEFAULT 0.0"
     ");"
 
     "CREATE TABLE IF NOT EXISTS class ("
