@@ -105,6 +105,36 @@ static int countCyclomaticComplexity(TSNode node) {
     return count;
 }
 
+// ─── computeMaxBlockDepth ────────────────────────────────────────────────────
+// Track the deepest control-flow nesting inside one function body.
+// `depth` is the depth *entering* this node; caller passes 0 for the body root.
+// Does NOT descend into nested function_definition or lambda nodes.
+
+static void computeMaxBlockDepth(TSNode node, int depth, int& maxDepth) {
+    if (nodeIsNull(node)) return;
+
+    std::string type = nodeType(node);
+
+    // Nested definitions own their own depth — stop here.
+    if (type == "function_definition" || type == "lambda") return;
+
+    // These constructs each add one level. elif/else/except/finally/case_clause
+    // are children of these nodes and share the parent's incremented depth.
+    if (type == "if_statement"    ||
+        type == "for_statement"   ||
+        type == "while_statement" ||
+        type == "try_statement"   ||
+        type == "with_statement"  ||
+        type == "match_statement") {
+        ++depth;
+        if (depth > maxDepth) maxDepth = depth;
+    }
+
+    uint32_t n = ts_node_child_count(node);
+    for (uint32_t i = 0; i < n; ++i)
+        computeMaxBlockDepth(ts_node_child(node, i), depth, maxDepth);
+}
+
 // ─── forward declarations ────────────────────────────────────────────────────
 static void traverseNode(TSNode node, TraversalContext& ctx);
 static void handleClassDef(TSNode node, TraversalContext& ctx);
@@ -248,9 +278,14 @@ static void handleFunctionDef(TSNode node, TraversalContext& ctx, bool isAsync) 
     int startLine = (int)ts_node_start_point(node).row;
     int endLine   = (int)ts_node_end_point(node).row;
 
-    // Cyclomatic complexity: base 1 + decision points in body.
+    // Compute per-function metrics that require an AST pass over the body.
     TSNode bodyNode = childByFieldName(node, "body");
+
     int cc = 1 + (!nodeIsNull(bodyNode) ? countCyclomaticComplexity(bodyNode) : 0);
+
+    int maxBlockDepth = 0;
+    if (!nodeIsNull(bodyNode))
+        computeMaxBlockDepth(bodyNode, 0, maxBlockDepth);
 
     FunctionEntity fe;
     fe.function_id            = funcId;
@@ -258,6 +293,7 @@ static void handleFunctionDef(TSNode node, TraversalContext& ctx, bool isAsync) 
     fe.nesting_depth          = ctx.nestingDepth();
     fe.is_async               = isAsync ? 1 : 0;
     fe.cyclomatic_complexity  = cc;
+    fe.max_block_depth        = maxBlockDepth;
     fe.start_line             = startLine;
     fe.end_line               = endLine;
     if (ctx.parentIsClass())

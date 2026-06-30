@@ -42,6 +42,7 @@ static const char* kInitSQL =
     "    nesting_depth          INTEGER NOT NULL DEFAULT 0,"
     "    is_async               INTEGER NOT NULL DEFAULT 0,"
     "    cyclomatic_complexity  INTEGER NOT NULL DEFAULT 1,"
+    "    max_block_depth        INTEGER NOT NULL DEFAULT 0,"
     "    start_line             INTEGER NOT NULL,"
     "    end_line               INTEGER NOT NULL,"
     "    CHECK ((file_id IS NULL) <> (class_id IS NULL))"
