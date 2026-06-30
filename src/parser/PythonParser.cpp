@@ -71,6 +71,40 @@ struct TraversalContext {
     }
 };
 
+// ─── countCyclomaticComplexity ────────────────────────────────────────────────
+// Count branch decision points inside one function's body.
+// Returns the count to ADD to the base complexity of 1.
+// Does NOT descend into nested function_definition or lambda nodes.
+
+static int countCyclomaticComplexity(TSNode node) {
+    if (nodeIsNull(node)) return 0;
+
+    std::string type = nodeType(node);
+
+    // Nested functions/lambdas own their own CC; don't bleed into parent.
+    if (type == "function_definition" || type == "lambda") return 0;
+
+    int count = 0;
+
+    // Each of these node types represents one additional decision point.
+    if (type == "if_statement"          ||  // if ...
+        type == "elif_clause"           ||  // elif ...
+        type == "for_statement"         ||  // for ...
+        type == "while_statement"       ||  // while ...
+        type == "case_clause"           ||  // match arm
+        type == "except_clause"         ||  // except ...
+        type == "conditional_expression"||  // x if cond else y
+        type == "boolean_operator") {       // ... and/or ...
+        count += 1;
+    }
+
+    uint32_t n = ts_node_child_count(node);
+    for (uint32_t i = 0; i < n; ++i)
+        count += countCyclomaticComplexity(ts_node_child(node, i));
+
+    return count;
+}
+
 // ─── forward declarations ────────────────────────────────────────────────────
 static void traverseNode(TSNode node, TraversalContext& ctx);
 static void handleClassDef(TSNode node, TraversalContext& ctx);
@@ -214,13 +248,18 @@ static void handleFunctionDef(TSNode node, TraversalContext& ctx, bool isAsync) 
     int startLine = (int)ts_node_start_point(node).row;
     int endLine   = (int)ts_node_end_point(node).row;
 
+    // Cyclomatic complexity: base 1 + decision points in body.
+    TSNode bodyNode = childByFieldName(node, "body");
+    int cc = 1 + (!nodeIsNull(bodyNode) ? countCyclomaticComplexity(bodyNode) : 0);
+
     FunctionEntity fe;
-    fe.function_id   = funcId;
-    fe.function_name = funcName;
-    fe.nesting_depth = ctx.nestingDepth();
-    fe.is_async      = isAsync ? 1 : 0;
-    fe.start_line    = startLine;
-    fe.end_line      = endLine;
+    fe.function_id            = funcId;
+    fe.function_name          = funcName;
+    fe.nesting_depth          = ctx.nestingDepth();
+    fe.is_async               = isAsync ? 1 : 0;
+    fe.cyclomatic_complexity  = cc;
+    fe.start_line             = startLine;
+    fe.end_line               = endLine;
     if (ctx.parentIsClass())
         fe.class_id = parentId;
     else
@@ -280,8 +319,7 @@ static void handleFunctionDef(TSNode node, TraversalContext& ctx, bool isAsync) 
         }
     }
 
-    // Collect CALLS from the function body
-    TSNode bodyNode = childByFieldName(node, "body");
+    // Collect CALLS from the function body (bodyNode already fetched above)
     if (!nodeIsNull(bodyNode)) {
         collectCalls(bodyNode, funcId, ctx.src, ctx.result);
         // Collect self.attr assignments — only meaningful inside methods

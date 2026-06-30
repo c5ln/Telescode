@@ -31,6 +31,7 @@ struct FunctionEntity {
     std::string function_name;
     int nesting_depth;
     int is_async;              // 0 or 1
+    int cyclomatic_complexity; // base 1 + branch count
     int start_line;            // 0-indexed
     int end_line;              // 0-indexed
 };
