@@ -771,10 +771,24 @@ ParseResult PythonParser::parseFile(const std::string& filePath,
     // If file doesn't end with newline, add 1 for the last line
     if (!src.empty() && src.back() != '\n') ++loc;
 
-    result.file.file_id  = fileId;
-    result.file.file_name= absPath.filename().string();
-    result.file.language = "python";
-    result.file.loc      = loc;
+    // Logical LOC: exclude blank lines and comment-only lines.
+    int logical_loc = 0;
+    {
+        std::istringstream lss(src);
+        std::string ln;
+        while (std::getline(lss, ln)) {
+            size_t first = ln.find_first_not_of(" \t\r");
+            if (first == std::string::npos) continue; // blank
+            if (ln[first] == '#') continue;            // comment-only
+            ++logical_loc;
+        }
+    }
+
+    result.file.file_id     = fileId;
+    result.file.file_name   = absPath.filename().string();
+    result.file.language    = "python";
+    result.file.raw_loc     = loc;
+    result.file.logical_loc = logical_loc;
 
     // Parse with tree-sitter
     TSParser* parser = static_cast<TSParser*>(m_parser);

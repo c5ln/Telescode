@@ -7,7 +7,8 @@ struct FileEntity {
     std::string file_id;   // relative path from repo root
     std::string file_name; // basename
     std::string language;
-    int loc;               // line count
+    int raw_loc;             // total line count (including blanks and comments)
+    int logical_loc;         // non-blank, non-comment line count
     int   max_cyclomatic_complexity; // max CC across functions in this file
     double avg_cyclomatic_complexity; // avg CC across functions in this file
     int   max_block_depth;           // worst function's block nesting depth

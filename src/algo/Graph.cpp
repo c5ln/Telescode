@@ -275,7 +275,7 @@ static void build_extra_maps(sqlite3* db,
     // files: loc
     stmt = nullptr;
     sqlite3_prepare_v2(db,
-        "SELECT file_id, loc FROM file;",
+        "SELECT file_id, raw_loc FROM file;",
         -1, &stmt, nullptr);
     if (stmt) {
         while (sqlite3_step(stmt) == SQLITE_ROW) {
