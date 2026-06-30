@@ -27,7 +27,7 @@ int DbInserter::prepareStatements()
     int rc;
 
     rc = sqlite3_prepare_v2(db_,
-        "INSERT OR REPLACE INTO file(file_id, file_name, language, loc, max_cyclomatic_complexity, avg_cyclomatic_complexity, max_block_depth, avg_block_depth) VALUES(?,?,?,?,?,?,?,?);",
+        "INSERT OR REPLACE INTO file(file_id, file_name, language, loc, max_cyclomatic_complexity, avg_cyclomatic_complexity, max_block_depth, avg_block_depth, max_function_loc, avg_function_loc) VALUES(?,?,?,?,?,?,?,?,?,?);",
         -1, &stmtFile_, nullptr);
     if (rc != SQLITE_OK) return rc;
 
@@ -42,7 +42,7 @@ int DbInserter::prepareStatements()
     if (rc != SQLITE_OK) return rc;
 
     rc = sqlite3_prepare_v2(db_,
-        "INSERT OR REPLACE INTO function(function_id, file_id, class_id, function_name, nesting_depth, is_async, cyclomatic_complexity, max_block_depth, start_line, end_line) VALUES(?,?,?,?,?,?,?,?,?,?);",
+        "INSERT OR REPLACE INTO function(function_id, file_id, class_id, function_name, nesting_depth, is_async, cyclomatic_complexity, max_block_depth, loc, start_line, end_line) VALUES(?,?,?,?,?,?,?,?,?,?,?);",
         -1, &stmtFunction_, nullptr);
     if (rc != SQLITE_OK) return rc;
 
@@ -86,8 +86,10 @@ int DbInserter::insertFile(const FileEntity& e)
     sqlite3_bind_int   (stmtFile_, 4, e.loc);
     sqlite3_bind_int   (stmtFile_, 5, e.max_cyclomatic_complexity);
     sqlite3_bind_double(stmtFile_, 6, e.avg_cyclomatic_complexity);
-    sqlite3_bind_int   (stmtFile_, 7, e.max_block_depth);
-    sqlite3_bind_double(stmtFile_, 8, e.avg_block_depth);
+    sqlite3_bind_int   (stmtFile_, 7,  e.max_block_depth);
+    sqlite3_bind_double(stmtFile_, 8,  e.avg_block_depth);
+    sqlite3_bind_int   (stmtFile_, 9,  e.max_function_loc);
+    sqlite3_bind_double(stmtFile_, 10, e.avg_function_loc);
     int rc = sqlite3_step(stmtFile_);
     return (rc == SQLITE_DONE) ? SQLITE_OK : rc;
 }
@@ -129,10 +131,11 @@ int DbInserter::insertFunction(const FunctionEntity& e)
     sqlite3_bind_text(stmtFunction_, 4, e.function_name.c_str(), -1, SQLITE_STATIC);
     sqlite3_bind_int (stmtFunction_, 5, e.nesting_depth);
     sqlite3_bind_int (stmtFunction_, 6, e.is_async);
-    sqlite3_bind_int (stmtFunction_, 7, e.cyclomatic_complexity);
-    sqlite3_bind_int (stmtFunction_, 8, e.max_block_depth);
-    sqlite3_bind_int (stmtFunction_, 9, e.start_line);
-    sqlite3_bind_int (stmtFunction_, 10, e.end_line);
+    sqlite3_bind_int (stmtFunction_, 7,  e.cyclomatic_complexity);
+    sqlite3_bind_int (stmtFunction_, 8,  e.max_block_depth);
+    sqlite3_bind_int (stmtFunction_, 9,  e.loc);
+    sqlite3_bind_int (stmtFunction_, 10, e.start_line);
+    sqlite3_bind_int (stmtFunction_, 11, e.end_line);
     int rc = sqlite3_step(stmtFunction_);
     return (rc == SQLITE_DONE) ? SQLITE_OK : rc;
 }

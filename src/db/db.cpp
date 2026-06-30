@@ -16,7 +16,9 @@ static const char* kInitSQL =
     "    max_cyclomatic_complexity INTEGER NOT NULL DEFAULT 0,"
     "    avg_cyclomatic_complexity REAL    NOT NULL DEFAULT 0.0,"
     "    max_block_depth           INTEGER NOT NULL DEFAULT 0,"
-    "    avg_block_depth           REAL    NOT NULL DEFAULT 0.0"
+    "    avg_block_depth           REAL    NOT NULL DEFAULT 0.0,"
+    "    max_function_loc          INTEGER NOT NULL DEFAULT 0,"
+    "    avg_function_loc          REAL    NOT NULL DEFAULT 0.0"
     ");"
 
     "CREATE TABLE IF NOT EXISTS class ("
@@ -45,6 +47,7 @@ static const char* kInitSQL =
     "    is_async               INTEGER NOT NULL DEFAULT 0,"
     "    cyclomatic_complexity  INTEGER NOT NULL DEFAULT 1,"
     "    max_block_depth        INTEGER NOT NULL DEFAULT 0,"
+    "    loc                    INTEGER NOT NULL DEFAULT 0,"
     "    start_line             INTEGER NOT NULL,"
     "    end_line               INTEGER NOT NULL,"
     "    CHECK ((file_id IS NULL) <> (class_id IS NULL))"

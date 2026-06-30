@@ -332,6 +332,7 @@ static void handleFunctionDef(TSNode node, TraversalContext& ctx, bool isAsync) 
     fe.is_async               = isAsync ? 1 : 0;
     fe.cyclomatic_complexity  = cc;
     fe.max_block_depth        = maxBlockDepth;
+    fe.loc                    = endLine - startLine + 1;
     fe.start_line             = startLine;
     fe.end_line               = endLine;
     if (ctx.parentIsClass())
@@ -800,19 +801,23 @@ ParseResult PythonParser::parseFile(const std::string& filePath,
 
     // Roll up per-function metrics to file level
     {
-        int maxCC = 0, maxBD = 0;
-        double sumCC = 0.0, sumBD = 0.0;
+        int maxCC = 0, maxBD = 0, maxLOC = 0;
+        double sumCC = 0.0, sumBD = 0.0, sumLOC = 0.0;
         for (const auto& fn : result.functions) {
-            if (fn.cyclomatic_complexity > maxCC) maxCC = fn.cyclomatic_complexity;
-            if (fn.max_block_depth       > maxBD) maxBD = fn.max_block_depth;
-            sumCC += fn.cyclomatic_complexity;
-            sumBD += fn.max_block_depth;
+            if (fn.cyclomatic_complexity > maxCC)  maxCC  = fn.cyclomatic_complexity;
+            if (fn.max_block_depth       > maxBD)  maxBD  = fn.max_block_depth;
+            if (fn.loc                   > maxLOC) maxLOC = fn.loc;
+            sumCC  += fn.cyclomatic_complexity;
+            sumBD  += fn.max_block_depth;
+            sumLOC += fn.loc;
         }
         double n = (double)result.functions.size();
         result.file.max_cyclomatic_complexity = maxCC;
-        result.file.avg_cyclomatic_complexity = n > 0 ? sumCC / n : 0.0;
+        result.file.avg_cyclomatic_complexity = n > 0 ? sumCC  / n : 0.0;
         result.file.max_block_depth           = maxBD;
-        result.file.avg_block_depth           = n > 0 ? sumBD / n : 0.0;
+        result.file.avg_block_depth           = n > 0 ? sumBD  / n : 0.0;
+        result.file.max_function_loc          = maxLOC;
+        result.file.avg_function_loc          = n > 0 ? sumLOC / n : 0.0;
     }
 
     // Deduplicate links to satisfy PRIMARY KEY (source_id, target_id, link_type)
