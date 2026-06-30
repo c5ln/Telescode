@@ -101,4 +101,4 @@ repos/*
 !repos/README.md
 tests/**
 docs/**
-output/**
+output/**imgui.ini
