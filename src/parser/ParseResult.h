@@ -10,12 +10,14 @@ struct FileEntity {
     int raw_loc;           // total line count (including blanks and comments)
     int logical_loc;       // non-blank, non-comment line count
     int is_generated;      // 1 if vendored/generated, 0 otherwise
-    int    max_cyclomatic_complexity = 0;  // \
-    double avg_cyclomatic_complexity = 0.0;//  | zero-function files must not
-    int    max_block_depth           = 0;  //  | produce nulls; these six fields
-    double avg_block_depth           = 0.0;//  | are the only ones that derive
-    int    max_function_loc          = 0;  //  | from the function list and could
-    double avg_function_loc          = 0.0;// /  otherwise be left unset
+    // zero-function files must not produce nulls; these six fields derive
+    // from the function list and could otherwise be left unset
+    int    max_cyclomatic_complexity = 0;
+    double avg_cyclomatic_complexity = 0.0;
+    int    max_block_depth           = 0;
+    double avg_block_depth           = 0.0;
+    int    max_function_loc          = 0;
+    double avg_function_loc          = 0.0;
 };
 
 struct ClassEntity {
