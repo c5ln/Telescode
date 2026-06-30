@@ -14,6 +14,7 @@ static const char* kInitSQL =
     "    language                  TEXT NOT NULL,"
     "    raw_loc                   INTEGER NOT NULL,"
     "    logical_loc               INTEGER NOT NULL DEFAULT 0,"
+    "    is_generated              INTEGER NOT NULL DEFAULT 0,"
     "    max_cyclomatic_complexity INTEGER NOT NULL DEFAULT 0,"
     "    avg_cyclomatic_complexity REAL    NOT NULL DEFAULT 0.0,"
     "    max_block_depth           INTEGER NOT NULL DEFAULT 0,"

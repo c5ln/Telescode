@@ -9,6 +9,7 @@ struct FileEntity {
     std::string language;
     int raw_loc;             // total line count (including blanks and comments)
     int logical_loc;         // non-blank, non-comment line count
+    int is_generated;        // 1 if vendored/generated, 0 otherwise
     int   max_cyclomatic_complexity; // max CC across functions in this file
     double avg_cyclomatic_complexity; // avg CC across functions in this file
     int   max_block_depth;           // worst function's block nesting depth
