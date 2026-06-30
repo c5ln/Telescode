@@ -9,10 +9,12 @@ static const char* kInitSQL =
     "PRAGMA synchronous = NORMAL;"
 
     "CREATE TABLE IF NOT EXISTS file ("
-    "    file_id   TEXT PRIMARY KEY,"
-    "    file_name TEXT NOT NULL,"
-    "    language  TEXT NOT NULL,"
-    "    loc       INTEGER NOT NULL"
+    "    file_id                   TEXT PRIMARY KEY,"
+    "    file_name                 TEXT NOT NULL,"
+    "    language                  TEXT NOT NULL,"
+    "    loc                       INTEGER NOT NULL,"
+    "    max_cyclomatic_complexity INTEGER NOT NULL DEFAULT 0,"
+    "    avg_cyclomatic_complexity REAL    NOT NULL DEFAULT 0.0"
     ");"
 
     "CREATE TABLE IF NOT EXISTS class ("

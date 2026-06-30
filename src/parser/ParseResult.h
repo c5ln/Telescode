@@ -8,6 +8,8 @@ struct FileEntity {
     std::string file_name; // basename
     std::string language;
     int loc;               // line count
+    int   max_cyclomatic_complexity; // max CC across functions in this file
+    double avg_cyclomatic_complexity; // avg CC across functions in this file
 };
 
 struct ClassEntity {

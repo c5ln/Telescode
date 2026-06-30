@@ -724,6 +724,20 @@ ParseResult PythonParser::parseFile(const std::string& filePath,
 
     resolveCallTargets(result);
 
+    // Roll up cyclomatic complexity to file level
+    {
+        int maxCC = 0;
+        double sumCC = 0.0;
+        for (const auto& fn : result.functions) {
+            if (fn.cyclomatic_complexity > maxCC)
+                maxCC = fn.cyclomatic_complexity;
+            sumCC += fn.cyclomatic_complexity;
+        }
+        result.file.max_cyclomatic_complexity = maxCC;
+        result.file.avg_cyclomatic_complexity =
+            result.functions.empty() ? 0.0 : sumCC / result.functions.size();
+    }
+
     // Deduplicate links to satisfy PRIMARY KEY (source_id, target_id, link_type)
     // Same (source, target, type) can be generated multiple times, e.g.:
     //   - CALLS: same callee invoked N times in one function body
