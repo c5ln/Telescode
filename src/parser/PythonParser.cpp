@@ -788,17 +788,22 @@ ParseResult PythonParser::parseFile(const std::string& filePath,
     // visible; downstream ranking can filter on is_generated = 0.
     int is_generated = 0;
 
-    // Path-based: known vendor/env directory components in the relative file id.
+    // Path-based: split fileId by '/' and compare each directory segment in full.
+    // Filename (last component) is skipped — only directory segments are checked.
     {
         static const char* kSegments[] = {
             "vendor", "_vendor", "third_party", "node_modules",
-            "venv", ".venv", "site-packages", "__pycache__", nullptr
+            "venv", ".venv", "site-packages", "__pycache__",
+            "dist", "build", "out", nullptr
         };
-        for (int si = 0; kSegments[si] && !is_generated; ++si) {
-            std::string seg = kSegments[si];
-            if (fileId.find("/" + seg + "/") != std::string::npos ||
-                fileId.compare(0, seg.size() + 1, seg + "/") == 0)
-                is_generated = 1;
+        std::string remaining = fileId;
+        size_t pos;
+        while ((pos = remaining.find('/')) != std::string::npos && !is_generated) {
+            std::string seg = remaining.substr(0, pos);
+            remaining = remaining.substr(pos + 1);
+            for (int si = 0; kSegments[si] && !is_generated; ++si) {
+                if (seg == kSegments[si]) is_generated = 1;
+            }
         }
     }
 
