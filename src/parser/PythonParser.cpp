@@ -105,7 +105,10 @@ static int countCyclomaticComplexity(TSNode node) {
     return count;
 }
 
-// ─── computeMaxBlockDepth ────────────────────────────────────────────────────
+// ─── computeMaxBlockDepth / computeMaxBlockDepthClauses ──────────────────────
+// Mutually recursive: forward-declare the clause helper first.
+static void computeMaxBlockDepthClauses(TSNode node, int startDepth, int& maxDepth);
+
 // Track the deepest control-flow nesting inside one function body.
 // `depth` is the depth *entering* this node; caller passes 0 for the body root.
 // Does NOT descend into nested function_definition or lambda nodes.
@@ -130,9 +133,44 @@ static void computeMaxBlockDepth(TSNode node, int depth, int& maxDepth) {
         if (depth > maxDepth) maxDepth = depth;
     }
 
+    // Comprehension clauses are AST siblings but semantically nested.
+    // Hand off to the clause helper so each for/if accumulates depth in order.
+    if (type == "list_comprehension"       ||
+        type == "set_comprehension"        ||
+        type == "dictionary_comprehension" ||
+        type == "generator_expression") {
+        computeMaxBlockDepthClauses(node, depth, maxDepth);
+        return;
+    }
+
     uint32_t n = ts_node_child_count(node);
     for (uint32_t i = 0; i < n; ++i)
         computeMaxBlockDepth(ts_node_child(node, i), depth, maxDepth);
+}
+
+// Process children of a comprehension node. for_in_clause and if_clause are
+// flat siblings in the AST but must be counted as if sequentially nested, so
+// clauseDepth accumulates across them. The body expression is not a block and
+// does not contribute depth, so it is processed at the pre-clause startDepth.
+static void computeMaxBlockDepthClauses(TSNode node, int startDepth, int& maxDepth) {
+    int clauseDepth = startDepth;
+    uint32_t n = ts_node_child_count(node);
+    for (uint32_t i = 0; i < n; ++i) {
+        TSNode child = ts_node_child(node, i);
+        if (nodeIsNull(child)) continue;
+        std::string ctype = nodeType(child);
+        if (ctype == "for_in_clause" || ctype == "if_clause") {
+            ++clauseDepth;
+            if (clauseDepth > maxDepth) maxDepth = clauseDepth;
+            // Recurse into clause internals (e.g. nested comprehension in iterable).
+            uint32_t m = ts_node_child_count(child);
+            for (uint32_t j = 0; j < m; ++j)
+                computeMaxBlockDepth(ts_node_child(child, j), clauseDepth, maxDepth);
+        } else {
+            // Body / key / value expression — not a block, use outer depth.
+            computeMaxBlockDepth(child, startDepth, maxDepth);
+        }
+    }
 }
 
 // ─── forward declarations ────────────────────────────────────────────────────
