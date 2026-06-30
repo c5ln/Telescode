@@ -59,9 +59,38 @@ static const char* kInitSQL =
     "    link_type TEXT NOT NULL CHECK(link_type IN ('CALLS', 'INHERITS', 'IMPORTS', 'DECORATES')),"
     "    PRIMARY KEY (source_id, target_id, link_type)"
     ");"
+
+    "CREATE TABLE IF NOT EXISTS field ("
+    "    class_id   TEXT NOT NULL REFERENCES class(class_id) ON DELETE CASCADE,"
+    "    field_name TEXT NOT NULL,"
+    "    access     TEXT NOT NULL DEFAULT '+',"
+    "    PRIMARY KEY (class_id, field_name)"
+    ");"
     "CREATE INDEX IF NOT EXISTS idx_link_source ON link(source_id);"
     "CREATE INDEX IF NOT EXISTS idx_link_target ON link(target_id);"
-    "CREATE INDEX IF NOT EXISTS idx_link_type   ON link(link_type);";
+    "CREATE INDEX IF NOT EXISTS idx_link_type   ON link(link_type);"
+
+    "CREATE TABLE IF NOT EXISTS reading_sequence ("
+    "    entity_id      TEXT PRIMARY KEY,"
+    "    entity_type    TEXT NOT NULL CHECK(entity_type IN ('file', 'class', 'function')),"
+    "    file_id        TEXT NOT NULL REFERENCES file(file_id) ON DELETE CASCADE,"
+    "    file_rank      INTEGER,"
+    "    local_rank     INTEGER,"
+    "    pagerank_score REAL NOT NULL,"
+    "    bc_score       REAL NOT NULL,"
+    "    combined_score REAL NOT NULL,"
+    "    CHECK("
+    "        (entity_type = 'file'  AND file_rank  IS NOT NULL AND local_rank IS NULL) OR"
+    "        (entity_type != 'file' AND local_rank IS NOT NULL AND file_rank  IS NULL)"
+    "    )"
+    ");"
+    "CREATE INDEX IF NOT EXISTS idx_rs_file      ON reading_sequence(file_id);"
+    "CREATE INDEX IF NOT EXISTS idx_rs_file_rank ON reading_sequence(file_rank);"
+
+    "CREATE TABLE IF NOT EXISTS reading_sequence_config ("
+    "    config_key   TEXT PRIMARY KEY,"
+    "    config_value TEXT NOT NULL"
+    ");";
 
 int initDb(const char* dbPath, sqlite3** db)
 {

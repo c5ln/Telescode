@@ -9,12 +9,15 @@
 extern "C" const TSLanguage* tree_sitter_python();
 
 #include "ui/ts_style.h"
+#include "ui/ts_app.h"
+#include "ui/ts_canvas.h"
+#include <sqlite3.h>
 
 #ifdef TELESCODE_STYLE_PREVIEW
 #include "dev/style_preview.h"
 #endif
 
-int main(int, char**)
+int main(int argc, char** argv)
 {
     // -- SDL init ---------------------------------------------------------------
     if (!SDL_Init(SDL_INIT_VIDEO)) {
@@ -24,7 +27,7 @@ int main(int, char**)
 
     SDL_Window* window = SDL_CreateWindow(
         "Telescode",
-        1280, 800,
+        1280, 900,
         SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY
     );
     if (!window) {
@@ -35,6 +38,7 @@ int main(int, char**)
     // DPI scale -- set before LoadFonts so font sizes are correct
     TS::ui_scale = SDL_GetDisplayContentScale(SDL_GetDisplayForWindow(window));
     if (TS::ui_scale < 0.5f) TS::ui_scale = 1.0f;
+    SDL_SetWindowMinimumSize(window, 0, (int)(900.0f * TS::ui_scale));
 
     SDL_GPUDevice* gpu = SDL_CreateGPUDevice(
         SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_DXIL | SDL_GPU_SHADERFORMAT_METALLIB,
@@ -62,6 +66,14 @@ int main(int, char**)
 
     TS::LoadFonts(io);   // must precede NewFrame
     TS::ApplyStyle();    // sets ImGuiStyle, ImNodesStyle, precomputes _U32
+
+    // Load class diagram from DB if path provided as first argument.
+    if (argc > 1) {
+        sqlite3* db = nullptr;
+        if (sqlite3_open_v2(argv[1], &db, SQLITE_OPEN_READONLY, nullptr) == SQLITE_OK)
+            TS::InitCanvasFromDB(db);
+        sqlite3_close(db);
+    }
 
     ImGui_ImplSDL3_InitForSDLGPU(window);
     ImGui_ImplSDLGPU3_InitInfo gpu_info = {};
@@ -92,6 +104,8 @@ int main(int, char**)
         ImGui_ImplSDLGPU3_NewFrame();
         ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
+
+        TS::DrawAppShell();
 
 #ifdef TELESCODE_STYLE_PREVIEW
         TS::DrawStylePreview();
@@ -128,6 +142,7 @@ int main(int, char**)
     SDL_WaitForGPUIdle(gpu);
     ImGui_ImplSDL3_Shutdown();
     ImGui_ImplSDLGPU3_Shutdown();
+    TS::ShutdownCanvas();           // free imnodes editor context before DestroyContext
     ImNodes::DestroyContext();
     ImGui::DestroyContext();
     SDL_ReleaseWindowFromGPUDevice(gpu, window);

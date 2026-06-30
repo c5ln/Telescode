@@ -49,9 +49,9 @@ inline void DrawStylePreview()
         swatch("MUTED", MUTED);
     }
     if (ImGui::CollapsingHeader("Header", ImGuiTreeNodeFlags_DefaultOpen)) {
-        swatch("NIGHT",      NIGHT);
-        swatch("NIGHT_2",    NIGHT_2);
-        swatch("NIGHT_LINE", NIGHT_LINE);
+        swatch("HEADER",      HEADER);
+        swatch("HEADER_2",    HEADER_2);
+        swatch("HEADER_LINE", HEADER_LINE);
     }
     if (ImGui::CollapsingHeader("Accents", ImGuiTreeNodeFlags_DefaultOpen)) {
         swatch("ACCENT_PRIMARY",          ACCENT_PRIMARY);

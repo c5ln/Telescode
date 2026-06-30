@@ -45,7 +45,13 @@ FetchContent_Declare(
 
 # ── Fetch all ─────────────────────────────────────────────────────────────────
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(tree-sitter SDL3 imgui imnodes)
+FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG        v1.15.2
+)
+
+FetchContent_MakeAvailable(tree-sitter SDL3 imgui imnodes googletest)
 
 # tree-sitter-python has no CMakeLists — fetch manually
 FetchContent_GetProperties(tree-sitter-python)
@@ -100,6 +106,11 @@ set_target_properties(sqlite3 PROPERTIES C_STANDARD 11)
 # ── Telescode executable ──────────────────────────────────────────────────────
 add_executable(Telescode
     src/main.cpp
+    src/ui/ts_app.cpp
+    src/ui/ts_canvas.cpp
+    src/ui/class_diagram/cd_view.cpp
+    src/ui/class_diagram/cd_arrowhead.cpp
+    src/ui/class_diagram/cd_builder.cpp
     src/db/db.cpp
 )
 target_include_directories(Telescode PRIVATE
@@ -126,6 +137,7 @@ target_link_libraries(Telescode PRIVATE
     imnodes
     sqlite3
 )
+target_compile_definitions(Telescode PRIVATE IMGUI_DEFINE_MATH_OPERATORS)
 
 # MSVC requires /utf-8 to parse UTF-8 source files correctly on non-UTF-8 locales.
 if(MSVC)
@@ -175,3 +187,70 @@ target_link_libraries(TelescodeUpdater PRIVATE
     tree-sitter-python
     sqlite3
 )
+
+# ── algo static library ────────────────────────────────────────────────────────
+add_library(algo STATIC
+    src/algo/Graph.cpp
+    src/algo/Scoring.cpp
+    src/algo/ReadingSequencer.cpp
+    src/algo/AlgoRunner.cpp
+    src/algo/AlgoDbWriter.cpp
+    src/db/db.cpp
+)
+target_include_directories(algo PUBLIC src)
+target_link_libraries(algo PUBLIC sqlite3)
+
+# ── TelescodeAlgo executable ──────────────────────────────────────────────────
+add_executable(TelescodeAlgo
+    src/algo_main.cpp
+)
+target_include_directories(TelescodeAlgo PRIVATE src)
+target_link_libraries(TelescodeAlgo PRIVATE algo sqlite3)
+
+# ── Unit tests ────────────────────────────────────────────────────────────────
+enable_testing()
+
+add_executable(AlgoTests
+    tests/algo/test_reading_sequencer.cpp
+    tests/algo/test_pagerank.cpp
+    tests/algo/test_score_combiner.cpp
+    tests/algo/test_betweenness_centrality.cpp
+    tests/algo/test_algo_merge.cpp
+)
+target_include_directories(AlgoTests PRIVATE src)
+target_link_libraries(AlgoTests PRIVATE algo GTest::gtest_main)
+add_test(NAME AlgoTests COMMAND AlgoTests)
+
+add_executable(CanvasTests
+    tests/ui/test_ts_canvas.cpp
+    src/ui/ts_canvas.cpp
+    src/ui/class_diagram/cd_view.cpp
+    src/ui/class_diagram/cd_builder.cpp
+    src/ui/class_diagram/cd_arrowhead.cpp
+)
+target_include_directories(CanvasTests PRIVATE
+    ${imgui_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/src
+)
+target_link_libraries(CanvasTests PRIVATE
+    imgui
+    imnodes
+    sqlite3
+    GTest::gtest_main
+)
+add_test(NAME CanvasTests COMMAND CanvasTests)
+
+add_executable(DiagramTests
+    tests/ui/test_cd_arrowhead.cpp
+    src/ui/class_diagram/cd_arrowhead.cpp
+)
+target_include_directories(DiagramTests PRIVATE
+    ${imgui_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/src
+)
+target_compile_definitions(DiagramTests PRIVATE IMGUI_DEFINE_MATH_OPERATORS)
+target_link_libraries(DiagramTests PRIVATE
+    imgui
+    GTest::gtest_main
+)
+add_test(NAME DiagramTests COMMAND DiagramTests)
