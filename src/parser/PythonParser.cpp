@@ -71,6 +71,108 @@ struct TraversalContext {
     }
 };
 
+// ─── countCyclomaticComplexity ────────────────────────────────────────────────
+// Count branch decision points inside one function's body.
+// Returns the count to ADD to the base complexity of 1.
+// Does NOT descend into nested function_definition or lambda nodes.
+
+static int countCyclomaticComplexity(TSNode node) {
+    if (nodeIsNull(node)) return 0;
+
+    std::string type = nodeType(node);
+
+    // Nested functions/lambdas own their own CC; don't bleed into parent.
+    if (type == "function_definition" || type == "lambda") return 0;
+
+    int count = 0;
+
+    // Each of these node types represents one additional decision point.
+    if (type == "if_statement"          ||  // if ...
+        type == "elif_clause"           ||  // elif ...
+        type == "for_statement"         ||  // for ...
+        type == "while_statement"       ||  // while ...
+        type == "case_clause"           ||  // match arm
+        type == "except_clause"         ||  // except ...
+        type == "conditional_expression"||  // x if cond else y
+        type == "boolean_operator") {       // ... and/or ...
+        count += 1;
+    }
+
+    uint32_t n = ts_node_child_count(node);
+    for (uint32_t i = 0; i < n; ++i)
+        count += countCyclomaticComplexity(ts_node_child(node, i));
+
+    return count;
+}
+
+// ─── computeMaxBlockDepth / computeMaxBlockDepthClauses ──────────────────────
+// Mutually recursive: forward-declare the clause helper first.
+static void computeMaxBlockDepthClauses(TSNode node, int startDepth, int& maxDepth);
+
+// Track the deepest control-flow nesting inside one function body.
+// `depth` is the depth *entering* this node; caller passes 0 for the body root.
+// Does NOT descend into nested function_definition or lambda nodes.
+
+static void computeMaxBlockDepth(TSNode node, int depth, int& maxDepth) {
+    if (nodeIsNull(node)) return;
+
+    std::string type = nodeType(node);
+
+    // Nested definitions own their own depth — stop here.
+    if (type == "function_definition" || type == "lambda") return;
+
+    // These constructs each add one level. elif/else/except/finally/case_clause
+    // are children of these nodes and share the parent's incremented depth.
+    if (type == "if_statement"    ||
+        type == "for_statement"   ||
+        type == "while_statement" ||
+        type == "try_statement"   ||
+        type == "with_statement"  ||
+        type == "match_statement") {
+        ++depth;
+        if (depth > maxDepth) maxDepth = depth;
+    }
+
+    // Comprehension clauses are AST siblings but semantically nested.
+    // Hand off to the clause helper so each for/if accumulates depth in order.
+    if (type == "list_comprehension"       ||
+        type == "set_comprehension"        ||
+        type == "dictionary_comprehension" ||
+        type == "generator_expression") {
+        computeMaxBlockDepthClauses(node, depth, maxDepth);
+        return;
+    }
+
+    uint32_t n = ts_node_child_count(node);
+    for (uint32_t i = 0; i < n; ++i)
+        computeMaxBlockDepth(ts_node_child(node, i), depth, maxDepth);
+}
+
+// Process children of a comprehension node. for_in_clause and if_clause are
+// flat siblings in the AST but must be counted as if sequentially nested, so
+// clauseDepth accumulates across them. The body expression is not a block and
+// does not contribute depth, so it is processed at the pre-clause startDepth.
+static void computeMaxBlockDepthClauses(TSNode node, int startDepth, int& maxDepth) {
+    int clauseDepth = startDepth;
+    uint32_t n = ts_node_child_count(node);
+    for (uint32_t i = 0; i < n; ++i) {
+        TSNode child = ts_node_child(node, i);
+        if (nodeIsNull(child)) continue;
+        std::string ctype = nodeType(child);
+        if (ctype == "for_in_clause" || ctype == "if_clause") {
+            ++clauseDepth;
+            if (clauseDepth > maxDepth) maxDepth = clauseDepth;
+            // Recurse into clause internals (e.g. nested comprehension in iterable).
+            uint32_t m = ts_node_child_count(child);
+            for (uint32_t j = 0; j < m; ++j)
+                computeMaxBlockDepth(ts_node_child(child, j), clauseDepth, maxDepth);
+        } else {
+            // Body / key / value expression — not a block, use outer depth.
+            computeMaxBlockDepth(child, startDepth, maxDepth);
+        }
+    }
+}
+
 // ─── forward declarations ────────────────────────────────────────────────────
 static void traverseNode(TSNode node, TraversalContext& ctx);
 static void handleClassDef(TSNode node, TraversalContext& ctx);
@@ -214,13 +316,25 @@ static void handleFunctionDef(TSNode node, TraversalContext& ctx, bool isAsync) 
     int startLine = (int)ts_node_start_point(node).row;
     int endLine   = (int)ts_node_end_point(node).row;
 
+    // Compute per-function metrics that require an AST pass over the body.
+    TSNode bodyNode = childByFieldName(node, "body");
+
+    int cc = 1 + (!nodeIsNull(bodyNode) ? countCyclomaticComplexity(bodyNode) : 0);
+
+    int maxBlockDepth = 0;
+    if (!nodeIsNull(bodyNode))
+        computeMaxBlockDepth(bodyNode, 0, maxBlockDepth);
+
     FunctionEntity fe;
-    fe.function_id   = funcId;
-    fe.function_name = funcName;
-    fe.nesting_depth = ctx.nestingDepth();
-    fe.is_async      = isAsync ? 1 : 0;
-    fe.start_line    = startLine;
-    fe.end_line      = endLine;
+    fe.function_id            = funcId;
+    fe.function_name          = funcName;
+    fe.nesting_depth          = ctx.nestingDepth();
+    fe.is_async               = isAsync ? 1 : 0;
+    fe.cyclomatic_complexity  = cc;
+    fe.max_block_depth        = maxBlockDepth;
+    fe.loc                    = endLine - startLine + 1;
+    fe.start_line             = startLine;
+    fe.end_line               = endLine;
     if (ctx.parentIsClass())
         fe.class_id = parentId;
     else
@@ -280,8 +394,7 @@ static void handleFunctionDef(TSNode node, TraversalContext& ctx, bool isAsync) 
         }
     }
 
-    // Collect CALLS from the function body
-    TSNode bodyNode = childByFieldName(node, "body");
+    // Collect CALLS from the function body (bodyNode already fetched above)
     if (!nodeIsNull(bodyNode)) {
         collectCalls(bodyNode, funcId, ctx.src, ctx.result);
         // Collect self.attr assignments — only meaningful inside methods
@@ -658,10 +771,67 @@ ParseResult PythonParser::parseFile(const std::string& filePath,
     // If file doesn't end with newline, add 1 for the last line
     if (!src.empty() && src.back() != '\n') ++loc;
 
-    result.file.file_id  = fileId;
-    result.file.file_name= absPath.filename().string();
-    result.file.language = "python";
-    result.file.loc      = loc;
+    // Logical LOC: exclude blank lines and comment-only lines.
+    int logical_loc = 0;
+    {
+        std::istringstream lss(src);
+        std::string ln;
+        while (std::getline(lss, ln)) {
+            size_t first = ln.find_first_not_of(" \t\r");
+            if (first == std::string::npos) continue; // blank
+            if (ln[first] == '#') continue;            // comment-only
+            ++logical_loc;
+        }
+    }
+
+    // Generated/vendored detection: flag rather than exclude so the file remains
+    // visible; downstream ranking can filter on is_generated = 0.
+    int is_generated = 0;
+
+    // Path-based: split fileId by '/' and compare each directory segment in full.
+    // Filename (last component) is skipped — only directory segments are checked.
+    {
+        static const char* kSegments[] = {
+            "vendor", "_vendor", "third_party", "node_modules",
+            "venv", ".venv", "site-packages", "__pycache__",
+            "dist", "build", "out", nullptr
+        };
+        std::string remaining = fileId;
+        size_t pos;
+        while ((pos = remaining.find('/')) != std::string::npos && !is_generated) {
+            std::string seg = remaining.substr(0, pos);
+            remaining = remaining.substr(pos + 1);
+            for (int si = 0; kSegments[si] && !is_generated; ++si) {
+                if (seg == kSegments[si]) is_generated = 1;
+            }
+        }
+    }
+
+    // Content-based: generation-marker comments within the first 5 lines.
+    if (!is_generated) {
+        std::istringstream gss(src);
+        std::string gline;
+        int checked = 0;
+        while (std::getline(gss, gline) && checked < 5 && !is_generated) {
+            size_t first = gline.find_first_not_of(" \t\r");
+            if (first != std::string::npos && gline[first] == '#') {
+                std::string lower = gline.substr(first);
+                for (char& c : lower) c = (char)std::tolower((unsigned char)c);
+                if (lower.find("generated")   != std::string::npos ||
+                    lower.find("do not edit") != std::string::npos ||
+                    lower.find("autogenerated") != std::string::npos)
+                    is_generated = 1;
+            }
+            ++checked;
+        }
+    }
+
+    result.file.file_id     = fileId;
+    result.file.file_name   = absPath.filename().string();
+    result.file.language    = "python";
+    result.file.raw_loc     = loc;
+    result.file.logical_loc = logical_loc;
+    result.file.is_generated = is_generated;
 
     // Parse with tree-sitter
     TSParser* parser = static_cast<TSParser*>(m_parser);
@@ -685,6 +855,27 @@ ParseResult PythonParser::parseFile(const std::string& filePath,
     ts_tree_delete(tree);
 
     resolveCallTargets(result);
+
+    // Roll up per-function metrics to file level
+    {
+        int maxCC = 0, maxBD = 0, maxLOC = 0;
+        double sumCC = 0.0, sumBD = 0.0, sumLOC = 0.0;
+        for (const auto& fn : result.functions) {
+            if (fn.cyclomatic_complexity > maxCC)  maxCC  = fn.cyclomatic_complexity;
+            if (fn.max_block_depth       > maxBD)  maxBD  = fn.max_block_depth;
+            if (fn.loc                   > maxLOC) maxLOC = fn.loc;
+            sumCC  += fn.cyclomatic_complexity;
+            sumBD  += fn.max_block_depth;
+            sumLOC += fn.loc;
+        }
+        double n = (double)result.functions.size();
+        result.file.max_cyclomatic_complexity = maxCC;
+        result.file.avg_cyclomatic_complexity = n > 0 ? sumCC  / n : 0.0;
+        result.file.max_block_depth           = maxBD;
+        result.file.avg_block_depth           = n > 0 ? sumBD  / n : 0.0;
+        result.file.max_function_loc          = maxLOC;
+        result.file.avg_function_loc          = n > 0 ? sumLOC / n : 0.0;
+    }
 
     // Deduplicate links to satisfy PRIMARY KEY (source_id, target_id, link_type)
     // Same (source, target, type) can be generated multiple times, e.g.:

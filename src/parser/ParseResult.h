@@ -7,7 +7,17 @@ struct FileEntity {
     std::string file_id;   // relative path from repo root
     std::string file_name; // basename
     std::string language;
-    int loc;               // line count
+    int raw_loc     = 0;   // total line count (including blanks and comments)
+    int logical_loc = 0;   // non-blank, non-comment line count
+    int is_generated = 0;  // 1 if vendored/generated, 0 otherwise
+    // zero-function files must not produce nulls; these six fields derive
+    // from the function list and could otherwise be left unset
+    int    max_cyclomatic_complexity = 0;
+    double avg_cyclomatic_complexity = 0.0;
+    int    max_block_depth           = 0;
+    double avg_block_depth           = 0.0;
+    int    max_function_loc          = 0;
+    double avg_function_loc          = 0.0;
 };
 
 struct ClassEntity {
@@ -31,6 +41,9 @@ struct FunctionEntity {
     std::string function_name;
     int nesting_depth;
     int is_async;              // 0 or 1
+    int cyclomatic_complexity; // base 1 + branch count
+    int max_block_depth;       // deepest control-flow nesting inside this function
+    int loc;                   // raw line count (end_line - start_line + 1)
     int start_line;            // 0-indexed
     int end_line;              // 0-indexed
 };
