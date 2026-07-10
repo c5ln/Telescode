@@ -1,5 +1,7 @@
 #include "Scoring.h"
 
+#include <sqlite3.h>
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -168,6 +170,75 @@ std::vector<double> ComplexityScorer::compute(const std::vector<ComplexityFileMe
                   + w_outbound * pct_outbound[i];
     }
     return scores;
+}
+
+int ComplexityScorer::computeAndWrite(sqlite3* db, const Graph& file_graph, const AlgoConfig& cfg)
+{
+    const char* selectSql = cfg.complexity_include_generated
+        ? "SELECT file_id, max_cyclomatic_complexity, avg_cyclomatic_complexity, "
+          "max_block_depth, avg_block_depth, logical_loc FROM file;"
+        : "SELECT file_id, max_cyclomatic_complexity, avg_cyclomatic_complexity, "
+          "max_block_depth, avg_block_depth, logical_loc FROM file WHERE is_generated = 0;";
+
+    sqlite3_stmt* stmt = nullptr;
+    int rc = sqlite3_prepare_v2(db, selectSql, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) return rc;
+
+    std::vector<ComplexityFileMetrics> inputs;
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        const char* fid = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        if (!fid) continue;
+
+        ComplexityFileMetrics m;
+        m.file_id                   = fid;
+        m.max_cyclomatic_complexity = sqlite3_column_int(stmt, 1);
+        m.avg_cyclomatic_complexity = sqlite3_column_double(stmt, 2);
+        m.max_block_depth           = sqlite3_column_int(stmt, 3);
+        m.avg_block_depth           = sqlite3_column_double(stmt, 4);
+        m.logical_loc               = sqlite3_column_int(stmt, 5);
+
+        // Isolated files with no CALLS/INHERITS/IMPORTS edges still get a node
+        // (GraphBuilder pre-populates every file_id), so a missing lookup here
+        // means the file wasn't in the file table when the graph was built --
+        // fall back to 0/0 rather than dropping the file from scoring.
+        auto it = file_graph.id_to_node.find(m.file_id);
+        if (it != file_graph.id_to_node.end()) {
+            NodeId nid = it->second;
+            m.inbound  = static_cast<int>(file_graph.radj[nid].size());
+            m.outbound = static_cast<int>(file_graph.adj[nid].size());
+        }
+
+        inputs.push_back(std::move(m));
+    }
+    sqlite3_finalize(stmt);
+
+    std::vector<double> scores = compute(inputs, cfg);
+
+    rc = sqlite3_exec(db, "BEGIN;", nullptr, nullptr, nullptr);
+    if (rc != SQLITE_OK) return rc;
+
+    sqlite3_stmt* upd = nullptr;
+    rc = sqlite3_prepare_v2(db,
+        "UPDATE file SET complexity_score = ? WHERE file_id = ?;", -1, &upd, nullptr);
+    if (rc != SQLITE_OK) {
+        sqlite3_exec(db, "ROLLBACK;", nullptr, nullptr, nullptr);
+        return rc;
+    }
+
+    for (std::size_t i = 0; i < inputs.size(); ++i) {
+        sqlite3_bind_double(upd, 1, scores[i]);
+        sqlite3_bind_text(upd, 2, inputs[i].file_id.c_str(), -1, SQLITE_STATIC);
+        rc = sqlite3_step(upd);
+        sqlite3_reset(upd);
+        if (rc != SQLITE_DONE) {
+            sqlite3_finalize(upd);
+            sqlite3_exec(db, "ROLLBACK;", nullptr, nullptr, nullptr);
+            return rc;
+        }
+    }
+    sqlite3_finalize(upd);
+
+    return sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);
 }
 
 std::vector<double> ScoreCombiner::combine(const std::vector<double>& pr,

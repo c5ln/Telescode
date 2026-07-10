@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 
 #include "algo/Scoring.h"
+#include "db/db.h"
+#include <sqlite3.h>
 
 namespace {
 
@@ -116,4 +118,107 @@ TEST(ComplexityScorer, LogicalLocInboundOutboundFeedDirectlyWithoutBlending) {
     ASSERT_EQ(scores.size(), expected.size());
     for (std::size_t i = 0; i < scores.size(); ++i)
         EXPECT_NEAR(scores[i], expected[i], 1e-9);
+}
+
+namespace {
+
+double readComplexityScore(sqlite3* db, const std::string& fileId) {
+    sqlite3_stmt* stmt = nullptr;
+    std::string sql = "SELECT complexity_score FROM file WHERE file_id = ?;";
+    sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
+    sqlite3_bind_text(stmt, 1, fileId.c_str(), -1, SQLITE_STATIC);
+    double value = -1.0;
+    if (sqlite3_step(stmt) == SQLITE_ROW) value = sqlite3_column_double(stmt, 0);
+    sqlite3_finalize(stmt);
+    return value;
+}
+
+} // namespace
+
+TEST(ComplexityScorerComputeAndWrite, WritesScoresMatchingDirectComputeAndExcludesGenerated) {
+    sqlite3* db = nullptr;
+    ASSERT_EQ(initDb(":memory:", &db), SQLITE_OK);
+
+    char* err = nullptr;
+    int rc = sqlite3_exec(db,
+        "INSERT INTO file(file_id, file_name, language, raw_loc, logical_loc, is_generated,"
+        " max_cyclomatic_complexity, avg_cyclomatic_complexity, max_block_depth, avg_block_depth) VALUES"
+        " ('a.py','a.py','python',100,100,0,10,5,4,2),"
+        " ('b.py','b.py','python',200,200,0,20,15,8,6),"
+        " ('gen.py','gen.py','python',9999,9999,1,999,999,999,999);",
+        nullptr, nullptr, &err);
+    ASSERT_EQ(rc, SQLITE_OK) << (err ? err : "");
+
+    Graph g;
+    NodeId a = g.get_or_add("a.py");
+    NodeId b = g.get_or_add("b.py");
+    g.get_or_add("gen.py");
+    g.adj[a].push_back(b);   // a -> b: a.outbound=1, b.inbound=1
+    g.radj[b].push_back(a);
+
+    AlgoConfig cfg; // complexity_include_generated = false by default
+    ASSERT_EQ(ComplexityScorer::computeAndWrite(db, g, cfg), SQLITE_OK);
+
+    // gen.py wasn't in the scored population -- left at the column default.
+    EXPECT_DOUBLE_EQ(readComplexityScore(db, "gen.py"), 0.0);
+
+    // a.py/b.py scores should equal calling compute() directly on the same
+    // (unblended) inputs -- i.e. the DB read + graph join didn't corrupt anything.
+    std::vector<ComplexityFileMetrics> inputs(2);
+    inputs[0].file_id = "a.py";
+    inputs[0].max_cyclomatic_complexity = 10; inputs[0].avg_cyclomatic_complexity = 5;
+    inputs[0].max_block_depth = 4;            inputs[0].avg_block_depth = 2;
+    inputs[0].logical_loc = 100; inputs[0].inbound = 0; inputs[0].outbound = 1;
+    inputs[1].file_id = "b.py";
+    inputs[1].max_cyclomatic_complexity = 20; inputs[1].avg_cyclomatic_complexity = 15;
+    inputs[1].max_block_depth = 8;            inputs[1].avg_block_depth = 6;
+    inputs[1].logical_loc = 200; inputs[1].inbound = 1; inputs[1].outbound = 0;
+    auto expected = ComplexityScorer::compute(inputs, cfg);
+
+    EXPECT_NEAR(readComplexityScore(db, "a.py"), expected[0], 1e-9);
+    EXPECT_NEAR(readComplexityScore(db, "b.py"), expected[1], 1e-9);
+
+    sqlite3_close(db);
+}
+
+TEST(ComplexityScorerComputeAndWrite, IncludeGeneratedFlagScoresGeneratedFilesToo) {
+    sqlite3* db = nullptr;
+    ASSERT_EQ(initDb(":memory:", &db), SQLITE_OK);
+
+    char* err = nullptr;
+    int rc = sqlite3_exec(db,
+        "INSERT INTO file(file_id, file_name, language, raw_loc, is_generated) VALUES"
+        " ('a.py','a.py','python',100,0),"
+        " ('gen.py','gen.py','python',50,1);",
+        nullptr, nullptr, &err);
+    ASSERT_EQ(rc, SQLITE_OK) << (err ? err : "");
+
+    Graph g;
+    g.get_or_add("a.py");
+    g.get_or_add("gen.py");
+
+    AlgoConfig cfg;
+    cfg.complexity_include_generated = true;
+    ASSERT_EQ(ComplexityScorer::computeAndWrite(db, g, cfg), SQLITE_OK);
+
+    // Every unset metric column defaults to 0 and both files are isolated
+    // graph nodes, so a.py and gen.py have identical (all-zero) inputs --
+    // the all-tied case percentile-ranks both to 0.5, and default weights
+    // sum to 1.0, so a real (non-default) score of exactly 0.5 proves
+    // gen.py was actually included in the scored population, not skipped.
+    EXPECT_DOUBLE_EQ(readComplexityScore(db, "gen.py"), 0.5);
+    EXPECT_DOUBLE_EQ(readComplexityScore(db, "a.py"), 0.5);
+
+    sqlite3_close(db);
+}
+
+TEST(ComplexityScorerComputeAndWrite, EmptyFileTableSucceedsWithoutError) {
+    sqlite3* db = nullptr;
+    ASSERT_EQ(initDb(":memory:", &db), SQLITE_OK);
+
+    Graph g;
+    AlgoConfig cfg;
+    EXPECT_EQ(ComplexityScorer::computeAndWrite(db, g, cfg), SQLITE_OK);
+
+    sqlite3_close(db);
 }

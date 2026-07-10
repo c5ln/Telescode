@@ -48,6 +48,13 @@ public:
     // Returns one score per file, same order as `inputs`.
     static std::vector<double> compute(const std::vector<ComplexityFileMetrics>& inputs,
                                         const AlgoConfig& cfg);
+
+    // Reads file_id + the five rollup metrics from the `file` table (excluding
+    // is_generated=1 rows unless cfg.complexity_include_generated), joins each
+    // file_id to `file_graph` for inbound/outbound degree, computes scores via
+    // compute(), and writes complexity_score back to `file` in one transaction.
+    // Returns SQLITE_OK or the sqlite error code that failed.
+    static int computeAndWrite(sqlite3* db, const Graph& file_graph, const AlgoConfig& cfg);
 };
 
 // ── Betweenness Centrality ──────────────────────────────────────────────────
