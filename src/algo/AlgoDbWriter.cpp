@@ -105,6 +105,18 @@ AlgoConfig AlgoDbWriter::loadConfig(const char* dbPath)
     cfg.bc_k_min        = get_int   (db, "bc_k_min",      cfg.bc_k_min);
     cfg.bc_seed         = get_uint64(db, "bc_seed",       cfg.bc_seed);
 
+    cfg.complexity_w_cc             = get_double(db, "complexity_w_cc",             cfg.complexity_w_cc);
+    cfg.complexity_w_nesting        = get_double(db, "complexity_w_nesting",        cfg.complexity_w_nesting);
+    cfg.complexity_w_loc            = get_double(db, "complexity_w_loc",            cfg.complexity_w_loc);
+    cfg.complexity_w_inbound        = get_double(db, "complexity_w_inbound",        cfg.complexity_w_inbound);
+    cfg.complexity_w_outbound       = get_double(db, "complexity_w_outbound",       cfg.complexity_w_outbound);
+    cfg.complexity_cc_max_blend     = get_double(db, "complexity_cc_max_blend",     cfg.complexity_cc_max_blend);
+    cfg.complexity_cc_avg_blend     = get_double(db, "complexity_cc_avg_blend",     cfg.complexity_cc_avg_blend);
+    cfg.complexity_nesting_max_blend = get_double(db, "complexity_nesting_max_blend", cfg.complexity_nesting_max_blend);
+    cfg.complexity_nesting_avg_blend = get_double(db, "complexity_nesting_avg_blend", cfg.complexity_nesting_avg_blend);
+    cfg.complexity_include_generated = get_int(db, "complexity_include_generated",
+                                                cfg.complexity_include_generated ? 1 : 0) != 0;
+
     sqlite3_close(db);
     return cfg;
 }
@@ -204,6 +216,17 @@ int AlgoDbWriter::updateConfig(sqlite3* db, const AlgoConfig& cfg)
     i("bc_p2_fixed_k", cfg.bc_p2_fixed_k);
     i("bc_k_min",      cfg.bc_k_min);
     u("bc_seed",       cfg.bc_seed);
+
+    d("complexity_w_cc",              cfg.complexity_w_cc);
+    d("complexity_w_nesting",         cfg.complexity_w_nesting);
+    d("complexity_w_loc",             cfg.complexity_w_loc);
+    d("complexity_w_inbound",         cfg.complexity_w_inbound);
+    d("complexity_w_outbound",        cfg.complexity_w_outbound);
+    d("complexity_cc_max_blend",      cfg.complexity_cc_max_blend);
+    d("complexity_cc_avg_blend",      cfg.complexity_cc_avg_blend);
+    d("complexity_nesting_max_blend", cfg.complexity_nesting_max_blend);
+    d("complexity_nesting_avg_blend", cfg.complexity_nesting_avg_blend);
+    i("complexity_include_generated", cfg.complexity_include_generated ? 1 : 0);
     if (rc != SQLITE_OK) return rc;
 
     char ts[32];
