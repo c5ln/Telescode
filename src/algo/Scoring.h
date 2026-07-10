@@ -5,6 +5,13 @@
 #include <memory>
 #include <vector>
 
+// Percentile-rank normalization: position-based, so a single extreme outlier
+// doesn't compress the rest of the population toward 0 the way min-max does.
+// rank(i) = (# values strictly less than v[i]) / (N - 1); ties share a rank.
+// N==0 -> {}; N==1 -> {0.0}; zero-variance input -> all 0.5.
+// Exposed (not file-local static like minmax_normalize) so it's unit-testable.
+std::vector<double> percentile_rank_normalize(const std::vector<double>& values);
+
 class PageRank {
 public:
     static std::vector<double> compute(const Graph& g, const AlgoConfig& cfg);

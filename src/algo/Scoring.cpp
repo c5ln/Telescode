@@ -75,6 +75,29 @@ static std::vector<double> minmax_normalize(const std::vector<double>& v)
     return out;
 }
 
+// ── ComplexityScorer ────────────────────────────────────────────────────────
+
+std::vector<double> percentile_rank_normalize(const std::vector<double>& values)
+{
+    const std::size_t N = values.size();
+    if (N == 0) return {};
+    if (N == 1) return {0.0};
+
+    std::vector<double> sorted = values;
+    std::sort(sorted.begin(), sorted.end());
+
+    if (sorted.front() == sorted.back())
+        return std::vector<double>(N, 0.5);
+
+    std::vector<double> out(N);
+    for (std::size_t i = 0; i < N; ++i) {
+        auto it = std::lower_bound(sorted.begin(), sorted.end(), values[i]);
+        std::size_t strictlyLower = static_cast<std::size_t>(it - sorted.begin());
+        out[i] = static_cast<double>(strictlyLower) / static_cast<double>(N - 1);
+    }
+    return out;
+}
+
 std::vector<double> ScoreCombiner::combine(const std::vector<double>& pr,
                                             const std::vector<double>& bc,
                                             double alpha,
