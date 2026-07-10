@@ -3,6 +3,7 @@
 #include "AlgoConfig.h"
 #include "Graph.h"
 #include <memory>
+#include <string>
 #include <vector>
 
 // Percentile-rank normalization: position-based, so a single extreme outlier
@@ -23,6 +24,30 @@ public:
                                        const std::vector<double>& bc,
                                        double alpha,
                                        double beta);
+};
+
+// Per-file inputs for ComplexityScorer, already joined with graph in/out-degree.
+// (DB query + graph lookup happen in ComplexityScorer::computeAndWrite.)
+struct ComplexityFileMetrics {
+    std::string file_id;
+    int    max_cyclomatic_complexity = 0;
+    double avg_cyclomatic_complexity = 0.0;
+    int    max_block_depth           = 0;
+    double avg_block_depth           = 0.0;
+    int    logical_loc               = 0;
+    int    inbound                   = 0;
+    int    outbound                  = 0;
+};
+
+class ComplexityScorer {
+public:
+    // Pure computation: pre-blends CC/nesting (max/avg), percentile-ranks all
+    // five inputs (cc, nesting, logical_loc, inbound, outbound) independently,
+    // and combines them by configured weight. No DB access. Weight groups that
+    // don't sum to 1.0 (+/- 0.001) are auto-normalized with a stderr warning.
+    // Returns one score per file, same order as `inputs`.
+    static std::vector<double> compute(const std::vector<ComplexityFileMetrics>& inputs,
+                                        const AlgoConfig& cfg);
 };
 
 // ── Betweenness Centrality ──────────────────────────────────────────────────
