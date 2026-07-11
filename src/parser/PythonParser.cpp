@@ -18,6 +18,7 @@ extern "C" const TSLanguage* tree_sitter_python();
 
 namespace fs = std::filesystem;
 
+
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 static std::string nodeText(TSNode node, const std::string& src) {
@@ -732,17 +733,20 @@ static void resolveCrossFileCallTargets(
 
 // ─── PythonParser ─────────────────────────────────────────────────────────────
 
-PythonParser::PythonParser() {
-    TSParser* parser = ts_parser_new();
-    ts_parser_set_language(parser, tree_sitter_python());
-    m_parser = parser;
-}
 
-PythonParser::~PythonParser() {
-    if (m_parser) {
-        ts_parser_delete(static_cast<TSParser*>(m_parser));
+struct TsParserHandle {
+    TSParser* parser;
+    TsParserHandle() {
+        parser = ts_parser_new();
+        ts_parser_set_language(parser, tree_sitter_python());
     }
-}
+    ~TsParserHandle() {
+        ts_parser_delete(parser);
+    }
+    // Prevent copies: a copy would double-delete the underlying TSParser.
+    TsParserHandle(const TsParserHandle&) = delete;
+    TsParserHandle& operator=(const TsParserHandle&) = delete;
+};
 
 ParseResult PythonParser::parseFile(const std::string& filePath,
                                     const std::string& repoRoot) {
@@ -833,11 +837,11 @@ ParseResult PythonParser::parseFile(const std::string& filePath,
     result.file.logical_loc = logical_loc;
     result.file.is_generated = is_generated;
 
-    // Parse with tree-sitter
-    TSParser* parser = static_cast<TSParser*>(m_parser);
+    // 파서는 호출마다 로컬로 생성 생성 비용은 파싱 대비 무시 가능(~0.0003ms)
+    TsParserHandle handle;
     //old_tree에 nullptr을 넘기므로 증분 파싱이 아니라 새 파싱
-    TSTree* tree = ts_parser_parse_string(parser, nullptr,
-                                          src.c_str(), (uint32_t)src.size()); 
+    TSTree* tree = ts_parser_parse_string(handle.parser, nullptr,
+                                          src.c_str(), (uint32_t)src.size());
     if (!tree) return result;
 
     TSNode root = ts_tree_root_node(tree);
