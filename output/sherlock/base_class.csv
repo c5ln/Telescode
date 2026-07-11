@@ -1,0 +1,5 @@
+class_id,base_class_name,ordinal
+tests/sherlock_interactives.py::InteractivesSubprocessError,Exception,0
+sherlock_project/sherlock.py::SherlockFuturesSession,FuturesSession,0
+sherlock_project/result.py::QueryStatus,Enum,0
+sherlock_project/notify.py::QueryNotifyPrint,QueryNotify,0

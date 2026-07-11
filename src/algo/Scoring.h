@@ -20,7 +20,7 @@ public:
 
 // ── Betweenness Centrality ──────────────────────────────────────────────────
 // Pass 1(파일)/Pass 2(함수) 별로 그래프 규모에 따라 BC 계산 전략을 분기한다.
-
+// 나중에 std::thread로 병렬 처리하자. 속도가 많이 빨라질 것으로 추정
 enum class PassLevel { File, Function };
 
 struct IBCStrategy {

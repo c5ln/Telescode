@@ -2,6 +2,7 @@
 #include "parser/ParserRegistry.h"
 #include "parser/PythonParser.h"
 #include <sqlite3.h>
+#include <chrono>
 #include <cstdio>
 #include <memory>
 #include <string>
@@ -19,11 +20,15 @@ int main(int argc, char* argv[]) {
 
     ParserRegistry registry;
     registry.registerParser(".py", std::make_unique<PythonParser>());
+
+    auto t0 = std::chrono::steady_clock::now();
     auto results = registry.parseDirectory(repoPath, allowedRoot);
+    auto t1 = std::chrono::steady_clock::now();
 
     std::fprintf(stdout, "[scan] Parsed %zu files.\n", results.size());
 
     int rc = DbInserter::insertAll(dbPath, results);
+    auto t2 = std::chrono::steady_clock::now();
     if (rc != SQLITE_OK) {
         std::fprintf(stderr, "[error] DB insert failed (code %d): %s\n",
                      rc, sqlite3_errstr(rc));
@@ -31,5 +36,11 @@ int main(int argc, char* argv[]) {
     }
 
     std::fprintf(stdout, "[scan] Inserted results into %s\n", dbPath);
+
+    auto ms = [](auto a, auto b) {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(b - a).count();
+    };
+    std::fprintf(stdout, "[scan] Timing: parse %lld ms, db-insert %lld ms\n",
+                 (long long)ms(t0, t1), (long long)ms(t1, t2));
     return 0;
 }
