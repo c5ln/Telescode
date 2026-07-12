@@ -13,6 +13,7 @@
 #include <set>
 #include <tuple>
 #include <iostream>
+#include <memory>
 
 extern "C" const TSLanguage* tree_sitter_python();
 
@@ -733,20 +734,17 @@ static void resolveCrossFileCallTargets(
 
 // ─── PythonParser ─────────────────────────────────────────────────────────────
 
-
-struct TsParserHandle {
-    TSParser* parser;
-    TsParserHandle() {
-        parser = ts_parser_new();
-        ts_parser_set_language(parser, tree_sitter_python());
-    }
-    ~TsParserHandle() {
-        ts_parser_delete(parser);
-    }
-    // Prevent copies: a copy would double-delete the underlying TSParser.
-    TsParserHandle(const TsParserHandle&) = delete;
-    TsParserHandle& operator=(const TsParserHandle&) = delete;
+struct TsParserDeleter {
+    void operator()(TSParser* p) const { ts_parser_delete(p); }
 };
+
+using TsParserPtr = std::unique_ptr<TSParser, TsParserDeleter>;
+
+static TsParserPtr makeTsParser() {
+    TsParserPtr p(ts_parser_new());
+    ts_parser_set_language(p.get(), tree_sitter_python());
+    return p;
+}
 
 ParseResult PythonParser::parseFile(const std::string& filePath,
                                     const std::string& repoRoot) {
@@ -838,9 +836,9 @@ ParseResult PythonParser::parseFile(const std::string& filePath,
     result.file.is_generated = is_generated;
 
     // 파서는 호출마다 로컬로 생성 생성 비용은 파싱 대비 무시 가능(~0.0003ms)
-    TsParserHandle handle;
+    TsParserPtr parser = makeTsParser();
     //old_tree에 nullptr을 넘기므로 증분 파싱이 아니라 새 파싱
-    TSTree* tree = ts_parser_parse_string(handle.parser, nullptr,
+    TSTree* tree = ts_parser_parse_string(parser.get(), nullptr,
                                           src.c_str(), (uint32_t)src.size());
     if (!tree) return result;
 
