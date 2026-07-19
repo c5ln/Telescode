@@ -4,6 +4,8 @@ project(Telescode CXX C)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+find_package(Threads REQUIRED)
+
 include(FetchContent)
 
 # ── tree-sitter ────────────────────────────────────────────────────────────────
@@ -167,6 +169,7 @@ target_link_libraries(TelescodeScanner PRIVATE
     tree-sitter
     tree-sitter-python
     sqlite3
+    Threads::Threads
 )
 
 # ── TelescodeUpdater executable ───────────────────────────────────────────────
@@ -186,6 +189,7 @@ target_link_libraries(TelescodeUpdater PRIVATE
     tree-sitter
     tree-sitter-python
     sqlite3
+    Threads::Threads
 )
 
 # ── algo static library ────────────────────────────────────────────────────────

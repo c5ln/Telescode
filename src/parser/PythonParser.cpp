@@ -13,12 +13,16 @@
 #include <set>
 #include <tuple>
 #include <iostream>
+#include <memory>
+#include <thread>
+#include <atomic>
 
 extern "C" const TSLanguage* tree_sitter_python();
 
 namespace fs = std::filesystem;
 
-// ─── helpers ──────────────────────────────────────────────────────────────────
+
+// helper 함수들
 
 static std::string nodeText(TSNode node, const std::string& src) {
     uint32_t start = ts_node_start_byte(node);
@@ -43,8 +47,7 @@ static std::string nodeType(TSNode node) {
     return t ? t : "";
 }
 
-// ─── context passed through recursive traversal ──────────────────────────────
-
+// context passed through recursive traversal
 struct TraversalContext {
     const std::string& src;
     const std::string& fileId;
@@ -71,7 +74,7 @@ struct TraversalContext {
     }
 };
 
-// ─── countCyclomaticComplexity ────────────────────────────────────────────────
+// countCyclomaticComplexity 
 // Count branch decision points inside one function's body.
 // Returns the count to ADD to the base complexity of 1.
 // Does NOT descend into nested function_definition or lambda nodes.
@@ -105,7 +108,7 @@ static int countCyclomaticComplexity(TSNode node) {
     return count;
 }
 
-// ─── computeMaxBlockDepth / computeMaxBlockDepthClauses ──────────────────────
+// computeMaxBlockDepth / computeMaxBlockDepthClauses 
 // Mutually recursive: forward-declare the clause helper first.
 static void computeMaxBlockDepthClauses(TSNode node, int startDepth, int& maxDepth);
 
@@ -173,7 +176,7 @@ static void computeMaxBlockDepthClauses(TSNode node, int startDepth, int& maxDep
     }
 }
 
-// ─── forward declarations ────────────────────────────────────────────────────
+// 전방 선언
 static void traverseNode(TSNode node, TraversalContext& ctx);
 static void handleClassDef(TSNode node, TraversalContext& ctx);
 static void handleFunctionDef(TSNode node, TraversalContext& ctx, bool isAsync);
@@ -185,7 +188,7 @@ static void collectCalls(TSNode node, const std::string& funcId,
 static void collectFields(TSNode node, const std::string& classId,
                           const std::string& src, ParseResult& result);
 
-// ─── traversal ───────────────────────────────────────────────────────────────
+// traversal 
 
 static void traverseNode(TSNode node, TraversalContext& ctx) {
     if (nodeIsNull(node)) return;
@@ -233,7 +236,7 @@ static void traverseNode(TSNode node, TraversalContext& ctx) {
     }
 }
 
-// ─── class_definition ────────────────────────────────────────────────────────
+//  class definition
 
 static void handleClassDef(TSNode node, TraversalContext& ctx) {
     // name field
@@ -303,7 +306,7 @@ static void handleClassDef(TSNode node, TraversalContext& ctx) {
     ctx.scopeStack.pop_back();
 }
 
-// ─── function_definition / async_function_definition ────────────────────────
+// function_definition / async_function_definition 
 
 static void handleFunctionDef(TSNode node, TraversalContext& ctx, bool isAsync) {
     TSNode nameNode = childByFieldName(node, "name");
@@ -413,7 +416,7 @@ static void handleFunctionDef(TSNode node, TraversalContext& ctx, bool isAsync) 
     ctx.scopeStack.pop_back();
 }
 
-// ─── import_statement ────────────────────────────────────────────────────────
+// import_statement 
 
 static void handleImport(TSNode node, TraversalContext& ctx) {
     // import a, b, c  OR  import a as b
@@ -439,7 +442,7 @@ static void handleImport(TSNode node, TraversalContext& ctx) {
     }
 }
 
-// ─── import_from_statement ───────────────────────────────────────────────────
+// import_from_statement 
 
 static void handleImportFrom(TSNode node, TraversalContext& ctx) {
     // from X import Y
@@ -456,7 +459,7 @@ static void handleImportFrom(TSNode node, TraversalContext& ctx) {
     }
 }
 
-// ─── decorated_definition ────────────────────────────────────────────────────
+//  decorated_definition 
 
 static void handleDecoratedDef(TSNode node, TraversalContext& ctx) {
     // Collect decorator names first
@@ -535,7 +538,7 @@ static void handleDecoratedDef(TSNode node, TraversalContext& ctx) {
     }
 }
 
-// ─── collectFields ───────────────────────────────────────────────────────────
+//  collectFields
 // Recursively traverse a method body looking for `self.attr = ...` assignments.
 // Does NOT descend into nested function_definition nodes.
 
@@ -583,7 +586,7 @@ static void collectFields(TSNode node, const std::string& classId,
         collectFields(ts_node_child(node, i), classId, src, result);
 }
 
-// ─── collectCalls ────────────────────────────────────────────────────────────
+//  collectCalls 
 // Recursively traverse bodyNode looking for `call` nodes, but do NOT descend
 // into nested function_definition nodes (those calls belong to inner funcs).
 
@@ -627,7 +630,7 @@ static void collectCalls(TSNode node, const std::string& funcId,
     }
 }
 
-// ─── resolveCallTargets ──────────────────────────────────────────────────────
+//  resolveCallTargets 
 // Within-file pass: resolve raw callee names in CALLS links to function_ids.
 // Handles: plain identifiers, self.method and cls.method patterns.
 
@@ -705,7 +708,7 @@ static void resolveCallTargets(ParseResult& result) {
     }
 }
 
-// ─── resolveCrossFileCallTargets ─────────────────────────────────────────────
+// resolveCrossFileCallTargets
 // Cross-file pass: after all files are parsed, resolve remaining raw CALLS
 // targets using the global function_name -> function_id map.
 
@@ -732,16 +735,16 @@ static void resolveCrossFileCallTargets(
 
 // ─── PythonParser ─────────────────────────────────────────────────────────────
 
-PythonParser::PythonParser() {
-    TSParser* parser = ts_parser_new();
-    ts_parser_set_language(parser, tree_sitter_python());
-    m_parser = parser;
-}
+struct TsParserDeleter {
+    void operator()(TSParser* p) const { ts_parser_delete(p); }
+};
 
-PythonParser::~PythonParser() {
-    if (m_parser) {
-        ts_parser_delete(static_cast<TSParser*>(m_parser));
-    }
+using TsParserPtr = std::unique_ptr<TSParser, TsParserDeleter>;
+
+static TsParserPtr makeTsParser() {
+    TsParserPtr p(ts_parser_new());
+    ts_parser_set_language(p.get(), tree_sitter_python());
+    return p;
 }
 
 ParseResult PythonParser::parseFile(const std::string& filePath,
@@ -833,11 +836,11 @@ ParseResult PythonParser::parseFile(const std::string& filePath,
     result.file.logical_loc = logical_loc;
     result.file.is_generated = is_generated;
 
-    // Parse with tree-sitter
-    TSParser* parser = static_cast<TSParser*>(m_parser);
+    // 파서는 호출마다 로컬로 생성 생성 비용은 파싱 대비 무시 가능(~0.0003ms)
+    TsParserPtr parser = makeTsParser();
     //old_tree에 nullptr을 넘기므로 증분 파싱이 아니라 새 파싱
-    TSTree* tree = ts_parser_parse_string(parser, nullptr,
-                                          src.c_str(), (uint32_t)src.size()); 
+    TSTree* tree = ts_parser_parse_string(parser.get(), nullptr,
+                                          src.c_str(), (uint32_t)src.size());
     if (!tree) return result;
 
     TSNode root = ts_tree_root_node(tree);
@@ -917,6 +920,9 @@ std::vector<ParseResult> PythonParser::parseDirectory(
         }
     }
 
+    //  파싱 대상 파일 목록 수집
+    std::vector<std::string> files;
+
     std::error_code ec;
     fs::recursive_directory_iterator it(root,
         fs::directory_options::skip_permission_denied, ec);
@@ -940,11 +946,48 @@ std::vector<ParseResult> PythonParser::parseDirectory(
             if (rel.empty() || *rel.begin() == "..") continue; // .. 나오면 boundary 밖이라는 뜻
         }
 
-        ParseResult pr = parseFile(entry.path().string(), root.string());
-        results.push_back(std::move(pr));
+        files.push_back(entry.path().string());
     }
 
-    // ── Phase B: cross-file CALLS resolve ────────────────────────────────────
+    // 병렬 파싱 
+    // parseFile은 멤버 상태를 쓰지 않아 스레드 안전. 각 워커가 아토믹 카운터로
+    // 다음 파일 인덱스를 가져가 results[i]에 기록하므로 락 없이 순서가 결정적이다.
+    results.resize(files.size());
+    {
+        const std::string rootStr = root.string();
+        unsigned hw = std::thread::hardware_concurrency();
+        if (hw == 0) hw = 1;
+
+        // 적정한 thread 수 판단. thread 16개 가능한데, 파일 3개면 3개만 만들면 된다.
+        unsigned numThreads = std::min<unsigned>(hw, (unsigned)files.size()); 
+
+        // atomic을 이용해서, 여러 thread가 동시에 접근해도 충돌 X. 
+        std::atomic<size_t> next{0}; 
+        auto worker = [&]() {
+            size_t i;
+
+            //fetch_add는 etch_add(1)은 두 동작을 원자적으로 수행. 
+            // 1. 현재 next 값을 반환. 
+            // 2. next를 1 증가.
+            while ((i = next.fetch_add(1)) < files.size()) { 
+                try {
+                    results[i] = parseFile(files[i], rootStr);
+                } catch (...) {
+                    // 해당 파일만 빈 결과로 남기고 계속 진행.
+                    // (std::thread에서 예외가 새면 프로세스가 종료됨)
+                }
+            }
+        };
+
+        std::vector<std::thread> pool;
+        pool.reserve(numThreads);
+        for (unsigned t = 0; t < numThreads; ++t)
+            pool.emplace_back(worker);
+        for (auto& th : pool)
+            th.join();
+    }
+
+    // cross-file CALLS resolve 
     {
         std::unordered_map<std::string, std::vector<std::string>> globalNameToIds;
         for (const auto& pr : results) {
