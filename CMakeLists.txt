@@ -220,6 +220,8 @@ add_executable(AlgoTests
     tests/algo/test_score_combiner.cpp
     tests/algo/test_betweenness_centrality.cpp
     tests/algo/test_algo_merge.cpp
+    tests/algo/test_percentile_rank.cpp
+    tests/algo/test_complexity_scorer.cpp
 )
 target_include_directories(AlgoTests PRIVATE src)
 target_link_libraries(AlgoTests PRIVATE algo GTest::gtest_main)

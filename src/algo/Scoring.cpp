@@ -1,7 +1,11 @@
 #include "Scoring.h"
 
+#include <sqlite3.h>
+
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <initializer_list>
 #include <limits>
 #include <numeric>
 #include <queue>
@@ -73,6 +77,168 @@ static std::vector<double> minmax_normalize(const std::vector<double>& v)
             out[i] = (v[i] - lo) / range;
     }
     return out;
+}
+
+// ── ComplexityScorer ────────────────────────────────────────────────────────
+
+std::vector<double> percentile_rank_normalize(const std::vector<double>& values)
+{
+    const std::size_t N = values.size();
+    if (N == 0) return {};
+    if (N == 1) return {0.0};
+
+    std::vector<double> sorted = values;
+    std::sort(sorted.begin(), sorted.end());
+
+    if (sorted.front() == sorted.back())
+        return std::vector<double>(N, 0.5);
+
+    std::vector<double> out(N);
+    for (std::size_t i = 0; i < N; ++i) {
+        auto it = std::lower_bound(sorted.begin(), sorted.end(), values[i]);
+        std::size_t strictlyLower = static_cast<std::size_t>(it - sorted.begin());
+        out[i] = static_cast<double>(strictlyLower) / static_cast<double>(N - 1);
+    }
+    return out;
+}
+
+// Normalizes a set of weights to sum to 1.0 if they don't already (+/- 0.001),
+// logging a warning. Falls back to equal weights if the sum is ~0 (can't scale).
+static void normalizeWeights(std::initializer_list<double*> weights, const char* label)
+{
+    double sum = 0.0;
+    for (double* w : weights) sum += *w;
+    if (std::fabs(sum - 1.0) <= 0.001) return;
+
+    std::fprintf(stderr,
+        "ComplexityScorer: %s weights sum to %.6f (expected 1.0) -- auto-normalizing\n",
+        label, sum);
+
+    if (std::fabs(sum) < 1e-9) {
+        const double eq = 1.0 / static_cast<double>(weights.size());
+        for (double* w : weights) *w = eq;
+        return;
+    }
+    for (double* w : weights) *w /= sum;
+}
+
+std::vector<double> ComplexityScorer::compute(const std::vector<ComplexityFileMetrics>& inputs,
+                                               const AlgoConfig& cfg)
+{
+    const std::size_t N = inputs.size();
+    if (N == 0) return {};
+
+    double w_cc       = cfg.complexity_w_cc;
+    double w_nesting  = cfg.complexity_w_nesting;
+    double w_loc      = cfg.complexity_w_loc;
+    double w_inbound  = cfg.complexity_w_inbound;
+    double w_outbound = cfg.complexity_w_outbound;
+    normalizeWeights({&w_cc, &w_nesting, &w_loc, &w_inbound, &w_outbound}, "top-level");
+
+    double cc_max_blend = cfg.complexity_cc_max_blend;
+    double cc_avg_blend = cfg.complexity_cc_avg_blend;
+    normalizeWeights({&cc_max_blend, &cc_avg_blend}, "cc pre-blend");
+
+    double nesting_max_blend = cfg.complexity_nesting_max_blend;
+    double nesting_avg_blend = cfg.complexity_nesting_avg_blend;
+    normalizeWeights({&nesting_max_blend, &nesting_avg_blend}, "nesting pre-blend");
+
+    std::vector<double> cc_raw(N), nesting_raw(N), loc_raw(N), inbound_raw(N), outbound_raw(N);
+    for (std::size_t i = 0; i < N; ++i) {
+        const ComplexityFileMetrics& m = inputs[i];
+        cc_raw[i]      = cc_max_blend      * m.max_cyclomatic_complexity
+                       + cc_avg_blend      * m.avg_cyclomatic_complexity;
+        nesting_raw[i] = nesting_max_blend * m.max_block_depth
+                       + nesting_avg_blend * m.avg_block_depth;
+        loc_raw[i]      = static_cast<double>(m.logical_loc);
+        inbound_raw[i]  = static_cast<double>(m.inbound);
+        outbound_raw[i] = static_cast<double>(m.outbound);
+    }
+
+    std::vector<double> pct_cc       = percentile_rank_normalize(cc_raw);
+    std::vector<double> pct_nesting  = percentile_rank_normalize(nesting_raw);
+    std::vector<double> pct_loc      = percentile_rank_normalize(loc_raw);
+    std::vector<double> pct_inbound  = percentile_rank_normalize(inbound_raw);
+    std::vector<double> pct_outbound = percentile_rank_normalize(outbound_raw);
+
+    std::vector<double> scores(N);
+    for (std::size_t i = 0; i < N; ++i) {
+        scores[i] = w_cc       * pct_cc[i]
+                  + w_nesting  * pct_nesting[i]
+                  + w_loc      * pct_loc[i]
+                  + w_inbound  * pct_inbound[i]
+                  + w_outbound * pct_outbound[i];
+    }
+    return scores;
+}
+
+int ComplexityScorer::computeAndWrite(sqlite3* db, const Graph& file_graph, const AlgoConfig& cfg)
+{
+    const char* selectSql = cfg.complexity_include_generated
+        ? "SELECT file_id, max_cyclomatic_complexity, avg_cyclomatic_complexity, "
+          "max_block_depth, avg_block_depth, logical_loc FROM file;"
+        : "SELECT file_id, max_cyclomatic_complexity, avg_cyclomatic_complexity, "
+          "max_block_depth, avg_block_depth, logical_loc FROM file WHERE is_generated = 0;";
+
+    sqlite3_stmt* stmt = nullptr;
+    int rc = sqlite3_prepare_v2(db, selectSql, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) return rc;
+
+    std::vector<ComplexityFileMetrics> inputs;
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        const char* fid = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        if (!fid) continue;
+
+        ComplexityFileMetrics m;
+        m.file_id                   = fid;
+        m.max_cyclomatic_complexity = sqlite3_column_int(stmt, 1);
+        m.avg_cyclomatic_complexity = sqlite3_column_double(stmt, 2);
+        m.max_block_depth           = sqlite3_column_int(stmt, 3);
+        m.avg_block_depth           = sqlite3_column_double(stmt, 4);
+        m.logical_loc               = sqlite3_column_int(stmt, 5);
+
+        // Isolated files with no CALLS/INHERITS/IMPORTS edges still get a node
+        // (GraphBuilder pre-populates every file_id), so a missing lookup here
+        // means the file wasn't in the file table when the graph was built --
+        // fall back to 0/0 rather than dropping the file from scoring.
+        auto it = file_graph.id_to_node.find(m.file_id);
+        if (it != file_graph.id_to_node.end()) {
+            NodeId nid = it->second;
+            m.inbound  = static_cast<int>(file_graph.radj[nid].size());
+            m.outbound = static_cast<int>(file_graph.adj[nid].size());
+        }
+
+        inputs.push_back(std::move(m));
+    }
+    sqlite3_finalize(stmt);
+
+    std::vector<double> scores = compute(inputs, cfg);
+
+    rc = sqlite3_exec(db, "BEGIN;", nullptr, nullptr, nullptr);
+    if (rc != SQLITE_OK) return rc;
+
+    sqlite3_stmt* upd = nullptr;
+    rc = sqlite3_prepare_v2(db,
+        "UPDATE file SET complexity_score = ? WHERE file_id = ?;", -1, &upd, nullptr);
+    if (rc != SQLITE_OK) {
+        sqlite3_exec(db, "ROLLBACK;", nullptr, nullptr, nullptr);
+        return rc;
+    }
+
+    for (std::size_t i = 0; i < inputs.size(); ++i) {
+        sqlite3_bind_double(upd, 1, scores[i]);
+        sqlite3_bind_text(upd, 2, inputs[i].file_id.c_str(), -1, SQLITE_STATIC);
+        rc = sqlite3_step(upd);
+        sqlite3_reset(upd);
+        if (rc != SQLITE_DONE) {
+            sqlite3_finalize(upd);
+            sqlite3_exec(db, "ROLLBACK;", nullptr, nullptr, nullptr);
+            return rc;
+        }
+    }
+    sqlite3_finalize(upd);
+
+    return sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);
 }
 
 std::vector<double> ScoreCombiner::combine(const std::vector<double>& pr,

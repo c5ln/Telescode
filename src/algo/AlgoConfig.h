@@ -30,4 +30,25 @@ struct AlgoConfig {
 
     int      bc_k_min          = 50;
     uint64_t bc_seed           = 42;
+
+    // ── Complexity score (file-level heatmap) ──────────────────────────────
+    // complexity_score = w_cc*pct_cc + w_nesting*pct_nesting + w_loc*pct_loc
+    //                   + w_inbound*pct_inbound + w_outbound*pct_outbound
+    // Each pct_* is a percentile rank in [0,1] across all scored files.
+    double complexity_w_cc       = 0.30;
+    double complexity_w_nesting  = 0.20;
+    double complexity_w_loc      = 0.15;
+    double complexity_w_inbound  = 0.20;
+    double complexity_w_outbound = 0.15;
+
+    // cc_score = cc_max_blend*max_cc + cc_avg_blend*avg_cc (pre-blend, before percentile-rank)
+    double complexity_cc_max_blend = 0.80;
+    double complexity_cc_avg_blend = 0.20;
+
+    // nesting_score = nesting_max_blend*max_depth + nesting_avg_blend*avg_depth
+    double complexity_nesting_max_blend = 0.80;
+    double complexity_nesting_avg_blend = 0.20;
+
+    // false(0): is_generated=1 files are excluded from the scoring population.
+    bool complexity_include_generated = false;
 };

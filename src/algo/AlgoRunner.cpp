@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <climits>
+#include <cstdio>
 #include <sqlite3.h>
 #include <unordered_map>
 #include <vector>
@@ -125,6 +126,16 @@ AlgoRunResult AlgoRunner::run(const char* dbPath, const AlgoConfig& cfg)
     if (initDb(dbPath, &db) != SQLITE_OK) return {};
 
     auto gbr = GraphBuilder::build(db);
+
+    // Complexity scoring is independent of the PageRank/BC reading-sequence
+    // pipeline below (writes directly to the `file` table), but needs the
+    // same open db handle and file_graph -- best-effort, doesn't block the
+    // reading-sequence result on failure.
+    int complexityRc = ComplexityScorer::computeAndWrite(db, gbr.file_graph, cfg);
+    if (complexityRc != SQLITE_OK) {
+        std::fprintf(stderr, "AlgoRunner: complexity scoring failed (code %d): %s\n",
+                     complexityRc, sqlite3_errmsg(db));
+    }
 
     // Build loc_hint for file-level pass (LOC descending tie-break)
     const Graph& fg = gbr.file_graph;

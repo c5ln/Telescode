@@ -2,6 +2,8 @@
 
 #include <sqlite3.h>
 #include <cstdio>
+#include <cstring>
+#include <string>
 
 static const char* kInitSQL =
     "PRAGMA journal_mode = WAL;"
@@ -20,7 +22,8 @@ static const char* kInitSQL =
     "    max_block_depth           INTEGER NOT NULL DEFAULT 0,"
     "    avg_block_depth           REAL    NOT NULL DEFAULT 0.0,"
     "    max_function_loc          INTEGER NOT NULL DEFAULT 0,"
-    "    avg_function_loc          REAL    NOT NULL DEFAULT 0.0"
+    "    avg_function_loc          REAL    NOT NULL DEFAULT 0.0,"
+    "    complexity_score          REAL    NOT NULL DEFAULT 0.0"
     ");"
 
     "CREATE TABLE IF NOT EXISTS class ("
@@ -103,6 +106,40 @@ static const char* kInitSQL =
     "    config_value TEXT NOT NULL"
     ");";
 
+// SQLite has no "ADD COLUMN IF NOT EXISTS" — check via PRAGMA table_info first.
+static bool columnExists(sqlite3* db, const char* table, const char* column)
+{
+    std::string sql = std::string("PRAGMA table_info(") + table + ");";
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK)
+        return false;
+
+    bool found = false;
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        const char* name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+        if (name && std::strcmp(name, column) == 0) { found = true; break; }
+    }
+    sqlite3_finalize(stmt);
+    return found;
+}
+
+// Migrates DBs created before complexity_score existed. No-op once migrated,
+// since the column is also created directly by kInitSQL for fresh DBs.
+static int migrateComplexityScoreColumn(sqlite3* db)
+{
+    if (columnExists(db, "file", "complexity_score")) return SQLITE_OK;
+
+    char* errMsg = nullptr;
+    int rc = sqlite3_exec(db,
+        "ALTER TABLE file ADD COLUMN complexity_score REAL NOT NULL DEFAULT 0.0;",
+        nullptr, nullptr, &errMsg);
+    if (rc != SQLITE_OK) {
+        std::fprintf(stderr, "initDb: complexity_score migration failed: %s\n", errMsg);
+        sqlite3_free(errMsg);
+    }
+    return rc;
+}
+
 int initDb(const char* dbPath, sqlite3** db)
 {
     if (!dbPath || !db) return SQLITE_MISUSE;
@@ -122,6 +159,13 @@ int initDb(const char* dbPath, sqlite3** db)
     if (rc != SQLITE_OK) {
         std::fprintf(stderr, "initDb: schema init failed: %s\n", errMsg);
         sqlite3_free(errMsg);
+        sqlite3_close(*db);
+        *db = nullptr;
+        return rc;
+    }
+
+    rc = migrateComplexityScoreColumn(*db);
+    if (rc != SQLITE_OK) {
         sqlite3_close(*db);
         *db = nullptr;
         return rc;
