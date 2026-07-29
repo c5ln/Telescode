@@ -175,6 +175,10 @@ inline constexpr float SIDEBAR_W  = 280.0f;
 inline constexpr float HEADER_H   =  56.0f;
 inline constexpr float SEQUENCE_H = 180.0f;
 
+// Class-diagram node placement (see cd_layout.h).
+inline constexpr float CD_LAYOUT_GAP    = 48.0f;  // 1x reference — multiply by ui_scale
+inline constexpr float CD_LAYOUT_ASPECT =  1.6f;  // unitless: packed result ~1.6x wider than tall
+
 // Zoom
 inline constexpr float ZOOM_MIN          = 0.40f;
 inline constexpr float ZOOM_MAX          = 2.00f;

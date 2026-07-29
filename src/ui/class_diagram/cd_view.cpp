@@ -2,6 +2,7 @@
 
 #include "cd_view.h"
 #include "cd_arrowhead.h"
+#include "cd_layout.h"
 #include "../ts_style.h"
 #include <imgui.h>
 #include <imnodes.h>
@@ -10,8 +11,6 @@
 
 namespace TS {
 namespace {
-
-static std::unordered_set<int> s_positioned;
 
 void DrawNode(const CDNode& node, bool selected, bool dimmed, float zoom)
 {
@@ -136,10 +135,32 @@ void DrawNode(const CDNode& node, bool selected, bool dimmed, float zoom)
 
 void DrawClassDiagramContent(CDGraph& graph, float zoom)
 {
-    for (const auto& node : graph.nodes) {
-        if (!s_positioned.count(node.node_id)) {
-            ImNodes::SetNodeGridSpacePos(node.node_id, node.pos);
-            s_positioned.insert(node.node_id);
+    // imnodes has no zoom of its own — node contents scale with `zoom` while
+    // grid space does not — so positions must be rescaled every frame or the
+    // boxes grow into each other as you zoom in.
+    auto PushPositions = [&]() {
+        for (const auto& node : graph.nodes)
+            ImNodes::SetNodeGridSpacePos(node.node_id,
+                                         { node.pos.x * zoom, node.pos.y * zoom });
+    };
+    PushPositions();  // also creates the pool entries GetNodeDimensions needs
+
+    // ── Deferred layout ───────────────────────────────────────────────────────
+    // Node sizes come from their content, so imnodes can only report them after
+    // a node has been submitted once. Frame 1 measures zero and is skipped;
+    // frame 2 lays out. Sizes are divided by the zoom they were measured at to
+    // get back to logical space.
+    if (!graph.layout_valid) {
+        std::vector<CDBox> sizes(graph.nodes.size());
+        bool measured = (zoom > 0.0f);
+        for (size_t i = 0; i < graph.nodes.size() && measured; ++i) {
+            const ImVec2 d = ImNodes::GetNodeDimensions(graph.nodes[i].node_id);
+            if (d.x < 1.0f || d.y < 1.0f) measured = false;
+            else                          sizes[i] = { d.x / zoom, d.y / zoom };
+        }
+        if (measured) {
+            CDLayoutShelf(graph, sizes, TS::CD_LAYOUT_GAP * TS::ui_scale, TS::CD_LAYOUT_ASPECT);
+            PushPositions();
         }
     }
 
@@ -235,6 +256,23 @@ void DrawClassDiagramArrowheads(CDGraph& graph, float zoom)
         } else {
             dl->AddTriangleFilled(tri.tip, tri.v1, tri.v2, col);
         }
+    }
+}
+
+void SyncClassDiagramPositions(CDGraph& graph, float zoom)
+{
+    if (zoom <= 0.0f) return;
+
+    // imnodes applies node dragging inside EndNodeEditor, so a drag only shows
+    // up in grid space once the editor has closed. Convert it back to logical
+    // space, otherwise the next frame's PushPositions would undo the drag.
+    //
+    // Only selected nodes are draggable, and skipping the rest avoids
+    // round-tripping pos * zoom / zoom every frame for nodes that never moved.
+    for (auto& node : graph.nodes) {
+        if (!ImNodes::IsNodeSelected(node.node_id)) continue;
+        const ImVec2 g = ImNodes::GetNodeGridSpacePos(node.node_id);
+        node.pos = { g.x / zoom, g.y / zoom };
     }
 }
 

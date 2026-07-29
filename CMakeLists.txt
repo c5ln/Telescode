@@ -113,6 +113,7 @@ add_executable(Telescode
     src/ui/class_diagram/cd_view.cpp
     src/ui/class_diagram/cd_arrowhead.cpp
     src/ui/class_diagram/cd_builder.cpp
+    src/ui/class_diagram/cd_layout.cpp
     src/db/db.cpp
 )
 target_include_directories(Telescode PRIVATE
@@ -233,6 +234,7 @@ add_executable(CanvasTests
     src/ui/class_diagram/cd_view.cpp
     src/ui/class_diagram/cd_builder.cpp
     src/ui/class_diagram/cd_arrowhead.cpp
+    src/ui/class_diagram/cd_layout.cpp
 )
 target_include_directories(CanvasTests PRIVATE
     ${imgui_SOURCE_DIR}
@@ -260,3 +262,18 @@ target_link_libraries(DiagramTests PRIVATE
     GTest::gtest_main
 )
 add_test(NAME DiagramTests COMMAND DiagramTests)
+
+add_executable(LayoutTests
+    tests/ui/test_cd_layout.cpp
+    src/ui/class_diagram/cd_layout.cpp
+)
+target_include_directories(LayoutTests PRIVATE
+    ${imgui_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/src
+)
+target_compile_definitions(LayoutTests PRIVATE IMGUI_DEFINE_MATH_OPERATORS)
+target_link_libraries(LayoutTests PRIVATE
+    imgui
+    GTest::gtest_main
+)
+add_test(NAME LayoutTests COMMAND LayoutTests)

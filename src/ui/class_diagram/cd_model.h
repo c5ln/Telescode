@@ -35,7 +35,7 @@ struct CDNode {
     std::string package;    // derived from file_id, shown below class_name
     std::vector<CDField>  fields;
     std::vector<CDMethod> methods;
-    ImVec2      pos;        // initial grid position
+    ImVec2      pos;        // logical position — pixels at zoom 1.0, see cd_layout.h
 };
 
 inline int CDPinLeft (int node_id) { return node_id * 2;     }
@@ -58,6 +58,12 @@ struct CDEdge {
 struct CDGraph {
     std::vector<CDNode> nodes;
     std::vector<CDEdge> edges;
+
+    // False until node sizes have been measured and CDNode::pos assigned.
+    // Node sizes are content-driven, so they are only known after imnodes has
+    // submitted each node once — the first frame renders before any layout.
+    // A rebuilt graph starts false again, since BuildCDGraph returns a fresh one.
+    bool layout_valid = false;
 
     int hovered_node_id  = -1;  // -1 = none
     int selected_node_id = -1;  // -1 = none
