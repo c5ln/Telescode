@@ -37,6 +37,7 @@ struct CDMethod {
 struct CDNode {
     int         node_id;    // imnodes node ID (unique per graph)
     std::string class_id;   // FK → ClassEntity::class_id
+    std::string file_id;    // FK → file::file_id, e.g. "sherlock_project/notify.py"
     std::string class_name;
     std::string package;    // derived from file_id, shown below class_name
     std::string display_name;      // class_name, ellipsized
@@ -62,10 +63,25 @@ struct CDEdge {
     CDEdgeType type;
 };
 
+// A file or the folder holding it. Files own class nodes; folders own files.
+// Built from CDNode::file_id by cd_layout, and drawn as a boundary around its
+// children. Two levels only for now — folder paths are truncated to a depth
+// that keeps the group count readable.
+struct CDContainer {
+    int              parent;            // index into CDGraph::containers, -1 = folder
+    bool             is_file;
+    std::string      label;             // "notify.py" / "sherlock_project"
+    std::vector<int> child_nodes;       // indices into CDGraph::nodes; files only
+    std::vector<int> child_containers;  // indices into CDGraph::containers
+    ImVec2           pos;               // absolute logical top-left, as CDNode::pos
+    ImVec2           size;
+};
+
 // Full diagram state, including interaction state.
 struct CDGraph {
-    std::vector<CDNode> nodes;
-    std::vector<CDEdge> edges;
+    std::vector<CDNode>      nodes;
+    std::vector<CDEdge>      edges;
+    std::vector<CDContainer> containers;
 
     // Both reset to false on rebuild, since BuildCDGraph returns a fresh graph.
     bool display_ready = false;  // until the `display` strings have been filled

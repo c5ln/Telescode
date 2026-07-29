@@ -51,9 +51,73 @@ std::vector<ImVec2> CDShelfPack(const std::vector<CDBox>& boxes, float max_w, fl
 // tall. Never narrower than the widest box.
 float CDPreferredShelfWidth(const std::vector<CDBox>& boxes, float gap, float aspect);
 
-// Assigns graph.nodes[i].pos from measured sizes and sets graph.layout_valid.
-// `sizes` must be index-aligned with graph.nodes; on a length mismatch nothing
-// is written and layout_valid stays false so the caller retries.
-void CDLayoutShelf(CDGraph& graph, const std::vector<CDBox>& sizes, float gap, float aspect);
+// Size of the region a packing occupies. `pos` must be index-aligned with `boxes`.
+CDBox CDBoundingSize(const std::vector<CDBox>& boxes, const std::vector<ImVec2>& pos);
+
+// ── Layered layout ───────────────────────────────────────────────────────────
+
+struct CDLayerEdge {
+    int src;
+    int dst;
+};
+
+// Sugiyama-style layered layout, left to right: an edge pushes its target into
+// a later layer, so the layer index becomes x and the order within a layer
+// becomes y. Left-to-right matches the node pins, which sit on the left and
+// right edges.
+//
+// Disconnected input is the normal case, not a corner case — most classes in a
+// real repo have no relationships at all. Each weakly connected component is
+// laid out on its own and the results are shelf-packed; without that, every
+// unconnected node would pile into layer 0 as one endless column.
+//
+// Edges that close a cycle are dropped for layering purposes (call graphs are
+// full of them). They still exist in the model and are still drawn — they just
+// stop constraining the arrangement.
+//
+// Returns each box's top-left corner, index-aligned with `boxes`.
+std::vector<ImVec2> CDLayeredLayout(const std::vector<CDBox>&      boxes,
+                                    const std::vector<CDLayerEdge>& edges,
+                                    float gap_x, float gap_y, float aspect);
+
+// ── Container tree ───────────────────────────────────────────────────────────
+
+// "sherlock_project/notify.py" → "sherlock_project"; a bare filename → "".
+std::string CDFolderOf(const std::string& file_id);
+
+// Keeps the first `depth` slash-separated segments: ("a/b/c", 2) → "a/b".
+std::string CDTruncatePath(const std::string& path, int depth);
+
+// Folder depth that lands the group count inside [min_groups, max_groups] where
+// possible. A fixed depth does not work across repos: depth 1 puts everything
+// under "src" in a big tree, while the full path fragments a deep one back into
+// one group per directory.
+int CDChooseFolderDepth(const std::vector<std::string>& file_ids,
+                        int min_groups, int max_groups);
+
+// Fills graph.containers from CDNode::file_id, preserving first-seen order so
+// the result is stable across runs.
+void CDBuildContainers(CDGraph& graph, int folder_depth);
+
+// ── Hierarchical layout ──────────────────────────────────────────────────────
+
+struct CDHierarchyMetrics {
+    CDNodeMetrics node;
+    float class_gap_x,  class_gap_y;   // between classes inside a file
+    float file_gap_x,   file_gap_y;    // between files inside a folder
+    float folder_gap_x, folder_gap_y;  // between folders on the canvas
+    float file_pad,     file_header;   // border inset / label strip of a file box
+    float folder_pad,   folder_header;
+    float aspect;
+};
+
+// Lays the diagram out in three passes — classes within a file, files within a
+// folder, folders across the canvas — each using CDLayeredLayout, then writes
+// absolute positions into CDNode::pos and CDContainer::pos and sets
+// graph.layout_valid.
+//
+// Call CDBuildContainers first; if graph.containers is empty this does nothing
+// and leaves layout_valid false so the caller retries.
+void CDLayoutHierarchical(CDGraph& graph, const CDHierarchyMetrics& m);
 
 } // namespace TS

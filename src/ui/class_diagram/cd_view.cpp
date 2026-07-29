@@ -217,19 +217,29 @@ void DrawClassDiagramContent(CDGraph& graph, float zoom)
 {
     if (!graph.display_ready) PrepareDisplayText(graph);
 
-    // Node sizes are now a pure function of the row counts, so the layout can be
-    // computed up front — no render-then-measure round trip needed.
+    // Node sizes are a pure function of the row counts, so the whole hierarchy
+    // can be laid out up front — no render-then-measure round trip needed.
     if (!graph.layout_valid) {
-        const CDNodeMetrics metrics = {
-            TS::NODE_WIDTH     * TS::ui_scale,
-            TS::NODE_HEADER_H  * TS::ui_scale,
-            TS::NODE_ROW_H     * TS::ui_scale,
-            TS::NODE_DIVIDER_H * TS::ui_scale,
-            TS::NODE_PADDING_X * TS::ui_scale,
-            TS::NODE_PADDING_Y * TS::ui_scale,
+        std::vector<std::string> file_ids;
+        file_ids.reserve(graph.nodes.size());
+        for (const CDNode& n : graph.nodes) file_ids.push_back(n.file_id);
+
+        CDBuildContainers(graph, CDChooseFolderDepth(file_ids,
+                                                     TS::CD_FOLDER_GROUP_MIN,
+                                                     TS::CD_FOLDER_GROUP_MAX));
+
+        const float s = TS::ui_scale;
+        const CDHierarchyMetrics metrics = {
+            { TS::NODE_WIDTH * s, TS::NODE_HEADER_H * s, TS::NODE_ROW_H * s,
+              TS::NODE_DIVIDER_H * s, TS::NODE_PADDING_X * s, TS::NODE_PADDING_Y * s },
+            TS::CD_CLASS_GAP_X  * s, TS::CD_CLASS_GAP_Y  * s,
+            TS::CD_FILE_GAP_X   * s, TS::CD_FILE_GAP_Y   * s,
+            TS::CD_FOLDER_GAP_X * s, TS::CD_FOLDER_GAP_Y * s,
+            TS::CD_FILE_PAD     * s, TS::CD_FILE_HEADER  * s,
+            TS::CD_FOLDER_PAD   * s, TS::CD_FOLDER_HEADER * s,
+            TS::CD_LAYOUT_ASPECT,
         };
-        CDLayoutShelf(graph, CDGraphNodeSizes(graph, metrics),
-                      TS::CD_LAYOUT_GAP * TS::ui_scale, TS::CD_LAYOUT_ASPECT);
+        CDLayoutHierarchical(graph, metrics);
     }
 
     // imnodes has no zoom of its own — node contents scale with `zoom` while

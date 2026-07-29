@@ -178,9 +178,25 @@ inline constexpr float SIDEBAR_W  = 280.0f;
 inline constexpr float HEADER_H   =  56.0f;
 inline constexpr float SEQUENCE_H = 180.0f;
 
-// Class-diagram node placement (see cd_layout.h).
-inline constexpr float CD_LAYOUT_GAP    = 48.0f;  // 1x reference — multiply by ui_scale
-inline constexpr float CD_LAYOUT_ASPECT =  1.6f;  // unitless: packed result ~1.6x wider than tall
+// Class-diagram placement (see cd_layout.h). 1x references — multiply by
+// ui_scale, except CD_LAYOUT_ASPECT which is unitless. Gaps widen with each
+// level of the hierarchy so a folder boundary reads as a stronger break than a
+// file boundary, and a file boundary stronger than the space between classes.
+inline constexpr float CD_CLASS_GAP_X   = 56.0f;  // between classes inside a file
+inline constexpr float CD_CLASS_GAP_Y   = 32.0f;
+inline constexpr float CD_FILE_GAP_X    = 72.0f;  // between files inside a folder
+inline constexpr float CD_FILE_GAP_Y    = 56.0f;
+inline constexpr float CD_FOLDER_GAP_X  = 96.0f;  // between folders on the canvas
+inline constexpr float CD_FOLDER_GAP_Y  = 80.0f;
+
+inline constexpr float CD_FILE_PAD      = 16.0f;  // file boundary inset
+inline constexpr float CD_FILE_HEADER   = 24.0f;  // file label strip
+inline constexpr float CD_FOLDER_PAD    = 20.0f;
+inline constexpr float CD_FOLDER_HEADER = 30.0f;
+
+inline constexpr float CD_LAYOUT_ASPECT =  1.6f;  // packed result ~1.6x wider than tall
+inline constexpr int   CD_FOLDER_GROUP_MIN = 5;   // target folder count for depth selection
+inline constexpr int   CD_FOLDER_GROUP_MAX = 15;
 
 // Zoom
 inline constexpr float ZOOM_MIN          = 0.40f;

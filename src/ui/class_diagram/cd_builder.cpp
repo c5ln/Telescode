@@ -59,8 +59,8 @@ CDGraph BuildCDGraph(sqlite3* db)
         node.node_id    = node_id;
         node.class_id   = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
         node.class_name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
-        node.package    = packageFromFileId(
-            reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)));
+        node.file_id    = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+        node.package    = packageFromFileId(node.file_id);
         classToNodeId[node.class_id] = node_id;
         classToIdx[node.class_id]    = static_cast<size_t>(node_id);
         graph.nodes.push_back(std::move(node));
