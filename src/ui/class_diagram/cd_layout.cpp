@@ -6,6 +6,26 @@
 
 namespace TS {
 
+CDBox CDNodeSize(const CDNode& node, const CDNodeMetrics& m)
+{
+    const float rows = static_cast<float>(node.fields.size() + node.methods.size());
+    return {
+        m.content_w + 2.0f * m.pad_x,
+        // pad_y lands four times, not twice: imnodes pads the title bar band on
+        // both sides when it places the content below it (GetNodeContentOrigin),
+        // then pads the finished node again in EndNode.
+        m.header_h + rows * m.row_h + m.divider_h + 4.0f * m.pad_y
+    };
+}
+
+std::vector<CDBox> CDGraphNodeSizes(const CDGraph& graph, const CDNodeMetrics& m)
+{
+    std::vector<CDBox> sizes;
+    sizes.reserve(graph.nodes.size());
+    for (const CDNode& n : graph.nodes) sizes.push_back(CDNodeSize(n, m));
+    return sizes;
+}
+
 std::vector<ImVec2> CDShelfPack(const std::vector<CDBox>& boxes, float max_w, float gap)
 {
     std::vector<ImVec2> pos(boxes.size());

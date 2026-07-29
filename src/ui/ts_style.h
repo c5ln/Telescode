@@ -152,10 +152,13 @@ inline float ui_scale = 1.0f;
 // |  Sizing constants                                                           |
 // +-----------------------------------------------------------------------------+
 
-// Node geometry
-inline constexpr float NODE_WIDTH            = 220.0f;
-inline constexpr float NODE_HEADER_H         =  52.0f;
-inline constexpr float NODE_METHOD_ROW       =  22.0f;
+// Node geometry. cd_view reserves each of these explicitly rather than letting
+// text flow size the node, so a node's rendered size is exactly this geometry
+// times the zoom — independent of glyph metrics, which do not scale linearly.
+inline constexpr float NODE_WIDTH            = 220.0f;  // row width, inside NODE_PADDING_X
+inline constexpr float NODE_HEADER_H         =  36.0f;  // title bar: class name + package
+inline constexpr float NODE_ROW_H            =  18.0f;  // one field or method row
+inline constexpr float NODE_DIVIDER_H        =  12.0f;  // fields / methods separator band
 inline constexpr float NODE_ROUNDING         =  10.0f;
 inline constexpr float NODE_PADDING_X        =  12.0f;
 inline constexpr float NODE_PADDING_Y        =   6.0f;
@@ -182,6 +185,7 @@ inline constexpr float CD_LAYOUT_ASPECT =  1.6f;  // unitless: packed result ~1.
 // Zoom
 inline constexpr float ZOOM_MIN          = 0.40f;
 inline constexpr float ZOOM_MAX          = 2.00f;
+// Steps are ratios, not offsets: one notch does zoom *= (1 + STEP)^notches.
 inline constexpr float ZOOM_STEP_SCROLL  = 0.15f;
 inline constexpr float ZOOM_STEP_BTN     = 0.10f;
 inline constexpr float ZOOM_SMOOTH_SPEED = 12.0f; // exponential smoothing rate (higher = snappier)

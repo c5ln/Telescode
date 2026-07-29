@@ -19,6 +19,24 @@ struct CDBox {
     float h;
 };
 
+// Node geometry in logical pixels. cd_view reserves exactly these amounts, so a
+// node's size never depends on how long its text happens to be — which is what
+// lets the layout be computed up front instead of measured after a render pass.
+struct CDNodeMetrics {
+    float content_w;   // row width, inside the padding
+    float header_h;    // title bar: class name + package
+    float row_h;       // one field or method row
+    float divider_h;   // fields / methods separator band
+    float pad_x;       // imnodes NodePadding, added on both sides
+    float pad_y;
+};
+
+// Height follows the row count; width is the same for every node.
+CDBox CDNodeSize(const CDNode& node, const CDNodeMetrics& m);
+
+// CDNodeSize over the whole graph, index-aligned with graph.nodes.
+std::vector<CDBox> CDGraphNodeSizes(const CDGraph& graph, const CDNodeMetrics& m);
+
 // Shelf packing: fills a row left-to-right, then wraps to a new row below the
 // tallest box of the row it just closed.
 //
