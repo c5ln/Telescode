@@ -120,4 +120,10 @@ struct CDHierarchyMetrics {
 // and leaves layout_valid false so the caller retries.
 void CDLayoutHierarchical(CDGraph& graph, const CDHierarchyMetrics& m);
 
+// Re-fits every container box around where its children actually are. Dragging a
+// node moves it after the layout ran, and without this the file boundary would
+// stay put while the class walked out of it. Idempotent, and reproduces exactly
+// what CDLayoutHierarchical produced when nothing has moved.
+void CDRefreshContainerBounds(CDGraph& graph, const CDHierarchyMetrics& m);
+
 } // namespace TS

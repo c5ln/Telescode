@@ -2,6 +2,7 @@
 
 #include "cd_layout.h"
 #include <algorithm>
+#include <cfloat>
 #include <cmath>
 #include <numeric>
 #include <unordered_map>
@@ -587,6 +588,44 @@ void CDLayoutHierarchical(CDGraph& graph, const CDHierarchyMetrics& m)
     }
 
     graph.layout_valid = true;
+}
+
+void CDRefreshContainerBounds(CDGraph& graph, const CDHierarchyMetrics& m)
+{
+    // Files first — their bounds come from the class nodes.
+    for (CDContainer& file : graph.containers) {
+        if (!file.is_file || file.child_nodes.empty()) continue;
+
+        float lo_x = FLT_MAX, lo_y = FLT_MAX, hi_x = -FLT_MAX, hi_y = -FLT_MAX;
+        for (int ni : file.child_nodes) {
+            const CDNode& node = graph.nodes[static_cast<size_t>(ni)];
+            const CDBox   box  = CDNodeSize(node, m.node);
+            lo_x = std::min(lo_x, node.pos.x);
+            lo_y = std::min(lo_y, node.pos.y);
+            hi_x = std::max(hi_x, node.pos.x + box.w);
+            hi_y = std::max(hi_y, node.pos.y + box.h);
+        }
+        file.pos  = { lo_x - m.file_pad, lo_y - m.file_header - m.file_pad };
+        file.size = { (hi_x - lo_x) + 2.0f * m.file_pad,
+                      (hi_y - lo_y) + m.file_header + 2.0f * m.file_pad };
+    }
+
+    // Folders then wrap the files that were just refreshed.
+    for (CDContainer& folder : graph.containers) {
+        if (folder.is_file || folder.child_containers.empty()) continue;
+
+        float lo_x = FLT_MAX, lo_y = FLT_MAX, hi_x = -FLT_MAX, hi_y = -FLT_MAX;
+        for (int ci : folder.child_containers) {
+            const CDContainer& file = graph.containers[static_cast<size_t>(ci)];
+            lo_x = std::min(lo_x, file.pos.x);
+            lo_y = std::min(lo_y, file.pos.y);
+            hi_x = std::max(hi_x, file.pos.x + file.size.x);
+            hi_y = std::max(hi_y, file.pos.y + file.size.y);
+        }
+        folder.pos  = { lo_x - m.folder_pad, lo_y - m.folder_header - m.folder_pad };
+        folder.size = { (hi_x - lo_x) + 2.0f * m.folder_pad,
+                        (hi_y - lo_y) + m.folder_header + 2.0f * m.folder_pad };
+    }
 }
 
 } // namespace TS

@@ -7,6 +7,7 @@
 #include <imgui.h>
 #include <imnodes.h>
 #include <cfloat>
+#include <algorithm>
 #include <cmath>
 #include <string>
 #include <unordered_set>
@@ -99,6 +100,81 @@ void DrawRowBlock(ImDrawList* dl, ImFont* font, float px, float w, float row_h,
     for (size_t i = 0; i < rows.size(); ++i)
         DrawRowText(dl, font, px, {tl.x, tl.y + row_h * static_cast<float>(i)},
                     w, row_h, col, rows[i].display.c_str());
+}
+
+// Ellipsizes container labels against each container's own width, once.
+void PrepareContainerLabels(CDGraph& graph)
+{
+    const int   lod   = TS::GetFontLOD(1.0f);
+    const float base  = TS::FONT_SIZE_BASE  * TS::ui_scale;
+    const float small = TS::FONT_SIZE_SMALL * TS::ui_scale;
+
+    for (CDContainer& c : graph.containers) {
+        const float pad = (c.is_file ? TS::CD_FILE_PAD : TS::CD_FOLDER_PAD) * TS::ui_scale;
+        const float budget = std::max(c.size.x - 2.0f * pad, 1.0f);
+        c.display_label = c.is_file
+            ? Ellipsize(TS::FONT_SMALL_LOD[lod],  small, budget, c.label)
+            : Ellipsize(TS::FONT_MEDIUM_LOD[lod], base,  budget, c.label);
+    }
+}
+
+// Draws the file and folder boundaries behind the nodes.
+//
+// This must run after BeginNodeEditor() and BEFORE the first BeginNode().
+// imnodes splits the canvas draw list into a channel pair per node, and channel
+// 0 — the one the grid goes into — stays current until the first node is
+// submitted, so anything drawn here ends up behind every node. Drawing after
+// EndNodeEditor the way the arrowheads do would paint over the top instead,
+// which is no use for a container. Keeping the call at the head of
+// DrawClassDiagramContent is what enforces that ordering.
+void DrawContainers(const CDGraph& graph, float zoom)
+{
+    if (graph.containers.empty()) return;
+
+    // screen = canvas origin + panning + grid, and grid = logical * zoom.
+    const ImVec2 canvas  = ImGui::GetCursorScreenPos();
+    const ImVec2 panning = ImNodes::EditorContextGetPanning();
+
+    const float z   = zoom * TS::ui_scale;
+    const int   lod = TS::GetFontLOD(zoom);
+    const float r   = TS::CD_CONTAINER_ROUNDING * z;
+
+    // Both boundaries stay in the warm paper family. LINE itself is only about
+    // 1.2:1 against the canvas, so the folder border is a shaded LINE rather
+    // than LINE at full alpha — no amount of opacity fixes a tone that close to
+    // the background. Its fill stays light: it sits under every node.
+    const ImU32 folder_fill = ImGui::ColorConvertFloat4ToU32(TS::WithAlpha(TS::LINE, 0.30f));
+    const ImU32 folder_line = ImGui::ColorConvertFloat4ToU32(TS::Shade(TS::LINE, 0.72f));
+    const ImU32 file_fill   = ImGui::ColorConvertFloat4ToU32(TS::WithAlpha(TS::PANEL, 0.55f));
+    const ImU32 file_line   = TS::LINE_U32;
+
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+
+    // Folders first so the file boxes read as sitting inside them.
+    for (int pass = 0; pass < 2; ++pass) {
+        const bool files = (pass == 1);
+        for (const CDContainer& c : graph.containers) {
+            if (c.is_file != files) continue;
+
+            const ImVec2 tl = { canvas.x + panning.x + c.pos.x * zoom,
+                                canvas.y + panning.y + c.pos.y * zoom };
+            const ImVec2 br = { tl.x + c.size.x * zoom, tl.y + c.size.y * zoom };
+
+            dl->AddRectFilled(tl, br, files ? file_fill : folder_fill, r);
+            // Floor at one pixel: scaled down, a 1.5px border all but vanishes
+            // at ZOOM_MIN, which is exactly where the grouping matters most.
+            dl->AddRect(tl, br, files ? file_line : folder_line, r, 0,
+                        std::max((files ? TS::CD_FILE_BORDER : TS::CD_FOLDER_BORDER) * z, 1.0f));
+
+            const float pad    = (files ? TS::CD_FILE_PAD    : TS::CD_FOLDER_PAD)    * z;
+            const float header = (files ? TS::CD_FILE_HEADER : TS::CD_FOLDER_HEADER) * z;
+            const float px     = (files ? TS::FONT_SIZE_SMALL : TS::FONT_SIZE_BASE)  * z;
+
+            DrawRowText(dl, files ? TS::FONT_SMALL_LOD[lod] : TS::FONT_MEDIUM_LOD[lod], px,
+                        { tl.x + pad, tl.y }, c.size.x * zoom - 2.0f * pad, header,
+                        files ? TS::INK_3_U32 : TS::INK_2_U32, c.display_label.c_str());
+        }
+    }
 }
 
 void DrawNode(const CDNode& node, bool selected, bool dimmed, float zoom)
@@ -217,6 +293,18 @@ void DrawClassDiagramContent(CDGraph& graph, float zoom)
 {
     if (!graph.display_ready) PrepareDisplayText(graph);
 
+    const float s = TS::ui_scale;
+    const CDHierarchyMetrics metrics = {
+        { TS::NODE_WIDTH * s, TS::NODE_HEADER_H * s, TS::NODE_ROW_H * s,
+          TS::NODE_DIVIDER_H * s, TS::NODE_PADDING_X * s, TS::NODE_PADDING_Y * s },
+        TS::CD_CLASS_GAP_X  * s, TS::CD_CLASS_GAP_Y   * s,
+        TS::CD_FILE_GAP_X   * s, TS::CD_FILE_GAP_Y    * s,
+        TS::CD_FOLDER_GAP_X * s, TS::CD_FOLDER_GAP_Y  * s,
+        TS::CD_FILE_PAD     * s, TS::CD_FILE_HEADER   * s,
+        TS::CD_FOLDER_PAD   * s, TS::CD_FOLDER_HEADER * s,
+        TS::CD_LAYOUT_ASPECT,
+    };
+
     // Node sizes are a pure function of the row counts, so the whole hierarchy
     // can be laid out up front — no render-then-measure round trip needed.
     if (!graph.layout_valid) {
@@ -227,20 +315,13 @@ void DrawClassDiagramContent(CDGraph& graph, float zoom)
         CDBuildContainers(graph, CDChooseFolderDepth(file_ids,
                                                      TS::CD_FOLDER_GROUP_MIN,
                                                      TS::CD_FOLDER_GROUP_MAX));
-
-        const float s = TS::ui_scale;
-        const CDHierarchyMetrics metrics = {
-            { TS::NODE_WIDTH * s, TS::NODE_HEADER_H * s, TS::NODE_ROW_H * s,
-              TS::NODE_DIVIDER_H * s, TS::NODE_PADDING_X * s, TS::NODE_PADDING_Y * s },
-            TS::CD_CLASS_GAP_X  * s, TS::CD_CLASS_GAP_Y  * s,
-            TS::CD_FILE_GAP_X   * s, TS::CD_FILE_GAP_Y   * s,
-            TS::CD_FOLDER_GAP_X * s, TS::CD_FOLDER_GAP_Y * s,
-            TS::CD_FILE_PAD     * s, TS::CD_FILE_HEADER  * s,
-            TS::CD_FOLDER_PAD   * s, TS::CD_FOLDER_HEADER * s,
-            TS::CD_LAYOUT_ASPECT,
-        };
         CDLayoutHierarchical(graph, metrics);
+        PrepareContainerLabels(graph);
     }
+
+    // Cheap, and it keeps the boundaries wrapped around dragged nodes.
+    CDRefreshContainerBounds(graph, metrics);
+    DrawContainers(graph, zoom);
 
     // imnodes has no zoom of its own — node contents scale with `zoom` while
     // grid space does not — so positions must be rescaled every frame or the

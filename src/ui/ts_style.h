@@ -43,6 +43,15 @@ inline ImVec4 WithAlpha(ImVec4 c, float a)
     return { c.x, c.y, c.z, a };
 }
 
+// Darker sibling of a token, keeping its hue. Use when a token is the right
+// colour family but too light to carry contrast — deriving it beats adding a
+// palette entry, since a retheme through ApplyToken() carries over for free.
+// Usage: Shade(LINE, 0.72f)  ->  #d9d4c8 becomes #9c9990
+inline ImVec4 Shade(ImVec4 c, float f)
+{
+    return { c.x * f, c.y * f, c.z * f, c.w };
+}
+
 // +-----------------------------------------------------------------------------+
 // |  Color tokens -- Warm Cream palette                                         |
 // |  Source: telescode-design-system.html :root block                           |
@@ -193,6 +202,10 @@ inline constexpr float CD_FILE_PAD      = 16.0f;  // file boundary inset
 inline constexpr float CD_FILE_HEADER   = 24.0f;  // file label strip
 inline constexpr float CD_FOLDER_PAD    = 20.0f;
 inline constexpr float CD_FOLDER_HEADER = 30.0f;
+
+inline constexpr float CD_CONTAINER_ROUNDING = 12.0f;  // file / folder corner radius
+inline constexpr float CD_FOLDER_BORDER      =  1.5f;
+inline constexpr float CD_FILE_BORDER        =  1.0f;
 
 inline constexpr float CD_LAYOUT_ASPECT =  1.6f;  // packed result ~1.6x wider than tall
 inline constexpr int   CD_FOLDER_GROUP_MIN = 5;   // target folder count for depth selection

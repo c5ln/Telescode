@@ -71,6 +71,7 @@ struct CDContainer {
     int              parent;            // index into CDGraph::containers, -1 = folder
     bool             is_file;
     std::string      label;             // "notify.py" / "sherlock_project"
+    std::string      display_label;     // label, ellipsized to the container width
     std::vector<int> child_nodes;       // indices into CDGraph::nodes; files only
     std::vector<int> child_containers;  // indices into CDGraph::containers
     ImVec2           pos;               // absolute logical top-left, as CDNode::pos
