@@ -211,8 +211,77 @@ inline constexpr float CD_LAYOUT_ASPECT =  1.6f;  // packed result ~1.6x wider t
 inline constexpr int   CD_FOLDER_GROUP_MIN = 5;   // target folder count for depth selection
 inline constexpr int   CD_FOLDER_GROUP_MAX = 15;
 
+// ── Semantic zoom ────────────────────────────────────────────────────────────
+// Three tiers, reached by zooming rather than by a mode switch:
+//
+//   zoom < NODE_FADE_LO     folders and files only — the repo's shape
+//   NODE_FADE_HI .. MEMBER_FADE_LO   class boxes, headers only
+//   zoom > MEMBER_FADE_HI   full class diagram, fields and methods
+//
+// These are zoom values, NOT lengths: do not multiply them by ui_scale.
+//
+// The bands must not overlap, and detail has to leave before its container
+// does — nodes vanishing while still showing their member rows would skip the
+// summary tier the whole scheme exists for. Hence NODE_FADE_HI < MEMBER_FADE_LO.
+// NODE_FADE_LO sits above the zoom where a file box first gets wide enough to
+// hold its own name (a one-class file is ~276 logical px, so ~0.20), otherwise
+// the class boxes arrive before the file-name tier is legible and that tier
+// never exists on screen.
+inline constexpr float CD_NODE_FADE_LO   = 0.30f;  // class boxes begin to appear
+inline constexpr float CD_NODE_FADE_HI   = 0.45f;  // ... fully opaque
+inline constexpr float CD_MEMBER_FADE_LO = 0.60f;  // field / method rows begin
+inline constexpr float CD_MEMBER_FADE_HI = 0.85f;  // ... fully opaque
+
+// Screen-pixel floor for the detail-layout folder and file labels, which are
+// derived from their children and can shrink to nothing — at ZOOM_MIN a scaled
+// label would be about one pixel tall.
+inline constexpr float CD_LABEL_MIN_PX   = 11.0f;
+
+// ── Overview layout (see CDLayoutOverview) ───────────────────────────────────
+// Logical pixels, like every other CD_* length: multiply by ui_scale.
+//
+// These are an order of magnitude larger than their detail-layout counterparts
+// on purpose. The overview is read at ZOOM_MIN, so a box's screen size is its
+// logical size times ~0.12 — a 276-wide detail file box lands at 33px there,
+// too narrow for a name at any font size. Sizing the overview up in logical
+// space is what buys legibility, and it costs nothing: the overview is only ever
+// drawn zoomed out, and the boxes have shrunk to the detail sizes by the time
+// the zoom reaches the class diagram.
+inline constexpr float CD_OVERVIEW_FILE_W       = 900.0f;  // uniform, every file
+inline constexpr float CD_OVERVIEW_FILE_H       = 260.0f;
+inline constexpr float CD_OVERVIEW_FILE_GAP_X   = 120.0f;
+inline constexpr float CD_OVERVIEW_FILE_GAP_Y   = 120.0f;
+inline constexpr float CD_OVERVIEW_FOLDER_GAP_X = 320.0f;
+inline constexpr float CD_OVERVIEW_FOLDER_GAP_Y = 280.0f;
+inline constexpr float CD_OVERVIEW_FOLDER_PAD   = 140.0f;
+inline constexpr float CD_OVERVIEW_FOLDER_HEADER = 210.0f;
+
+// Overview labels scale with their box instead of hitting CD_LABEL_MIN_PX: the
+// box is uniform, so a proportional label fits by construction and needs no
+// floor. The file name is centred in its box; the folder name sits in the header
+// strip above its files.
+inline constexpr float CD_OVERVIEW_LABEL_PX        = 110.0f;  // file name
+inline constexpr float CD_OVERVIEW_FOLDER_LABEL_PX = 165.0f;  // folder name
+inline constexpr float CD_OVERVIEW_LABEL_FILL      = 0.88f;   // of the box width
+
+// Smoothstep from 0 at `lo` to 1 at `hi`, clamped outside. Linear ramps make the
+// first and last moments of a fade the most visible part of it; the eased ends
+// are what let a tier arrive without announcing itself.
+inline float CDFade(float zoom, float lo, float hi)
+{
+    if (hi <= lo)   return zoom >= hi ? 1.0f : 0.0f;
+    if (zoom <= lo) return 0.0f;
+    if (zoom >= hi) return 1.0f;
+    const float t = (zoom - lo) / (hi - lo);
+    return t * t * (3.0f - 2.0f * t);
+}
+
 // Zoom
-inline constexpr float ZOOM_MIN          = 0.40f;
+// ZOOM_MIN is deliberately far below "readable": it is the semantic-zoom
+// overview, where class nodes are gone and only the folder/file boundaries are
+// left. Raising it back toward 0.4 would put the floor above CD_NODE_FADE_LO
+// and the overview would become unreachable.
+inline constexpr float ZOOM_MIN          = 0.12f;
 inline constexpr float ZOOM_MAX          = 2.00f;
 // Steps are ratios, not offsets: one notch does zoom *= (1 + STEP)^notches.
 inline constexpr float ZOOM_STEP_SCROLL  = 0.15f;

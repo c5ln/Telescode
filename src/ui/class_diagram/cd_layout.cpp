@@ -590,6 +590,86 @@ void CDLayoutHierarchical(CDGraph& graph, const CDHierarchyMetrics& m)
     graph.layout_valid = true;
 }
 
+void CDLayoutOverview(CDGraph& graph, const CDOverviewMetrics& m)
+{
+    if (graph.containers.empty()) return;
+
+    // node_id → container index, as in CDLayoutHierarchical: class edges are what
+    // order the folders, and they have to be lifted to that level first.
+    std::unordered_map<int, int> node_id_to_file;
+    for (size_t c = 0; c < graph.containers.size(); ++c)
+        for (int ni : graph.containers[c].child_nodes)
+            node_id_to_file.emplace(graph.nodes[static_cast<size_t>(ni)].node_id,
+                                    static_cast<int>(c));
+
+    // ── Pass 1: uniform files inside each folder ─────────────────────────────
+    for (CDContainer& folder : graph.containers) {
+        if (folder.is_file) continue;
+
+        std::unordered_map<int, int> file_to_local;
+        std::vector<CDBox>           boxes(folder.child_containers.size(), m.file);
+        for (size_t k = 0; k < folder.child_containers.size(); ++k)
+            file_to_local.emplace(folder.child_containers[k], static_cast<int>(k));
+
+        std::unordered_map<int, int> node_to_local;
+        for (const auto& kv : node_id_to_file) {
+            const auto it = file_to_local.find(kv.second);
+            if (it != file_to_local.end()) node_to_local.emplace(kv.first, it->second);
+        }
+
+        const std::vector<ImVec2> local = CDLayeredLayout(
+            boxes, LocalEdges(graph.edges, node_to_local), m.file_gap_x, m.file_gap_y, m.aspect);
+
+        // Local for now; the pass below turns these into absolute coordinates.
+        for (size_t k = 0; k < folder.child_containers.size(); ++k) {
+            CDContainer& file = graph.containers[static_cast<size_t>(folder.child_containers[k])];
+            file.overview_pos  = local[k];
+            file.overview_size = { m.file.w, m.file.h };
+        }
+
+        const CDBox inner = CDBoundingSize(boxes, local);
+        folder.overview_size = { inner.w + 2.0f * m.folder_pad,
+                                 inner.h + m.folder_header + 2.0f * m.folder_pad };
+    }
+
+    // ── Pass 2: folders across the canvas ────────────────────────────────────
+    std::vector<int>             folders;
+    std::unordered_map<int, int> folder_to_local;
+    std::vector<CDBox>           boxes;
+    for (size_t c = 0; c < graph.containers.size(); ++c) {
+        if (graph.containers[c].is_file) continue;
+        folder_to_local.emplace(static_cast<int>(c), static_cast<int>(boxes.size()));
+        folders.push_back(static_cast<int>(c));
+        boxes.push_back({graph.containers[c].overview_size.x,
+                         graph.containers[c].overview_size.y});
+    }
+
+    std::unordered_map<int, int> node_to_folder_local;
+    for (const auto& kv : node_id_to_file) {
+        const int  folder_idx = graph.containers[static_cast<size_t>(kv.second)].parent;
+        const auto it         = folder_to_local.find(folder_idx);
+        if (it != folder_to_local.end()) node_to_folder_local.emplace(kv.first, it->second);
+    }
+
+    const std::vector<ImVec2> folder_pos = CDLayeredLayout(
+        boxes, LocalEdges(graph.edges, node_to_folder_local),
+        m.folder_gap_x, m.folder_gap_y, m.aspect);
+
+    for (size_t k = 0; k < folders.size(); ++k)
+        graph.containers[static_cast<size_t>(folders[k])].overview_pos = folder_pos[k];
+
+    for (int fi : folders) {
+        const CDContainer& folder = graph.containers[static_cast<size_t>(fi)];
+        const ImVec2 origin = { folder.overview_pos.x + m.folder_pad,
+                                folder.overview_pos.y + m.folder_header + m.folder_pad };
+        for (int ci : folder.child_containers) {
+            CDContainer& file = graph.containers[static_cast<size_t>(ci)];
+            file.overview_pos = { origin.x + file.overview_pos.x,
+                                  origin.y + file.overview_pos.y };
+        }
+    }
+}
+
 void CDRefreshContainerBounds(CDGraph& graph, const CDHierarchyMetrics& m)
 {
     // Files first — their bounds come from the class nodes.

@@ -274,6 +274,7 @@ target_include_directories(LayoutTests PRIVATE
 target_compile_definitions(LayoutTests PRIVATE IMGUI_DEFINE_MATH_OPERATORS)
 target_link_libraries(LayoutTests PRIVATE
     imgui
+    imnodes
     GTest::gtest_main
 )
 add_test(NAME LayoutTests COMMAND LayoutTests)

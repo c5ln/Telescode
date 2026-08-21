@@ -76,6 +76,17 @@ struct CDContainer {
     std::vector<int> child_containers;  // indices into CDGraph::containers
     ImVec2           pos;               // absolute logical top-left, as CDNode::pos
     ImVec2           size;
+
+    // Second, independent placement used by the semantic-zoom overview, where
+    // every file is the same box: a box's size should read as "a file", not as
+    // "a file that happens to hold eleven classes". Written by CDLayoutOverview;
+    // cd_view interpolates between this and the pair above as the zoom crosses
+    // the node fade band. Deliberately far larger in logical space than the
+    // detail layout — the overview is viewed at a fraction of the zoom, and that
+    // is what keeps a file's name legible there.
+    ImVec2           overview_pos;
+    ImVec2           overview_size;
+    std::string      overview_label;    // label, ellipsized to overview_size
 };
 
 // Full diagram state, including interaction state.

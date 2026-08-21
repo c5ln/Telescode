@@ -120,6 +120,31 @@ struct CDHierarchyMetrics {
 // and leaves layout_valid false so the caller retries.
 void CDLayoutHierarchical(CDGraph& graph, const CDHierarchyMetrics& m);
 
+// ── Overview layout ──────────────────────────────────────────────────────────
+
+struct CDOverviewMetrics {
+    CDBox file;                        // uniform — every file gets this exact box
+    float file_gap_x,   file_gap_y;    // between files inside a folder
+    float folder_gap_x, folder_gap_y;  // between folders on the canvas
+    float folder_pad,   folder_header;
+    float aspect;
+};
+
+// The overview counterpart of CDLayoutHierarchical: two passes instead of three,
+// because a file has no interior here — every file is m.file, whatever it holds.
+//
+// Writes CDContainer::overview_pos / overview_size and leaves pos / size alone,
+// so both placements coexist and cd_view can interpolate between them. Class
+// nodes get no overview position of their own: they are invisible at the
+// overview, and cd_view collapses them onto their file's box centre.
+//
+// Uses the same edge-driven CDLayeredLayout as the detail pass, so a folder that
+// depends on another sits downstream of it in both placements and the transition
+// is not a reshuffle.
+//
+// Call CDBuildContainers first; empty containers means this does nothing.
+void CDLayoutOverview(CDGraph& graph, const CDOverviewMetrics& m);
+
 // Re-fits every container box around where its children actually are. Dragging a
 // node moves it after the layout ran, and without this the file boundary would
 // stay put while the class walked out of it. Idempotent, and reproduces exactly
