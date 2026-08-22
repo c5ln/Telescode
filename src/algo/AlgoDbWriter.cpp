@@ -90,6 +90,9 @@ AlgoConfig AlgoDbWriter::loadConfig(const char* dbPath)
     AlgoConfig cfg;
     if (initDb(dbPath, &db) != SQLITE_OK) return cfg;
 
+    // Version 1 = any DB seeded before the schema version existed.
+    const int stored_version = get_int(db, "config_version", 1);
+
     cfg.alpha           = get_double(db, "alpha",         cfg.alpha);
     cfg.beta            = get_double(db, "beta",          cfg.beta);
     cfg.gamma           = get_double(db, "gamma",         cfg.gamma);
@@ -123,6 +126,18 @@ AlgoConfig AlgoDbWriter::loadConfig(const char* dbPath)
     cfg.complexity_nesting_avg_blend = get_double(db, "complexity_nesting_avg_blend", cfg.complexity_nesting_avg_blend);
     cfg.complexity_include_generated = get_int(db, "complexity_include_generated",
                                                 cfg.complexity_include_generated ? 1 : 0) != 0;
+
+    // Defaults that must override what an older build already persisted.
+    // reading_sequence_config round-trips through write(), so without this a bad
+    // default seeded once would survive every later run of a corrected build.
+    if (stored_version < 2) {
+        // gamma 1.5 was fitted to the F4 summary statistic of the very corpus it
+        // was being validated on, and it let the ease term dominate the ranking.
+        cfg.gamma = AlgoConfig{}.gamma;
+        std::fprintf(stderr,
+            "AlgoDbWriter: config_version %d < %d -- resetting gamma to the "
+            "current default (%.3g)\n", stored_version, kAlgoConfigVersion, cfg.gamma);
+    }
 
     sqlite3_close(db);
     return cfg;
@@ -209,6 +224,7 @@ int AlgoDbWriter::updateConfig(sqlite3* db, const AlgoConfig& cfg)
         rc = upsert(db, k, buf);
     };
 
+    i("config_version", kAlgoConfigVersion);
     d("alpha",         cfg.alpha);
     d("beta",          cfg.beta);
     d("gamma",         cfg.gamma);
