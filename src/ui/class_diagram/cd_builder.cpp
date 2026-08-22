@@ -1,10 +1,8 @@
 // src/ui/class_diagram/cd_builder.cpp
 
 #include "cd_builder.h"
-#include "../ts_style.h"
 #include <sqlite3.h>
 #include <unordered_map>
-#include <cmath>
 #include <cstring>
 #include <string>
 
@@ -38,21 +36,6 @@ char accessFromName(const std::string& name)
     return '+';
 }
 
-void AssignGridPositions(CDGraph& graph)
-{
-    const int n = static_cast<int>(graph.nodes.size());
-    if (n == 0) return;
-    const int cols      = std::max(1, static_cast<int>(std::ceil(std::sqrt(static_cast<double>(n)))));
-    const float col_step = (NODE_WIDTH + 80.0f);
-    const float row_step = 220.0f;
-    for (int i = 0; i < n; ++i) {
-        graph.nodes[i].pos = {
-            static_cast<float>(i % cols) * col_step,
-            static_cast<float>(i / cols) * row_step
-        };
-    }
-}
-
 } // anonymous namespace
 
 CDGraph BuildCDGraph(sqlite3* db)
@@ -76,8 +59,8 @@ CDGraph BuildCDGraph(sqlite3* db)
         node.node_id    = node_id;
         node.class_id   = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
         node.class_name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
-        node.package    = packageFromFileId(
-            reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)));
+        node.file_id    = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+        node.package    = packageFromFileId(node.file_id);
         classToNodeId[node.class_id] = node_id;
         classToIdx[node.class_id]    = static_cast<size_t>(node_id);
         graph.nodes.push_back(std::move(node));
@@ -194,9 +177,8 @@ CDGraph BuildCDGraph(sqlite3* db)
     }
     sqlite3_finalize(stmt);
 
-    // ── Step 7: initial grid layout ────────────────────────────────────────
-    AssignGridPositions(graph);
-
+    // Positions are left unset: node sizes are content-driven, so the layout is
+    // assigned by cd_layout once imnodes has measured them. See cd_view.cpp.
     return graph;
 }
 

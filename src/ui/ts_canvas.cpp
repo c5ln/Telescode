@@ -5,6 +5,7 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <imnodes.h>
+#include <cmath>
 #include "ts_style.h"
 #include "class_diagram/cd_view.h"
 #include "class_diagram/cd_builder.h"
@@ -66,7 +67,11 @@ void DrawCanvas(ImVec2 pos, ImVec2 size)
         const float wheel = ImGui::GetIO().MouseWheel;
         if (wheel != 0.0f)
         {
-            const float new_target = ImClamp(s_zoom_target + wheel * ZOOM_STEP_SCROLL,
+            // Zoom is multiplicative: one wheel notch should change the scale by
+            // a fixed ratio. Adding a constant instead made a notch worth +37%
+            // near ZOOM_MIN but only +8% near ZOOM_MAX, so the two ends of the
+            // range felt like different controls.
+            const float new_target = ImClamp(s_zoom_target * powf(1.0f + ZOOM_STEP_SCROLL, wheel),
                                              ZOOM_MIN, ZOOM_MAX);
             if (new_target != s_zoom_target)
             {
@@ -89,8 +94,13 @@ void DrawCanvas(ImVec2 pos, ImVec2 size)
     {
         const float dt = ImGui::GetIO().DeltaTime;
         const float t  = 1.0f - expf(-dt * ZOOM_SMOOTH_SPEED);
-        s_zoom = s_zoom + (s_zoom_target - s_zoom) * t;
-        if (fabsf(s_zoom - s_zoom_target) < 0.0005f)
+
+        // Ease in log space. A linear lerp covers an uneven ratio per frame, so
+        // the motion looks fast up front and then crawls, and zooming out is not
+        // the mirror of zooming in. Interpolating the exponent fixes both.
+        s_zoom = expf(logf(s_zoom) + (logf(s_zoom_target) - logf(s_zoom)) * t);
+
+        if (fabsf(s_zoom - s_zoom_target) < s_zoom_target * 0.0005f)
         {
             s_zoom = s_zoom_target;
             s_anchor_world  = { 0.0f, 0.0f };  // animation done — release pan lock
@@ -147,6 +157,9 @@ void DrawCanvas(ImVec2 pos, ImVec2 size)
 
     // 12. Arrowheads — drawn after EndNodeEditor so they sit above all imnodes channels.
     TS::DrawClassDiagramArrowheads(s_graph, s_zoom);
+
+    // 12b. Node dragging is applied inside EndNodeEditor — pull it back into the model.
+    TS::SyncClassDiagramPositions(s_graph, s_zoom);
 
     TS::UpdateClassDiagramInteraction(s_graph);
 
