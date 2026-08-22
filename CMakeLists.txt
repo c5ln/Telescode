@@ -223,6 +223,8 @@ add_executable(AlgoTests
     tests/algo/test_algo_merge.cpp
     tests/algo/test_percentile_rank.cpp
     tests/algo/test_complexity_scorer.cpp
+    tests/algo/test_graph_weights.cpp
+    tests/algo/test_personalized_pagerank.cpp
 )
 target_include_directories(AlgoTests PRIVATE src)
 target_link_libraries(AlgoTests PRIVATE algo GTest::gtest_main)

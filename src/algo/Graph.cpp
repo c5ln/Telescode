@@ -2,7 +2,9 @@
 
 #include <sqlite3.h>
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <stack>
 #include <unordered_set>
 
@@ -16,7 +18,27 @@ NodeId Graph::get_or_add(const std::string& id)
     node_to_id.push_back(id);
     adj.emplace_back();
     radj.emplace_back();
+    adj_w.emplace_back();
     return nid;
+}
+
+void Graph::add_edge(NodeId u, NodeId v, double w)
+{
+    if (u == v) return;
+    if (u >= adj.size() || v >= radj.size()) return;
+    if (adj_w.size() < adj.size()) adj_w.resize(adj.size());
+
+    const uint64_t key = (static_cast<uint64_t>(u) << 32) | v;
+    auto it = edge_pos_.find(key);
+    if (it != edge_pos_.end()) {
+        adj_w[u][it->second] += w;
+        return;
+    }
+
+    edge_pos_[key] = static_cast<uint32_t>(adj[u].size());
+    adj[u].push_back(v);
+    adj_w[u].push_back(w);
+    radj[v].push_back(u);
 }
 
 // ── SCCFinder ─────────────────────────────────────────────────────────────────
@@ -99,13 +121,37 @@ static std::string resolve_module(const std::string& module,
     return {};
 }
 
-static void add_edge(Graph& g, const std::string& src, const std::string& tgt)
+static void add_edge(Graph& g, const std::string& src, const std::string& tgt, double w = 1.0)
 {
     if (src == tgt) return;
     NodeId u = g.get_or_add(src);
     NodeId v = g.get_or_add(tgt);
-    g.adj[u].push_back(v);
-    g.radj[v].push_back(u);
+    g.add_edge(u, v, w);
+}
+
+// Per-link-type base weight. INHERITS is the strongest coupling (you cannot
+// understand a subclass without its base), CALLS next, IMPORTS weakest --
+// a module-level import says far less than an actual call.
+static double link_type_weight(const char* type, const AlgoConfig& cfg)
+{
+    if (!type) return cfg.edge_w_imports;
+    if (std::strcmp(type, "INHERITS") == 0) return cfg.edge_w_inherits;
+    if (std::strcmp(type, "CALLS")    == 0) return cfg.edge_w_calls;
+    return cfg.edge_w_imports;
+}
+
+// `link` has PRIMARY KEY(source_id, target_id, link_type), so multiplicity only
+// appears once entity ids are collapsed to file ids: `cnt` is the number of
+// distinct entity pairs connecting the two files. Linear scaling lets one hot
+// pair (hundreds of call sites) dominate the whole graph, so log is the default.
+static double count_factor(int cnt, const AlgoConfig& cfg)
+{
+    if (cnt <= 1) return 1.0;
+    switch (cfg.edge_count_mode) {
+        case 0:  return 1.0;                                  // ignore multiplicity
+        case 1:  return static_cast<double>(cnt);             // linear
+        default: return 1.0 + std::log(static_cast<double>(cnt));  // log
+    }
 }
 
 // Pass 1: file-level graph
@@ -113,7 +159,8 @@ static void add_edge(Graph& g, const std::string& src, const std::string& tgt)
 // IMPORTS edges: target is a Python module name; resolved to file path if possible.
 // External module names that can't be resolved to a project file are excluded.
 // All project files are pre-populated as nodes so isolated files appear in the graph.
-void GraphBuilder::build_file_graph(sqlite3* db, Graph& g)
+// Edge weight = link_type_weight * count_factor(#entity pairs), summed over types.
+void GraphBuilder::build_file_graph(sqlite3* db, Graph& g, const AlgoConfig& cfg)
 {
     // Load all project file_ids for node pre-population and module resolution.
     std::unordered_set<std::string> file_ids;
@@ -131,21 +178,26 @@ void GraphBuilder::build_file_graph(sqlite3* db, Graph& g)
     }
 
     // CALLS and INHERITS: both source and target use file-path-based IDs.
+    // GROUP BY (not DISTINCT) so `cnt` survives as edge weight.
     sqlite3_stmt* stmt = nullptr;
     sqlite3_prepare_v2(db,
-        "SELECT DISTINCT"
+        "SELECT"
         "    substr(source_id, 1, instr(source_id||'::', '::')-1) AS src,"
-        "    substr(target_id, 1, instr(target_id||'::', '::')-1) AS tgt"
+        "    substr(target_id, 1, instr(target_id||'::', '::')-1) AS tgt,"
+        "    link_type, COUNT(*) AS cnt"
         " FROM link"
-        " WHERE link_type IN ('CALLS', 'INHERITS');",
+        " WHERE link_type IN ('CALLS', 'INHERITS')"
+        " GROUP BY src, tgt, link_type;",
         -1, &stmt, nullptr);
     if (stmt) {
         while (sqlite3_step(stmt) == SQLITE_ROW) {
-            const char* src = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
-            const char* tgt = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+            const char* src  = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+            const char* tgt  = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+            const char* type = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+            const int   cnt  = sqlite3_column_int(stmt, 3);
             if (!src || !tgt) continue;
             if (file_ids.count(src) && file_ids.count(tgt))
-                add_edge(g, src, tgt);
+                add_edge(g, src, tgt, link_type_weight(type, cfg) * count_factor(cnt, cfg));
         }
         sqlite3_finalize(stmt);
     }
@@ -154,21 +206,23 @@ void GraphBuilder::build_file_graph(sqlite3* db, Graph& g)
     // Resolve module name to file path; skip unresolvable (external) modules.
     stmt = nullptr;
     sqlite3_prepare_v2(db,
-        "SELECT DISTINCT"
+        "SELECT"
         "    substr(source_id, 1, instr(source_id||'::', '::')-1) AS src,"
-        "    target_id AS module_name"
+        "    target_id AS module_name, COUNT(*) AS cnt"
         " FROM link"
-        " WHERE link_type = 'IMPORTS';",
+        " WHERE link_type = 'IMPORTS'"
+        " GROUP BY src, module_name;",
         -1, &stmt, nullptr);
     if (stmt) {
         while (sqlite3_step(stmt) == SQLITE_ROW) {
             const char* src = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
             const char* mod = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+            const int   cnt = sqlite3_column_int(stmt, 2);
             if (!src || !mod) continue;
             if (!file_ids.count(src)) continue;
             std::string tgt = resolve_module(mod, file_ids);
             if (!tgt.empty())
-                add_edge(g, src, tgt);
+                add_edge(g, src, tgt, cfg.edge_w_imports * count_factor(cnt, cfg));
         }
         sqlite3_finalize(stmt);
     }
@@ -176,24 +230,26 @@ void GraphBuilder::build_file_graph(sqlite3* db, Graph& g)
 
 // Pass 2: function/class-level graph
 // Nodes: function_id, class_id. Edges: CALLS + INHERITS only.
-void GraphBuilder::build_func_graph(sqlite3* db, Graph& g)
+// No multiplicity here -- (source_id, target_id, link_type) is the `link` PK --
+// so the weight is purely the link-type weight.
+void GraphBuilder::build_func_graph(sqlite3* db, Graph& g, const AlgoConfig& cfg)
 {
     sqlite3_stmt* stmt = nullptr;
     sqlite3_prepare_v2(db,
-        "SELECT DISTINCT source_id, target_id FROM link"
+        "SELECT source_id, target_id, link_type FROM link"
         " WHERE link_type IN ('CALLS', 'INHERITS');",
         -1, &stmt, nullptr);
     if (!stmt) return;
 
     while (sqlite3_step(stmt) == SQLITE_ROW) {
-        const char* src = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
-        const char* tgt = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+        const char* src  = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        const char* tgt  = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+        const char* type = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
         if (!src || !tgt) continue;
 
         NodeId u = g.get_or_add(src);
         NodeId v = g.get_or_add(tgt);
-        g.adj[u].push_back(v);
-        g.radj[v].push_back(u);
+        g.add_edge(u, v, link_type_weight(type, cfg));
     }
     sqlite3_finalize(stmt);
 }
@@ -286,11 +342,11 @@ static void build_extra_maps(sqlite3* db,
     }
 }
 
-GraphBuilderResult GraphBuilder::build(sqlite3* db)
+GraphBuilderResult GraphBuilder::build(sqlite3* db, const AlgoConfig& cfg)
 {
     GraphBuilderResult result;
-    build_file_graph(db, result.file_graph);
-    build_func_graph(db, result.func_graph);
+    build_file_graph(db, result.file_graph, cfg);
+    build_func_graph(db, result.func_graph, cfg);
     build_entity_file_map(db, result.entity_file_map);
     build_extra_maps(db, result.entity_type_map,
                          result.entity_start_line,

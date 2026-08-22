@@ -92,6 +92,13 @@ AlgoConfig AlgoDbWriter::loadConfig(const char* dbPath)
 
     cfg.alpha           = get_double(db, "alpha",         cfg.alpha);
     cfg.beta            = get_double(db, "beta",          cfg.beta);
+    cfg.gamma           = get_double(db, "gamma",         cfg.gamma);
+    cfg.score_norm_mode = get_int   (db, "score_norm_mode", cfg.score_norm_mode);
+    cfg.complexity_neutral = get_double(db, "complexity_neutral", cfg.complexity_neutral);
+    cfg.edge_w_inherits = get_double(db, "edge_w_inherits", cfg.edge_w_inherits);
+    cfg.edge_w_calls    = get_double(db, "edge_w_calls",    cfg.edge_w_calls);
+    cfg.edge_w_imports  = get_double(db, "edge_w_imports",  cfg.edge_w_imports);
+    cfg.edge_count_mode = get_int   (db, "edge_count_mode", cfg.edge_count_mode);
     cfg.damping         = get_double(db, "damping",       cfg.damping);
     cfg.max_iter        = get_int   (db, "max_iter",      cfg.max_iter);
     cfg.convergence_eps = get_double(db, "eps",           cfg.convergence_eps);
@@ -204,6 +211,13 @@ int AlgoDbWriter::updateConfig(sqlite3* db, const AlgoConfig& cfg)
 
     d("alpha",         cfg.alpha);
     d("beta",          cfg.beta);
+    d("gamma",         cfg.gamma);
+    i("score_norm_mode",    cfg.score_norm_mode);
+    d("complexity_neutral", cfg.complexity_neutral);
+    d("edge_w_inherits",    cfg.edge_w_inherits);
+    d("edge_w_calls",       cfg.edge_w_calls);
+    d("edge_w_imports",     cfg.edge_w_imports);
+    i("edge_count_mode",    cfg.edge_count_mode);
     d("damping",       cfg.damping);
     i("max_iter",      cfg.max_iter);
     d("eps",           cfg.convergence_eps);

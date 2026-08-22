@@ -8,7 +8,7 @@
 
 std::vector<NodeId> ReadingSequencer::sequence(const Graph&               g,
                                                  const std::vector<double>& combined_score,
-                                                 const std::vector<int>&    loc_hint)
+                                                 const std::vector<double>& cost_hint)
 {
     const int N = g.size();
     if (N == 0) return {};
@@ -71,14 +71,14 @@ std::vector<NodeId> ReadingSequencer::sequence(const Graph&               g,
         int si = pq.top(); pq.pop();
 
         // Expand SCC: sort members by combined_score desc,
-        // then loc_hint desc, then node name asc
+        // then cost_hint asc (cheaper to understand first), then node name asc.
         std::vector<NodeId> members = sccs[si];
         std::sort(members.begin(), members.end(), [&](NodeId a, NodeId b) {
             if (combined_score[a] != combined_score[b])
                 return combined_score[a] > combined_score[b];
-            const int la = a < static_cast<NodeId>(loc_hint.size()) ? loc_hint[a] : 0;
-            const int lb = b < static_cast<NodeId>(loc_hint.size()) ? loc_hint[b] : 0;
-            if (la != lb) return la > lb;
+            const double ca = a < static_cast<NodeId>(cost_hint.size()) ? cost_hint[a] : 0.0;
+            const double cb = b < static_cast<NodeId>(cost_hint.size()) ? cost_hint[b] : 0.0;
+            if (ca != cb) return ca < cb;
             const std::string& na = a < static_cast<NodeId>(g.node_to_id.size()) ? g.node_to_id[a] : "";
             const std::string& nb = b < static_cast<NodeId>(g.node_to_id.size()) ? g.node_to_id[b] : "";
             return na < nb;

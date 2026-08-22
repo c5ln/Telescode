@@ -10,6 +10,7 @@
 #include <numeric>
 #include <queue>
 #include <stack>
+#include <stdexcept>
 
 
 // 처음에 1/N으로 가중치를 나눠준 다음에 노드를 쭉 돌면서, out degree 방향의 node에게 가중치를 다시 나눠준다. (out degree 방향은 A가 B를 import한다면, A->B를 의미한다)
@@ -17,34 +18,117 @@
 
 std::vector<double> PageRank::compute(const Graph& g, const AlgoConfig& cfg)
 {
+    return compute(g, cfg, {});
+}
+
+std::vector<double> PageRank::makeTeleport(const Graph& g,
+                                            const std::vector<SeedEntry>& seeds)
+{
+    const int N = g.size();
+    if (N == 0) return {};
+
+    std::vector<double> p(N, 0.0);
+    double sum = 0.0;
+    for (const SeedEntry& s : seeds) {
+        // A seed list may name files outside this graph -- an external module,
+        // or a path from a different snapshot of the repo. Skip, don't fail.
+        auto it = g.id_to_node.find(s.file_id);
+        if (it == g.id_to_node.end()) continue;
+        if (!(s.weight > 0.0)) continue;   // also rejects NaN
+        p[it->second] += s.weight;
+        sum += s.weight;
+    }
+
+    // Nothing matched -> empty, so compute() falls back to the uniform teleport
+    // and a caller that seeded badly gets plain PageRank rather than zeros.
+    if (!(sum > 0.0)) return {};
+
+    for (double& v : p) v /= sum;
+    return p;
+}
+
+// Personalized PageRank.
+//
+//   PR(v) = (1-d)*p[v] + d * Σ_{u→v} PR(u)*w(u,v)/out_w(u) + d*dangling*p[v]
+//
+// p[] is the teleport (restart) distribution. Empty p means the uniform 1/N
+// teleport, which is the plain PageRank this project shipped before -- that
+// branch is kept expression-for-expression identical so a rebuild reproduces
+// the pinned Phase 0 numbers exactly, down to the last ulp.
+//
+// Direction note: edges run A→B for "A depends on B", so mass injected at a
+// seed flows to what the seed *needs*. That is the intended reading of a
+// personalized walk here -- given the files an issue mentions, surface the
+// files you must understand first -- and it is why the seeded walk uses the
+// same adjacency as the unseeded one.
+std::vector<double> PageRank::compute(const Graph& g, const AlgoConfig& cfg,
+                                       const std::vector<double>& teleport)
+{
     const int N = g.size();
     if (N == 0) return {};
 
     const double d   = cfg.damping;
     const double eps = cfg.convergence_eps;
 
+    // A wrong-sized teleport vector is a wiring bug, not a data condition:
+    // silently padding it would misattribute rank and be invisible downstream.
+    if (!teleport.empty() && teleport.size() != static_cast<std::size_t>(N))
+        throw std::invalid_argument("PageRank: teleport.size() != g.size()");
+
+    std::vector<double> p;
+    if (!teleport.empty()) {
+        double sum = 0.0;
+        for (double v : teleport) {
+            if (!(v >= 0.0))
+                throw std::invalid_argument("PageRank: teleport has a negative or NaN entry");
+            sum += v;
+        }
+        // Condition 3 of the contract: an un-normalized seed vector is
+        // normalized here rather than rejected, so callers can pass raw scores.
+        if (!(sum > 0.0)) {
+            p.clear();                       // degenerate -> uniform
+        } else if (std::fabs(sum - 1.0) > 1e-12) {
+            p.reserve(N);
+            for (double v : teleport) p.push_back(v / sum);
+        } else {
+            p = teleport;
+        }
+    }
+    const bool seeded = !p.empty();
+
     std::vector<double> pr(N, 1.0 / N);
     std::vector<double> pr_new(N);
-    std::vector<int>    out_deg(N);
+    std::vector<double> out_w(N);
 
+    // Weighted out-degree. For an unweighted graph every edge weighs 1.0, so
+    // out_w == out-degree and the iteration below is bit-identical to the
+    // unweighted formulation.
     for (int u = 0; u < N; ++u)
-        out_deg[u] = static_cast<int>(g.adj[u].size());
+        out_w[u] = g.out_weight(static_cast<NodeId>(u));
 
     for (int iter = 0; iter < cfg.max_iter; ++iter) {
         double dangling_sum = 0.0;
         for (int u = 0; u < N; ++u)
-            if (out_deg[u] == 0)
+            if (out_w[u] <= 0.0)
                 dangling_sum += pr[u];
 
-        const double base = (1.0 - d) / N + d * dangling_sum / N;
-
-        std::fill(pr_new.begin(), pr_new.end(), base);
+        if (seeded) {
+            // Dangling mass is redistributed by p as well; sending it back
+            // uniformly would leak rank out of the personalized subgraph and
+            // is the usual way a "personalized" PageRank stops being personalized.
+            const double tele = (1.0 - d) + d * dangling_sum;
+            for (int v = 0; v < N; ++v)
+                pr_new[v] = tele * p[v];
+        } else {
+            const double base = (1.0 - d) / N + d * dangling_sum / N;
+            std::fill(pr_new.begin(), pr_new.end(), base);
+        }
 
         for (int u = 0; u < N; ++u) {
-            if (out_deg[u] == 0) continue;
-            const double contrib = d * pr[u] / out_deg[u];
-            for (NodeId v : g.adj[u])
-                pr_new[v] += contrib;
+            if (out_w[u] <= 0.0) continue;
+            const double share = d * pr[u] / out_w[u];
+            for (std::size_t i = 0; i < g.adj[u].size(); ++i)
+                pr_new[g.adj[u][i]] += share * g.edge_weight(static_cast<NodeId>(u), i);
         }
 
         double diff = 0.0;
@@ -241,24 +325,54 @@ int ComplexityScorer::computeAndWrite(sqlite3* db, const Graph& file_graph, cons
     return sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);
 }
 
+static std::vector<double> normalize_scores(const std::vector<double>& v, int mode)
+{
+    return mode == 0 ? minmax_normalize(v) : percentile_rank_normalize(v);
+}
+
 std::vector<double> ScoreCombiner::combine(const std::vector<double>& pr,
                                             const std::vector<double>& bc,
                                             double alpha,
-                                            double beta)
+                                            double beta,
+                                            int    norm_mode)
+{
+    return combine(pr, bc, {}, alpha, beta, 0.0, norm_mode, 0.5);
+}
+
+std::vector<double> ScoreCombiner::combine(const std::vector<double>& pr,
+                                            const std::vector<double>& bc,
+                                            const std::vector<double>& complexity,
+                                            double alpha,
+                                            double beta,
+                                            double gamma,
+                                            int    norm_mode,
+                                            double complexity_neutral)
 {
     const std::size_t N = pr.size();
     if (N == 0 || bc.size() != N) return {};
 
-    const double total = alpha + beta;
-    const double w_pr  = (total != 0.0) ? alpha / total : 0.5;
-    const double w_bc  = (total != 0.0) ? beta  / total : 0.5;
+    // No complexity signal (Pass 2) -> drop the ease term entirely rather than
+    // let a zero-filled vector read as "everything is trivially easy".
+    const bool use_ease = !complexity.empty() && gamma != 0.0;
 
-    auto pr_norm = minmax_normalize(pr);
-    auto bc_norm = minmax_normalize(bc);
+    const double total = alpha + beta + (use_ease ? gamma : 0.0);
+    const double w_pr   = (total != 0.0) ? alpha / total : 0.5;
+    const double w_bc   = (total != 0.0) ? beta  / total : 0.5;
+    const double w_ease = (total != 0.0 && use_ease) ? gamma / total : 0.0;
+
+    auto pr_norm = normalize_scores(pr, norm_mode);
+    auto bc_norm = normalize_scores(bc, norm_mode);
 
     std::vector<double> score(N);
-    for (std::size_t i = 0; i < N; ++i)
+    for (std::size_t i = 0; i < N; ++i) {
         score[i] = w_pr * pr_norm[i] + w_bc * bc_norm[i];
+        if (!use_ease) continue;
+        // complexity_score is already a percentile rank in [0,1]; a node with no
+        // score of its own (external module, generated file) gets the neutral value.
+        double cx = i < complexity.size() ? complexity[i] : complexity_neutral;
+        cx = std::min(1.0, std::max(0.0, cx));
+        score[i] += w_ease * (1.0 - cx);
+    }
 
     return score;
 }

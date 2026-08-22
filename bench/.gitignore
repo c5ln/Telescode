@@ -1,0 +1,7 @@
+scratch/*
+!scratch/.gitkeep
+bin/*
+!bin/.gitkeep
+data/*.csv
+__pycache__/
+.venv/

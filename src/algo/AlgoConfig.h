@@ -5,9 +5,30 @@
 // 읽기 순서 알고리즘 전체에 걸친 하이퍼파라미터 집합.
 // DB 동기화는 AlgoDbWriter::loadConfig / write 를 통해 이루어진다.
 struct AlgoConfig {
-    // combined = (alpha/(alpha+beta)) * PR_norm + (beta/(alpha+beta)) * BC_norm
+    // combined = (alpha*PR_norm + beta*BC_norm + gamma*ease) / (alpha+beta+gamma)
+    // where ease = 1 - complexity_score. gamma > 0 makes understanding cost a
+    // first-class term: at comparable importance, read the easier file first.
+    // gamma is only applied at the file level (Pass 2 has no complexity_score).
+    //
+    // gamma=1.5 (ease 60% / importance 40%) is the smallest round default that
+    // keeps the front half of the sequence no harder than the back half on
+    // pystdlib.db; the margin saturates just past it (see the F1/F4 trade-off in
+    // docs/reading-direction.md before lowering it).
     double   alpha             = 0.6;
     double   beta              = 0.4;
+    double   gamma             = 1.5;
+
+    // How PR/BC are mapped to [0,1] before the weighted sum.
+    //   0 = min-max, 1 = percentile rank.
+    // min-max squashes a 187x-span PageRank distribution against the bottom of
+    // the range, collapsing most files onto an identical score; percentile rank
+    // is position-based and also matches what ComplexityScorer already does.
+    int      score_norm_mode   = 1;
+
+    // complexity_score stand-in for files the scorer skipped (is_generated=1) or
+    // graph nodes with no `file` row. 0.5 = neutral; the schema default is 0.0,
+    // which would otherwise read as "trivially easy" and sort them to the front.
+    double   complexity_neutral = 0.5;
 
     // PageRank (power method)
     double   damping           = 0.85;  // random surfer가 링크를 따를 확률
@@ -51,4 +72,15 @@ struct AlgoConfig {
 
     // false(0): is_generated=1 files are excluded from the scoring population.
     bool complexity_include_generated = false;
+
+    // ── Graph edge weights ────────────────────────────────────────────────
+    // Only PageRank consumes these; SCC and Brandes see the unweighted graph.
+    double edge_w_inherits = 3.0;
+    double edge_w_calls    = 2.0;
+    double edge_w_imports  = 1.0;
+
+    // How the number of entity pairs behind one file→file edge scales its weight.
+    //   0 = ignore, 1 = linear (w*cnt), 2 = log (w*(1+ln cnt))
+    // Linear lets a single hot file pair swamp the graph, so log is the default.
+    int    edge_count_mode = 2;
 };

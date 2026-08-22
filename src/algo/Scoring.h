@@ -13,17 +13,57 @@
 // Exposed (not file-local static like minmax_normalize) so it's unit-testable.
 std::vector<double> percentile_rank_normalize(const std::vector<double>& values);
 
+// One entry of a seed set: a project file and how strongly the query points at
+// it. Weights need not sum to 1 -- makeTeleport / compute normalize.
+struct SeedEntry {
+    std::string file_id;
+    double      weight = 0.0;
+};
+
 class PageRank {
 public:
+    // Plain PageRank: uniform 1/N teleport.
     static std::vector<double> compute(const Graph& g, const AlgoConfig& cfg);
+
+    // Personalized PageRank:
+    //   PR(v) = (1-d)*p[v] + d*Σ_{u→v} PR(u)*w(u,v)/out_w(u) + d*dangling*p[v]
+    // `teleport` is p[], indexed by NodeId. An empty vector means the uniform
+    // teleport and reproduces compute(g, cfg) exactly. A vector that does not
+    // sum to 1.0 is normalized internally; an all-zero one degrades to uniform.
+    // Throws std::invalid_argument on a size mismatch or a negative/NaN entry.
+    static std::vector<double> compute(const Graph& g, const AlgoConfig& cfg,
+                                       const std::vector<double>& teleport);
+
+    // Converts a (file_id, weight) seed list into a teleport vector over g's
+    // NodeIds, normalized to sum 1.0. file_ids absent from the graph and
+    // non-positive weights are dropped; if nothing survives the result is empty,
+    // which compute() reads as "uniform".
+    static std::vector<double> makeTeleport(const Graph& g,
+                                            const std::vector<SeedEntry>& seeds);
 };
 
 class ScoreCombiner {
 public:
+    // norm_mode: 0 = min-max, 1 = percentile rank (see AlgoConfig::score_norm_mode).
     static std::vector<double> combine(const std::vector<double>& pr,
                                        const std::vector<double>& bc,
                                        double alpha,
-                                       double beta);
+                                       double beta,
+                                       int    norm_mode = 1);
+
+    // Three-term form: adds gamma * (1 - complexity), i.e. an "ease" bonus, so
+    // that at comparable importance the easier file scores higher and is read
+    // first. `complexity` is indexed by NodeId and already percentile-ranked in
+    // [0,1] by ComplexityScorer; an empty vector (or gamma == 0) reduces this
+    // exactly to the two-term form.
+    static std::vector<double> combine(const std::vector<double>& pr,
+                                       const std::vector<double>& bc,
+                                       const std::vector<double>& complexity,
+                                       double alpha,
+                                       double beta,
+                                       double gamma,
+                                       int    norm_mode          = 1,
+                                       double complexity_neutral = 0.5);
 };
 
 // Per-file inputs for ComplexityScorer, already joined with graph in/out-degree.

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "AlgoConfig.h"
+
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -12,11 +14,42 @@ using NodeId = uint32_t;
 struct Graph {
     std::vector<std::vector<NodeId>> adj;
     std::vector<std::vector<NodeId>> radj;
+    // adj_w[u][i] is the weight of the edge adj[u][i]. Maintained only by
+    // add_edge(); graphs assembled by pushing into adj/radj directly leave it
+    // empty and are treated as unweighted (see edge_weight()).
+    std::vector<std::vector<double>> adj_w;
     std::unordered_map<std::string, NodeId> id_to_node;
     std::vector<std::string>                node_to_id;
 
     NodeId get_or_add(const std::string& id);
+
+    // Inserts u→v, or adds `w` to the existing edge's weight. Keeps adj/radj
+    // free of parallel edges so SCC and Brandes see a simple graph; multiplicity
+    // lives in the weight, which only PageRank consumes.
+    void add_edge(NodeId u, NodeId v, double w = 1.0);
+
+    // Weight of adj[u][i]. Falls back to 1.0 when adj_w is not populated for u,
+    // so a hand-built (test) graph behaves exactly as it did before weighting.
+    double edge_weight(NodeId u, std::size_t i) const
+    {
+        if (u >= adj_w.size() || adj_w[u].size() != adj[u].size()) return 1.0;
+        return adj_w[u][i];
+    }
+
+    // Σ of outgoing edge weights; equals out-degree for an unweighted graph.
+    double out_weight(NodeId u) const
+    {
+        if (u >= adj.size()) return 0.0;
+        double s = 0.0;
+        for (std::size_t i = 0; i < adj[u].size(); ++i) s += edge_weight(u, i);
+        return s;
+    }
+
     int size() const { return static_cast<int>(node_to_id.size()); }
+
+private:
+    // (u<<32 | v) -> index into adj[u]; build-time only, for add_edge dedup.
+    std::unordered_map<uint64_t, uint32_t> edge_pos_;
 };
 
 class SCCFinder {
@@ -42,11 +75,11 @@ struct GraphBuilderResult {
 
 class GraphBuilder {
 public:
-    static GraphBuilderResult build(sqlite3* db);
+    static GraphBuilderResult build(sqlite3* db, const AlgoConfig& cfg = {});
 
 private:
-    static void build_file_graph(sqlite3* db, Graph& g);
-    static void build_func_graph(sqlite3* db, Graph& g);
+    static void build_file_graph(sqlite3* db, Graph& g, const AlgoConfig& cfg);
+    static void build_func_graph(sqlite3* db, Graph& g, const AlgoConfig& cfg);
     static void build_entity_file_map(sqlite3* db,
                                       std::unordered_map<std::string, std::string>& m);
 };

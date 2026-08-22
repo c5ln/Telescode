@@ -102,6 +102,5 @@ desktop.ini
 
 repos/*
 !repos/README.md
-tests/**
 docs/**
 output/**imgui.ini
