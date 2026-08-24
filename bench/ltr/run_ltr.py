@@ -48,6 +48,7 @@ from bench.schema import C, DATA_DIR
 # BM25를 더한 것이다. 그쪽은 bm25가 없던 시점에 쓰였다.
 SINGLE_BASELINES = [
     ("bm25", C.bm25, True),
+    ("ppr (목적 조건부 전파)", C.ppr, True),
     ("complexity", C.complexity, True),
     ("logical_loc", C.logical_loc, True),
     ("out_deg", C.out_deg, True),
@@ -90,10 +91,28 @@ def run_baselines(ds, features: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
 
 
 def ablation_configs(ds) -> list[tuple[str, list[str]]]:
-    """제거형(leave-one-group-out)과 단독형(group-only)을 모두 만든다.
+    """제거형(leave-one-group-out)·단독형(group-only)과 **PPR 분리 조건**을 만든다.
 
     제거형만 보면 그룹이 중복된 정보를 담을 때 둘 다 "빼도 상관없다"로 나온다.
     단독형을 같이 보면 그 그룹 하나로 어디까지 가는지 알 수 있다.
+
+    ## graph 그룹을 통째로 다루면 안 되는 이유
+
+    graph 그룹 안에 성격이 전혀 다른 두 종류가 섞여 있다.
+
+      - `pagerank`, `bc`, `in_deg`, `out_deg`, `combined`, `file_rank`
+        → **전역** 중요도. 이슈가 무엇이든 값이 같다.
+      - `ppr`
+        → **목적 조건부** 전파. 이슈에서 출발한 teleport 분포로 개인화된다.
+
+    이 프로젝트의 주장은 "전역 중요도가 유용하다"가 아니라 "목적에서 출발한 구조
+    전파가 유용하다"이다. 그래서 그룹 단위 ablation과 **별개로** 다음 둘을 만든다.
+
+      - `-ppr`             : 나머지 전부 두고 ppr만 뺀다. 전역 지표 위에 목적
+                             조건부 전파가 **추가로** 기여하는지를 직접 잰다.
+      - `ppr only`         : ppr 하나로 어디까지 가는지.
+      - `graph global only`: ppr을 뺀 graph. `ppr only`와 짝지어 읽으면 같은
+                             그래프에서 나온 두 신호의 격차가 그대로 드러난다.
     """
     groups = {g: ds.groups_for(g) for g in FEATURE_GROUPS}
     groups = {g: c for g, c in groups.items() if c}
@@ -106,6 +125,14 @@ def ablation_configs(ds) -> list[tuple[str, list[str]]]:
             cfgs.append((f"-{g}", rest))
     for g, cols in groups.items():
         cfgs.append((f"{g} only", cols))
+
+    if C.ppr in ds.feature_columns:
+        cfgs.append(("-ppr (목적 조건부만 제거)",
+                     [c for c in allc if c != C.ppr]))
+        cfgs.append(("ppr only", [C.ppr]))
+        gg = [c for c in groups.get("graph", []) if c != C.ppr]
+        if gg:
+            cfgs.append(("graph global only (ppr 제외)", gg))
     return cfgs
 
 
@@ -208,12 +235,34 @@ def main(argv=None) -> int:
     for seg in ("all", "overlap", "non_overlap"):
         if seg not in full_per or full_per[seg].empty:
             continue
-        for ref in ("complexity", "bm25", "B2 = 0.6·PR + 0.4·BC"):
+        for ref in ("complexity", "bm25", "ppr (목적 조건부 전파)",
+                    "B2 = 0.6·PR + 0.4·BC"):
             if ref not in base_per or seg not in base_per[ref]:
                 continue
             t = paired_bootstrap(full_per[seg], base_per[ref][seg])
             tests[f"LTR(full) - {ref} [{seg}]"] = t
     _print_tests(tests)
+
+    # ── 3b. 목적 조건부 전파 vs 전역 지표 ────────────────────────────────
+    if "ppr (목적 조건부 전파)" in base_per:
+        print("=" * 78)
+        print("3b. ppr(목적 조건부) vs 전역 그래프 지표 — 같은 그래프, 다른 질문")
+        print("=" * 78)
+        print("  둘 다 같은 링크 그래프에서 나온다. 차이는 출발점뿐이다:")
+        print("  ppr은 이슈에서 teleport하고, pagerank/bc는 이슈를 안 본다.\n")
+        ppr_tests = {}
+        for seg in ("all", "overlap", "non_overlap"):
+            cur = base_per["ppr (목적 조건부 전파)"].get(seg)
+            if cur is None or cur.empty:
+                continue
+            for ref in ("pagerank", "bc", "B2 = 0.6·PR + 0.4·BC",
+                        "combined (제품 현재 설정)", "complexity", "bm25"):
+                r = base_per.get(ref, {}).get(seg)
+                if r is None or r.empty:
+                    continue
+                ppr_tests[f"ppr - {ref} [{seg}]"] = paired_bootstrap(cur, r)
+        _print_tests(ppr_tests)
+        tests.update(ppr_tests)
 
     # ── 4. ablation: 그룹 제거 효과, 전체 vs non_overlap ──────────────────
     print("=" * 78)
@@ -326,10 +375,12 @@ def _run_fusion(ds, features: pd.DataFrame, ltr_scores: pd.DataFrame,
     f = with_external(features, ltr_scores, "ltr_score")
 
     combos = [
+        ("RRF(bm25, ppr)", [(C.bm25, True), (C.ppr, True)]),
         ("RRF(bm25, bc)", [(C.bm25, True), (C.bc, True)]),
         ("RRF(bm25, combined)", [(C.bm25, True), (C.combined, True)]),
         ("RRF(bm25, complexity, bc)",
          [(C.bm25, True), (C.complexity, True), (C.bc, True)]),
+        ("RRF(LTR, ppr)", [("ltr_score", True), (C.ppr, True)]),
         ("RRF(LTR, bc)", [("ltr_score", True), (C.bc, True)]),
         ("RRF(LTR, combined)", [("ltr_score", True), (C.combined, True)]),
     ]

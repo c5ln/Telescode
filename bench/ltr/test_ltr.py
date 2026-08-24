@@ -176,6 +176,44 @@ def test_with_external_rejects_missing_keys():
         with_external(feats, ext, "s")
 
 
+# ── ablation 구성 ────────────────────────────────────────────────────────
+
+def _ds_with(cols):
+    from bench.ltr.data import Dataset
+    return Dataset(features=pd.DataFrame(), gold_sets={}, scanned={},
+                   feature_columns=list(cols))
+
+
+def test_ablation_separates_ppr_from_global_graph():
+    """graph 그룹을 통째로만 다루면 '목적 조건부 전파'가 전역 지표에 묻힌다.
+
+    `-ppr`은 ppr **하나만** 빠져야 하고, `graph global only`에는 ppr이 **없어야**
+    한다. 둘 중 하나라도 어긋나면 PPR 기여 측정이 통째로 다른 것을 잰다.
+    """
+    from bench.ltr.run_ltr import ablation_configs
+    cfgs = dict(ablation_configs(_ds_with(
+        [C.pagerank, C.bc, C.ppr, C.complexity, C.bm25])))
+
+    assert C.ppr not in cfgs["-ppr (목적 조건부만 제거)"]
+    assert set(cfgs["-ppr (목적 조건부만 제거)"]) == {
+        C.pagerank, C.bc, C.complexity, C.bm25}
+    assert cfgs["ppr only"] == [C.ppr]
+    assert C.ppr not in cfgs["graph global only (ppr 제외)"]
+    assert C.ppr in cfgs["graph only"]
+
+
+def test_ablation_omits_ppr_arms_when_ppr_unusable():
+    """ppr이 전부 NaN이던 시기에는 이 조건들이 아예 없어야 한다.
+
+    빈 컬럼으로 만든 `ppr only`는 학습할 것이 없는데도 표에는 한 줄이 생겨
+    '측정했다'는 착시를 만든다.
+    """
+    from bench.ltr.run_ltr import ablation_configs
+    labels = [l for l, _ in ablation_configs(
+        _ds_with([C.pagerank, C.bc, C.complexity, C.bm25]))]
+    assert not [l for l in labels if "ppr" in l]
+
+
 # ── 크기 매칭 ────────────────────────────────────────────────────────────
 
 def test_size_matching_does_not_reuse_controls():

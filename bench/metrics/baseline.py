@@ -38,6 +38,9 @@ BASELINES = [
     ("out_deg",                    C.out_deg,     True),
     ("complexity",                 C.complexity,  True),
     ("logical_loc",                C.logical_loc, True),
+    # 아래 둘은 매트릭스에 값이 있을 때만 의미가 있다 (없으면 전부 NaN → 최하위).
+    ("ppr (Phase 3)",              C.ppr,         True),
+    ("bm25 (Phase 2)",             C.bm25,        True),
 ]
 
 # B2는 단일 컬럼이 아니라 두 컬럼의 조합이라 센티넬로 표시한다.
