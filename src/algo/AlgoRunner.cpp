@@ -154,8 +154,11 @@ std::vector<double> AlgoRunner::loadFileComplexity(sqlite3*          db,
 // ── AlgoRunner::personalizedPageRank ──────────────────────────────────────────
 
 std::vector<PprEntry> AlgoRunner::personalizedPageRank(
-        const char* dbPath, const std::vector<SeedEntry>& seeds, const AlgoConfig& cfg)
+        const char* dbPath, const std::vector<SeedEntry>& seeds, const AlgoConfig& cfg,
+        int* matched_seeds)
 {
+    if (matched_seeds) *matched_seeds = 0;
+
     sqlite3* db = nullptr;
     if (initDb(dbPath, &db) != SQLITE_OK) return {};
 
@@ -165,6 +168,11 @@ std::vector<PprEntry> AlgoRunner::personalizedPageRank(
     const Graph& fg = gbr.file_graph;
     auto teleport = PageRank::makeTeleport(fg, seeds);
     auto ppr      = PageRank::compute(fg, cfg, teleport);
+
+    if (matched_seeds) {
+        for (const SeedEntry& s : seeds)
+            if (s.weight > 0.0 && fg.id_to_node.count(s.file_id)) ++*matched_seeds;
+    }
 
     std::vector<PprEntry> out;
     out.reserve(gbr.file_loc_map.size());

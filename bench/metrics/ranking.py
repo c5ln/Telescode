@@ -128,18 +128,34 @@ def reachable_recall_ceiling(scanned_file_ids: set[str],
     return len(gold_file_ids & scanned_file_ids) / len(gold_file_ids)
 
 
+# 정렬 키 양자화 폭. 이보다 가까운 두 점수는 **동점으로 취급**한다.
+#
+# 부동소수 누적 오차 때문에 "수학적으로 같은" 점수가 1 ULP 어긋나 나온다.
+# 실측(pystdlib.db): 세 파일이 0.42831594634873... 로 같아 보이는데 마지막
+# 한 개만 1 ULP 낮았다. raw 고유값 565 vs 1e-9 양자화 후 564.
+# exact 비교로는 이게 동점으로 안 잡혀서 **비관적 규칙이 적용되지 않고**,
+# 그 gold는 운 좋게 앞자리를 차지한다. 즉 점수가 부풀어난다.
+#
+# 한계: 절대 양자화다. 점수가 [0, 1] 근방(정규화 점수, PageRank)이나
+# 수천 단위(betweenness)일 때는 ULP가 1e-9보다 훨씬 작아 의도대로 동작하지만,
+# 1e6을 크게 넘는 값에서는 ULP가 양자화 폭보다 커져 효과가 없다.
+# 이 실험의 어떤 피처도 그 범위에 없다.
+TIE_QUANTUM = 1e-9
+
+
 def apply_pessimistic_tiebreak(file_ids: Sequence[str],
                                scores: Sequence[float],
-                               gold_file_ids: set[str]) -> list[str]:
+                               gold_file_ids: set[str],
+                               quantum: float = TIE_QUANTUM) -> list[str]:
     """점수 내림차순 정렬하되, 동점 그룹 안에서는 gold를 뒤로 보낸다.
 
     모든 지표 함수 호출 전에 이걸 통과시킨다. 위 §1 참조.
 
-    정렬 키는 `(-score, is_gold, file_id)`다.
-      - `-score`  : 내림차순
-      - `is_gold` : 동점 그룹 안에서 gold(1)를 non-gold(0) 뒤로
-      - `file_id` : 남은 동점의 결정론적 순서. 이게 없으면 같은 입력이
-                    실행마다 다른 순서를 내서 재현이 안 된다.
+    정렬 키는 `(-quantize(score), is_gold, file_id)`다.
+      - `-quantize(score)` : 내림차순. 양자화 근거는 `TIE_QUANTUM` 주석 참조
+      - `is_gold`          : 동점 그룹 안에서 gold(1)를 non-gold(0) 뒤로
+      - `file_id`          : 남은 동점의 결정론적 순서. 이게 없으면 같은 입력이
+                             실행마다 다른 순서를 내서 재현이 안 된다.
 
     NaN 점수는 최하위로 보낸다 (NaN은 비교에서 조용히 순서를 깨뜨린다).
     """
@@ -147,6 +163,8 @@ def apply_pessimistic_tiebreak(file_ids: Sequence[str],
         raise ValueError(
             f"file_ids({len(file_ids)})와 scores({len(scores)}) 길이가 다르다"
         )
+    if quantum <= 0:
+        raise ValueError(f"quantum은 양수여야 한다: {quantum}")
 
     def key(pair):
         fid, score = pair
@@ -154,7 +172,11 @@ def apply_pessimistic_tiebreak(file_ids: Sequence[str],
         if math.isnan(s):
             # NaN은 최하위. -inf를 쓰면 -score가 +inf가 되어 맨 앞으로 간다.
             return (float("inf"), 1 if fid in gold_file_ids else 0, fid)
-        return (-s, 1 if fid in gold_file_ids else 0, fid)
+        if math.isinf(s):
+            return (-s, 1 if fid in gold_file_ids else 0, fid)
+        # round(s/q)*q 가 아니라 정수 눈금을 그대로 키로 쓴다.
+        # 다시 float으로 곱하면 그 곱셈이 새 오차를 만들어 원점 회귀한다.
+        return (-round(s / quantum), 1 if fid in gold_file_ids else 0, fid)
 
     return [fid for fid, _ in sorted(zip(file_ids, scores), key=key)]
 
@@ -162,19 +184,34 @@ def apply_pessimistic_tiebreak(file_ids: Sequence[str],
 def evaluate_instance(file_ids: Sequence[str],
                       scores: Sequence[float],
                       gold_file_ids: set[str],
-                      ks: Sequence[int] = (1, 3, 5, 10, 20, 50)) -> dict:
+                      *,
+                      scanned_file_ids: set[str],
+                      ks: Sequence[int] = (1, 3, 5, 10, 20, 50),
+                      quantum: float = TIE_QUANTUM) -> dict:
     """한 인스턴스의 전 지표를 한 번에 계산한다.
 
     소비자가 tiebreak 적용을 잊는 것을 막기 위한 편의 함수다.
-    `file_ids`는 스캔된 후보 전체여야 한다 (ceiling 계산에 쓰인다).
+
+    Args:
+        file_ids: **순위를 매길 후보**. top-N으로 잘린 목록이어도 된다.
+        scores: `file_ids`와 같은 길이의 점수.
+        gold_file_ids: 정답 **전체**. 스캔에 없는 gold도 포함해야 한다.
+        scanned_file_ids: **스캔이 실제로 본 파일 전체.** ceiling 전용이며
+            키워드 전용 필수 인자다. 예전에는 `file_ids`를 그대로 썼는데,
+            top-N을 넘기는 소비자가 있으면 ceiling이 "스캔 상한"이 아니라
+            "후보집합 상한"이 되어 조용히 틀린 값을 낸다. 두 집합은 다른
+            것이므로 분리해서 강제로 받는다.
+        ks: 절단 지점들.
+        quantum: 동점 판정 폭. `TIE_QUANTUM` 참조.
     """
-    ranked = apply_pessimistic_tiebreak(file_ids, scores, gold_file_ids)
+    ranked = apply_pessimistic_tiebreak(file_ids, scores, gold_file_ids, quantum)
     out = {
         "n_candidates": len(ranked),
+        "n_scanned": len(scanned_file_ids),
         "n_gold": len(gold_file_ids),
         "mrr": mrr(ranked, gold_file_ids),
         "reachable_recall_ceiling": reachable_recall_ceiling(
-            set(file_ids), gold_file_ids),
+            scanned_file_ids, gold_file_ids),
     }
     for k in ks:
         out[f"recall@{k}"] = recall_at_k(ranked, gold_file_ids, k)

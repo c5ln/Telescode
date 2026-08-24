@@ -94,7 +94,10 @@ public:
     // 기존 PageRank와 동일한 결과를 낸다.
     // 반환: 실제 `file` 행이 있는 노드만, ppr 내림차순. 해소되지 않은 import
     // 대상(외부 모듈)은 그래프에는 있지만 결과에서 제외된다.
+    // matched_seeds(선택): 실제로 그래프 노드에 대응된 seed 파일 수. 0이면 결과가
+    // PPR이 아니라 plain PageRank다 — 호출자가 그 둘을 구분해야 할 때 쓴다.
     static std::vector<PprEntry> personalizedPageRank(const char* dbPath,
                                                        const std::vector<SeedEntry>& seeds,
-                                                       const AlgoConfig& cfg);
+                                                       const AlgoConfig& cfg,
+                                                       int* matched_seeds = nullptr);
 };

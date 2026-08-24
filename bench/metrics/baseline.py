@@ -23,9 +23,15 @@ KS = (1, 3, 5, 10, 20, 50)
 
 # (표시 이름, 컬럼, 내림차순인가)
 # file_rank만 오름차순이다 — 1이 "가장 먼저 읽어라"이므로 점수로는 -rank가 맞다.
+#
+# `combined`은 **baseline이 아니라 "현행 제품 설정"**으로만 읽는다.
+# Phase 0이 gamma=1.5로 ease(=1-complexity) 항을 넣어 점수의 60%가 "쉬운 정도"라,
+# "버그가 어디 있나"에는 구조적으로 반대 방향이다. 비교 기준으로 쓰면 이후
+# PPR/BM25/LTR의 개선폭이 전부 "baseline을 반대로 돌려놔서 생긴 이득"이 된다.
+# 정당한 그래프 baseline은 아래 B1/B2다.
 BASELINES = [
     ("file_rank (제품 현재 출력)", C.file_rank,   False),
-    ("combined",                   C.combined,    True),
+    ("combined (제품 현재 설정)",  C.combined,    True),
     ("pagerank",                   C.pagerank,    True),
     ("bc",                         C.bc,          True),
     ("in_deg",                     C.in_deg,      True),
@@ -33,6 +39,35 @@ BASELINES = [
     ("complexity",                 C.complexity,  True),
     ("logical_loc",                C.logical_loc, True),
 ]
+
+# B2는 단일 컬럼이 아니라 두 컬럼의 조합이라 센티넬로 표시한다.
+B2_SENTINEL = "__b2__"
+BASELINES.insert(2, ("B2 = 0.6·PR + 0.4·BC (gamma 없음)", B2_SENTINEL, True))
+
+
+# gamma 항이 없는 재구성 baseline. 매트릭스의 원시 컬럼만으로 만들어지므로
+# 재스캔 없이 언제든 복원된다 — 원시 컬럼을 반드시 보존하는 이유다.
+#   B1 = pagerank 단독            (위 BASELINES에 이미 있다)
+#   B2 = alpha·norm(PR) + beta·norm(BC),  alpha=0.6, beta=0.4
+B2_ALPHA, B2_BETA = 0.6, 0.4
+
+
+def minmax(x: np.ndarray) -> np.ndarray:
+    """인스턴스 안에서의 min-max 정규화. 전 구간 동일값이면 0을 준다."""
+    lo, hi = np.nanmin(x), np.nanmax(x)
+    if not np.isfinite(lo) or not np.isfinite(hi) or hi <= lo:
+        return np.zeros_like(x, dtype=float)
+    return (x - lo) / (hi - lo)
+
+
+def b2_score(group: pd.DataFrame) -> np.ndarray:
+    """B2 = 0.6·norm(pagerank) + 0.4·norm(bc). gamma(ease) 항 없음.
+
+    정규화는 **인스턴스 안에서** 한다. 랭킹은 인스턴스별로 매기므로
+    전역 정규화는 인스턴스 간 스케일 차이를 끌어들일 뿐이다.
+    """
+    return (B2_ALPHA * minmax(group[C.pagerank].to_numpy(dtype=float))
+            + B2_BETA * minmax(group[C.bc].to_numpy(dtype=float)))
 
 
 def _stable_hash(s: str) -> int:
@@ -94,11 +129,16 @@ def evaluate_baselines(df: pd.DataFrame, gold_sets: dict[str, set[str]],
             if g.empty:
                 continue
             gold = gold_sets[iid]
-            scores = g[col].to_numpy(dtype=float)
-            if not descending:
-                scores = -scores
-            per_instance.append(
-                evaluate_instance(g[C.file_id].tolist(), scores, gold, ks=KS))
+            if col is B2_SENTINEL:
+                scores = b2_score(g)
+            else:
+                scores = g[col].to_numpy(dtype=float)
+                if not descending:
+                    scores = -scores
+            scanned = set(g[C.file_id])
+            per_instance.append(evaluate_instance(
+                g[C.file_id].tolist(), scores, gold,
+                scanned_file_ids=scanned, ks=KS))
 
         m = pd.DataFrame(per_instance)
         row = {"baseline": name, "n_instances": len(m),
@@ -124,7 +164,8 @@ def random_floor(df: pd.DataFrame, gold_sets: dict[str, set[str]],
         for iid, g in df.groupby(C.instance_id, sort=True):
             gold = gold_sets[iid]
             per_instance.append(evaluate_instance(
-                g[C.file_id].tolist(), rng.random(len(g)), gold, ks=KS))
+                g[C.file_id].tolist(), rng.random(len(g)), gold,
+                scanned_file_ids=set(g[C.file_id]), ks=KS))
         m = pd.DataFrame(per_instance)
         acc.append({"MRR": np.nanmean(m["mrr"]),
                     **{f"R@{k}": np.nanmean(m[f"recall@{k}"]) for k in KS}})

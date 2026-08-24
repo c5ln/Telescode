@@ -60,6 +60,19 @@ static uint64_t get_uint64(sqlite3* db, const char* key, uint64_t def)
     return val;
 }
 
+static bool has_key(sqlite3* db, const char* key)
+{
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(db,
+            "SELECT 1 FROM reading_sequence_config WHERE config_key = ?;",
+            -1, &stmt, nullptr) != SQLITE_OK)
+        return false;
+    sqlite3_bind_text(stmt, 1, key, -1, SQLITE_STATIC);
+    const bool found = sqlite3_step(stmt) == SQLITE_ROW;
+    sqlite3_finalize(stmt);
+    return found;
+}
+
 static int upsert(sqlite3* db, const char* key, const char* value)
 {
     sqlite3_stmt* stmt = nullptr;
@@ -130,7 +143,10 @@ AlgoConfig AlgoDbWriter::loadConfig(const char* dbPath)
     // Defaults that must override what an older build already persisted.
     // reading_sequence_config round-trips through write(), so without this a bad
     // default seeded once would survive every later run of a corrected build.
-    if (stored_version < 2) {
+    // Only an actually-stored value can need overriding; a DB that has never been
+    // written carries no gamma row, and warning on every fresh instance DB would
+    // bury the cases that matter.
+    if (stored_version < 2 && has_key(db, "gamma")) {
         // gamma 1.5 was fitted to the F4 summary statistic of the very corpus it
         // was being validated on, and it let the ease term dominate the ranking.
         cfg.gamma = AlgoConfig{}.gamma;

@@ -200,6 +200,7 @@ add_library(algo STATIC
     src/algo/ReadingSequencer.cpp
     src/algo/AlgoRunner.cpp
     src/algo/AlgoDbWriter.cpp
+    src/algo/SeedIo.cpp
     src/db/db.cpp
 )
 target_include_directories(algo PUBLIC src)
@@ -211,6 +212,14 @@ add_executable(TelescodeAlgo
 )
 target_include_directories(TelescodeAlgo PRIVATE src)
 target_link_libraries(TelescodeAlgo PRIVATE algo sqlite3)
+
+# ── TelescodePPR executable ───────────────────────────────────────────────────
+# Personalized PageRank for one instance DB; consumed by the bench harness.
+add_executable(TelescodePPR
+    src/ppr_main.cpp
+)
+target_include_directories(TelescodePPR PRIVATE src)
+target_link_libraries(TelescodePPR PRIVATE algo sqlite3)
 
 # ── Unit tests ────────────────────────────────────────────────────────────────
 enable_testing()
@@ -225,6 +234,8 @@ add_executable(AlgoTests
     tests/algo/test_complexity_scorer.cpp
     tests/algo/test_graph_weights.cpp
     tests/algo/test_personalized_pagerank.cpp
+    tests/algo/test_seed_io.cpp
+    tests/algo/test_module_resolution.cpp
 )
 target_include_directories(AlgoTests PRIVATE src)
 target_link_libraries(AlgoTests PRIVATE algo GTest::gtest_main)

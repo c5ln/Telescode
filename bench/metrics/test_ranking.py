@@ -229,7 +229,8 @@ def test_evaluate_instance_applies_tiebreak_internally():
     # 점수 순서대로 넣었을 때 내부에서 비관적 정렬이 적용돼야 한다.
     # a(gold)가 b, c와 동점이므로 3위로 밀린다 → mrr = 1/3
     out = evaluate_instance(
-        ["a", "b", "c", "d"], [1.0, 1.0, 1.0, 0.5], {"a"}, ks=(1, 3))
+        ["a", "b", "c", "d"], [1.0, 1.0, 1.0, 0.5], {"a"},
+        scanned_file_ids={"a", "b", "c", "d"}, ks=(1, 3))
     assert out["mrr"] == pytest.approx(1.0 / 3.0)
     assert out["recall@1"] == 0.0
     assert out["recall@3"] == 1.0
@@ -239,7 +240,8 @@ def test_evaluate_instance_applies_tiebreak_internally():
 
 
 def test_evaluate_instance_reports_ceiling_below_one():
-    out = evaluate_instance(["a", "b"], [1.0, 0.5], {"a", "z"}, ks=(10,))
+    out = evaluate_instance(["a", "b"], [1.0, 0.5], {"a", "z"},
+                            scanned_file_ids={"a", "b"}, ks=(10,))
     assert out["reachable_recall_ceiling"] == 0.5
     assert out["recall@10"] == 0.5
 
@@ -289,3 +291,83 @@ def test_baseline_gold_sets_come_from_manifest():
     ])
     gold = gold_sets_from_manifest(manifest)
     assert gold == {"i1": {"a.py", "z.py"}, "i2": {"b.py"}}   # 실패 인스턴스는 제외
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# I. S-2 — 1 ULP 차이가 동점으로 잡히는가
+#    실측(pystdlib.db): 세 파일이 0.42831594634873... 인데 하나만 1 ULP 낮았다.
+#    exact 비교면 비관적 규칙이 적용되지 않아 gold가 공짜로 앞자리를 얻는다.
+# ══════════════════════════════════════════════════════════════════════════
+
+ULP_HI = 0.42831594634873326743
+ULP_LO = 0.42831594634873321192   # 위 값보다 1 ULP 낮다
+
+
+def test_one_ulp_difference_is_treated_as_a_tie():
+    assert ULP_HI != ULP_LO          # 전제: 파이썬이 두 값을 다르게 본다
+
+    # gold가 1 ULP 더 높다. 양자화가 없으면 gold가 1위를 공짜로 가져간다.
+    ranked = apply_pessimistic_tiebreak(
+        ["gold.py", "a.py", "b.py"], [ULP_HI, ULP_LO, ULP_LO], {"gold.py"})
+    assert ranked == ["a.py", "b.py", "gold.py"]
+    assert mrr(ranked, {"gold.py"}) == pytest.approx(1.0 / 3.0)
+
+    # 양자화를 끄면(quantum을 ULP보다 작게) 옛 동작이 재현된다 — 점수가 부푼다.
+    optimistic = apply_pessimistic_tiebreak(
+        ["gold.py", "a.py", "b.py"], [ULP_HI, ULP_LO, ULP_LO], {"gold.py"},
+        quantum=1e-20)
+    assert optimistic[0] == "gold.py"
+    assert mrr(optimistic, {"gold.py"}) == 1.0
+
+
+def test_quantum_does_not_merge_genuinely_different_scores():
+    # 양자화 폭보다 확실히 큰 차이는 그대로 유지돼야 한다.
+    ranked = apply_pessimistic_tiebreak(
+        ["a", "b"], [0.5, 0.5 + 1e-6], set())
+    assert ranked == ["b", "a"]
+
+
+def test_quantum_survives_large_magnitudes():
+    # betweenness는 수천 단위까지 간다. 그 크기에서도 진짜 차이는 보존된다.
+    ranked = apply_pessimistic_tiebreak(
+        ["a", "b"], [4777.6, 4777.7], set())
+    assert ranked == ["b", "a"]
+
+
+def test_invalid_quantum_raises():
+    with pytest.raises(ValueError):
+        apply_pessimistic_tiebreak(["a"], [1.0], set(), quantum=0)
+
+
+def test_infinite_scores_order_correctly():
+    ranked = apply_pessimistic_tiebreak(
+        ["a", "b", "c"], [float("-inf"), 1.0, float("inf")], set())
+    assert ranked == ["c", "b", "a"]
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# J. S-3 — ceiling은 후보집합이 아니라 스캔집합에서 나와야 한다
+# ══════════════════════════════════════════════════════════════════════════
+
+def test_ceiling_uses_scanned_set_not_candidate_set():
+    # BM25 top-2만 후보로 넘기지만, 스캔은 4개를 봤고 gold는 3개다.
+    candidates = ["a", "b"]
+    scanned = {"a", "b", "c", "d"}
+    gold = {"a", "c", "z"}          # z는 patch가 새로 만든 파일
+
+    out = evaluate_instance(candidates, [1.0, 0.5], gold,
+                            scanned_file_ids=scanned, ks=(10,))
+    # 스캔은 gold 3개 중 2개(a, c)를 봤다 → 2/3
+    assert out["reachable_recall_ceiling"] == pytest.approx(2 / 3)
+    # 후보를 그대로 썼다면 1/3이 나와 상한을 과소평가했을 것이다.
+    assert reachable_recall_ceiling(set(candidates), gold) == pytest.approx(1 / 3)
+    # Recall은 후보 기준이므로 a 하나만 맞는다.
+    assert out["recall@10"] == pytest.approx(1 / 3)
+    assert out["n_candidates"] == 2
+    assert out["n_scanned"] == 4
+
+
+def test_scanned_file_ids_is_required_keyword():
+    # 위치 인자로는 못 넘긴다 — 조용히 file_ids를 재사용하던 실수를 막는다.
+    with pytest.raises(TypeError):
+        evaluate_instance(["a"], [1.0], {"a"})
