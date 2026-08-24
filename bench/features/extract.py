@@ -163,7 +163,7 @@ def extract(db_path, instance_id: str, gold_file_ids: Iterable[str],
     Returns:
         `ALL_COLUMNS` 순서의 DataFrame. 스캔된 모든 파일이 한 행씩 나온다
         (gold만 남기면 랭킹 평가가 불가능하다).
-        `ppr` / `bm25` / `bm25_rank`는 Phase 2·3 담당이므로 NaN으로 둔다.
+        `ppr` / `bm25` / `bm25_rank` / `embed` / `embed_rank`는 Phase 2·3 담당이므로 NaN으로 둔다.
     """
     gold = set(gold_file_ids)
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
@@ -210,6 +210,8 @@ def extract(db_path, instance_id: str, gold_file_ids: Iterable[str],
         df[C.ppr] = df[C.file_id].map(ppr_values).fillna(0.0)
     df[C.bm25] = float("nan")         # Phase 2 (retrieval)
     df[C.bm25_rank] = float("nan")    # Phase 2 (retrieval)
+    df[C.embed] = float("nan")        # Phase 2 임베딩 (retrieval)
+    df[C.embed_rank] = float("nan")   # Phase 2 임베딩 (retrieval)
     df[C.commit_skew] = commit_skew
 
     return df[ALL_COLUMNS]
