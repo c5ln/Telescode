@@ -19,7 +19,7 @@ import pandas as pd
 from bench.metrics.ranking import evaluate_instance, recall_at_k
 from bench.schema import C, DATA_DIR
 from bench.seed import textproc
-from bench.seed.dataset import load_instances
+from bench.seed.dataset import gold_by_instance
 
 DEFAULT_KS = (1, 3, 5, 10, 20, 50)
 
@@ -133,19 +133,23 @@ def format_table(results: dict[str, EvalResult],
 def main(argv=None):
     ap = argparse.ArgumentParser(description="BM25 seed 평가")
     ap.add_argument("--data-dir", type=Path, default=DATA_DIR)
-    ap.add_argument("--repo", default="pydata/xarray")
+    ap.add_argument("--seed-long", type=Path, default=None,
+                    help="기본 <data-dir>/bm25_seed_long.csv")
     ap.add_argument("--features-csv", type=Path, default=None,
                     help="스캔된 파일 전체 집합의 출처. 기본 <data-dir>/features.csv")
     a = ap.parse_args(argv)
 
-    long_df = pd.read_csv(a.data_dir / "bm25_seed_long.csv")
-    gold = {i.instance_id: set(i.gold_files)
-            for i in load_instances(repo=a.repo)}
+    long_df = pd.read_csv(a.seed_long or (a.data_dir / "bm25_seed_long.csv"))
     features = pd.read_csv(a.features_csv or (a.data_dir / "features.csv"))
+    # gold는 repo 이름이 아니라 매트릭스의 instance_id로 끌어온다 —
+    # repo가 섞인 통합 매트릭스(229)에서도 그대로 동작한다.
+    gold = {k: set(v) for k, v in
+            gold_by_instance(features[C.instance_id].unique()).items()}
     res = evaluate_all(long_df, gold, scanned=scanned_sets(features))
 
     print("BM25 seed — bench.metrics.ranking 기준 공식 수치")
-    print(f"repo={a.repo}  k1/b/k3 = 기본값 (train CV 미실시 — CONTRACT.md §3-4)")
+    print(f"instances={features[C.instance_id].nunique()}  "
+          f"k1/b/k3 = 기본값 (train CV 미실시 — CONTRACT.md §3-4)")
     print()
     print(format_table(res))
     for cond, r in res.items():

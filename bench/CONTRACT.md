@@ -130,14 +130,23 @@ git checkout <base_commit>
 
 ## 5. 진행 상태
 
+> 결과 수치는 **`bench/RESULTS.md`** 참조. 이 표는 작업 상태만 추적한다.
+
 | Phase | 담당 | 상태 |
 |---|---|---|
-| 0 — baseline 수정 | `algo-core` | 대기 |
-| 1 — 하네스 | `bench-harness` | Phase 0 이후 |
-| 2 — BM25 seed | `retrieval` | 스텁으로 선행 개발 가능 |
-| 3 — PPR | `algo-core` | Phase 0 이후 |
-| 4 — LTR + ablation | `ltr-eval` | Phase 1·2 이후 |
-| 상시 — 감사 | `eval-auditor` | Wave 2부터 |
+| 0 — baseline 수정 | `algo-core` | ✅ 완료 (`9a05af6`, `f690a1c`) |
+| 1 — 하네스 | `bench-harness` | ✅ 완료. 229 인스턴스, ceiling 0.987 |
+| 2 — BM25 seed | `retrieval` | ✅ 완료. 누출 검증(`full`/`no_trace`/`no_paths`) 포함 |
+| 3 — PPR | `algo-core` | ⚠️ 구현·테스트 완료(`TelescodePPR`), **LTR 피처로 미투입** |
+| 4 — LTR + ablation | `ltr-eval` | ✅ 완료. 유의성 검정 포함 |
+| 상시 — 감사 | `eval-auditor` | 2라운드 완료. 1차 BLOCK 3건 해소 → 2차 WARN |
+
+### 남은 것
+
+1. `non_overlap` 구간 확대 — 현재 17 인스턴스로 노이즈 기준(20) 미달
+2. bm25 재조인을 커밋된 경로로 (감사 S2-2)
+3. `bench/features/test_extract.py` — C++/Python `resolve_module` 동등성 가드 (감사 S2-3)
+4. 읽기 방향 제품 결정 (`docs/reading-direction.md`)
 
 ---
 

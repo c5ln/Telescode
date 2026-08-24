@@ -91,3 +91,20 @@ def load_instances(repo: str | None = None,
             gold_files=gold_files_from_patch(r.patch),
         ))
     return out
+
+
+def gold_by_instance(instance_ids) -> dict[str, frozenset[str]]:
+    """instance_id 목록 → gold 집합. **repo 이름을 몰라도 된다.**
+
+    229 인스턴스처럼 여러 repo가 섞이면 repo별로 부르는 것보다 이쪽이 안전하다.
+    repo 인자를 잘못 주면 조용히 gold가 비고, 그러면 Recall이 전부 NaN이 되는데
+    nanmean이 그걸 삼켜서 "인스턴스가 줄었다"는 것 말고는 티가 안 난다.
+    """
+    ids = list(instance_ids)
+    got = {i.instance_id: i.gold_files for i in load_instances(instance_ids=ids)}
+    missing = sorted(set(ids) - set(got))
+    if missing:
+        raise ValueError(
+            f"SWE-bench에 없는 instance_id {len(missing)}개: {missing[:5]}"
+        )
+    return got

@@ -15,6 +15,8 @@
 """
 
 import argparse
+import hashlib
+import json
 import shutil
 import subprocess
 import sys
@@ -27,10 +29,31 @@ import pandas as pd
 from bench.collect.swebench import gold_files_from_patch, load_instances
 from bench.metrics.ranking import reachable_recall_ceiling
 from bench.features.extract import extract
-from bench.schema import ALGO_BIN, DATA_DIR, SCANNER_BIN, SCRATCH_DIR
+from bench.schema import ALGO_BIN, BIN_DIR, DATA_DIR, SCANNER_BIN, SCRATCH_DIR
 
 FEATURES_CSV = DATA_DIR / "features.csv"
 MANIFEST_CSV = DATA_DIR / "instances.csv"
+
+
+def binary_provenance() -> dict:
+    """실행에 쓴 바이너리의 경로와 md5.
+
+    무결성 규칙 §5는 `bench/bin/`의 pin된 바이너리만 쓰라고 하는데, 산출물만
+    보고는 그걸 지켰는지 알 수 없다. 감사가 확인 못 한 지점이라(§3.5)
+    manifest와 별도 JSON 양쪽에 남긴다. pin과 md5가 다르면 그 매트릭스는
+    재현 불가능한 것으로 취급해야 한다.
+    """
+    out = {"pinned_from": "", "binaries": {}}
+    pin = BIN_DIR / "PINNED_FROM.txt"
+    if pin.exists():
+        out["pinned_from"] = pin.read_text().strip()
+    for name, path in (("scanner", SCANNER_BIN), ("algo", ALGO_BIN)):
+        if path.exists():
+            out["binaries"][name] = {
+                "path": str(path),
+                "md5": hashlib.md5(path.read_bytes()).hexdigest(),
+            }
+    return out
 
 
 class InstanceFailure(Exception):
@@ -299,8 +322,24 @@ def main(argv=None) -> int:
             print(f"[{n}/{len(instances)}] FAIL {row.instance_id}: {exc}",
                   file=sys.stderr, flush=True)
 
+    prov = binary_provenance()
     manifest_df = pd.DataFrame(manifests)
+    # 모든 행에 같은 값이라 낭비처럼 보이지만, manifest 한 장만 들고 있어도
+    # 어느 바이너리로 만든 매트릭스인지 알 수 있어야 한다.
+    for name, info in prov["binaries"].items():
+        manifest_df[f"{name}_md5"] = info["md5"]
+        manifest_df[f"{name}_path"] = info["path"]
     manifest_df.to_csv(args.manifest, index=False)
+
+    prov_path = Path(args.manifest).with_suffix(".provenance.json")
+    prov["features_csv"] = args.out
+    prov["repo"] = args.repo
+    prov_path.write_text(json.dumps(prov, indent=2, ensure_ascii=False))
+    print(f"provenance → {prov_path}")
+    for name, info in prov["binaries"].items():
+        print(f"  {name}: {info['md5']}  {info['path']}")
+    if any(not info["path"].startswith(str(BIN_DIR)) for info in prov["binaries"].values()):
+        print("경고: bench/bin/ 밖의 바이너리를 썼다 (§5 위반)", file=sys.stderr)
 
     n_ok = int((manifest_df["status"] == "ok").sum())
     n_fail = len(manifest_df) - n_ok

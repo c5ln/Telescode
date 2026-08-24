@@ -24,7 +24,7 @@ from bench.schema import C, DATA_DIR, normalize_file_id
 from bench.seed import textproc
 from bench.seed.bm25 import BM25, B_DEFAULT, K1_DEFAULT, K3_DEFAULT
 from bench.seed.corpus import build_corpus
-from bench.seed.dataset import load_instances
+from bench.seed.dataset import Instance, load_instances
 from bench.seed.tokenizer import tokenize
 
 SEED_COLUMNS = [C.instance_id, C.file_id, C.bm25, C.bm25_rank]
@@ -52,22 +52,35 @@ def rank_pessimistic(scores: list[float]) -> list[int]:
     return ranks
 
 
-def run(repo: str, repo_dir: Path, *, conditions: list[str],
+def run(repos: list[tuple[str, Path]], *, conditions: list[str],
         limit: int | None = None, instance_ids: list[str] | None = None,
         k1: float = K1_DEFAULT, b: float = B_DEFAULT, k3: float | None = K3_DEFAULT,
         path_weight: int = 1,
         candidates: dict[str, set[str]] | None = None,
         out_dir: Path = DATA_DIR) -> dict:
-    instances = load_instances(repo=repo, instance_ids=instance_ids, limit=limit)
-    if not instances:
-        raise SystemExit(f"인스턴스 0개. repo={repo!r} 확인 필요.")
+    """여러 repo의 seed를 한 번에 낸다.
+
+    BM25 인덱스는 **인스턴스마다 독립**이라(corpus = 그 커밋 시점 repo) repo를
+    합쳐도 서로의 IDF에 영향을 주지 않는다. 단순 행 결합이며, 그래서 229 인스턴스
+    통합 매트릭스에 그대로 조인된다.
+
+    Args:
+        repos: `(repo, clone_dir)` 목록. 인스턴스는 각 repo의 SWE-bench 항목에서
+            나오고, 해당 repo의 clone에서만 corpus를 읽는다.
+    """
+    instances: list[tuple[Instance, Path]] = []
+    for repo, repo_dir in repos:
+        got = load_instances(repo=repo, instance_ids=instance_ids, limit=limit)
+        if not got:
+            raise SystemExit(f"인스턴스 0개. repo={repo!r} 확인 필요.")
+        instances.extend((i, repo_dir) for i in got)
 
     rows: list[dict] = []
     leak_rows: list[dict] = []
     ok, failed = 0, []
     t0 = time.time()
 
-    for n, inst in enumerate(instances, 1):
+    for n, (inst, repo_dir) in enumerate(instances, 1):
         try:
             cand = candidates.get(inst.instance_id) if candidates else None
             corp = build_corpus(repo_dir, inst.instance_id, inst.base_commit,
@@ -122,8 +135,13 @@ def run(repo: str, repo_dir: Path, *, conditions: list[str],
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="BM25 seed 산출")
-    ap.add_argument("--repo", default="pytest-dev/pytest")
-    ap.add_argument("--repo-dir", required=True, type=Path)
+    ap.add_argument("--repo", default=None,
+                    help="단일 repo. --repo-dir와 함께 쓴다")
+    ap.add_argument("--repo-dir", type=Path, default=None)
+    ap.add_argument("--add-repo", action="append", default=[], metavar="REPO=DIR",
+                    help="여러 repo를 한 번에. 반복 지정 가능. "
+                         "예: --add-repo pydata/xarray=/c/xarray "
+                         "--add-repo pytest-dev/pytest=/c/pytest")
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--conditions", default=",".join(textproc.CONDITIONS))
     ap.add_argument("--k1", type=float, default=K1_DEFAULT)
@@ -146,16 +164,37 @@ def main(argv=None):
               file=sys.stderr)
 
     candidates = None
+    if not a.features_csv:
+        # 후보 집합이 없으면 seed가 스캔에 없는 file_id를 뱉어도 아무도 못 잡는다.
+        # 조인 커버리지 검사가 어디서도 안 걸리는 경로라 경고를 띄운다.
+        # (bench-harness가 팀리드 지시로 추가 — 감사 S2-2)
+        print("WARN: --features-csv 없이 실행하면 후보 집합 제한과 조인 커버리지 "
+              "검증이 모두 생략된다. 산출된 seed는 bench/features/join_bm25.py 로 "
+              "반드시 검증할 것.", file=sys.stderr)
     if a.features_csv:
         f = pd.read_csv(a.features_csv)
         f[C.file_id] = f[C.file_id].map(normalize_file_id)
         candidates = {k: set(v) for k, v in
                       f.groupby(C.instance_id)[C.file_id].apply(set).items()}
 
-    res = run(a.repo, a.repo_dir, conditions=conds, limit=a.limit,
+    repos: list[tuple[str, Path]] = []
+    for spec in a.add_repo:
+        if "=" not in spec:
+            raise SystemExit(f"--add-repo 형식은 REPO=DIR 이다: {spec!r}")
+        r, d = spec.split("=", 1)
+        repos.append((r, Path(d)))
+    if a.repo or a.repo_dir:
+        if not (a.repo and a.repo_dir):
+            raise SystemExit("--repo 와 --repo-dir 는 함께 준다")
+        repos.append((a.repo, a.repo_dir))
+    if not repos:
+        raise SystemExit("--repo/--repo-dir 또는 --add-repo 중 하나는 필요하다")
+
+    res = run(repos, conditions=conds, limit=a.limit,
               k1=a.k1, b=a.b, k3=a.k3, path_weight=a.path_weight,
               candidates=candidates, out_dir=a.out_dir)
-    print(f"\ninstances={res['n_instances']} ok={res['ok']} failed={len(res['failed'])}")
+    print(f"\nrepos={[r for r, _ in repos]}")
+    print(f"instances={res['n_instances']} ok={res['ok']} failed={len(res['failed'])}")
     for iid, why in res["failed"]:
         print(f"  FAIL {iid}: {why}")
     print(f"rows={res['n_rows']}  ->  {res['out_dir']}")
