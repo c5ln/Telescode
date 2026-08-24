@@ -68,6 +68,8 @@ conan/
 # Secrets & credentials
 .env
 .env.*
+# 단, 키가 없는 템플릿은 커밋한다 (.env.* 규칙보다 뒤에 와야 효력이 있다)
+!.env.example
 *.pem
 *.key
 secrets.*
