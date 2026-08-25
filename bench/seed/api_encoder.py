@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import threading
 import time
 import urllib.error
@@ -109,7 +110,7 @@ class OpenRouterEncoder:
                  concurrency: int = API_CONCURRENCY,
                  api_key: str | None = None,
                  base_url: str = DEFAULT_BASE_URL,
-                 timeout: float = 180.0):
+                 timeout: float = 60.0):
         self.model = model
         self.max_len = max_len
         self.stride = stride
@@ -218,8 +219,15 @@ class OpenRouterEncoder:
                 # 4xx는 재시도해도 같은 답이다. 429(레이트리밋)만 예외.
                 if e.code != 429 and e.code < 500:
                     raise last from e
-            except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
+            except (urllib.error.URLError, TimeoutError, OSError,
+                    json.JSONDecodeError) as e:
                 last = e
+            # **재시도를 반드시 찍는다.** 이게 없으면 멈춘 것과 재시도 중인 것을
+            # 구분할 수 없다. 실제로 5,053 blob 지점에서 30분간 조용히 멈춘 적이
+            # 있고, py-spy를 붙이기 전까지 원인을 볼 수 없었다.
+            print(f"    retry {attempt + 1}/{self.retry.tries} "
+                  f"(inputs={len(inputs)}): {type(last).__name__} {str(last)[:120]}",
+                  file=sys.stderr, flush=True)
             time.sleep(min(self.retry.base ** attempt, self.retry.cap))
         raise ApiEncodeError(f"{self.retry.tries}회 재시도 실패: {last}")
 
@@ -270,14 +278,27 @@ class OpenRouterEncoder:
         t0 = time.time()
         batches = list(self._batches(texts))
 
+        self._done_in_call = 0
+        n_batches = len(batches)
+
+        def one(b):
+            v = self._post(b)
+            with self._lock:
+                self._done_in_call += 1
+                d = self._done_in_call
+            if d % 5 == 0 or d == n_batches:
+                print(f"    batch {d}/{n_batches} ({time.time() - t0:.0f}s)",
+                      file=sys.stderr, flush=True)
+            return v
+
         if self.concurrency == 1 or len(batches) == 1:
-            parts = [self._post(b) for b in batches]
+            parts = [one(b) for b in batches]
         else:
             # 순서를 지켜야 한다. 호출자(encode_corpus)가 반환 행을 span으로
             # 잘라 파일에 되돌리므로, 한 배치라도 자리가 바뀌면 **파일과 벡터가
             # 어긋난 채로 조용히 끝난다.** map은 입력 순서를 보존한다.
             with ThreadPoolExecutor(max_workers=self.concurrency) as pool:
-                parts = list(pool.map(self._post, batches))
+                parts = list(pool.map(one, batches))
 
         with self._lock:
             self.stats.n_chunks += len(texts)
