@@ -37,6 +37,7 @@ import sys
 import time
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from bench.schema import C, DATA_DIR, normalize_file_id
@@ -105,6 +106,7 @@ def encode_corpus(enc, cache: BlobCache, sha_repo: dict[str, Path],
             # 이 그룹의 모든 청크를 한 리스트로 모은다 (파일 경계를 넘어서).
             flat: list[str] = []
             spans: list[tuple[str, int, int]] = []   # (sha, start, end)
+            empty: list[str] = []
             for sha in group:
                 raw = contents.get(sha)
                 if raw is None:
@@ -112,7 +114,11 @@ def encode_corpus(enc, cache: BlobCache, sha_repo: dict[str, Path],
                 text = raw[:MAX_BYTES].decode("utf-8", errors="replace")
                 chunks = enc.chunk_texts(text)
                 if not chunks:
+                    # 빈 파일(내용 없는 __init__.py 등)은 **실패가 아니다.**
+                    # 길이 0 배열을 넣어야 score_file이 0.0을 내고, 채점 단계가
+                    # 이걸 "벡터 없음"(=버그)과 구분할 수 있다.
                     stats["n_empty"] += 1
+                    empty.append(sha)
                     continue
                 spans.append((sha, len(flat), len(flat) + len(chunks)))
                 flat.extend(chunks)
@@ -128,6 +134,9 @@ def encode_corpus(enc, cache: BlobCache, sha_repo: dict[str, Path],
             vecs = enc.embed_texts(flat)
             for sha, a, b in spans:
                 cache.vecs[sha] = vecs[a:b]
+                cache.bump()
+            for sha in empty:
+                cache.vecs[sha] = np.zeros((0, enc.dim or 0), dtype=np.float32)
                 cache.bump()
             _progress(done, len(need), stats, t0)
 
@@ -162,8 +171,9 @@ def score_instances(enc, cache: BlobCache, membership, instances,
             file_vecs = [(p, cache.vecs[s]) for p, s in pairs if s in cache.vecs]
             missing = len(pairs) - len(file_vecs)
             if missing:
-                # 조용히 넘기지 않는다 (CONTRACT.md §3-7).
-                failed.append((inst.instance_id, f"{missing}개 blob 벡터 없음"))
+                # 여기 걸리면 진짜 버그다. 빈 파일은 encode_corpus가 길이 0
+                # 배열로 넣어두므로 정상 경로에서는 0이어야 한다.
+                raise RuntimeError(f"{missing}/{len(pairs)}개 blob 벡터 누락")
             if not file_vecs:
                 failed.append((inst.instance_id, "empty-corpus"))
                 continue
@@ -236,7 +246,8 @@ def build_encoder(a):
         from bench.seed.api_encoder import OpenRouterEncoder
         return OpenRouterEncoder(a.model, dimensions=a.dimensions,
                                  max_len=a.max_len, stride=a.stride,
-                                 max_chunks=a.max_chunks, batch=a.batch_size)
+                                 max_chunks=a.max_chunks, batch=a.batch_size,
+                                 concurrency=a.concurrency)
     if a.backend == "local":
         from bench.seed.embed import ChunkedEncoder
         return ChunkedEncoder(a.model, max_len=a.max_len, stride=a.stride,
@@ -246,8 +257,9 @@ def build_encoder(a):
 
 
 def main(argv=None):
-    from bench.seed.api_encoder import (API_DIMENSIONS, API_MAX_CHUNKS, API_MAX_LEN,
-                                        API_STRIDE, DEFAULT_API_MODEL)
+    from bench.seed.api_encoder import (API_CONCURRENCY, API_DIMENSIONS,
+                                        API_MAX_CHUNKS, API_MAX_LEN, API_STRIDE,
+                                        DEFAULT_API_MODEL)
 
     ap = argparse.ArgumentParser(description="임베딩 seed 산출")
     ap.add_argument("--add-repo", action="append", default=[], metavar="REPO=DIR",
@@ -264,6 +276,8 @@ def main(argv=None):
     ap.add_argument("--stride", type=int, default=API_STRIDE)
     ap.add_argument("--max-chunks", type=int, default=API_MAX_CHUNKS)
     ap.add_argument("--batch-size", type=int, default=64)
+    ap.add_argument("--concurrency", type=int, default=API_CONCURRENCY,
+                    help="동시 요청 수. 왕복 지연이 지배적이라 그대로 처리량이 된다")
     ap.add_argument("--threads", type=int, default=None, help="local 백엔드 전용")
     ap.add_argument("--limit", type=int, default=None,
                     help="앞 N개 인스턴스만. 스모크 테스트용")

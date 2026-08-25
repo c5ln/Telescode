@@ -143,6 +143,8 @@ def main(argv=None) -> int:
     ap.add_argument("--manifest", default=str(DATA_DIR / "instances.csv"))
     ap.add_argument("--bm25-seed", default=str(DATA_DIR / "bm25_seed__full.csv"),
                     help="재스캔 매트릭스의 bm25가 비어 있을 때 조인할 seed")
+    ap.add_argument("--embed-seed", default=None,
+                    help="임베딩 seed CSV. 미지정 시 embed/embed_rank는 NaN으로 남는다")
     ap.add_argument("--overlap", default=str(DATA_DIR / "vocab_overlap.csv"))
     ap.add_argument("--overlap-condition", default="full")
     ap.add_argument("--splits", default=str(DATA_DIR / "splits.csv"))
@@ -157,6 +159,7 @@ def main(argv=None) -> int:
 
     ds = load_dataset(Path(args.features), Path(args.manifest),
                       bm25_seed_path=Path(args.bm25_seed) if args.bm25_seed else None,
+                      embed_seed_path=Path(args.embed_seed) if args.embed_seed else None,
                       overlap_path=Path(args.overlap) if args.overlap else None,
                       overlap_condition=args.overlap_condition,
                       exclude_generated=args.exclude_generated)

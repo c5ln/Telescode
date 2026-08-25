@@ -35,9 +35,11 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 import time
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 import numpy as np
@@ -70,6 +72,11 @@ API_BATCH = 64
 #: 요청당 총 문자 수 상한. 청크가 커서 개수만으로는 페이로드가 널뛴다.
 API_BATCH_CHARS = 600_000
 
+#: 동시 요청 수. 실측(무료 모델)으로 요청 하나가 ~5.8초라 순차로 보내면
+#: 전체 75,498청크에 1.9시간이 걸린다. 왕복 지연이 지배적이므로 동시성이
+#: 그대로 처리량이 된다. 8은 429를 안 맞으면서 15분대로 떨어지는 지점이다.
+API_CONCURRENCY = 8
+
 
 class ApiEncodeError(RuntimeError):
     """재시도를 다 쓰고도 실패한 요청. 조용히 넘기지 않는다 (CONTRACT.md §3-7)."""
@@ -99,6 +106,7 @@ class OpenRouterEncoder:
                  dimensions: int | None = API_DIMENSIONS,
                  instruction: str = DEFAULT_INSTRUCTION,
                  batch: int = API_BATCH, batch_chars: int = API_BATCH_CHARS,
+                 concurrency: int = API_CONCURRENCY,
                  api_key: str | None = None,
                  base_url: str = DEFAULT_BASE_URL,
                  timeout: float = 180.0):
@@ -110,6 +118,8 @@ class OpenRouterEncoder:
         self.instruction = instruction
         self.batch = batch
         self.batch_chars = batch_chars
+        self.concurrency = max(1, concurrency)
+        self._lock = threading.Lock()   # stats·dim은 워커 스레드가 함께 건드린다
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.retry = _Retry()
@@ -169,7 +179,8 @@ class OpenRouterEncoder:
                 out.append(piece)
                 # 과금 기준을 정확히 센다. bytes/token 휴리스틱은 코드에서
                 # 크게 빗나가고, 그 오차로 지출을 결정할 수는 없다.
-                self.stats.n_tokens += len(window)
+                with self._lock:
+                    self.stats.n_tokens += len(window)
             if len(out) >= self.max_chunks:
                 break
             if start + self.max_len >= len(offs):
@@ -222,12 +233,13 @@ class OpenRouterEncoder:
         rows = sorted(data, key=lambda d: d.get("index", 0))
         vecs = np.asarray([r["embedding"] for r in rows], dtype=np.float32)
 
-        if self.dim is None:
-            self.dim = vecs.shape[1]
-        elif vecs.shape[1] != self.dim:
-            raise ApiEncodeError(
-                f"차원이 흔들린다: 기대 {self.dim}, 실제 {vecs.shape[1]}. "
-                "dimensions 파라미터가 무시됐거나 라우팅이 바뀌었다")
+        with self._lock:
+            if self.dim is None:
+                self.dim = vecs.shape[1]
+            elif vecs.shape[1] != self.dim:
+                raise ApiEncodeError(
+                    f"차원이 흔들린다: 기대 {self.dim}, 실제 {vecs.shape[1]}. "
+                    "dimensions 파라미터가 무시됐거나 라우팅이 바뀌었다")
 
         # score_file은 단위벡터를 가정한다(코사인을 내적으로 계산). MRL 절단은
         # 정규화를 깨뜨리므로 여기서 반드시 다시 정규화한다.
@@ -256,9 +268,20 @@ class OpenRouterEncoder:
         if not texts:
             return np.zeros((0, self.dim or 0), dtype=np.float32)
         t0 = time.time()
-        parts = [self._post(b) for b in self._batches(texts)]
-        self.stats.n_chunks += len(texts)
-        self.stats.seconds += time.time() - t0
+        batches = list(self._batches(texts))
+
+        if self.concurrency == 1 or len(batches) == 1:
+            parts = [self._post(b) for b in batches]
+        else:
+            # 순서를 지켜야 한다. 호출자(encode_corpus)가 반환 행을 span으로
+            # 잘라 파일에 되돌리므로, 한 배치라도 자리가 바뀌면 **파일과 벡터가
+            # 어긋난 채로 조용히 끝난다.** map은 입력 순서를 보존한다.
+            with ThreadPoolExecutor(max_workers=self.concurrency) as pool:
+                parts = list(pool.map(self._post, batches))
+
+        with self._lock:
+            self.stats.n_chunks += len(texts)
+            self.stats.seconds += time.time() - t0
         return np.vstack(parts)
 
     def encode_query(self, text: str) -> np.ndarray:

@@ -128,6 +128,36 @@ def join_bm25(features: pd.DataFrame, seed_path: Path) -> tuple[pd.DataFrame, st
     return merged, f"bm25 조인 {matched}/{len(merged)} ({ratio:.4f})"
 
 
+def join_embed(features: pd.DataFrame, seed_path: Path) -> tuple[pd.DataFrame, str]:
+    """임베딩 seed를 `(instance_id, file_id)`로 조인한다. `join_bm25`와 대칭이다.
+
+    `bench/features/extract.py`가 `embed`/`embed_rank`를 NaN으로 내보내므로
+    (스키마는 있고 값은 없다), 여기서 채운다.
+
+    **BM25와 달리 매칭률 하한을 강제하지 않는다.** 임베딩은 선택적 신호라
+    seed 파일이 아예 없을 수 있고, 그때는 NaN인 채로 두는 게 맞다. 다만 seed를
+    **주었는데** 안 붙는 것은 조용한 실패이므로, 그 경우에는 BM25와 같은 기준으로 막는다.
+    """
+    seed = pd.read_csv(seed_path)
+    merged = features.drop(columns=[C.embed, C.embed_rank], errors="ignore").merge(
+        seed[[C.instance_id, C.file_id, C.embed, C.embed_rank]],
+        on=[C.instance_id, C.file_id], how="left")
+
+    if len(merged) != len(features):
+        raise SystemExit(
+            f"embed 조인이 행 수를 바꿨다: {len(features)} → {len(merged)}. "
+            "seed에 (instance_id, file_id) 중복이 있다")
+
+    matched = merged[C.embed].notna().sum()
+    ratio = matched / len(merged) if len(merged) else 0.0
+    if ratio < MIN_JOIN_MATCH_RATIO:
+        raise SystemExit(
+            f"embed 조인 매칭률 {ratio:.4f} < {MIN_JOIN_MATCH_RATIO}. "
+            f"({matched}/{len(merged)} 행). file_id 정규화가 어긋났다 — "
+            "normalize_file_id를 양쪽에 같게 적용했는지 확인하라")
+    return merged, f"embed 조인 {matched}/{len(merged)} ({ratio:.4f})"
+
+
 def load_segments(features: pd.DataFrame, overlap_path: Path,
                   condition: str = "full") -> tuple[dict, list[str]]:
     """`vocab_overlap.csv` → {segment: {instance_id: gold 집합}}.
@@ -186,6 +216,7 @@ def usable_features(df: pd.DataFrame, columns: list[str]) -> tuple[list[str], li
 
 def load_dataset(features_path: Path, manifest_path: Path,
                  *, bm25_seed_path: Path | None = None,
+                 embed_seed_path: Path | None = None,
                  overlap_path: Path | None = None,
                  overlap_condition: str = "full",
                  exclude_generated: bool = False) -> Dataset:
@@ -199,6 +230,12 @@ def load_dataset(features_path: Path, manifest_path: Path,
         notes.append(msg)
     elif features[C.bm25].isna().all():
         notes.append("bm25 전부 비어 있고 seed 경로도 없다 — semantic 그룹 없이 진행")
+
+    if embed_seed_path is not None and embed_seed_path.exists():
+        features, msg = join_embed(features, embed_seed_path)
+        notes.append(msg)
+    else:
+        notes.append("embed seed 없음 — 임베딩 없이 진행")
 
     if exclude_generated:
         before = len(features)
