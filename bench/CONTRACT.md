@@ -152,13 +152,16 @@ git checkout <base_commit>
 
 부수적으로 시스템 성능은 크게 올랐다 (LTR MRR 0.594 → 0.730).
 
+`non_overlap` 구간은 **확정됐다.** 구간이 작았던 원인은 repo 부족이 아니라
+`vocab_overlap.csv`가 xarray만 덮고 pytest 119개를 빠뜨린 것이었다. 라벨을
+마저 채우자 17 → 40 인스턴스가 되어 노이즈 기준을 넘었다 (RESULTS.md §7).
+
 ### 남은 것
 
-1. `non_overlap` 구간 확대 — 현재 17 인스턴스로 노이즈 기준(20) 미달
-2. seed와 무관한 구조 피처 시험 (RESULTS.md §11) — 기각된 가설의 재도전 경로
-3. bm25 재조인을 커밋된 경로로 (감사 S2-2)
-4. `bench/features/test_extract.py` — C++/Python `resolve_module` 동등성 가드 (감사 S2-3)
-5. 읽기 방향 제품 결정 (`docs/reading-direction.md`)
+1. seed와 무관한 구조 피처 시험 (RESULTS.md §11) — 기각된 가설의 재도전 경로
+2. bm25 재조인을 커밋된 경로로 (감사 S2-2)
+3. `bench/features/test_extract.py` — C++/Python `resolve_module` 동등성 가드 (감사 S2-3)
+4. 읽기 방향 제품 결정 (`docs/reading-direction.md`)
 
 ---
 
