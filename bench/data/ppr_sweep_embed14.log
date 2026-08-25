@@ -1,4 +1,4 @@
-config 9개: ['topk0_pow1', 'topk0_pow2', 'topk0_pow3', 'topk50_pow1', 'topk20_pow1', 'topk10_pow1', 'topk5_pow1', 'topk20_pow2', 'topk10_pow2']
+config 14개: ['topk0_pow1', 'topk0_pow2', 'topk0_pow3', 'topk10_pow1', 'topk10_pow2', 'topk1_pow1', 'topk20_pow1', 'topk20_pow2', 'topk2_pow1', 'topk3_pow1', 'topk3_pow2', 'topk50_pow1', 'topk5_pow1', 'topk5_pow2']
 train 인스턴스 176개만 처리한다 (test는 스캔조차 하지 않는다)
 Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
 pydata/xarray: 80개
@@ -12,5 +12,5 @@ pytest-dev/pytest: 96개
   [60/96] ok
   [80/96] ok
 
-→ bench/data/ppr_sweep_embed.csv
+→ bench/data/ppr_sweep_embed14.csv
 성공 176 / 실패 0
