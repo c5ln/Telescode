@@ -82,6 +82,11 @@ df["file_id"]        # X
 | `bm25_rank` | 〃 |
 | `embed` | 〃 — Qwen3-Embedding-8B 청크 maxsim |
 | `embed_rank` | 〃 — 인스턴스 내 내림차순, 동점은 비관적 |
+| `rerank` | 〃 — 크로스 인코더 relevance. **상위 50개만 채점, 나머지는 NaN** |
+| `rerank_rank` | 〃 — 후보 내 순위, 동점은 비관적 |
+
+> ⚠ `rerank`의 NaN은 "관련 없음"이 아니라 **"측정하지 않음"**이다. 0으로 채우면
+> 측정하지 않은 것을 관련 없다고 단정하게 된다.
 
 ### 메타 (피처로 쓰지 않음)
 
@@ -140,17 +145,23 @@ git checkout <base_commit>
 | 1 — 하네스 | `bench-harness` | ✅ 완료. 229 인스턴스, ceiling 0.987 |
 | 2 — BM25 seed | `retrieval` | ✅ 완료. 누출 검증(`full`/`no_trace`/`no_paths`) 포함 |
 | 2b — 임베딩 seed | `retrieval` | ✅ 완료. Qwen3-Embedding-8B, 229/229, $0.97 |
+| 2c — 리랭킹 | `retrieval` | ✅ 완료. cohere/rerank-4-fast, 상위 50개, $1.07 |
 | 3 — PPR | `algo-core` | ✅ 완료. embed seed로 `topk1_pow1` 선택, 229개 투입 |
 | 4 — LTR + ablation | `ltr-eval` | ✅ 완료. 유의성 검정 포함 |
 | 상시 — 감사 | `eval-auditor` | 2라운드 완료. 1차 BLOCK 3건 해소 → 2차 WARN |
 
 ### 실험 결론
 
-**주 가설은 기각됐다.** "구조 신호가 의미 신호와 독립적으로 기여한다"를 보이려
-임베딩 seed를 도입했으나, graph 그룹의 한계 기여는 오히려 더 약해졌다
-(−0.020 p=0.074 → +0.006 p=0.743). 상세는 `bench/RESULTS.md` §6.
+**주 가설은 기각됐고, 반증이 세 단계에 걸쳐 강해졌다.** "구조 신호가 의미 신호와
+독립적으로 기여한다"를 보이려 임베딩과 리랭커를 차례로 도입했으나, graph 그룹의
+한계 기여는 무용을 지나 음(-)으로 갔다:
 
-부수적으로 시스템 성능은 크게 올랐다 (LTR MRR 0.594 → 0.730).
+    BM25만    -0.020  p=0.074    빼면 손해 (유의하지 않음)
+    + 임베딩  +0.006  p=0.743    효과 없음
+    + 리랭커  +0.024  p=0.046    빼는 게 이득 (유의함)
+
+상세는 `bench/RESULTS.md` §6. 부수적으로 시스템 성능은 크게 올랐다
+(LTR MRR 0.594 → 0.730 → 0.753, R@10 0.774 → 0.885).
 
 `non_overlap` 구간은 **확정됐다.** 구간이 작았던 원인은 repo 부족이 아니라
 `vocab_overlap.csv`가 xarray만 덮고 pytest 119개를 빠뜨린 것이었다. 라벨을

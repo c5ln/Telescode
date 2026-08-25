@@ -49,6 +49,8 @@ class C:
     bm25_rank = "bm25_rank"
     embed      = "embed"       # 청크 임베딩 최대 코사인 유사도 (retrieval 산출)
     embed_rank = "embed_rank"  # 인스턴스 내 내림차순 순위. 동점은 비관적(최악)
+    rerank      = "rerank"      # 크로스 인코더 relevance. 후보 밖 파일은 NaN
+    rerank_rank = "rerank_rank" # 〃 순위. 동점은 비관적(최악)
 
     # ── 메타 (피처로 쓰지 말 것) ──────────────────────────────────────────
     is_generated = "is_generated"  # 후보 필터링 전용
@@ -63,7 +65,8 @@ GRAPH_FEATURES = [C.pagerank, C.bc, C.combined, C.file_rank,
                   C.in_deg, C.out_deg, C.ppr]
 COMPLEXITY_FEATURES = [C.complexity, C.max_cc, C.avg_cc,
                        C.max_depth, C.avg_depth, C.logical_loc]
-SEMANTIC_FEATURES = [C.bm25, C.bm25_rank, C.embed, C.embed_rank]
+SEMANTIC_FEATURES = [C.bm25, C.bm25_rank, C.embed, C.embed_rank,
+                     C.rerank, C.rerank_rank]
 
 FEATURE_COLUMNS = GRAPH_FEATURES + COMPLEXITY_FEATURES + SEMANTIC_FEATURES
 

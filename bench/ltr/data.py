@@ -128,6 +128,40 @@ def join_bm25(features: pd.DataFrame, seed_path: Path) -> tuple[pd.DataFrame, st
     return merged, f"bm25 조인 {matched}/{len(merged)} ({ratio:.4f})"
 
 
+def join_rerank(features: pd.DataFrame, seed_path: Path) -> tuple[pd.DataFrame, str]:
+    """리랭킹 seed를 조인한다.
+
+    **매칭률 하한을 강제하지 않는다.** 리랭커는 인스턴스당 상위 N개만 채점하므로
+    (기본 50개, 후보는 평균 191개) 대부분의 행이 NaN인 것이 **정상**이다.
+    NaN은 "관련 없음"이 아니라 "측정하지 않음"이며, 0으로 채우면 측정하지 않은
+    것을 관련 없다고 단정하게 된다 (`run_rerank.py` 모듈 docstring 참조).
+
+    대신 인스턴스 커버리지를 검사한다 — seed에 있는 인스턴스가 하나도 안 붙으면
+    그건 file_id 정규화가 깨진 것이다.
+    """
+    seed = pd.read_csv(seed_path)
+    merged = features.drop(columns=[C.rerank, C.rerank_rank], errors="ignore").merge(
+        seed[[C.instance_id, C.file_id, C.rerank, C.rerank_rank]],
+        on=[C.instance_id, C.file_id], how="left")
+
+    if len(merged) != len(features):
+        raise SystemExit(
+            f"rerank 조인이 행 수를 바꿨다: {len(features)} → {len(merged)}. "
+            "seed에 (instance_id, file_id) 중복이 있다")
+
+    seed_inst = set(seed[C.instance_id])
+    hit_inst = set(merged.loc[merged[C.rerank].notna(), C.instance_id])
+    missed = seed_inst - hit_inst
+    if missed:
+        raise SystemExit(
+            f"rerank seed의 인스턴스 {len(missed)}개가 하나도 안 붙었다: "
+            f"{sorted(missed)[:5]}. file_id 정규화를 확인하라")
+
+    matched = merged[C.rerank].notna().sum()
+    return merged, (f"rerank 조인 {matched}/{len(merged)} "
+                    f"(행 {matched / len(merged):.3f} · 인스턴스 {len(hit_inst)}/{len(seed_inst)})")
+
+
 def join_embed(features: pd.DataFrame, seed_path: Path) -> tuple[pd.DataFrame, str]:
     """임베딩 seed를 `(instance_id, file_id)`로 조인한다. `join_bm25`와 대칭이다.
 
@@ -217,6 +251,7 @@ def usable_features(df: pd.DataFrame, columns: list[str]) -> tuple[list[str], li
 def load_dataset(features_path: Path, manifest_path: Path,
                  *, bm25_seed_path: Path | None = None,
                  embed_seed_path: Path | None = None,
+                 rerank_seed_path: Path | None = None,
                  overlap_path: Path | None = None,
                  overlap_condition: str = "full",
                  exclude_generated: bool = False) -> Dataset:
@@ -236,6 +271,12 @@ def load_dataset(features_path: Path, manifest_path: Path,
         notes.append(msg)
     else:
         notes.append("embed seed 없음 — 임베딩 없이 진행")
+
+    if rerank_seed_path is not None and rerank_seed_path.exists():
+        features, msg = join_rerank(features, rerank_seed_path)
+        notes.append(msg)
+    else:
+        notes.append("rerank seed 없음 — 리랭킹 없이 진행")
 
     if exclude_generated:
         before = len(features)

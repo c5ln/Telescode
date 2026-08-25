@@ -212,6 +212,8 @@ def extract(db_path, instance_id: str, gold_file_ids: Iterable[str],
     df[C.bm25_rank] = float("nan")    # Phase 2 (retrieval)
     df[C.embed] = float("nan")        # Phase 2 임베딩 (retrieval)
     df[C.embed_rank] = float("nan")   # Phase 2 임베딩 (retrieval)
+    df[C.rerank] = float("nan")       # Phase 2b 리랭킹 (retrieval)
+    df[C.rerank_rank] = float("nan")  # Phase 2b 리랭킹 (retrieval)
     df[C.commit_skew] = commit_skew
 
     return df[ALL_COLUMNS]
