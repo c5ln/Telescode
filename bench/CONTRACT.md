@@ -80,6 +80,8 @@ df["file_id"]        # X
 |---|---|
 | `bm25` | `retrieval` 산출 |
 | `bm25_rank` | 〃 |
+| `embed` | 〃 — Qwen3-Embedding-8B 청크 maxsim |
+| `embed_rank` | 〃 — 인스턴스 내 내림차순, 동점은 비관적 |
 
 ### 메타 (피처로 쓰지 않음)
 
@@ -137,16 +139,26 @@ git checkout <base_commit>
 | 0 — baseline 수정 | `algo-core` | ✅ 완료 (`9a05af6`, `f690a1c`) |
 | 1 — 하네스 | `bench-harness` | ✅ 완료. 229 인스턴스, ceiling 0.987 |
 | 2 — BM25 seed | `retrieval` | ✅ 완료. 누출 검증(`full`/`no_trace`/`no_paths`) 포함 |
-| 3 — PPR | `algo-core` | ⚠️ 구현·테스트 완료(`TelescodePPR`), **LTR 피처로 미투입** |
+| 2b — 임베딩 seed | `retrieval` | ✅ 완료. Qwen3-Embedding-8B, 229/229, $0.97 |
+| 3 — PPR | `algo-core` | ✅ 완료. embed seed로 `topk1_pow1` 선택, 229개 투입 |
 | 4 — LTR + ablation | `ltr-eval` | ✅ 완료. 유의성 검정 포함 |
 | 상시 — 감사 | `eval-auditor` | 2라운드 완료. 1차 BLOCK 3건 해소 → 2차 WARN |
+
+### 실험 결론
+
+**주 가설은 기각됐다.** "구조 신호가 의미 신호와 독립적으로 기여한다"를 보이려
+임베딩 seed를 도입했으나, graph 그룹의 한계 기여는 오히려 더 약해졌다
+(−0.020 p=0.074 → +0.006 p=0.743). 상세는 `bench/RESULTS.md` §6.
+
+부수적으로 시스템 성능은 크게 올랐다 (LTR MRR 0.594 → 0.730).
 
 ### 남은 것
 
 1. `non_overlap` 구간 확대 — 현재 17 인스턴스로 노이즈 기준(20) 미달
-2. bm25 재조인을 커밋된 경로로 (감사 S2-2)
-3. `bench/features/test_extract.py` — C++/Python `resolve_module` 동등성 가드 (감사 S2-3)
-4. 읽기 방향 제품 결정 (`docs/reading-direction.md`)
+2. seed와 무관한 구조 피처 시험 (RESULTS.md §11) — 기각된 가설의 재도전 경로
+3. bm25 재조인을 커밋된 경로로 (감사 S2-2)
+4. `bench/features/test_extract.py` — C++/Python `resolve_module` 동등성 가드 (감사 S2-3)
+5. 읽기 방향 제품 결정 (`docs/reading-direction.md`)
 
 ---
 

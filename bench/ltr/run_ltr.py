@@ -47,6 +47,7 @@ from bench.schema import C, DATA_DIR
 # (라벨, 컬럼, 클수록 좋은가). `bench.metrics.baseline.BASELINES`와 같은 목록에
 # BM25를 더한 것이다. 그쪽은 bm25가 없던 시점에 쓰였다.
 SINGLE_BASELINES = [
+    ("embed (Qwen3 임베딩)", C.embed, True),
     ("bm25", C.bm25, True),
     ("ppr (목적 조건부 전파)", C.ppr, True),
     ("complexity", C.complexity, True),
