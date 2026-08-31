@@ -108,13 +108,20 @@ set_target_properties(sqlite3 PROPERTIES C_STANDARD 11)
 # ── Telescode executable ──────────────────────────────────────────────────────
 add_executable(Telescode
     src/main.cpp
+    src/scan_main.cpp
+    src/update_main.cpp
+    src/algo_main.cpp
     src/ui/ts_app.cpp
     src/ui/ts_canvas.cpp
+    src/ui/ts_rail.cpp
     src/ui/class_diagram/cd_view.cpp
     src/ui/class_diagram/cd_arrowhead.cpp
     src/ui/class_diagram/cd_builder.cpp
     src/ui/class_diagram/cd_layout.cpp
-    src/db/db.cpp
+    src/db/DbInserter.cpp
+    src/db/DbUpdater.cpp
+    src/parser/PythonParser.cpp
+    src/parser/ParserRegistry.cpp
 )
 target_include_directories(Telescode PRIVATE
     ${tree-sitter_SOURCE_DIR}/lib/include
@@ -139,6 +146,8 @@ target_link_libraries(Telescode PRIVATE
     imgui
     imnodes
     sqlite3
+    algo
+    Threads::Threads
 )
 target_compile_definitions(Telescode PRIVATE IMGUI_DEFINE_MATH_OPERATORS)
 
@@ -154,45 +163,6 @@ if(TELESCODE_STYLE_PREVIEW)
     target_compile_definitions(Telescode PRIVATE TELESCODE_STYLE_PREVIEW)
 endif()
 
-# ── TelescodeScanner executable ───────────────────────────────────────────────
-add_executable(TelescodeScanner
-    src/scan_main.cpp
-    src/db/DbInserter.cpp
-    src/db/db.cpp
-    src/parser/PythonParser.cpp
-    src/parser/ParserRegistry.cpp
-)
-target_include_directories(TelescodeScanner PRIVATE
-    ${tree-sitter_SOURCE_DIR}/lib/include
-    src
-)
-target_link_libraries(TelescodeScanner PRIVATE
-    tree-sitter
-    tree-sitter-python
-    sqlite3
-    Threads::Threads
-)
-
-# ── TelescodeUpdater executable ───────────────────────────────────────────────
-add_executable(TelescodeUpdater
-    src/update_main.cpp
-    src/db/DbUpdater.cpp
-    src/db/DbInserter.cpp
-    src/db/db.cpp
-    src/parser/PythonParser.cpp
-    src/parser/ParserRegistry.cpp
-)
-target_include_directories(TelescodeUpdater PRIVATE
-    ${tree-sitter_SOURCE_DIR}/lib/include
-    src
-)
-target_link_libraries(TelescodeUpdater PRIVATE
-    tree-sitter
-    tree-sitter-python
-    sqlite3
-    Threads::Threads
-)
-
 # ── algo static library ────────────────────────────────────────────────────────
 add_library(algo STATIC
     src/algo/Graph.cpp
@@ -205,17 +175,37 @@ add_library(algo STATIC
 target_include_directories(algo PUBLIC src)
 target_link_libraries(algo PUBLIC sqlite3)
 
-# ── TelescodeAlgo executable ──────────────────────────────────────────────────
-add_executable(TelescodeAlgo
-    src/algo_main.cpp
-)
-target_include_directories(TelescodeAlgo PRIVATE src)
-target_link_libraries(TelescodeAlgo PRIVATE algo sqlite3)
 
 # ── Unit tests ────────────────────────────────────────────────────────────────
 enable_testing()
 
-add_executable(AlgoTests
+# tests/** is gitignored, so a checkout may carry only some of the test sources.
+# A missing file in add_executable() is a configure-time error that takes every
+# target down with it — Telescode included — so drop the absent files here and
+# skip a target once it has no test source left to run.
+function(ts_test_sources out_var)
+    set(found "")
+    set(has_test FALSE)
+    foreach(src IN LISTS ARGN)
+        if(EXISTS "${CMAKE_SOURCE_DIR}/${src}")
+            list(APPEND found "${src}")
+            if(src MATCHES "^tests/")
+                set(has_test TRUE)
+            endif()
+        elseif(src MATCHES "^tests/")
+            message(STATUS "test source absent, skipping: ${src}")
+        else()
+            message(WARNING "missing source file: ${src}")
+        endif()
+    endforeach()
+    # A test target with no test file left would build and pass vacuously.
+    if(NOT has_test)
+        set(found "")
+    endif()
+    set(${out_var} "${found}" PARENT_SCOPE)
+endfunction()
+
+ts_test_sources(TS_ALGO_TEST_SRC
     tests/algo/test_reading_sequencer.cpp
     tests/algo/test_pagerank.cpp
     tests/algo/test_score_combiner.cpp
@@ -224,11 +214,14 @@ add_executable(AlgoTests
     tests/algo/test_percentile_rank.cpp
     tests/algo/test_complexity_scorer.cpp
 )
-target_include_directories(AlgoTests PRIVATE src)
-target_link_libraries(AlgoTests PRIVATE algo GTest::gtest_main)
-add_test(NAME AlgoTests COMMAND AlgoTests)
+if(TS_ALGO_TEST_SRC)
+    add_executable(AlgoTests ${TS_ALGO_TEST_SRC})
+    target_include_directories(AlgoTests PRIVATE src)
+    target_link_libraries(AlgoTests PRIVATE algo GTest::gtest_main)
+    add_test(NAME AlgoTests COMMAND AlgoTests)
+endif()
 
-add_executable(CanvasTests
+ts_test_sources(TS_CANVAS_TEST_SRC
     tests/ui/test_ts_canvas.cpp
     src/ui/ts_canvas.cpp
     src/ui/class_diagram/cd_view.cpp
@@ -236,45 +229,54 @@ add_executable(CanvasTests
     src/ui/class_diagram/cd_arrowhead.cpp
     src/ui/class_diagram/cd_layout.cpp
 )
-target_include_directories(CanvasTests PRIVATE
-    ${imgui_SOURCE_DIR}
-    ${CMAKE_SOURCE_DIR}/src
-)
-target_link_libraries(CanvasTests PRIVATE
-    imgui
-    imnodes
-    sqlite3
-    GTest::gtest_main
-)
-add_test(NAME CanvasTests COMMAND CanvasTests)
+if(TS_CANVAS_TEST_SRC)
+    add_executable(CanvasTests ${TS_CANVAS_TEST_SRC})
+    target_include_directories(CanvasTests PRIVATE
+        ${imgui_SOURCE_DIR}
+        ${CMAKE_SOURCE_DIR}/src
+    )
+    target_link_libraries(CanvasTests PRIVATE
+        imgui
+        imnodes
+        sqlite3
+        GTest::gtest_main
+    )
+    add_test(NAME CanvasTests COMMAND CanvasTests)
+endif()
 
-add_executable(DiagramTests
+ts_test_sources(TS_DIAGRAM_TEST_SRC
     tests/ui/test_cd_arrowhead.cpp
     src/ui/class_diagram/cd_arrowhead.cpp
 )
-target_include_directories(DiagramTests PRIVATE
-    ${imgui_SOURCE_DIR}
-    ${CMAKE_SOURCE_DIR}/src
-)
-target_compile_definitions(DiagramTests PRIVATE IMGUI_DEFINE_MATH_OPERATORS)
-target_link_libraries(DiagramTests PRIVATE
-    imgui
-    GTest::gtest_main
-)
-add_test(NAME DiagramTests COMMAND DiagramTests)
+if(TS_DIAGRAM_TEST_SRC)
+    add_executable(DiagramTests ${TS_DIAGRAM_TEST_SRC})
+    target_include_directories(DiagramTests PRIVATE
+        ${imgui_SOURCE_DIR}
+        ${CMAKE_SOURCE_DIR}/src
+    )
+    target_compile_definitions(DiagramTests PRIVATE IMGUI_DEFINE_MATH_OPERATORS)
+    target_link_libraries(DiagramTests PRIVATE
+        imgui
+        GTest::gtest_main
+    )
+    add_test(NAME DiagramTests COMMAND DiagramTests)
+endif()
 
-add_executable(LayoutTests
+ts_test_sources(TS_LAYOUT_TEST_SRC
     tests/ui/test_cd_layout.cpp
     src/ui/class_diagram/cd_layout.cpp
 )
-target_include_directories(LayoutTests PRIVATE
-    ${imgui_SOURCE_DIR}
-    ${CMAKE_SOURCE_DIR}/src
-)
-target_compile_definitions(LayoutTests PRIVATE IMGUI_DEFINE_MATH_OPERATORS)
-target_link_libraries(LayoutTests PRIVATE
-    imgui
-    imnodes
-    GTest::gtest_main
-)
-add_test(NAME LayoutTests COMMAND LayoutTests)
+if(TS_LAYOUT_TEST_SRC)
+    add_executable(LayoutTests ${TS_LAYOUT_TEST_SRC})
+    target_include_directories(LayoutTests PRIVATE
+        ${imgui_SOURCE_DIR}
+        ${CMAKE_SOURCE_DIR}/src
+    )
+    target_compile_definitions(LayoutTests PRIVATE IMGUI_DEFINE_MATH_OPERATORS)
+    target_link_libraries(LayoutTests PRIVATE
+        imgui
+        imnodes
+        GTest::gtest_main
+    )
+    add_test(NAME LayoutTests COMMAND LayoutTests)
+endif()

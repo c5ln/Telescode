@@ -123,21 +123,79 @@ static bool columnExists(sqlite3* db, const char* table, const char* column)
     return found;
 }
 
-// Migrates DBs created before complexity_score existed. No-op once migrated,
-// since the column is also created directly by kInitSQL for fresh DBs.
-static int migrateComplexityScoreColumn(sqlite3* db)
+// Adds one column unless the table already has it.
+//
+// Every column added this way must carry a DEFAULT. SQLite refuses to ADD a
+// NOT NULL column without one -- the rows already in the table would have
+// nothing to put in it -- and that refusal is what makes `raw_loc` below a
+// rename rather than an add.
+static int addColumnIfMissing(sqlite3* db, const char* table,
+                              const char* column, const char* decl)
 {
-    if (columnExists(db, "file", "complexity_score")) return SQLITE_OK;
+    if (columnExists(db, table, column)) return SQLITE_OK;
+
+    const std::string sql =
+        std::string("ALTER TABLE ") + table + " ADD COLUMN " + column + ' ' + decl + ';';
 
     char* errMsg = nullptr;
-    int rc = sqlite3_exec(db,
-        "ALTER TABLE file ADD COLUMN complexity_score REAL NOT NULL DEFAULT 0.0;",
-        nullptr, nullptr, &errMsg);
+    int rc = sqlite3_exec(db, sql.c_str(), nullptr, nullptr, &errMsg);
     if (rc != SQLITE_OK) {
-        std::fprintf(stderr, "initDb: complexity_score migration failed: %s\n", errMsg);
+        std::fprintf(stderr, "initDb: adding %s.%s failed: %s\n", table, column, errMsg);
         sqlite3_free(errMsg);
     }
     return rc;
+}
+
+// Brings a database written by an earlier version up to the current schema.
+//
+// kInitSQL creates tables with CREATE TABLE IF NOT EXISTS, so it leaves an
+// existing table exactly as it found it. Without this pass an old `file` table
+// keeps its original columns, and every statement in DbInserter -- which names
+// the current ones -- fails to even prepare, surfacing as a bare
+// "SQL logic error" from a scan that never touches a row.
+//
+// This restores the schema, not the data: the added columns hold their defaults
+// until the repository is scanned again. Idempotent, and a no-op on a fresh
+// database, where kInitSQL has already created every column.
+static int migrateSchema(sqlite3* db)
+{
+    // `loc` was replaced by `raw_loc`, not supplemented by it, so a rename does
+    // the work of two steps: it carries the old values over under the new name
+    // with exactly the NOT NULL / no-default definition kInitSQL gives raw_loc,
+    // and it retires `loc` -- which no current INSERT names, and which would
+    // reject every one of them, being NOT NULL with no default of its own.
+    if (columnExists(db, "file", "loc") && !columnExists(db, "file", "raw_loc")) {
+        char* errMsg = nullptr;
+        int rc = sqlite3_exec(db, "ALTER TABLE file RENAME COLUMN loc TO raw_loc;",
+                              nullptr, nullptr, &errMsg);
+        if (rc != SQLITE_OK) {
+            std::fprintf(stderr, "initDb: renaming file.loc to raw_loc failed: %s\n", errMsg);
+            sqlite3_free(errMsg);
+            return rc;
+        }
+    }
+
+    struct ColumnDef { const char* table; const char* column; const char* decl; };
+    static const ColumnDef kColumns[] = {
+        { "file",     "logical_loc",               "INTEGER NOT NULL DEFAULT 0"   },
+        { "file",     "is_generated",              "INTEGER NOT NULL DEFAULT 0"   },
+        { "file",     "max_cyclomatic_complexity", "INTEGER NOT NULL DEFAULT 0"   },
+        { "file",     "avg_cyclomatic_complexity", "REAL NOT NULL DEFAULT 0.0"    },
+        { "file",     "max_block_depth",           "INTEGER NOT NULL DEFAULT 0"   },
+        { "file",     "avg_block_depth",           "REAL NOT NULL DEFAULT 0.0"    },
+        { "file",     "max_function_loc",          "INTEGER NOT NULL DEFAULT 0"   },
+        { "file",     "avg_function_loc",          "REAL NOT NULL DEFAULT 0.0"    },
+        { "file",     "complexity_score",          "REAL NOT NULL DEFAULT 0.0"    },
+        { "function", "cyclomatic_complexity",     "INTEGER NOT NULL DEFAULT 1"   },
+        { "function", "max_block_depth",           "INTEGER NOT NULL DEFAULT 0"   },
+        { "function", "loc",                       "INTEGER NOT NULL DEFAULT 0"   },
+    };
+
+    for (const ColumnDef& c : kColumns) {
+        const int rc = addColumnIfMissing(db, c.table, c.column, c.decl);
+        if (rc != SQLITE_OK) return rc;
+    }
+    return SQLITE_OK;
 }
 
 int initDb(const char* dbPath, sqlite3** db)
@@ -164,7 +222,7 @@ int initDb(const char* dbPath, sqlite3** db)
         return rc;
     }
 
-    rc = migrateComplexityScoreColumn(*db);
+    rc = migrateSchema(*db);
     if (rc != SQLITE_OK) {
         sqlite3_close(*db);
         *db = nullptr;

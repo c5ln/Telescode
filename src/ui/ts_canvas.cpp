@@ -6,6 +6,7 @@
 #include <imgui_internal.h>
 #include <imnodes.h>
 #include <cmath>
+#include <string>
 #include "ts_style.h"
 #include "class_diagram/cd_view.h"
 #include "class_diagram/cd_builder.h"
@@ -21,6 +22,32 @@ namespace {
     constexpr float k_zoom_label_pad_y = 20.0f;
 
     static TS::CDGraph s_graph;
+
+    // Pending focus request from the rail, consumed by the next DrawCanvas.
+    static std::string s_focus_file;
+    static bool        s_focus_pending = false;
+
+    // The centre of a file's box in logical coordinates.
+    //
+    // CDContainer carries no file_id -- cd_layout builds it out of the nodes
+    // that share one -- so the lookup goes through the first child node, whose
+    // file_id every node in that container shares by construction.
+    bool FindFileBoxCentre(const TS::CDGraph& g, const std::string& file_id, ImVec2& out)
+    {
+        if (!g.layout_valid) return false;   // pos/size unwritten until it runs
+
+        for (const TS::CDContainer& c : g.containers) {
+            if (!c.is_file || c.child_nodes.empty()) continue;
+
+            const int n = c.child_nodes.front();
+            if (n < 0 || static_cast<size_t>(n) >= g.nodes.size())      continue;
+            if (g.nodes[static_cast<size_t>(n)].file_id != file_id)     continue;
+
+            out = { c.pos.x + c.size.x * 0.5f, c.pos.y + c.size.y * 0.5f };
+            return true;
+        }
+        return false;
+    }
 }
 
 namespace TS {
@@ -28,6 +55,12 @@ namespace TS {
 // ── Accessors ─────────────────────────────────────────────────────────────────
 
 float GetCanvasZoom()        { return s_zoom; }
+
+void RequestFocusFile(const std::string& file_id)
+{
+    s_focus_file    = file_id;
+    s_focus_pending = !file_id.empty();
+}
 void  SetCanvasZoom(float z) { s_zoom = s_zoom_target = ImClamp(z, ZOOM_MIN, ZOOM_MAX); }
 
 // ── Coordinate transforms ─────────────────────────────────────────────────────
@@ -42,8 +75,17 @@ void DrawCanvas(ImVec2 pos, ImVec2 size)
     if (size.x <= 0.0f || size.y <= 0.0f) return;
 
     // 1. EditorContext -- initialise once.
-    if (!s_context)
+    if (!s_context) {
         s_context = ImNodes::EditorContextCreate();
+
+        // Pan with the right button rather than imnodes' default middle button.
+        // AltMouseButton is the only binding behind the panning interaction
+        // (imnodes.cpp:2152-2159), and neither imnodes nor this codebase reads
+        // the right button for anything else, so the swap is total: right-drag
+        // pans, middle-drag no longer does. Set on the global ImNodesIO, not the
+        // editor context, so it survives any later context recreation here.
+        ImNodes::GetIO().AltMouseButton = ImGuiMouseButton_Right;
+    }
     ImNodes::EditorContextSet(s_context);
 
     // 2. BeginChild
@@ -115,6 +157,33 @@ void DrawCanvas(ImVec2 pos, ImVec2 size)
                 s_anchor_screen.y - canvas_origin.y - s_anchor_world.y * s_zoom
             };
             ImNodes::EditorContextResetPanning(new_pan);
+        }
+    }
+
+    // 4b. Focus request from the rail.
+    //     Runs after the smoothing block so it wins over any zoom animation still
+    //     in flight, and clears that animation's anchor -- left set, the next
+    //     frame would recompute panning from it and drag the camera back.
+    //
+    //     cd_view lerps a container between its overview and detail placement by
+    //     the node fade, so `pos` is only the drawn position once that fade has
+    //     completed. Raising the zoom to CD_NODE_FADE_HI is what makes the target
+    //     coordinate true, not just a nicety of framing.
+    if (s_focus_pending)
+    {
+        s_focus_pending = false;
+
+        ImVec2 centre;
+        if (FindFileBoxCentre(s_graph, s_focus_file, centre))
+        {
+            if (s_zoom_target < TS::CD_NODE_FADE_HI)
+                s_zoom = s_zoom_target = TS::CD_NODE_FADE_HI;
+
+            s_anchor_world  = { 0.0f, 0.0f };
+            s_anchor_screen = { 0.0f, 0.0f };
+
+            ImNodes::EditorContextResetPanning({ size.x * 0.5f - centre.x * s_zoom,
+                                                 size.y * 0.5f - centre.y * s_zoom });
         }
     }
 

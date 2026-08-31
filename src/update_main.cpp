@@ -1,3 +1,6 @@
+// src/update_main.cpp
+// `Telescode update` -- incremental reindexing of individual files.
+#include "cli/ts_cli.h"
 #include "db/DbUpdater.h"
 #include "parser/ParserRegistry.h"
 #include "parser/PythonParser.h"
@@ -14,18 +17,20 @@ static ParserRegistry makeRegistry() {
     return reg;
 }
 
+namespace TS {
+
 static void printUsage(const char* prog) {
     std::fprintf(stderr,
         "Usage:\n"
-        "  %s file     <db> <repo_root> <abs_path>\n"
-        "  %s files    <db> <repo_root> <file1> [file2 ...]\n"
-        "  %s delete   <db> <file_id>\n"
-        "  %s rename   <db> <repo_root> <old_id> <new_abs_path>\n"
-        "  %s dangling <db> <file_id>\n",
+        "  Telescode %s file     <db> <repo_root> <abs_path>\n"
+        "  Telescode %s files    <db> <repo_root> <file1> [file2 ...]\n"
+        "  Telescode %s delete   <db> <file_id>\n"
+        "  Telescode %s rename   <db> <repo_root> <old_id> <new_abs_path>\n"
+        "  Telescode %s dangling <db> <file_id>\n",
         prog, prog, prog, prog, prog);
 }
 
-int main(int argc, char* argv[]) {
+int CmdUpdate(int argc, char* argv[]) {
     if (argc < 3) { printUsage(argv[0]); return 1; }
 
     const char* cmd    = argv[1];
@@ -105,3 +110,5 @@ int main(int argc, char* argv[]) {
 
     return 0;
 }
+
+} // namespace TS

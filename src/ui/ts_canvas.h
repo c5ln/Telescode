@@ -9,6 +9,7 @@
 
 #pragma once
 #include <imgui.h>
+#include <string>
 #include "ts_style.h"  // provides TS::ZOOM_MIN, TS::ZOOM_MAX, TS::ZOOM_STEP_SCROLL
 
 // imnodes.h is needed only in the .cpp; forward-declare the opaque type here
@@ -25,6 +26,15 @@ namespace TS {
     // Call once after ImGui context is ready. Loads class diagram from DB.
     // No-op if db is nullptr (canvas stays empty).
     void   InitCanvasFromDB(sqlite3* db);
+
+    // Centres the camera on `file_id`'s box in the class diagram, applied at the
+    // start of the next DrawCanvas -- the rail is drawn after the canvas, so a
+    // click there arrives too late to affect the frame it happened in.
+    //
+    // The jump also raises the zoom to at least CD_NODE_FADE_HI when it is below
+    // it. A file with no classes has no box on the canvas at all; that request
+    // is dropped and the camera stays put.
+    void   RequestFocusFile(const std::string& file_id);
 
     float  GetCanvasZoom();
 
