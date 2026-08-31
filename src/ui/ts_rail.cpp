@@ -5,7 +5,8 @@
 //   strip   32px  section label + file count on the left; the collapse chevron
 //                 (ts_app.cpp) sits at the right end. Also the collapsed height,
 //                 so collapsing leaves exactly the strip.
-//   items         one chip per file in file_rank order, scrolled horizontally.
+//   items         one chip per file in file_rank order, scrolled horizontally,
+//                 each followed by a chevron pointing at the file to read next.
 
 #include "ts_rail.h"
 #include "ts_style.h"
@@ -13,7 +14,6 @@
 #include <sqlite3.h>
 #include <imgui.h>
 
-#include <algorithm>
 #include <cfloat>
 #include <cstdio>
 #include <string>
@@ -26,15 +26,17 @@ namespace {
 constexpr float k_strip_h    = 32.0f;   // must match k_rail_strip in ts_app.cpp
 constexpr float k_pad_x      = 12.0f;
 constexpr float k_chip_w     = 176.0f;
-constexpr float k_chip_gap   =  8.0f;
+constexpr float k_chip_gap   = 18.0f;   // wide enough to seat the chevron
+constexpr float k_arrow_w    =  4.0f;   // chevron half-width
+constexpr float k_arrow_h    =  5.0f;   // chevron half-height
+constexpr float k_arrow_th   =  1.5f;   // chevron stroke thickness
 constexpr float k_chip_pad_x =  8.0f;   // text inset from the chip's left edge
-constexpr float k_chip_pad_y =  6.0f;   // inset above the rank row, below the bar
+constexpr float k_chip_pad_y =  6.0f;   // minimum inset above and below the rows
 constexpr float k_chip_round =  8.0f;
 constexpr float k_chip_mar_y =  4.0f;   // clearance above and below the chip row
 constexpr float k_rank_h     = 14.0f;   // chip text rows, stacked from the top
 constexpr float k_name_h     = 17.0f;
 constexpr float k_dir_h      = 15.0f;
-constexpr float k_bar_h      =  3.0f;   // score bar, pinned to the chip's bottom
 constexpr float k_wheel_step = 64.0f;   // horizontal scroll per wheel notch
 
 struct RailEntry {
@@ -43,8 +45,7 @@ struct RailEntry {
     std::string dir;            // "src/ui"
     std::string display_name;   // name, ellipsized to the chip width
     std::string display_dir;    // dir,  ellipsized to the chip width
-    int   rank  = 0;
-    float score = 0.0f;         // combined_score, normalised to [0, 1]
+    int   rank = 0;
 };
 
 std::vector<RailEntry> s_entries;
@@ -122,13 +123,12 @@ void InitRailFromDB(sqlite3* db)
     // CHECK constraint in db.cpp -- so this ordering is total.
     sqlite3_stmt* stmt = nullptr;
     if (sqlite3_prepare_v2(db,
-            "SELECT file_id, file_rank, combined_score "
+            "SELECT file_id, file_rank "
             "FROM reading_sequence WHERE entity_type = 'file' "
             "ORDER BY file_rank;",
             -1, &stmt, nullptr) != SQLITE_OK)
         return;   // table absent (a DB from before the algo ran) -- empty state
 
-    float max_score = 0.0f;
     while (sqlite3_step(stmt) == SQLITE_ROW) {
         const unsigned char* fid = sqlite3_column_text(stmt, 0);
         if (!fid) continue;
@@ -136,21 +136,14 @@ void InitRailFromDB(sqlite3* db)
         RailEntry e;
         e.file_id = reinterpret_cast<const char*>(fid);
         e.rank    = sqlite3_column_int(stmt, 1);
-        e.score   = static_cast<float>(sqlite3_column_double(stmt, 2));
 
         const auto slash = e.file_id.rfind('/');
         e.name = (slash == std::string::npos) ? e.file_id : e.file_id.substr(slash + 1);
         e.dir  = (slash == std::string::npos) ? std::string() : e.file_id.substr(0, slash);
 
-        max_score = std::max(max_score, e.score);
         s_entries.push_back(std::move(e));
     }
     sqlite3_finalize(stmt);
-
-    // combined_score has no fixed upper bound, so the bar reads as "relative to
-    // the most central file in this repo" rather than as an absolute quantity.
-    if (max_score > 0.0f)
-        for (RailEntry& e : s_entries) e.score /= max_score;
 }
 
 // ── DrawRail ─────────────────────────────────────────────────────────────────
@@ -237,7 +230,7 @@ void DrawRail(ImVec2 pos, ImVec2 size, bool collapsed)
 
     // Measured rather than derived from content_h: a horizontal scrollbar eats
     // into the child's client area, and sizing the chips against the outer
-    // height would run them under it -- the score bar goes first.
+    // height would run them under it.
     const float inner_h = ImGui::GetContentRegionAvail().y;
 
     const float chip_w = k_chip_w * s;
@@ -259,7 +252,11 @@ void DrawRail(ImVec2 pos, ImVec2 size, bool collapsed)
             const float x = pad_x + static_cast<float>(i) * (chip_w + gap);
 
             // Cull off-screen chips -- a large repo puts thousands of files here.
-            if (x + chip_w < scroll_x || x > scroll_x + size.x) continue;
+            // The left bound carries one gap of slack: a chip just past the edge
+            // still owns the chevron after it, which reaches back into view. The
+            // chip itself is drawn and then clipped by the child, which is
+            // cheaper than tracking the two cases apart.
+            if (x + chip_w + gap < scroll_x || x > scroll_x + size.x) continue;
 
             const RailEntry& e = s_entries[i];
 
@@ -285,7 +282,13 @@ void DrawRail(ImVec2 pos, ImVec2 size, bool collapsed)
             char rank[16];
             std::snprintf(rank, sizeof(rank), "%02d", e.rank);
 
-            float y = tl.y + pad_v;
+            // Centred as a block: with the score bar gone the rows no longer fill
+            // the chip, and pinning them to the top would leave the slack pooled
+            // under the last line. pad_v stays as a floor so a chip shorter than
+            // its own text starts inside the border rather than above it.
+            const float rows_h = (k_rank_h + k_name_h + k_dir_h) * s;
+            const float slack  = (chip_h - rows_h) * 0.5f;
+            float y = tl.y + (slack > pad_v ? slack : pad_v);
             DrawRowText(dl, f_mono, px_mono, { tl.x + pad_l, y }, text_w, k_rank_h * s,
                         TS::MUTED_U32, rank);
             y += k_rank_h * s;
@@ -295,18 +298,22 @@ void DrawRail(ImVec2 pos, ImVec2 size, bool collapsed)
             DrawRowText(dl, f_small, px_small, { tl.x + pad_l, y }, text_w, k_dir_h * s,
                         TS::INK_3_U32, e.display_dir.c_str());
 
-            // Score bar, pinned to the bottom so it lines up across chips even
-            // when a row above it is empty.
-            const float bar_h = k_bar_h * s;
-            const float bar_y = br.y - pad_v - bar_h;
-            if (bar_y > y) {
-                dl->AddRectFilled({ tl.x + pad_l, bar_y }, { tl.x + pad_l + text_w, bar_y + bar_h },
-                                  TS::LINE_U32, bar_h * 0.5f);
-                const float t = std::clamp(e.score, 0.0f, 1.0f);
-                if (t > 0.0f)
-                    dl->AddRectFilled({ tl.x + pad_l, bar_y },
-                                      { tl.x + pad_l + text_w * t, bar_y + bar_h },
-                                      TS::ACCENT_SECONDARY_U32, bar_h * 0.5f);
+            // Sequence chevron, seated in the gap to the right: it points at the
+            // file to read next, so the last chip has nothing to point at. Two
+            // stroked segments rather than a glyph -- the ellipsis in Ellipsize()
+            // is spelled out for the same reason, and a drawn chevron stays crisp
+            // at every ui_scale instead of depending on the atlas.
+            if (i + 1 < s_entries.size()) {
+                const float  cx = br.x + gap * 0.5f;
+                const float  cy = (tl.y + br.y) * 0.5f;
+                const float  aw = k_arrow_w * s;
+                const float  ah = k_arrow_h * s;
+                const ImVec2 pts[3] = {
+                    { cx - aw, cy - ah },
+                    { cx + aw, cy      },
+                    { cx - aw, cy + ah },
+                };
+                dl->AddPolyline(pts, 3, TS::MUTED_U32, 0, k_arrow_th * s);
             }
 
             // The chip shows a basename; the tooltip carries the full path.
