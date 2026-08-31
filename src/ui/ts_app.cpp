@@ -5,11 +5,17 @@
 //   Header        full width, 48px, always visible       (TS::HEADER)
 //   Sidebar       left, 280px | 40px icon rail           (TS::PANEL)
 //   Canvas        fills remaining space                   (TS::BG_SOFT)
-//   Sequence rail bottom, 120px | 24px strip             (TS::PANEL)
+//   Sequence rail full width, 120px | 32px strip         (TS::PANEL)
+//
+// The rail spans the whole window and the sidebar stops on top of it, so the
+// rail's geometry is unaffected by the sidebar collapse. The reading-order list
+// lives here, and shifting it sideways on an unrelated toggle would slide every
+// item out from under the cursor.
 
 #include "ts_app.h"
 #include "ts_style.h"
 #include "ts_canvas.h"
+#include "ts_rail.h"
 #include <imgui.h>
 
 namespace TS {
@@ -65,7 +71,8 @@ void DrawAppShell()
     dl->AddRectFilled({0.0f, 0.0f}, {dw, header_h}, TS::HEADER_U32);
 
     // ── Sidebar ──────────────────────────────────────────────────────────────
-    dl->AddRectFilled({0.0f, body_y}, {sidebar_w, body_y + body_h}, TS::PANEL_U32);
+    // Stops at the rail's top edge -- the rail owns the full bottom strip.
+    dl->AddRectFilled({0.0f, body_y}, {sidebar_w, rail_y}, TS::PANEL_U32);
 
     // Collapse toggle: fixed-size button at the upper-left of the sidebar.
     // Width is always k_icon_rail_w so the button doesn't resize on expand/collapse.
@@ -82,14 +89,13 @@ void DrawAppShell()
     TS::DrawCanvas({canvas_x, body_y}, {canvas_w, canvas_h});
 
     // ── Sequence Rail ─────────────────────────────────────────────────────────
-    dl->AddRectFilled({canvas_x, rail_y},
-                      {canvas_x + canvas_w, rail_y + rail_h},
-                      TS::PANEL_U32);
+    dl->AddRectFilled({0.0f, rail_y}, {dw, rail_y + rail_h}, TS::PANEL_U32);
+    TS::DrawRail({0.0f, rail_y}, {dw, rail_h}, s_rail_collapsed);
 
     // Chevron toggle: upper-right corner of the rail, fixed height.
     const float chev_w = k_chevron_w * s;
     const float chev_h = k_chevron_h * s;
-    const float chev_x = (canvas_w > chev_w) ? (canvas_x + canvas_w - chev_w) : canvas_x;
+    const float chev_x = (dw > chev_w) ? (dw - chev_w) : 0.0f;
     ImGui::SetCursorScreenPos({chev_x, rail_y});
     ImGui::PushStyleColor(ImGuiCol_Button,        TS::PANEL_2);
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Darken(TS::PANEL_2, 0.06f));

@@ -11,14 +11,84 @@ extern "C" const TSLanguage* tree_sitter_python();
 #include "ui/ts_style.h"
 #include "ui/ts_app.h"
 #include "ui/ts_canvas.h"
+#include "ui/ts_rail.h"
+#include "cli/ts_cli.h"
+#include "algo/AlgoRunner.h"
+#include "algo/AlgoDbWriter.h"
 #include <sqlite3.h>
+#include <cstdio>
+#include <cstring>
+#include <stdexcept>
 
 #ifdef TELESCODE_STYLE_PREVIEW
 #include "dev/style_preview.h"
 #endif
 
+static void PrintUsage()
+{
+    std::fprintf(stderr,
+        "Telescode -- a telescope for your codebase.\n"
+        "\n"
+        "Usage:\n"
+        "  Telescode [view] <db_path> [--no-algo]   open the viewer (default)\n"
+        "  Telescode scan   <repo_path> <db_path> [allowed_root]\n"
+        "  Telescode algo   <db_path>\n"
+        "  Telescode update <op> <db_path> ...      (op: file|files|delete|rename|dangling)\n"
+        "\n"
+        "The viewer recomputes the reading sequence on every launch; --no-algo\n"
+        "skips that and uses whatever the database already holds.\n");
+}
+
 int main(int argc, char** argv)
 {
+    // -- Subcommand dispatch ----------------------------------------------------
+    // Each Cmd* was its own executable's main(). Shifting argv by one puts the
+    // subcommand name in argv[0], so their existing index arithmetic still holds.
+    if (argc > 1) {
+        if (std::strcmp(argv[1], "scan")   == 0) return TS::CmdScan  (argc - 1, argv + 1);
+        if (std::strcmp(argv[1], "algo")   == 0) return TS::CmdAlgo  (argc - 1, argv + 1);
+        if (std::strcmp(argv[1], "update") == 0) return TS::CmdUpdate(argc - 1, argv + 1);
+        if (std::strcmp(argv[1], "--help") == 0 ||
+            std::strcmp(argv[1], "-h")     == 0) { PrintUsage(); return 0; }
+    }
+
+    // -- view mode (the default) ------------------------------------------------
+    const char* db_path  = nullptr;
+    bool        run_algo = true;
+    for (int i = 1; i < argc; ++i) {
+        if (std::strcmp(argv[i], "view")      == 0) continue;   // optional, explicit
+        if (std::strcmp(argv[i], "--no-algo") == 0) { run_algo = false; continue; }
+        if (argv[i][0] == '-') {
+            std::fprintf(stderr, "Telescode: unknown option '%s'\n\n", argv[i]);
+            PrintUsage();
+            return 1;
+        }
+        if (!db_path) db_path = argv[i];
+    }
+
+    // Recomputed on every launch rather than only when missing: it is well under
+    // a second even on the largest database here (680 files / 50k links -> 0.8s),
+    // and it rules out the rail showing a sequence that predates the last scan.
+    // Runs before SDL comes up so a slow database cannot present a frozen window.
+    // A read-only file or an out-of-date schema throws -- the viewer still opens
+    // on whatever the database already holds, and the rail has an empty state.
+    if (db_path && run_algo) {
+        try {
+            AlgoConfig    cfg    = AlgoDbWriter::loadConfig(db_path);
+            AlgoRunResult result = AlgoRunner::run(db_path, cfg);
+            // "computed", not "wrote": AlgoRunner returns the entries whether or
+            // not AlgoDbWriter managed to persist them (a read-only file fails the
+            // write and reports it on stderr), and claiming success here would
+            // contradict that.
+            std::fprintf(stdout, "[algo] computed %zu reading sequence entries\n",
+                         result.entries.size());
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "[algo] skipped: %s\n", e.what());
+        } catch (...) {
+            std::fprintf(stderr, "[algo] skipped: unknown error\n");
+        }
+    }
+
     // -- SDL init ---------------------------------------------------------------
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         SDL_Log("SDL_Init failed: %s", SDL_GetError());
@@ -67,11 +137,13 @@ int main(int argc, char** argv)
     TS::LoadFonts(io);   // must precede NewFrame
     TS::ApplyStyle();    // sets ImGuiStyle, ImNodesStyle, precomputes _U32
 
-    // Load class diagram from DB if path provided as first argument.
-    if (argc > 1) {
+    // Load class diagram and reading sequence from DB if a path was given.
+    if (db_path) {
         sqlite3* db = nullptr;
-        if (sqlite3_open_v2(argv[1], &db, SQLITE_OPEN_READONLY, nullptr) == SQLITE_OK)
+        if (sqlite3_open_v2(db_path, &db, SQLITE_OPEN_READONLY, nullptr) == SQLITE_OK) {
             TS::InitCanvasFromDB(db);
+            TS::InitRailFromDB(db);
+        }
         sqlite3_close(db);
     }
 

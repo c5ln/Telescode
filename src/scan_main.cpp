@@ -1,3 +1,6 @@
+// src/scan_main.cpp
+// `Telescode scan` -- parse a repo into a fresh database.
+#include "cli/ts_cli.h"
 #include "db/DbInserter.h"
 #include "parser/ParserRegistry.h"
 #include "parser/PythonParser.h"
@@ -8,10 +11,12 @@
 #include <string>
 #include <vector>
 
-int main(int argc, char* argv[]) {
+namespace TS {
+
+int CmdScan(int argc, char* argv[]) {
     if (argc < 3 || argc > 4) {
         std::fprintf(stderr,
-            "Usage: %s <repo_path> <db_path> [allowed_root]\n", argv[0]);
+            "Usage: Telescode scan <repo_path> <db_path> [allowed_root]\n");
         return 1;
     }
     const char* repoPath    = argv[1];
@@ -44,3 +49,5 @@ int main(int argc, char* argv[]) {
                  (long long)ms(t0, t1), (long long)ms(t1, t2));
     return 0;
 }
+
+} // namespace TS

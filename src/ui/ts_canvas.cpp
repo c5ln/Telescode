@@ -42,8 +42,17 @@ void DrawCanvas(ImVec2 pos, ImVec2 size)
     if (size.x <= 0.0f || size.y <= 0.0f) return;
 
     // 1. EditorContext -- initialise once.
-    if (!s_context)
+    if (!s_context) {
         s_context = ImNodes::EditorContextCreate();
+
+        // Pan with the right button rather than imnodes' default middle button.
+        // AltMouseButton is the only binding behind the panning interaction
+        // (imnodes.cpp:2152-2159), and neither imnodes nor this codebase reads
+        // the right button for anything else, so the swap is total: right-drag
+        // pans, middle-drag no longer does. Set on the global ImNodesIO, not the
+        // editor context, so it survives any later context recreation here.
+        ImNodes::GetIO().AltMouseButton = ImGuiMouseButton_Right;
+    }
     ImNodes::EditorContextSet(s_context);
 
     // 2. BeginChild
