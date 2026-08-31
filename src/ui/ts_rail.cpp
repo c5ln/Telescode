@@ -10,6 +10,7 @@
 
 #include "ts_rail.h"
 #include "ts_style.h"
+#include "ts_canvas.h"
 
 #include <sqlite3.h>
 #include <imgui.h>
@@ -265,6 +266,12 @@ void DrawRail(ImVec2 pos, ImVec2 size, bool collapsed)
             ImGui::InvisibleButton("##chip", { chip_w, chip_h });
             const bool hovered = ImGui::IsItemHovered();
             if (ImGui::IsItemActivated()) s_selected = static_cast<int>(i);
+
+            // Double-click jumps the canvas to this file. Selection still happens
+            // on the way in: the first click of the pair already ran the line
+            // above, so the chip is selected and focused by one gesture.
+            if (hovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+                RequestFocusFile(e.file_id);
             ImGui::PopID();
 
             const ImVec2 tl  = ImGui::GetItemRectMin();
