@@ -13,10 +13,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from bench.ltr.data import (join_bm25, load_segments, per_instance_minmax,
+from bench.ltr.data import (Dataset, join_bm25, load_segments,
+                            per_instance_minmax, restrict_candidates,
                             usable_features)
 from bench.ltr.fusion import rrf, with_external
-from bench.ltr.model import make_folds
+from bench.ltr.cv import make_folds
 from bench.ltr.size_control import size_matched_comparison
 from bench.schema import C
 
@@ -105,6 +106,68 @@ def test_join_bm25_is_noop_when_already_filled(tmp_path):
     out, msg = join_bm25(feats, p)
     assert out[C.bm25].tolist() == [2.0]
     assert "생략" in msg
+
+
+# ── LambdaRank 후보 생성 ─────────────────────────────────────────────────
+
+def test_default_candidates_keep_everything_except_init():
+    feats = _frame([
+        {C.instance_id: "i", C.file_id: "pkg/__init__.py"},
+        {C.instance_id: "i", C.file_id: "a.py"},
+        {C.instance_id: "i", C.file_id: "b.py"},
+    ])
+    ds = Dataset(features=feats, gold_sets={"i": {"a.py"}},
+                 scanned={"i": set(feats[C.file_id])}, feature_columns=[])
+
+    out = restrict_candidates(ds)
+
+    assert out.features[C.file_id].tolist() == ["a.py", "b.py"]
+    assert out.scanned == ds.scanned
+
+
+def test_candidates_union_bm25_and_ppr_and_exclude_init():
+    feats = _frame([
+        {C.instance_id: "i", C.file_id: "pkg/__init__.py", C.bm25: 100.0, C.ppr: 100.0},
+        {C.instance_id: "i", C.file_id: "bm25.py", C.bm25: 10.0, C.ppr: 0.0},
+        {C.instance_id: "i", C.file_id: "ppr.py", C.bm25: 0.0, C.ppr: 10.0},
+        {C.instance_id: "i", C.file_id: "other.py", C.bm25: 1.0, C.ppr: 1.0},
+    ])
+    ds = Dataset(features=feats, gold_sets={"i": {"bm25.py", "ppr.py"}},
+                 scanned={"i": set(feats[C.file_id])},
+                 feature_columns=[C.bm25, C.ppr])
+
+    out = restrict_candidates(ds, top_k=2)
+
+    assert set(out.features[C.file_id]) == {"bm25.py", "ppr.py"}
+    assert "pkg/__init__.py" in out.scanned["i"], "평가용 원래 스캔 집합은 보존해야 한다"
+
+
+def test_candidates_are_exactly_top_k_with_deterministic_ties():
+    feats = _frame([
+        {C.instance_id: "i", C.file_id: f"f{n}.py", C.bm25: 1.0, C.ppr: 1.0}
+        for n in range(8)
+    ])
+    ds = Dataset(features=feats, gold_sets={"i": set()},
+                 scanned={"i": set(feats[C.file_id])},
+                 feature_columns=[C.bm25, C.ppr])
+
+    out = restrict_candidates(ds, top_k=3)
+
+    assert out.features[C.file_id].tolist() == ["f0.py", "f1.py", "f2.py"]
+
+
+def test_candidates_ignore_missing_retriever_instead_of_ranking_nan():
+    feats = _frame([
+        {C.instance_id: "i", C.file_id: "best.py", C.bm25: 2.0, C.ppr: np.nan},
+        {C.instance_id: "i", C.file_id: "worse.py", C.bm25: 1.0, C.ppr: np.nan},
+    ])
+    ds = Dataset(features=feats, gold_sets={"i": set()},
+                 scanned={"i": set(feats[C.file_id])},
+                 feature_columns=[C.bm25])
+
+    out = restrict_candidates(ds, top_k=1)
+
+    assert out.features[C.file_id].tolist() == ["best.py"]
 
 
 # ── 구간 라벨 ────────────────────────────────────────────────────────────

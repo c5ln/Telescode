@@ -30,8 +30,10 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from bench.features.code_lexical import EXTRA_COLUMNS, EXTRA_GROUPS
 from bench.schema import (C, COMPLEXITY_FEATURES, DATA_DIR, GRAPH_FEATURES,
-                          SEMANTIC_FEATURES)
+                          KEY_COLUMNS, SEMANTIC_FEATURES)
+from ltr.preprocessing import per_query_minmax
 
 # ablation 그룹. `bench/schema.py`의 상수를 그대로 쓴다 — 여기서 목록을 다시
 # 적으면 스키마가 바뀌었을 때 조용히 어긋난다.
@@ -66,7 +68,8 @@ class Dataset:
 
     def groups_for(self, name: str) -> list[str]:
         """이 데이터셋에서 **실제로 살아남은** 그룹 피처만."""
-        return [c for c in FEATURE_GROUPS[name] if c in self.feature_columns]
+        cols = FEATURE_GROUPS[name] if name in FEATURE_GROUPS else EXTRA_GROUPS[name]
+        return [c for c in cols if c in self.feature_columns]
 
     def segment_instance_count(self, segment: str) -> int:
         if not self.seg_gold:
@@ -192,6 +195,33 @@ def join_embed(features: pd.DataFrame, seed_path: Path) -> tuple[pd.DataFrame, s
     return merged, f"embed 조인 {matched}/{len(merged)} ({ratio:.4f})"
 
 
+def join_extra(features: pd.DataFrame, path: Path) -> tuple[pd.DataFrame, str]:
+    """코드 어휘 피처(`bench.features.code_lexical`)를 조인한다.
+
+    BM25와 같은 기준으로 매칭률을 강제한다. 네 컬럼 모두 base_commit blob과 간선에서
+    나오므로 매트릭스의 모든 행이 값을 가져야 정상이다.
+    """
+    extra = pd.read_csv(path)
+    cols = [c for c in EXTRA_COLUMNS if c in extra.columns]
+    if not cols:
+        raise SystemExit(f"{path}에 코드 어휘 피처 컬럼이 없다: {EXTRA_COLUMNS}")
+    merged = features.drop(columns=cols, errors="ignore").merge(
+        extra[KEY_COLUMNS + cols], on=KEY_COLUMNS, how="left")
+
+    if len(merged) != len(features):
+        raise SystemExit(
+            f"extra 조인이 행 수를 바꿨다: {len(features)} → {len(merged)}. "
+            "(instance_id, file_id) 중복이 있다")
+
+    matched = int(merged[cols].notna().all(axis=1).sum())
+    ratio = matched / len(merged) if len(merged) else 0.0
+    if ratio < MIN_JOIN_MATCH_RATIO:
+        raise SystemExit(
+            f"extra 조인 매칭률 {ratio:.4f} < {MIN_JOIN_MATCH_RATIO} "
+            f"({matched}/{len(merged)} 행)")
+    return merged, f"extra 조인 {matched}/{len(merged)} ({ratio:.4f}): {', '.join(cols)}"
+
+
 def load_segments(features: pd.DataFrame, overlap_path: Path,
                   condition: str = "full") -> tuple[dict, list[str]]:
     """`vocab_overlap.csv` → {segment: {instance_id: gold 집합}}.
@@ -248,10 +278,123 @@ def usable_features(df: pd.DataFrame, columns: list[str]) -> tuple[list[str], li
     return keep, dropped
 
 
+def restrict_candidates(ds: Dataset, top_k: int | None = None, *,
+                        exclude_init: bool = True, rrf_k: int = 60) -> Dataset:
+    """LambdaRank 후보에서 ``__init__.py``를 빼고, 선택적으로 top-k를 적용한다.
+
+    기본값은 나머지 전체 후보를 유지한다. ``top_k``를 주면 각 검색기의 상위
+    ``top_k``를 합친 뒤 RRF로 다시 ``top_k``개를 고른다. 후보 선택에는 라벨을
+    전혀 쓰지 않는다. ``ds.scanned``는 원래 스캔 집합 그대로 보존해, 후보에서
+    잘린 gold가 recall ceiling에서 사라지는 평가 오류를 막는다.
+
+    ``__init__.py``는 검색 결과로서 정보량이 낮으므로 후보 순위를 매기기 전에
+    제외한다. top-k를 쓰지 않으면 그 밖의 파일은 모두 LambdaRank에 전달한다.
+    """
+    if top_k is not None and top_k <= 0:
+        raise ValueError("top_k는 양수여야 한다")
+    if rrf_k < 0:
+        raise ValueError("rrf_k는 0 이상이어야 한다")
+
+    required = {C.instance_id, C.file_id}
+    if top_k is not None:
+        required |= {C.bm25, C.ppr}
+    missing = required - set(ds.features.columns)
+    if missing:
+        raise ValueError(f"후보 생성에 필요한 컬럼이 없다: {sorted(missing)}")
+
+    before = len(ds.features)
+    f = ds.features.copy()
+    if exclude_init:
+        basename = f[C.file_id].astype(str).str.replace("\\\\", "/", regex=False) \
+                                           .str.rsplit("/", n=1).str[-1]
+        f = f[basename != "__init__.py"].copy()
+    after_init = len(f)
+
+    empty_instances = set(ds.instance_ids) - set(f[C.instance_id])
+    if empty_instances:
+        raise SystemExit(
+            f"__init__.py 제외 후 후보가 없는 인스턴스 {len(empty_instances)}개: "
+            f"{sorted(empty_instances)[:5]}")
+
+    if top_k is None:
+        cand = f
+    else:
+        cand = _rrf_top_k(f, top_k, rrf_k)
+
+    lost_instances = set(f[C.instance_id]) - set(cand[C.instance_id])
+    if lost_instances:
+        raise SystemExit(
+            f"유효한 후보가 없는 인스턴스 {len(lost_instances)}개: "
+            f"{sorted(lost_instances)[:5]}")
+
+    retained_gold = sum(
+        len(set(g[C.file_id]) & ds.gold_sets.get(iid, set()))
+        for iid, g in cand.groupby(C.instance_id, sort=False))
+    total_gold = sum(len(v) for v in ds.gold_sets.values())
+    notes = list(ds.notes)
+    if exclude_init:
+        notes.append(f"__init__.py 후보 제외: {before - after_init}행")
+    if top_k is None:
+        notes.append(
+            f"LambdaRank 전체 후보 유지: {before} → {len(cand)}행, "
+            f"gold {retained_gold}/{total_gold} 유지")
+    else:
+        notes.append(
+            f"BM25/PPR top-{top_k} 합집합 → RRF top-{top_k}: "
+            f"{after_init} → {len(cand)}행, gold {retained_gold}/{total_gold} 유지")
+
+    return Dataset(features=cand, gold_sets=ds.gold_sets, scanned=ds.scanned,
+                   feature_columns=ds.feature_columns,
+                   dropped_columns=ds.dropped_columns,
+                   seg_gold=ds.seg_gold, notes=notes)
+
+
+def _rrf_top_k(f: pd.DataFrame, top_k: int, rrf_k: int) -> pd.DataFrame:
+    """BM25/PPR 각각의 top-k 합집합을 RRF로 정확히 top-k까지 줄인다."""
+    both_missing = []
+    for iid, g in f.groupby(C.instance_id, sort=False):
+        if g[[C.bm25, C.ppr]].isna().all().all():
+            both_missing.append(iid)
+    if both_missing:
+        raise SystemExit(
+            f"BM25와 PPR이 모두 비어 있는 인스턴스 {len(both_missing)}개: "
+            f"{sorted(both_missing)[:5]}")
+
+    def exact_rank(col: str) -> pd.Series:
+        ordered = f.sort_values(
+            [C.instance_id, col, C.file_id],
+            ascending=[True, False, True], na_position="last", kind="stable")
+        values = ordered.groupby(C.instance_id, sort=False).cumcount().to_numpy() + 1
+        return pd.Series(values, index=ordered.index).reindex(f.index)
+
+    bm25_pos = exact_rank(C.bm25)
+    ppr_pos = exact_rank(C.ppr)
+    bm25_valid = f[C.bm25].notna()
+    ppr_valid = f[C.ppr].notna()
+    pool = ((bm25_pos <= top_k) & bm25_valid) | ((ppr_pos <= top_k) & ppr_valid)
+    cand = f.loc[pool].copy()
+    cand["__candidate_rrf"] = (
+        np.where(bm25_valid.loc[cand.index],
+                 1.0 / (rrf_k + bm25_pos.loc[cand.index].to_numpy(dtype=float)), 0.0)
+        + np.where(ppr_valid.loc[cand.index],
+                   1.0 / (rrf_k + ppr_pos.loc[cand.index].to_numpy(dtype=float)), 0.0))
+    cand["__bm25_pos"] = bm25_pos.loc[cand.index].to_numpy(dtype=int)
+    cand["__ppr_pos"] = ppr_pos.loc[cand.index].to_numpy(dtype=int)
+    cand = cand.sort_values(
+        [C.instance_id, "__candidate_rrf", "__bm25_pos", "__ppr_pos", C.file_id],
+        ascending=[True, False, True, True, True], kind="stable")
+    cand = cand.groupby(C.instance_id, sort=False).head(top_k)
+    cand = cand.drop(columns=["__candidate_rrf", "__bm25_pos", "__ppr_pos"])
+    cand = cand.sort_index().copy()
+
+    return cand
+
+
 def load_dataset(features_path: Path, manifest_path: Path,
                  *, bm25_seed_path: Path | None = None,
                  embed_seed_path: Path | None = None,
                  rerank_seed_path: Path | None = None,
+                 extra_features_path: Path | None = None,
                  overlap_path: Path | None = None,
                  overlap_condition: str = "full",
                  exclude_generated: bool = False) -> Dataset:
@@ -278,6 +421,10 @@ def load_dataset(features_path: Path, manifest_path: Path,
     else:
         notes.append("rerank seed 없음 — 리랭킹 없이 진행")
 
+    if extra_features_path is not None:
+        features, msg = join_extra(features, extra_features_path)
+        notes.append(msg)
+
     if exclude_generated:
         before = len(features)
         features = features[features[C.is_generated] == 0].copy()
@@ -292,7 +439,7 @@ def load_dataset(features_path: Path, manifest_path: Path,
                features.groupby(C.instance_id)[C.file_id].apply(set).items()}
 
     cols = [c for c in GRAPH_FEATURES + COMPLEXITY_FEATURES + SEMANTIC_FEATURES
-            if c in features.columns]
+            + EXTRA_COLUMNS if c in features.columns]
     keep, dropped = usable_features(features, cols)
     if dropped:
         notes.append("사용 불가 피처 제외: " + ", ".join(dropped))
@@ -323,14 +470,4 @@ def per_instance_minmax(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
     전 구간 동일값인 컬럼은 0을 준다 (`bench.metrics.baseline.minmax`와 같은 규약).
     NaN은 그대로 둔다 — LightGBM이 결측을 직접 처리한다.
     """
-    out = df[columns].astype(float).copy()
-    g = df.groupby(C.instance_id)[columns]
-    lo, hi = g.transform("min"), g.transform("max")
-    span = (hi - lo).to_numpy()
-    vals = (out.to_numpy() - lo.to_numpy())
-    with np.errstate(invalid="ignore", divide="ignore"):
-        norm = np.where(span > 0, vals / np.where(span > 0, span, 1.0), 0.0)
-    # span이 NaN인(그 인스턴스에서 전부 결측인) 칸까지 0으로 덮이면 결측이 조용히
-    # "최솟값"이 된다. 원본이 NaN인 자리는 NaN으로 되돌린다.
-    norm = np.where(np.isnan(out.to_numpy()), np.nan, norm)
-    return pd.DataFrame(norm, columns=columns, index=df.index)
+    return per_query_minmax(df, columns, C.instance_id)

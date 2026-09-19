@@ -3,6 +3,8 @@ scratch/*
 bin/*
 !bin/.gitkeep
 data/*.csv
+data/*.log
+data/ltr_oof_*.json
 __pycache__/
 .venv/
 repos/

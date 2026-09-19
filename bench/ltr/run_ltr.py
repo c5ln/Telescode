@@ -35,8 +35,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from bench.ltr import model as M
-from bench.ltr.data import FEATURE_GROUPS, load_dataset
+from bench.features.code_lexical import CX, EXTRA_GROUPS
+from bench.ltr import cv as M
+from bench.ltr.data import FEATURE_GROUPS, load_dataset, restrict_candidates
 from bench.ltr.evaluate import (evaluate_all, fmt, paired_bootstrap,
                                 per_instance_metrics)
 from bench.ltr.size_control import (correlation_report, residual_ranking_report,
@@ -50,6 +51,9 @@ SINGLE_BASELINES = [
     ("embed (Qwen3 임베딩)", C.embed, True),
     ("rerank (크로스 인코더)", C.rerank, True),
     ("bm25", C.bm25, True),
+    ("def_match (정의 이름)", CX.def_match, True),
+    ("str_match (문자열 리터럴)", CX.str_match, True),
+    ("nbr_bm25_max (이웃 BM25)", CX.nbr_bm25_max, True),
     ("ppr (목적 조건부 전파)", C.ppr, True),
     ("complexity", C.complexity, True),
     ("logical_loc", C.logical_loc, True),
@@ -62,6 +66,7 @@ SINGLE_BASELINES = [
 ]
 
 B2_COL = "__b2__"
+BASE_LABEL = "base (추가 피처 제외)"
 
 
 def add_b2(features: pd.DataFrame) -> pd.DataFrame:
@@ -92,7 +97,8 @@ def run_baselines(ds, features: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     return pd.DataFrame(rows), per
 
 
-def ablation_configs(ds) -> list[tuple[str, list[str]]]:
+def ablation_configs(ds, base_extra_groups: tuple[str, ...] = (),
+                     extra_only: bool = False) -> list[tuple[str, list[str]]]:
     """제거형(leave-one-group-out)·단독형(group-only)과 **PPR 분리 조건**을 만든다.
 
     제거형만 보면 그룹이 중복된 정보를 담을 때 둘 다 "빼도 상관없다"로 나온다.
@@ -118,16 +124,40 @@ def ablation_configs(ds) -> list[tuple[str, list[str]]]:
     """
     groups = {g: ds.groups_for(g) for g in FEATURE_GROUPS}
     groups = {g: c for g, c in groups.items() if c}
-    allc = [c for g in groups.values() for c in g]
+    # `--extra-features`로 붙인 코드 어휘 피처. 없으면 아래는 전부 이전과 같다.
+    # `base_extra_groups`에 든 것은 base에 접어 넣는다 — 이전 실험의 full을
+    # 새 기준선으로 삼고 그 위에서 신규 그룹만 재기 위해서다.
+    extras = {g: ds.groups_for(g) for g in EXTRA_GROUPS}
+    extras = {g: c for g, c in extras.items() if c}
+    base_extra = [c for g, v in extras.items() if g in base_extra_groups for c in v]
+    extras = {g: c for g, c in extras.items() if g not in base_extra_groups}
+    extra_cols = [c for v in extras.values() for c in v]
+    core = [c for g in groups.values() for c in g]
+    base = core + base_extra
+    allc = base + extra_cols
 
     cfgs = [("full (all groups)", allc)]
-    for g in groups:
-        rest = [c for k, v in groups.items() if k != g for c in v]
-        if rest:
-            cfgs.append((f"-{g}", rest))
-    for g, cols in groups.items():
-        cfgs.append((f"{g} only", cols))
+    if not extra_only:
+        for g in groups:
+            rest = ([c for k, v in groups.items() if k != g for c in v]
+                    + base_extra + extra_cols)
+            if rest:
+                cfgs.append((f"-{g}", rest))
+        for g, cols in groups.items():
+            cfgs.append((f"{g} only", cols))
 
+    # 신규 피처는 두 방향으로 잰다: base에 하나만 더했을 때(단독 기여)와
+    # full에서 하나만 뺐을 때(한계 기여). 서로 겹치면 둘이 다르게 나온다.
+    if extras:
+        cfgs.append((BASE_LABEL, base))
+        for g, cols in extras.items():
+            cfgs.append((f"base +{g}", base + cols))
+            # 그룹이 둘이면 `-A`는 `base +B`와 같은 피처 구성이다 — 중복 학습을 건너뛴다.
+            if len(extras) > 2:
+                cfgs.append((f"-{g}", [c for c in allc if c not in cols]))
+
+    if extra_only:
+        return cfgs
     if C.ppr in ds.feature_columns:
         cfgs.append(("-ppr (목적 조건부만 제거)",
                      [c for c in allc if c != C.ppr]))
@@ -149,6 +179,16 @@ def main(argv=None) -> int:
                     help="임베딩 seed CSV. 미지정 시 embed/embed_rank는 NaN으로 남는다")
     ap.add_argument("--rerank-seed", default=None,
                     help="리랭킹 seed CSV. 후보 밖 행은 NaN으로 남는다")
+    ap.add_argument("--extra-features", default=None,
+                    help="bench.features.code_lexical 산출 CSV. 주면 base/+X/-X ablation을 추가한다")
+    ap.add_argument("--base-extra-groups", default="",
+                    help="base에 접어 넣을 extra 그룹 (쉼표). 예: def_match,str_match,nbr_bm25")
+    ap.add_argument("--extra-only", action="store_true",
+                    help="graph/complexity/semantic/ppr ablation을 건너뛰고 extra 그룹만 잰다")
+    ap.add_argument("--candidate-top-k", type=int, default=0,
+                    help="기본 0은 전체 후보. 양수면 BM25/PPR+RRF로 top-k 제한")
+    ap.add_argument("--include-init", action="store_true",
+                    help="기본적으로 제외하는 __init__.py를 후보에 포함")
     ap.add_argument("--overlap", default=str(DATA_DIR / "vocab_overlap.csv"))
     ap.add_argument("--overlap-condition", default="full")
     ap.add_argument("--splits", default=str(DATA_DIR / "splits.csv"))
@@ -165,9 +205,15 @@ def main(argv=None) -> int:
                       bm25_seed_path=Path(args.bm25_seed) if args.bm25_seed else None,
                       embed_seed_path=Path(args.embed_seed) if args.embed_seed else None,
                       rerank_seed_path=Path(args.rerank_seed) if args.rerank_seed else None,
+                      extra_features_path=(Path(args.extra_features)
+                                           if args.extra_features else None),
                       overlap_path=Path(args.overlap) if args.overlap else None,
                       overlap_condition=args.overlap_condition,
                       exclude_generated=args.exclude_generated)
+    if args.candidate_top_k < 0:
+        raise SystemExit("--candidate-top-k는 0 이상이어야 한다")
+    ds = restrict_candidates(ds, args.candidate_top_k or None,
+                             exclude_init=not args.include_init)
 
     print("=" * 78)
     print("입력")
@@ -202,7 +248,11 @@ def main(argv=None) -> int:
 
     # ── 2. LTR + ablation ────────────────────────────────────────────────
     folds = M.make_folds(ds.instance_ids, M.N_OUTER_FOLDS, M.SEED)
-    cfgs = ablation_configs(ds)
+    base_extra = tuple(g for g in args.base_extra_groups.split(",") if g)
+    unknown = set(base_extra) - set(EXTRA_GROUPS)
+    if unknown:
+        raise SystemExit(f"알 수 없는 extra 그룹: {sorted(unknown)}")
+    cfgs = ablation_configs(ds, base_extra, args.extra_only)
     ltr_rows, ltr_per, gains, chosen, ltr_scores = [], {}, {}, {}, {}
 
     print("=" * 78)
@@ -285,6 +335,15 @@ def main(argv=None) -> int:
                 continue
             ab_tests[f"{label} - full [{seg}]"] = paired_bootstrap(
                 ltr_per[label][seg], full_per[seg])
+    if BASE_LABEL in ltr_per:
+        # 신규 피처의 단독 기여: base 대비. full도 같이 — "셋 다 넣으면 얼마나 오르나".
+        base_per = ltr_per[BASE_LABEL]
+        for label in [l for l, _ in cfgs if l.startswith("base +")] + ["full (all groups)"]:
+            for seg in ("all", "overlap", "non_overlap"):
+                cur, ref = ltr_per[label].get(seg), base_per.get(seg)
+                if cur is None or ref is None or cur.empty or ref.empty:
+                    continue
+                ab_tests[f"{label} - base [{seg}]"] = paired_bootstrap(cur, ref)
     _print_tests(ab_tests)
 
     # ── 4b. 학습 없는 hybrid 결합 (RRF) ──────────────────────────────────

@@ -35,7 +35,6 @@ train 안에서만** inner grouped CV를 돌려 고른다 (nested CV). outer tes
 
 from __future__ import annotations
 
-import warnings
 from dataclasses import dataclass
 
 import numpy as np
@@ -43,12 +42,7 @@ import pandas as pd
 
 from bench.ltr.data import Dataset, per_instance_minmax
 from bench.schema import C
-
-try:
-    import lightgbm as lgb
-    HAVE_LGBM = True
-except ImportError:                                     # pragma: no cover
-    HAVE_LGBM = False
+from ltr.model import HAVE_LGBM, fit_ranker
 
 N_OUTER_FOLDS = 5
 N_INNER_FOLDS = 4
@@ -62,22 +56,6 @@ PARAM_GRID = [
     {"num_leaves": 31, "min_child_samples": 20, "learning_rate": 0.10, "n_estimators": 200},
     {"num_leaves": 7,  "min_child_samples": 50, "learning_rate": 0.10, "n_estimators": 100},
 ]
-
-BASE_PARAMS = dict(
-    objective="lambdarank",
-    # eval_at은 넣지 않는다. eval set을 안 쓰므로 학습에 아무 영향이 없으면서
-    # LGBMRanker의 동명 인자와 충돌해 fit마다 UserWarning을 찍는다.
-    metric="ndcg",
-    boosting_type="gbdt",
-    subsample=0.9,
-    subsample_freq=1,
-    colsample_bytree=0.9,
-    reg_lambda=1.0,
-    random_state=SEED,
-    n_jobs=4,
-    verbose=-1,
-)
-
 
 @dataclass
 class FoldAssignment:
@@ -118,11 +96,7 @@ def _group_sizes(df: pd.DataFrame, idx: np.ndarray) -> np.ndarray:
 
 
 def _fit(X: pd.DataFrame, y: np.ndarray, groups: np.ndarray, params: dict):
-    model = lgb.LGBMRanker(**{**BASE_PARAMS, **params})
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        model.fit(X, y, group=groups)
-    return model
+    return fit_ranker(X, y, groups, params)
 
 
 def _ndcg_at_10(scores: np.ndarray, labels: np.ndarray, group_sizes: np.ndarray) -> float:

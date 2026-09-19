@@ -16,6 +16,7 @@ Issue #37 추천 알고리즘 고도화 실험의 **공유 계약**이다.
 | `bench/features/` | `bench-harness` | 읽기만 |
 | `bench/seed/` | `retrieval` | 읽기만 |
 | `bench/ltr/` | `ltr-eval` | 읽기만 |
+| `ltr/` | 최종 모델 학습·저장·로드·추론 계약 | benchmark 코드에서 import |
 | `bench/bin/` | pin된 바이너리. Wave 1 종료 후 고정 | 실행만 |
 | `bench/scratch/` | 인스턴스별 임시 DB. **추출 직후 삭제** | — |
 | `bench/data/` | 산출 매트릭스 (CSV) | 읽기 |

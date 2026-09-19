@@ -106,3 +106,7 @@ repos/*
 !repos/README.md
 docs/**
 output/**imgui.ini
+
+# Generated Learning-to-Rank model artifacts
+ltr/models/*
+!ltr/models/README.md
