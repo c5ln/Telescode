@@ -105,6 +105,43 @@ target_include_directories(sqlite3 PUBLIC
 )
 set_target_properties(sqlite3 PROPERTIES C_STANDARD 11)
 
+# ── Telescode core (headless) ─────────────────────────────────────────────────
+# Parser, database, analysis and serialization, with no SDL / ImGui / imnodes in
+# this target or anything it links. That absence is the point of the library: it
+# is what lets the core run without a graphical environment, and what keeps the
+# legacy UI replaceable without touching any algorithm.
+#
+# db/db.cpp deliberately stays in `algo` rather than being listed here -- it is
+# already part of that target, and compiling it into both would collide at link
+# time.
+add_library(telescode_core STATIC
+    src/core/AnalysisService.cpp
+    src/core/FileMetricsQuery.cpp
+    src/core/ReadingSequenceQuery.cpp
+    src/core/diagram/cd_builder.cpp
+    src/core/diagram/cd_layout.cpp
+    src/core/json/AnalysisJson.cpp
+    src/core/json/JsonWriter.cpp
+    src/db/DbInserter.cpp
+    src/db/DbUpdater.cpp
+    src/parser/PythonParser.cpp
+    src/parser/ParserRegistry.cpp
+)
+target_include_directories(telescode_core PUBLIC
+    ${CMAKE_SOURCE_DIR}/src
+    ${tree-sitter_SOURCE_DIR}/lib/include
+)
+target_link_libraries(telescode_core PUBLIC
+    algo
+    tree-sitter
+    tree-sitter-python
+    sqlite3
+    Threads::Threads
+)
+if(MSVC)
+    target_compile_options(telescode_core PRIVATE /utf-8)
+endif()
+
 # ── Telescode executable ──────────────────────────────────────────────────────
 add_executable(Telescode
     src/main.cpp
@@ -116,13 +153,6 @@ add_executable(Telescode
     src/ui/ts_rail.cpp
     src/ui/class_diagram/cd_view.cpp
     src/ui/class_diagram/cd_arrowhead.cpp
-    src/core/diagram/cd_builder.cpp
-    src/core/diagram/cd_layout.cpp
-    src/core/ReadingSequenceQuery.cpp
-    src/db/DbInserter.cpp
-    src/db/DbUpdater.cpp
-    src/parser/PythonParser.cpp
-    src/parser/ParserRegistry.cpp
 )
 target_include_directories(Telescode PRIVATE
     ${tree-sitter_SOURCE_DIR}/lib/include
@@ -141,14 +171,10 @@ add_custom_command(TARGET Telescode POST_BUILD
     COMMENT "Copying fonts to build output"
 )
 target_link_libraries(Telescode PRIVATE
-    tree-sitter
-    tree-sitter-python
+    telescode_core
     SDL3::SDL3-static
     imgui
     imnodes
-    sqlite3
-    algo
-    Threads::Threads
 )
 target_compile_definitions(Telescode PRIVATE IMGUI_DEFINE_MATH_OPERATORS)
 
@@ -205,6 +231,15 @@ function(ts_test_sources out_var)
     endif()
     set(${out_var} "${found}" PARENT_SCOPE)
 endfunction()
+
+ts_test_sources(TS_CORE_TEST_SRC
+    tests/core/test_json_writer.cpp
+)
+if(TS_CORE_TEST_SRC)
+    add_executable(CoreTests ${TS_CORE_TEST_SRC})
+    target_link_libraries(CoreTests PRIVATE telescode_core GTest::gtest_main)
+    add_test(NAME CoreTests COMMAND CoreTests)
+endif()
 
 ts_test_sources(TS_ALGO_TEST_SRC
     tests/algo/test_reading_sequencer.cpp
