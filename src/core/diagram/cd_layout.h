@@ -1,4 +1,4 @@
-// src/ui/class_diagram/cd_layout.h
+// src/core/diagram/cd_layout.h
 // Node placement — pure geometry, no ImGui/imnodes context required.
 //
 // Everything here is in LOGICAL space: pixels as they would appear at zoom 1.0.
@@ -45,14 +45,14 @@ std::vector<CDBox> CDGraphNodeSizes(const CDGraph& graph, const CDNodeMetrics& m
 // but scatters that grouping — that trade-off is the caller's to make.
 //
 // Returns each box's top-left corner, index-aligned with `boxes`.
-std::vector<ImVec2> CDShelfPack(const std::vector<CDBox>& boxes, float max_w, float gap);
+std::vector<Vec2> CDShelfPack(const std::vector<CDBox>& boxes, float max_w, float gap);
 
 // Row width that makes the packed result roughly `aspect` times wider than
 // tall. Never narrower than the widest box.
 float CDPreferredShelfWidth(const std::vector<CDBox>& boxes, float gap, float aspect);
 
 // Size of the region a packing occupies. `pos` must be index-aligned with `boxes`.
-CDBox CDBoundingSize(const std::vector<CDBox>& boxes, const std::vector<ImVec2>& pos);
+CDBox CDBoundingSize(const std::vector<CDBox>& boxes, const std::vector<Vec2>& pos);
 
 // ── Layered layout ───────────────────────────────────────────────────────────
 
@@ -76,7 +76,7 @@ struct CDLayerEdge {
 // stop constraining the arrangement.
 //
 // Returns each box's top-left corner, index-aligned with `boxes`.
-std::vector<ImVec2> CDLayeredLayout(const std::vector<CDBox>&      boxes,
+std::vector<Vec2> CDLayeredLayout(const std::vector<CDBox>&      boxes,
                                     const std::vector<CDLayerEdge>& edges,
                                     float gap_x, float gap_y, float aspect);
 

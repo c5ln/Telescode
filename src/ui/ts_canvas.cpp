@@ -9,7 +9,7 @@
 #include <string>
 #include "ts_style.h"
 #include "class_diagram/cd_view.h"
-#include "class_diagram/cd_builder.h"
+#include "core/diagram/cd_builder.h"
 
 namespace {
     static float                 s_zoom         = 1.0f;

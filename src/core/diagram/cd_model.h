@@ -1,4 +1,4 @@
-// src/ui/class_diagram/cd_model.h
+// src/core/diagram/cd_model.h
 // Class diagram data model: DB rows → renderable graph.
 // No rendering code here — pure data only.
 
@@ -6,7 +6,7 @@
 
 #include <string>
 #include <vector>
-#include <imgui.h>
+#include "core/core_vec2.h"
 
 namespace TS {
 
@@ -44,7 +44,7 @@ struct CDNode {
     std::string display_package;   // package, ellipsized
     std::vector<CDField>  fields;
     std::vector<CDMethod> methods;
-    ImVec2      pos;        // logical position — pixels at zoom 1.0, see cd_layout.h
+    Vec2      pos;        // logical position — pixels at zoom 1.0, see cd_layout.h
 };
 
 inline int CDPinLeft (int node_id) { return node_id * 2;     }
@@ -74,8 +74,8 @@ struct CDContainer {
     std::string      display_label;     // label, ellipsized to the container width
     std::vector<int> child_nodes;       // indices into CDGraph::nodes; files only
     std::vector<int> child_containers;  // indices into CDGraph::containers
-    ImVec2           pos;               // absolute logical top-left, as CDNode::pos
-    ImVec2           size;
+    Vec2           pos;               // absolute logical top-left, as CDNode::pos
+    Vec2           size;
 
     // Second, independent placement used by the semantic-zoom overview, where
     // every file is the same box: a box's size should read as "a file", not as
@@ -84,8 +84,8 @@ struct CDContainer {
     // the node fade band. Deliberately far larger in logical space than the
     // detail layout — the overview is viewed at a fraction of the zoom, and that
     // is what keeps a file's name legible there.
-    ImVec2           overview_pos;
-    ImVec2           overview_size;
+    Vec2           overview_pos;
+    Vec2           overview_size;
     std::string      overview_label;    // label, ellipsized to overview_size
 };
 

@@ -8,7 +8,7 @@
 //   UpdateClassDiagramInteraction(graph);     ← sync hover/selection state
 
 #pragma once
-#include "cd_model.h"
+#include "core/diagram/cd_model.h"
 
 namespace TS {
 

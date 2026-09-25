@@ -1,4 +1,4 @@
-// src/ui/class_diagram/cd_layout.cpp
+// src/core/diagram/cd_layout.cpp
 
 #include "cd_layout.h"
 #include <algorithm>
@@ -169,12 +169,12 @@ void OrderLayers(std::vector<std::vector<int>>& layers,
 }
 
 // Layers one connected component. Coordinates are local to the component.
-std::vector<ImVec2> LayoutComponent(const std::vector<CDBox>& boxes,
+std::vector<Vec2> LayoutComponent(const std::vector<CDBox>& boxes,
                                     const std::vector<CDLayerEdge>& edges,
                                     float gap_x, float gap_y)
 {
     const int n = static_cast<int>(boxes.size());
-    std::vector<ImVec2> pos(boxes.size());
+    std::vector<Vec2> pos(boxes.size());
     if (n == 0) return pos;
 
     const std::vector<CDLayerEdge> acyclic = BreakCycles(n, edges);
@@ -272,9 +272,9 @@ std::vector<CDBox> CDGraphNodeSizes(const CDGraph& graph, const CDNodeMetrics& m
 
 // ── Shelf packing ────────────────────────────────────────────────────────────
 
-std::vector<ImVec2> CDShelfPack(const std::vector<CDBox>& boxes, float max_w, float gap)
+std::vector<Vec2> CDShelfPack(const std::vector<CDBox>& boxes, float max_w, float gap)
 {
-    std::vector<ImVec2> pos(boxes.size());
+    std::vector<Vec2> pos(boxes.size());
 
     float cursor_x = 0.0f;   // left edge of the next box in the current row
     float shelf_y  = 0.0f;   // top edge of the current row
@@ -311,7 +311,7 @@ float CDPreferredShelfWidth(const std::vector<CDBox>& boxes, float gap, float as
     return std::max(widest, std::sqrt(area * std::max(aspect, 0.01f)));
 }
 
-CDBox CDBoundingSize(const std::vector<CDBox>& boxes, const std::vector<ImVec2>& pos)
+CDBox CDBoundingSize(const std::vector<CDBox>& boxes, const std::vector<Vec2>& pos)
 {
     if (boxes.size() != pos.size() || boxes.empty()) return {0.0f, 0.0f};
 
@@ -326,12 +326,12 @@ CDBox CDBoundingSize(const std::vector<CDBox>& boxes, const std::vector<ImVec2>&
 
 // ── Layered layout ───────────────────────────────────────────────────────────
 
-std::vector<ImVec2> CDLayeredLayout(const std::vector<CDBox>&        boxes,
+std::vector<Vec2> CDLayeredLayout(const std::vector<CDBox>&        boxes,
                                     const std::vector<CDLayerEdge>&  edges,
                                     float gap_x, float gap_y, float aspect)
 {
     const int n = static_cast<int>(boxes.size());
-    std::vector<ImVec2> pos(boxes.size());
+    std::vector<Vec2> pos(boxes.size());
     if (n == 0) return pos;
 
     // Group nodes by component, keeping first-seen order so runs are repeatable.
@@ -349,7 +349,7 @@ std::vector<ImVec2> CDLayeredLayout(const std::vector<CDBox>&        boxes,
     }
 
     std::vector<CDBox>               comp_box(members.size());
-    std::vector<std::vector<ImVec2>> comp_pos(members.size());
+    std::vector<std::vector<Vec2>> comp_pos(members.size());
 
     for (size_t g = 0; g < members.size(); ++g) {
         std::unordered_map<int, int> to_local;
@@ -373,7 +373,7 @@ std::vector<ImVec2> CDLayeredLayout(const std::vector<CDBox>&        boxes,
         comp_box[g] = CDBoundingSize(sub, comp_pos[g]);
     }
 
-    const std::vector<ImVec2> origin =
+    const std::vector<Vec2> origin =
         CDShelfPack(comp_box, CDPreferredShelfWidth(comp_box, gap_x, aspect), gap_x);
 
     for (size_t g = 0; g < members.size(); ++g)
@@ -499,7 +499,7 @@ void CDLayoutHierarchical(CDGraph& graph, const CDHierarchyMetrics& m)
             boxes.push_back(CDNodeSize(node, m.node));
         }
 
-        const std::vector<ImVec2> local = CDLayeredLayout(
+        const std::vector<Vec2> local = CDLayeredLayout(
             boxes, LocalEdges(graph.edges, to_local), m.class_gap_x, m.class_gap_y, m.aspect);
 
         // Stash local coordinates; pass 3 turns them into absolute ones.
@@ -520,7 +520,7 @@ void CDLayoutHierarchical(CDGraph& graph, const CDHierarchyMetrics& m)
         boxes.reserve(folder.child_containers.size());
         for (int ci : folder.child_containers) {
             file_to_local.emplace(ci, static_cast<int>(boxes.size()));
-            const ImVec2& s = graph.containers[static_cast<size_t>(ci)].size;
+            const Vec2& s = graph.containers[static_cast<size_t>(ci)].size;
             boxes.push_back({s.x, s.y});
         }
 
@@ -532,7 +532,7 @@ void CDLayoutHierarchical(CDGraph& graph, const CDHierarchyMetrics& m)
             if (it != file_to_local.end()) node_to_local.emplace(kv.first, it->second);
         }
 
-        const std::vector<ImVec2> local = CDLayeredLayout(
+        const std::vector<Vec2> local = CDLayeredLayout(
             boxes, LocalEdges(graph.edges, node_to_local), m.file_gap_x, m.file_gap_y, m.aspect);
 
         for (size_t k = 0; k < folder.child_containers.size(); ++k)
@@ -561,7 +561,7 @@ void CDLayoutHierarchical(CDGraph& graph, const CDHierarchyMetrics& m)
         if (it != folder_to_local.end()) node_to_folder_local.emplace(kv.first, it->second);
     }
 
-    const std::vector<ImVec2> folder_pos = CDLayeredLayout(
+    const std::vector<Vec2> folder_pos = CDLayeredLayout(
         boxes, LocalEdges(graph.edges, node_to_folder_local),
         m.folder_gap_x, m.folder_gap_y, m.aspect);
 
@@ -571,14 +571,14 @@ void CDLayoutHierarchical(CDGraph& graph, const CDHierarchyMetrics& m)
 
     for (int fi : folders) {
         const CDContainer& folder = graph.containers[static_cast<size_t>(fi)];
-        const ImVec2 origin = { folder.pos.x + m.folder_pad,
+        const Vec2 origin = { folder.pos.x + m.folder_pad,
                                 folder.pos.y + m.folder_header + m.folder_pad };
 
         for (int ci : folder.child_containers) {
             CDContainer& file = graph.containers[static_cast<size_t>(ci)];
             file.pos = { origin.x + file.pos.x, origin.y + file.pos.y };
 
-            const ImVec2 inner = { file.pos.x + m.file_pad,
+            const Vec2 inner = { file.pos.x + m.file_pad,
                                    file.pos.y + m.file_header + m.file_pad };
             for (int ni : file.child_nodes) {
                 CDNode& node = graph.nodes[static_cast<size_t>(ni)];
@@ -617,7 +617,7 @@ void CDLayoutOverview(CDGraph& graph, const CDOverviewMetrics& m)
             if (it != file_to_local.end()) node_to_local.emplace(kv.first, it->second);
         }
 
-        const std::vector<ImVec2> local = CDLayeredLayout(
+        const std::vector<Vec2> local = CDLayeredLayout(
             boxes, LocalEdges(graph.edges, node_to_local), m.file_gap_x, m.file_gap_y, m.aspect);
 
         // Local for now; the pass below turns these into absolute coordinates.
@@ -651,7 +651,7 @@ void CDLayoutOverview(CDGraph& graph, const CDOverviewMetrics& m)
         if (it != folder_to_local.end()) node_to_folder_local.emplace(kv.first, it->second);
     }
 
-    const std::vector<ImVec2> folder_pos = CDLayeredLayout(
+    const std::vector<Vec2> folder_pos = CDLayeredLayout(
         boxes, LocalEdges(graph.edges, node_to_folder_local),
         m.folder_gap_x, m.folder_gap_y, m.aspect);
 
@@ -660,7 +660,7 @@ void CDLayoutOverview(CDGraph& graph, const CDOverviewMetrics& m)
 
     for (int fi : folders) {
         const CDContainer& folder = graph.containers[static_cast<size_t>(fi)];
-        const ImVec2 origin = { folder.overview_pos.x + m.folder_pad,
+        const Vec2 origin = { folder.overview_pos.x + m.folder_pad,
                                 folder.overview_pos.y + m.folder_header + m.folder_pad };
         for (int ci : folder.child_containers) {
             CDContainer& file = graph.containers[static_cast<size_t>(ci)];

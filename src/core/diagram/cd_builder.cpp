@@ -1,4 +1,4 @@
-// src/ui/class_diagram/cd_builder.cpp
+// src/core/diagram/cd_builder.cpp
 
 #include "cd_builder.h"
 #include <sqlite3.h>

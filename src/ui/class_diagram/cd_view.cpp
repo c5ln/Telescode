@@ -2,7 +2,7 @@
 
 #include "cd_view.h"
 #include "cd_arrowhead.h"
-#include "cd_layout.h"
+#include "core/diagram/cd_layout.h"
 #include "../ts_style.h"
 #include <imgui.h>
 #include <imnodes.h>

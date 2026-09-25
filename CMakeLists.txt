@@ -108,16 +108,17 @@ set_target_properties(sqlite3 PROPERTIES C_STANDARD 11)
 # ── Telescode executable ──────────────────────────────────────────────────────
 add_executable(Telescode
     src/main.cpp
-    src/scan_main.cpp
-    src/update_main.cpp
-    src/algo_main.cpp
+    src/cli/scan_main.cpp
+    src/cli/update_main.cpp
+    src/cli/algo_main.cpp
     src/ui/ts_app.cpp
     src/ui/ts_canvas.cpp
     src/ui/ts_rail.cpp
     src/ui/class_diagram/cd_view.cpp
     src/ui/class_diagram/cd_arrowhead.cpp
-    src/ui/class_diagram/cd_builder.cpp
-    src/ui/class_diagram/cd_layout.cpp
+    src/core/diagram/cd_builder.cpp
+    src/core/diagram/cd_layout.cpp
+    src/core/ReadingSequenceQuery.cpp
     src/db/DbInserter.cpp
     src/db/DbUpdater.cpp
     src/parser/PythonParser.cpp
@@ -225,9 +226,10 @@ ts_test_sources(TS_CANVAS_TEST_SRC
     tests/ui/test_ts_canvas.cpp
     src/ui/ts_canvas.cpp
     src/ui/class_diagram/cd_view.cpp
-    src/ui/class_diagram/cd_builder.cpp
     src/ui/class_diagram/cd_arrowhead.cpp
-    src/ui/class_diagram/cd_layout.cpp
+    src/core/diagram/cd_builder.cpp
+    src/core/diagram/cd_layout.cpp
+    src/core/ReadingSequenceQuery.cpp
 )
 if(TS_CANVAS_TEST_SRC)
     add_executable(CanvasTests ${TS_CANVAS_TEST_SRC})
@@ -264,7 +266,7 @@ endif()
 
 ts_test_sources(TS_LAYOUT_TEST_SRC
     tests/ui/test_cd_layout.cpp
-    src/ui/class_diagram/cd_layout.cpp
+    src/core/diagram/cd_layout.cpp
 )
 if(TS_LAYOUT_TEST_SRC)
     add_executable(LayoutTests ${TS_LAYOUT_TEST_SRC})
