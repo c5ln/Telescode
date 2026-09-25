@@ -105,23 +105,76 @@ target_include_directories(sqlite3 PUBLIC
 )
 set_target_properties(sqlite3 PROPERTIES C_STANDARD 11)
 
+# ── Telescode core (headless) ─────────────────────────────────────────────────
+# Parser, database, analysis and serialization, with no SDL / ImGui / imnodes in
+# this target or anything it links. That absence is the point of the library: it
+# is what lets the core run without a graphical environment, and what keeps the
+# legacy UI replaceable without touching any algorithm.
+#
+# db/db.cpp deliberately stays in `algo` rather than being listed here -- it is
+# already part of that target, and compiling it into both would collide at link
+# time.
+add_library(telescode_core STATIC
+    src/core/AnalysisService.cpp
+    src/core/FileMetricsQuery.cpp
+    src/core/ReadingSequenceQuery.cpp
+    src/core/diagram/cd_builder.cpp
+    src/core/diagram/cd_layout.cpp
+    src/core/json/AnalysisJson.cpp
+    src/core/json/JsonWriter.cpp
+    src/db/DbInserter.cpp
+    src/db/DbUpdater.cpp
+    src/parser/PythonParser.cpp
+    src/parser/ParserRegistry.cpp
+)
+target_include_directories(telescode_core PUBLIC
+    ${CMAKE_SOURCE_DIR}/src
+    ${tree-sitter_SOURCE_DIR}/lib/include
+)
+target_link_libraries(telescode_core PUBLIC
+    algo
+    tree-sitter
+    tree-sitter-python
+    sqlite3
+    Threads::Threads
+)
+if(MSVC)
+    target_compile_options(telescode_core PRIVATE /utf-8)
+endif()
+
+# ── Telescode CLI (headless) ──────────────────────────────────────────────────
+# The subcommands and their dispatch table, shared by both executables so the
+# viewer and the headless binary cannot drift apart. Depends on telescode_core
+# only, so nothing here can reach a graphical library.
+add_library(telescode_cli STATIC
+    src/cli/ts_cli.cpp
+    src/cli/scan_main.cpp
+    src/cli/update_main.cpp
+    src/cli/algo_main.cpp
+    src/cli/json_cmds.cpp
+)
+target_link_libraries(telescode_cli PUBLIC telescode_core)
+if(MSVC)
+    target_compile_options(telescode_cli PRIVATE /utf-8)
+endif()
+
+# ── TelescodeHeadless executable ──────────────────────────────────────────────
+# Intentionally links no SDL / ImGui / imnodes. If core or CLI code ever picks up
+# a UI dependency again, this target fails to link and says so at build time.
+add_executable(TelescodeHeadless src/cli/headless_main.cpp)
+target_link_libraries(TelescodeHeadless PRIVATE telescode_cli)
+if(MSVC)
+    target_compile_options(TelescodeHeadless PRIVATE /utf-8)
+endif()
+
 # ── Telescode executable ──────────────────────────────────────────────────────
 add_executable(Telescode
     src/main.cpp
-    src/scan_main.cpp
-    src/update_main.cpp
-    src/algo_main.cpp
     src/ui/ts_app.cpp
     src/ui/ts_canvas.cpp
     src/ui/ts_rail.cpp
     src/ui/class_diagram/cd_view.cpp
     src/ui/class_diagram/cd_arrowhead.cpp
-    src/ui/class_diagram/cd_builder.cpp
-    src/ui/class_diagram/cd_layout.cpp
-    src/db/DbInserter.cpp
-    src/db/DbUpdater.cpp
-    src/parser/PythonParser.cpp
-    src/parser/ParserRegistry.cpp
 )
 target_include_directories(Telescode PRIVATE
     ${tree-sitter_SOURCE_DIR}/lib/include
@@ -140,14 +193,10 @@ add_custom_command(TARGET Telescode POST_BUILD
     COMMENT "Copying fonts to build output"
 )
 target_link_libraries(Telescode PRIVATE
-    tree-sitter
-    tree-sitter-python
+    telescode_cli
     SDL3::SDL3-static
     imgui
     imnodes
-    sqlite3
-    algo
-    Threads::Threads
 )
 target_compile_definitions(Telescode PRIVATE IMGUI_DEFINE_MATH_OPERATORS)
 
@@ -205,6 +254,31 @@ function(ts_test_sources out_var)
     set(${out_var} "${found}" PARENT_SCOPE)
 endfunction()
 
+ts_test_sources(TS_CORE_TEST_SRC
+    tests/core/test_json_writer.cpp
+    tests/core/test_analysis_readonly.cpp
+)
+if(TS_CORE_TEST_SRC)
+    add_executable(CoreTests ${TS_CORE_TEST_SRC})
+    target_link_libraries(CoreTests PRIVATE telescode_core GTest::gtest_main)
+    if(MSVC)
+        target_compile_options(CoreTests PRIVATE /utf-8)
+    endif()
+    add_test(NAME CoreTests COMMAND CoreTests)
+endif()
+
+ts_test_sources(TS_CLI_TEST_SRC
+    tests/cli/test_cli_options.cpp
+)
+if(TS_CLI_TEST_SRC)
+    add_executable(CliTests ${TS_CLI_TEST_SRC})
+    target_link_libraries(CliTests PRIVATE telescode_cli GTest::gtest_main)
+    if(MSVC)
+        target_compile_options(CliTests PRIVATE /utf-8)
+    endif()
+    add_test(NAME CliTests COMMAND CliTests)
+endif()
+
 ts_test_sources(TS_ALGO_TEST_SRC
     tests/algo/test_reading_sequencer.cpp
     tests/algo/test_pagerank.cpp
@@ -225,9 +299,10 @@ ts_test_sources(TS_CANVAS_TEST_SRC
     tests/ui/test_ts_canvas.cpp
     src/ui/ts_canvas.cpp
     src/ui/class_diagram/cd_view.cpp
-    src/ui/class_diagram/cd_builder.cpp
     src/ui/class_diagram/cd_arrowhead.cpp
-    src/ui/class_diagram/cd_layout.cpp
+    src/core/diagram/cd_builder.cpp
+    src/core/diagram/cd_layout.cpp
+    src/core/ReadingSequenceQuery.cpp
 )
 if(TS_CANVAS_TEST_SRC)
     add_executable(CanvasTests ${TS_CANVAS_TEST_SRC})
@@ -264,7 +339,7 @@ endif()
 
 ts_test_sources(TS_LAYOUT_TEST_SRC
     tests/ui/test_cd_layout.cpp
-    src/ui/class_diagram/cd_layout.cpp
+    src/core/diagram/cd_layout.cpp
 )
 if(TS_LAYOUT_TEST_SRC)
     add_executable(LayoutTests ${TS_LAYOUT_TEST_SRC})

@@ -12,7 +12,8 @@
 #include "ts_style.h"
 #include "ts_canvas.h"
 
-#include <sqlite3.h>
+#include "core/ReadingSequenceQuery.h"
+
 #include <imgui.h>
 
 #include <cfloat>
@@ -120,31 +121,17 @@ void InitRailFromDB(sqlite3* db)
     s_selected      = -1;
     if (!db) return;
 
-    // file_rank is NOT NULL exactly when entity_type = 'file' -- enforced by the
-    // CHECK constraint in db.cpp -- so this ordering is total.
-    sqlite3_stmt* stmt = nullptr;
-    if (sqlite3_prepare_v2(db,
-            "SELECT file_id, file_rank "
-            "FROM reading_sequence WHERE entity_type = 'file' "
-            "ORDER BY file_rank;",
-            -1, &stmt, nullptr) != SQLITE_OK)
-        return;   // table absent (a DB from before the algo ran) -- empty state
-
-    while (sqlite3_step(stmt) == SQLITE_ROW) {
-        const unsigned char* fid = sqlite3_column_text(stmt, 0);
-        if (!fid) continue;
-
+    // The query and the file_id split live in core/ReadingSequenceQuery so the
+    // reading order can be read without a UI; the rail only reshapes the rows
+    // into what it draws.
+    for (const ReadingSequenceRow& row : QueryFileReadingSequence(db)) {
         RailEntry e;
-        e.file_id = reinterpret_cast<const char*>(fid);
-        e.rank    = sqlite3_column_int(stmt, 1);
-
-        const auto slash = e.file_id.rfind('/');
-        e.name = (slash == std::string::npos) ? e.file_id : e.file_id.substr(slash + 1);
-        e.dir  = (slash == std::string::npos) ? std::string() : e.file_id.substr(0, slash);
-
+        e.file_id = row.file_id;
+        e.rank    = row.file_rank;
+        e.name    = FileNameOf(row.file_id);
+        e.dir     = DirNameOf (row.file_id);
         s_entries.push_back(std::move(e));
     }
-    sqlite3_finalize(stmt);
 }
 
 // ── DrawRail ─────────────────────────────────────────────────────────────────

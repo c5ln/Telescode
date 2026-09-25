@@ -1,4 +1,4 @@
-// src/ui/class_diagram/cd_builder.h
+// src/core/diagram/cd_builder.h
 // DB → CDGraph conversion. Caller opens/closes the sqlite3 handle.
 
 #pragma once
