@@ -4,8 +4,12 @@
 #include "core/json/JsonWriter.h"
 
 #include <gtest/gtest.h>
+#include <clocale>
 #include <cmath>
+#include <cstdlib>
 #include <limits>
+#include <locale>
+#include <sstream>
 #include <string>
 
 using TS::JsonWriter;
@@ -164,4 +168,123 @@ TEST(JsonWriterStructure, PrettyOutputIndentsAndStaysParseable) {
               "    2\n"
               "  ]\n"
               "}");
+}
+
+// ── Locale independence ──────────────────────────────────────────────────────
+// JSON fixes '.' as the decimal separator. snprintf/strtod follow LC_NUMERIC, so
+// an embedding caller that selects a comma locale used to make the writer emit
+// "0,1" -- and the old round-trip guard could not catch it, because strtod read
+// the comma back just as happily. These tests stand in for that hostile caller.
+//
+// Switching the process locale is what the *test* does to reproduce the
+// condition; the fix itself never calls setlocale.
+
+class CommaNumericLocale : public ::testing::Test {
+protected:
+    void SetUp() override {
+        const char* current = std::setlocale(LC_NUMERIC, nullptr);
+        saved_ = current ? current : "C";
+        for (const char* name : {"de-DE", "German", "French_France.1252",
+                                 "de_DE.UTF-8", "fr_FR.UTF-8"}) {
+            if (std::setlocale(LC_NUMERIC, name)) { active_ = true; break; }
+        }
+        if (!active_)
+            GTEST_SKIP() << "no comma-decimal locale on this machine";
+        // Guard against a locale that exists but is not actually comma-decimal.
+        if (std::string(std::localeconv()->decimal_point) != ",") {
+            std::setlocale(LC_NUMERIC, saved_.c_str());
+            active_ = false;
+            GTEST_SKIP() << "selected locale is not comma-decimal";
+        }
+    }
+    void TearDown() override {
+        if (active_) std::setlocale(LC_NUMERIC, saved_.c_str());
+    }
+private:
+    std::string saved_;
+    bool        active_ = false;
+};
+
+TEST_F(CommaNumericLocale, NumbersStillUseADot) {
+    // Sanity check that the locale really is in force for this process.
+    ASSERT_EQ(std::string(std::localeconv()->decimal_point), ",");
+
+    EXPECT_EQ(JsonWriter::NumberToString(0.1), "0.1");
+    EXPECT_EQ(JsonWriter::NumberToString(2.5), "2.5");
+    EXPECT_EQ(JsonWriter::NumberToString(1.0 / 3.0), "0.3333333333333333");
+    EXPECT_EQ(JsonWriter::NumberToString(0.30000000000000004), "0.30000000000000004");
+    EXPECT_EQ(JsonWriter::NumberToString(-0.5), "-0.5");
+    EXPECT_EQ(JsonWriter::NumberToString(1e-9), "1e-09");
+}
+
+TEST_F(CommaNumericLocale, NoCommaAppearsInsideANumber) {
+    for (double v : {0.1, 2.5, -0.5, 1.0 / 3.0, 3.14159265358979,
+                     0.19120571239616843}) {
+        const std::string s = JsonWriter::NumberToString(v);
+        EXPECT_EQ(s.find(','), std::string::npos) << "comma leaked into " << s;
+        EXPECT_NE(s.find('.'), std::string::npos) << "no decimal point in " << s;
+    }
+}
+
+TEST_F(CommaNumericLocale, WholeDocumentStaysValidJson) {
+    // A stray comma would not merely look wrong -- it would split one number into
+    // two array elements and change the document's shape.
+    JsonWriter w;
+    w.beginObject();
+    w.member("pagerank", 0.19120571239616843);
+    w.member("combined", 0.6);
+    w.key("scores");
+    w.beginArray();
+    w.value(0.1); w.value(2.5); w.value(-0.5);
+    w.endArray();
+    w.endObject();
+    EXPECT_EQ(w.str(),
+              "{\"pagerank\":0.19120571239616843,\"combined\":0.6,"
+              "\"scores\":[0.1,2.5,-0.5]}");
+}
+
+TEST_F(CommaNumericLocale, RoundTripStillExactUnderACommaLocale) {
+    // Parsed back with the classic locale, the way a JSON consumer would.
+    for (double v : {0.1, 1.0 / 3.0, 1e-9, 0.30000000000000004,
+                     1.7976931348623157e308, 2.2250738585072014e-308}) {
+        std::istringstream in(JsonWriter::NumberToString(v));
+        in.imbue(std::locale::classic());
+        double parsed = 0.0;
+        in >> parsed;
+        EXPECT_FALSE(in.fail());
+        EXPECT_DOUBLE_EQ(parsed, v);
+    }
+}
+
+// ── Exact representations ────────────────────────────────────────────────────
+// Pins the chosen representation for a spread of awkward doubles. These are the
+// values the pre-fix implementation produced, so this is what proves the locale
+// fix changed no number's spelling.
+
+TEST(JsonNumber, ExactRepresentationsAreStable) {
+    struct Case { double v; const char* want; };
+    const Case cases[] = {
+        { 0.0,                      "0"                       },
+        { 1.0,                      "1"                       },
+        { -42.0,                    "-42"                     },
+        { 0.1,                      "0.1"                     },
+        { 1.0 / 3.0,                "0.3333333333333333"      },
+        { 1e-9,                     "1e-09"                   },
+        { 1e9,                      "1000000000"              },
+        { 1e21,                     "1e+21"                   },
+        { 1e-21,                    "1e-21"                   },
+        { 1.7976931348623157e308,   "1.7976931348623157e+308" },
+        { 2.2250738585072014e-308,  "2.2250738585072014e-308" },
+        { 5e-324,                   "4.94065645841247e-324"   },
+        { 0.30000000000000004,      "0.30000000000000004"     },
+        { 123456789012345.0,        "123456789012345"         },
+        { 1234567890123456.0,       "1234567890123456"        },
+        { -0.5,                     "-0.5"                    },
+        { 0.6,                      "0.6"                     },
+        { 0.19120571239616843,      "0.19120571239616843"     },
+        { 3.14159265358979,         "3.14159265358979"        },
+    };
+    for (const Case& c : cases)
+        EXPECT_EQ(JsonWriter::NumberToString(c.v), c.want)
+            << "for %.17g = " << c.v;
 }

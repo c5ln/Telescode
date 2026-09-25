@@ -3,8 +3,10 @@
 #include "core/json/JsonWriter.h"
 
 #include <cmath>
-#include <cstdlib>
 #include <cstdio>
+#include <iomanip>
+#include <locale>
+#include <sstream>
 #include <string>
 
 namespace TS {
@@ -49,14 +51,41 @@ std::string JsonWriter::NumberToString(double v)
     // caller sees a missing number instead of a broken document.
     if (!std::isfinite(v)) return "null";
 
-    // %.17g always round-trips a double; trying shorter forms first keeps the
-    // common case readable instead of 0.10000000000000001.
-    char buf[40];
+    // JSON fixes '.' as the decimal separator regardless of what the embedding
+    // process has set LC_NUMERIC to. snprintf and strtod both follow that locale,
+    // so under one that uses ',' this returned "0,1" -- and the round-trip check
+    // could not catch it, because strtod read the comma back just as happily.
+    //
+    // Imbuing the streams pins the separator for this function alone. A library
+    // has no business calling setlocale, which would reach into every other
+    // component in the process.
+    static const std::locale& classic = std::locale::classic();
+
+    // defaultfloat at precision N is the same format as "%.Ng", so which
+    // representation gets chosen below is unchanged. %.17g always round-trips a
+    // double; trying shorter forms first keeps the common case readable instead
+    // of 0.10000000000000001.
     for (int prec : {15, 16, 17}) {
-        std::snprintf(buf, sizeof buf, "%.*g", prec, v);
-        if (std::strtod(buf, nullptr) == v) break;
+        std::ostringstream out;
+        out.imbue(classic);
+        out << std::defaultfloat << std::setprecision(prec) << v;
+        const std::string candidate = out.str();
+
+        std::istringstream in(candidate);
+        in.imbue(classic);
+        double parsed = 0.0;
+        in >> parsed;
+        // eof() as well as success: a candidate whose tail did not parse is not
+        // a round trip, it is a prefix that happened to match.
+        if (!in.fail() && in.eof() && parsed == v) return candidate;
     }
-    return buf;
+
+    // Unreachable for finite input, since 17 significant digits round-trip every
+    // double. Kept so a surprise still yields a number rather than an empty token.
+    std::ostringstream out;
+    out.imbue(classic);
+    out << std::defaultfloat << std::setprecision(17) << v;
+    return out.str();
 }
 
 void JsonWriter::newlineIndent()

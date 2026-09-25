@@ -260,6 +260,9 @@ ts_test_sources(TS_CORE_TEST_SRC
 if(TS_CORE_TEST_SRC)
     add_executable(CoreTests ${TS_CORE_TEST_SRC})
     target_link_libraries(CoreTests PRIVATE telescode_core GTest::gtest_main)
+    if(MSVC)
+        target_compile_options(CoreTests PRIVATE /utf-8)
+    endif()
     add_test(NAME CoreTests COMMAND CoreTests)
 endif()
 
