@@ -288,3 +288,43 @@ TEST(JsonNumber, ExactRepresentationsAreStable) {
         EXPECT_EQ(JsonWriter::NumberToString(c.v), c.want)
             << "for %.17g = " << c.v;
 }
+
+// ── Subnormals ───────────────────────────────────────────────────────────────
+// num_get signals underflow with failbit, and some implementations (libc++) do
+// that for a subnormal result even though the conversion was exact. If the
+// round-trip check treated that as a failure, every subnormal would fall through
+// to the 17-digit fallback on those toolchains and not on others -- the same
+// double would serialize differently per platform.
+
+TEST(JsonNumber, SmallestSubnormalKeepsItsShortForm) {
+    // 15 significant digits already round-trip this value, so the ladder must
+    // stop there rather than reaching the 17-digit spelling.
+    EXPECT_EQ(JsonWriter::NumberToString(5e-324), "4.94065645841247e-324");
+    EXPECT_EQ(JsonWriter::NumberToString(std::numeric_limits<double>::denorm_min()),
+              "4.94065645841247e-324");
+}
+
+TEST(JsonNumber, SubnormalsRoundTripExactly) {
+    const double vals[] = {
+        5e-324,                                            // denorm_min
+        std::numeric_limits<double>::denorm_min() * 3.0,
+        2.2250738585072009e-308,                           // largest subnormal
+        1e-320,
+    };
+    for (double v : vals) {
+        ASSERT_EQ(std::fpclassify(v), FP_SUBNORMAL) << "fixture " << v << " is not subnormal";
+        const std::string s = JsonWriter::NumberToString(v);
+        EXPECT_NE(s, "null") << "subnormal serialized as null";
+        std::istringstream in(s);
+        in.imbue(std::locale::classic());
+        double parsed = 0.0;
+        in >> parsed;
+        EXPECT_EQ(parsed, v) << "for " << s;
+    }
+}
+
+TEST(JsonNumber, SubnormalsAreStillFiniteNotNull) {
+    // fpclassify-based acceptance must not be mistaken for a non-finite check.
+    EXPECT_NE(JsonWriter::NumberToString(std::numeric_limits<double>::denorm_min()), "null");
+    EXPECT_EQ(JsonWriter::NumberToString(std::numeric_limits<double>::quiet_NaN()), "null");
+}

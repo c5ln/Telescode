@@ -75,9 +75,21 @@ std::string JsonWriter::NumberToString(double v)
         in.imbue(classic);
         double parsed = 0.0;
         in >> parsed;
-        // eof() as well as success: a candidate whose tail did not parse is not
-        // a round trip, it is a prefix that happened to match.
-        if (!in.fail() && in.eof() && parsed == v) return candidate;
+
+        // eof() as well: a candidate whose tail did not parse is not a round
+        // trip, it is a prefix that happened to match.
+        const bool consumed = in.eof();
+
+        // failbit needs one exception. num_get reports underflow by raising it,
+        // and some implementations (libc++) treat a subnormal result as underflow
+        // even though the conversion was exact -- it forwards strtod's ERANGE.
+        // Rejecting that would push every subnormal to the 17-digit fallback on
+        // those toolchains and not on others, making the output platform
+        // dependent. The value comparison below is what actually decides
+        // correctness, so allow failbit only when v really is subnormal.
+        const bool acceptable = !in.fail() || std::fpclassify(v) == FP_SUBNORMAL;
+
+        if (acceptable && consumed && parsed == v) return candidate;
     }
 
     // Unreachable for finite input, since 17 significant digits round-trip every
