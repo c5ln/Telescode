@@ -142,12 +142,34 @@ if(MSVC)
     target_compile_options(telescode_core PRIVATE /utf-8)
 endif()
 
-# ── Telescode executable ──────────────────────────────────────────────────────
-add_executable(Telescode
-    src/main.cpp
+# ── Telescode CLI (headless) ──────────────────────────────────────────────────
+# The subcommands and their dispatch table, shared by both executables so the
+# viewer and the headless binary cannot drift apart. Depends on telescode_core
+# only, so nothing here can reach a graphical library.
+add_library(telescode_cli STATIC
+    src/cli/ts_cli.cpp
     src/cli/scan_main.cpp
     src/cli/update_main.cpp
     src/cli/algo_main.cpp
+    src/cli/json_cmds.cpp
+)
+target_link_libraries(telescode_cli PUBLIC telescode_core)
+if(MSVC)
+    target_compile_options(telescode_cli PRIVATE /utf-8)
+endif()
+
+# ── TelescodeHeadless executable ──────────────────────────────────────────────
+# Intentionally links no SDL / ImGui / imnodes. If core or CLI code ever picks up
+# a UI dependency again, this target fails to link and says so at build time.
+add_executable(TelescodeHeadless src/cli/headless_main.cpp)
+target_link_libraries(TelescodeHeadless PRIVATE telescode_cli)
+if(MSVC)
+    target_compile_options(TelescodeHeadless PRIVATE /utf-8)
+endif()
+
+# ── Telescode executable ──────────────────────────────────────────────────────
+add_executable(Telescode
+    src/main.cpp
     src/ui/ts_app.cpp
     src/ui/ts_canvas.cpp
     src/ui/ts_rail.cpp
@@ -171,7 +193,7 @@ add_custom_command(TARGET Telescode POST_BUILD
     COMMENT "Copying fonts to build output"
 )
 target_link_libraries(Telescode PRIVATE
-    telescode_core
+    telescode_cli
     SDL3::SDL3-static
     imgui
     imnodes

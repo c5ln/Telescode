@@ -1,16 +1,55 @@
 // src/cli/ts_cli.h
-// Subcommand entry points, dispatched from main().
+// Subcommand entry points and the shared dispatcher.
 //
-// Each of these was a standalone executable's main(). main() forwards to them
-// with argv shifted by one, so argv[0] is the subcommand name and every index
-// after it keeps the meaning it had as a separate binary.
+// Each Cmd* was a standalone executable's main(). Callers forward to them with
+// argv shifted by one, so argv[0] is the subcommand name and every index after
+// it keeps the meaning it had as a separate binary.
+//
+// DispatchCoreCommand is what keeps the two entry points honest: both
+// src/main.cpp (the SDL viewer) and src/cli/headless_main.cpp route subcommands
+// through it, so there is one dispatch table and one usage text rather than a
+// copy per binary. Nothing declared here touches SDL, ImGui or imnodes.
 
 #pragma once
 
+#include <cstdio>
+#include <string>
+
 namespace TS {
 
-int CmdScan  (int argc, char* argv[]);   // scan   <repo_path> <db_path> [allowed_root]
-int CmdUpdate(int argc, char* argv[]);   // update <op> <db> ...
-int CmdAlgo  (int argc, char* argv[]);   // algo   <db_path>
+// ── Subcommands ──────────────────────────────────────────────────────────────
+
+int CmdScan  (int argc, char* argv[]);   // scan     <repo_path> <db_path> [allowed_root]
+int CmdUpdate(int argc, char* argv[]);   // update   <op> <db> ...
+int CmdAlgo  (int argc, char* argv[]);   // algo     <db_path>
+int CmdGraph (int argc, char* argv[]);   // graph    <db_path> [options]
+int CmdSequence(int argc, char* argv[]); // sequence <db_path> [options]
+int CmdAnalyze (int argc, char* argv[]); // analyze  <db_path> [options]
+
+// ── Shared options for the JSON-emitting commands ────────────────────────────
+
+struct JsonCmdOptions {
+    std::string db_path;
+    std::string out_path;            // empty = stdout
+    bool        pretty   = false;
+    bool        run_algo = false;
+};
+
+// Parses <db_path> plus --json / --pretty / --algo / -o <file>.
+// Returns false and reports the problem on stderr if the arguments are unusable;
+// `usage` is the one-line synopsis shown in that case.
+bool ParseJsonCmdOptions(int argc, char* argv[], const char* usage,
+                         JsonCmdOptions& out);
+
+// ── Dispatch ─────────────────────────────────────────────────────────────────
+
+// The core subcommands, one line each, without the viewer-only entries.
+void PrintCoreUsage(std::FILE* out);
+
+// Runs argv[1] as a core subcommand when it names one.
+// Returns true and fills exit_code if it handled the call; false when argv[1] is
+// not a core subcommand, leaving the decision to the caller -- the viewer treats
+// that as "open this database", the headless binary as an error.
+bool DispatchCoreCommand(int argc, char* argv[], int& exit_code);
 
 } // namespace TS

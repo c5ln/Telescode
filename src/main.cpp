@@ -24,32 +24,35 @@ extern "C" const TSLanguage* tree_sitter_python();
 #include "dev/style_preview.h"
 #endif
 
-static void PrintUsage()
+static void PrintUsage(std::FILE* out = stderr)
 {
-    std::fprintf(stderr,
+    std::fprintf(out,
         "Telescode -- a telescope for your codebase.\n"
         "\n"
         "Usage:\n"
-        "  Telescode [view] <db_path> [--no-algo]   open the viewer (default)\n"
-        "  Telescode scan   <repo_path> <db_path> [allowed_root]\n"
-        "  Telescode algo   <db_path>\n"
-        "  Telescode update <op> <db_path> ...      (op: file|files|delete|rename|dangling)\n"
+        "  Telescode [view] <db_path> [--no-algo]   open the viewer (default)\n");
+    TS::PrintCoreUsage(out);
+    std::fprintf(out,
         "\n"
         "The viewer recomputes the reading sequence on every launch; --no-algo\n"
-        "skips that and uses whatever the database already holds.\n");
+        "skips that and uses whatever the database already holds.\n"
+        "\n"
+        "Every command above except `view` also runs in TelescodeHeadless, which\n"
+        "links no graphical libraries at all.\n");
 }
 
 int main(int argc, char** argv)
 {
     // -- Subcommand dispatch ----------------------------------------------------
-    // Each Cmd* was its own executable's main(). Shifting argv by one puts the
-    // subcommand name in argv[0], so their existing index arithmetic still holds.
+    // Shared with TelescodeHeadless so there is one dispatch table rather than a
+    // copy per binary. This runs before any SDL call, so a core command started
+    // through this executable still never initialises a graphical environment.
     if (argc > 1) {
-        if (std::strcmp(argv[1], "scan")   == 0) return TS::CmdScan  (argc - 1, argv + 1);
-        if (std::strcmp(argv[1], "algo")   == 0) return TS::CmdAlgo  (argc - 1, argv + 1);
-        if (std::strcmp(argv[1], "update") == 0) return TS::CmdUpdate(argc - 1, argv + 1);
+        int exit_code = 0;
+        if (TS::DispatchCoreCommand(argc, argv, exit_code)) return exit_code;
+
         if (std::strcmp(argv[1], "--help") == 0 ||
-            std::strcmp(argv[1], "-h")     == 0) { PrintUsage(); return 0; }
+            std::strcmp(argv[1], "-h")     == 0) { PrintUsage(stdout); return 0; }
     }
 
     // -- view mode (the default) ------------------------------------------------
