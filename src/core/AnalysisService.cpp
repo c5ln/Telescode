@@ -95,9 +95,19 @@ AnalysisSnapshot AnalysisService::Load(const std::string& dbPath,
 AnalysisSnapshot AnalysisService::Load(const std::string& dbPath,
                                       const AnalysisOptions& opts)
 {
-    // loadConfig throws on an unreadable file or an out-of-date schema; let that
-    // reach the caller rather than silently analysing with defaults that are not
-    // the ones the database was scored with.
+    // Read the stored config only when something will use it -- the overload
+    // above consults cfg solely to run the algo pass.
+    //
+    // This is not a micro-optimisation. AlgoDbWriter::loadConfig goes through
+    // initDb, which opens the database read-write and will create missing
+    // tables, apply schema migrations, switch journal_mode to WAL, and create
+    // the file outright if the path does not exist. Fetching a config that is
+    // then discarded would let `graph`, `sequence` and `analyze` rewrite the
+    // database they were asked only to report on -- and turn a mistyped path
+    // into a new empty database plus a successful-looking empty result.
+    if (!opts.run_algo)
+        return Load(dbPath, opts, AlgoConfig{});
+
     return Load(dbPath, opts, AlgoDbWriter::loadConfig(dbPath.c_str()));
 }
 

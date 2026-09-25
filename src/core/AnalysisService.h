@@ -71,7 +71,11 @@ struct AnalysisSnapshot {
 struct AnalysisOptions {
     // Recompute the reading sequence and complexity scores before reading them
     // back, by running the same AlgoRunner pass the viewer runs at startup.
-    // false reports whatever the database already holds.
+    //
+    // false reports whatever the database already holds and does not write to it
+    // at all: the database is opened read-only, and the stored config -- whose
+    // loader would initialise and migrate the schema on the way in -- is not
+    // consulted, since only the algo pass needs it.
     bool run_algo = false;
 };
 

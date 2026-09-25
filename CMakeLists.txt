@@ -256,6 +256,7 @@ endfunction()
 
 ts_test_sources(TS_CORE_TEST_SRC
     tests/core/test_json_writer.cpp
+    tests/core/test_analysis_readonly.cpp
 )
 if(TS_CORE_TEST_SRC)
     add_executable(CoreTests ${TS_CORE_TEST_SRC})
