@@ -170,8 +170,8 @@ void OrderLayers(std::vector<std::vector<int>>& layers,
 
 // Layers one connected component. Coordinates are local to the component.
 std::vector<Vec2> LayoutComponent(const std::vector<CDBox>& boxes,
-                                    const std::vector<CDLayerEdge>& edges,
-                                    float gap_x, float gap_y)
+                                  const std::vector<CDLayerEdge>& edges,
+                                  float gap_x, float gap_y)
 {
     const int n = static_cast<int>(boxes.size());
     std::vector<Vec2> pos(boxes.size());
@@ -326,9 +326,9 @@ CDBox CDBoundingSize(const std::vector<CDBox>& boxes, const std::vector<Vec2>& p
 
 // ── Layered layout ───────────────────────────────────────────────────────────
 
-std::vector<Vec2> CDLayeredLayout(const std::vector<CDBox>&        boxes,
-                                    const std::vector<CDLayerEdge>&  edges,
-                                    float gap_x, float gap_y, float aspect)
+std::vector<Vec2> CDLayeredLayout(const std::vector<CDBox>&       boxes,
+                                  const std::vector<CDLayerEdge>& edges,
+                                  float gap_x, float gap_y, float aspect)
 {
     const int n = static_cast<int>(boxes.size());
     std::vector<Vec2> pos(boxes.size());
@@ -572,14 +572,14 @@ void CDLayoutHierarchical(CDGraph& graph, const CDHierarchyMetrics& m)
     for (int fi : folders) {
         const CDContainer& folder = graph.containers[static_cast<size_t>(fi)];
         const Vec2 origin = { folder.pos.x + m.folder_pad,
-                                folder.pos.y + m.folder_header + m.folder_pad };
+                              folder.pos.y + m.folder_header + m.folder_pad };
 
         for (int ci : folder.child_containers) {
             CDContainer& file = graph.containers[static_cast<size_t>(ci)];
             file.pos = { origin.x + file.pos.x, origin.y + file.pos.y };
 
             const Vec2 inner = { file.pos.x + m.file_pad,
-                                   file.pos.y + m.file_header + m.file_pad };
+                                 file.pos.y + m.file_header + m.file_pad };
             for (int ni : file.child_nodes) {
                 CDNode& node = graph.nodes[static_cast<size_t>(ni)];
                 node.pos = { inner.x + node.pos.x, inner.y + node.pos.y };
@@ -661,7 +661,7 @@ void CDLayoutOverview(CDGraph& graph, const CDOverviewMetrics& m)
     for (int fi : folders) {
         const CDContainer& folder = graph.containers[static_cast<size_t>(fi)];
         const Vec2 origin = { folder.overview_pos.x + m.folder_pad,
-                                folder.overview_pos.y + m.folder_header + m.folder_pad };
+                              folder.overview_pos.y + m.folder_header + m.folder_pad };
         for (int ci : folder.child_containers) {
             CDContainer& file = graph.containers[static_cast<size_t>(ci)];
             file.overview_pos = { origin.x + file.overview_pos.x,

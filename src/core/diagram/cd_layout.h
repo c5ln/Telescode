@@ -76,9 +76,9 @@ struct CDLayerEdge {
 // stop constraining the arrangement.
 //
 // Returns each box's top-left corner, index-aligned with `boxes`.
-std::vector<Vec2> CDLayeredLayout(const std::vector<CDBox>&      boxes,
-                                    const std::vector<CDLayerEdge>& edges,
-                                    float gap_x, float gap_y, float aspect);
+std::vector<Vec2> CDLayeredLayout(const std::vector<CDBox>&       boxes,
+                                  const std::vector<CDLayerEdge>& edges,
+                                  float gap_x, float gap_y, float aspect);
 
 // ── Container tree ───────────────────────────────────────────────────────────
 
