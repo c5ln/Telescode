@@ -37,9 +37,15 @@ struct JsonCmdOptions {
 
 // Parses <db_path> plus --json / --pretty / --algo / -o <file>.
 // Returns false and reports the problem on stderr if the arguments are unusable;
-// `usage` is the one-line synopsis shown in that case.
+// `usage` is the one-line synopsis shown in that case. Rejects an --out path that
+// resolves to the database, which would otherwise be truncated by the report.
 bool ParseJsonCmdOptions(int argc, char* argv[], const char* usage,
                          JsonCmdOptions& out);
+
+// Whether two path spellings name the same file, comparing resolved paths so
+// "foo.db" and "./foo.db" match. Neither path needs to exist. Exposed for the
+// option check above and for its tests.
+bool SameFilePath(const std::string& a, const std::string& b);
 
 // ── Dispatch ─────────────────────────────────────────────────────────────────
 

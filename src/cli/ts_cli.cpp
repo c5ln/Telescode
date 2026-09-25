@@ -4,7 +4,9 @@
 #include "cli/ts_cli.h"
 
 #include <cstring>
+#include <filesystem>
 #include <string>
+#include <system_error>
 
 namespace TS {
 
@@ -60,7 +62,51 @@ bool ParseJsonCmdOptions(int argc, char* argv[], const char* usage,
         std::fprintf(stderr, "Telescode: a database path is required\n\n%s\n", usage);
         return false;
     }
+
+    // Writing the report over its own source destroys it. AnalysisService closes
+    // the database before emit() runs, so nothing holds a lock by then and the
+    // fopen(..., "wb") simply truncates it -- a 233KB database becomes 30KB of
+    // JSON and the command still reports success. Refuse instead.
+    if (!out.out_path.empty() && SameFilePath(out.out_path, out.db_path)) {
+        std::fprintf(stderr,
+            "Telescode: --out would overwrite the database '%s'\n"
+            "           choose a different output path\n\n%s\n",
+            out.db_path.c_str(), usage);
+        return false;
+    }
     return true;
+}
+
+bool SameFilePath(const std::string& a, const std::string& b)
+{
+    namespace fs = std::filesystem;
+
+    if (a == b) return true;   // the common case, and needs no filesystem access
+
+    // When both paths exist the filesystem can answer authoritatively, which also
+    // settles hard links, symlinks, and the case-insensitive spellings Windows
+    // accepts for one file.
+    std::error_code ec;
+    if (fs::exists(a, ec) && !ec && fs::exists(b, ec) && !ec) {
+        const bool same = fs::equivalent(a, b, ec);
+        if (!ec) return same;
+    }
+
+    // Otherwise compare resolved paths. The output file is normally absent until
+    // it is written, so canonical() and equivalent() are not available -- and
+    // weakly_canonical alone is not enough either: given a bare relative name
+    // with no existing prefix it can return that name unchanged, which would
+    // never match an absolute spelling of the same file. Make both absolute
+    // first, then resolve what exists and normalise the rest away.
+    const auto resolve = [](const std::string& p) -> fs::path {
+        std::error_code e;
+        fs::path abs = fs::absolute(fs::path(p), e);
+        if (e) return fs::path(p).lexically_normal();
+        fs::path wc = fs::weakly_canonical(abs, e);
+        return e ? abs.lexically_normal() : wc;
+    };
+
+    return resolve(a) == resolve(b);
 }
 
 bool DispatchCoreCommand(int argc, char* argv[], int& exit_code)

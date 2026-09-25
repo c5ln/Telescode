@@ -267,6 +267,18 @@ if(TS_CORE_TEST_SRC)
     add_test(NAME CoreTests COMMAND CoreTests)
 endif()
 
+ts_test_sources(TS_CLI_TEST_SRC
+    tests/cli/test_cli_options.cpp
+)
+if(TS_CLI_TEST_SRC)
+    add_executable(CliTests ${TS_CLI_TEST_SRC})
+    target_link_libraries(CliTests PRIVATE telescode_cli GTest::gtest_main)
+    if(MSVC)
+        target_compile_options(CliTests PRIVATE /utf-8)
+    endif()
+    add_test(NAME CliTests COMMAND CliTests)
+endif()
+
 ts_test_sources(TS_ALGO_TEST_SRC
     tests/algo/test_reading_sequencer.cpp
     tests/algo/test_pagerank.cpp
