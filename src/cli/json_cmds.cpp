@@ -2,8 +2,8 @@
 // `Telescode graph` / `sequence` / `analyze` -- read a database, print JSON.
 //
 // The three differ only in which slice of the snapshot they serialize, so they
-// share one body. None of them initialises SDL, creates a window, or touches a
-// renderer; they are what "headless" means in practice for this project.
+// share one body. None of them creates a window or touches a renderer; they are
+// what "headless" means in practice for this project.
 
 #include "cli/ts_cli.h"
 

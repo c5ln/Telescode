@@ -22,29 +22,6 @@ FetchContent_Declare(
     GIT_TAG        v0.23.6
 )
 
-# ── SDL3 ──────────────────────────────────────────────────────────────────────
-set(SDL_SHARED OFF CACHE BOOL "" FORCE)
-set(SDL_STATIC ON  CACHE BOOL "" FORCE)
-FetchContent_Declare(
-    SDL3
-    GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-    GIT_TAG        release-3.2.10
-)
-
-# ── Dear ImGui ────────────────────────────────────────────────────────────────
-FetchContent_Declare(
-    imgui
-    GIT_REPOSITORY https://github.com/ocornut/imgui.git
-    GIT_TAG        v1.91.9
-)
-
-# ── imnodes ───────────────────────────────────────────────────────────────────
-FetchContent_Declare(
-    imnodes
-    GIT_REPOSITORY https://github.com/Nelarius/imnodes.git
-    GIT_TAG        v0.5
-)
-
 # ── Fetch all ─────────────────────────────────────────────────────────────────
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
@@ -53,7 +30,7 @@ FetchContent_Declare(
     GIT_TAG        v1.15.2
 )
 
-FetchContent_MakeAvailable(tree-sitter SDL3 imgui imnodes googletest)
+FetchContent_MakeAvailable(tree-sitter googletest)
 
 # tree-sitter-python has no CMakeLists — fetch manually
 FetchContent_GetProperties(tree-sitter-python)
@@ -72,30 +49,6 @@ target_include_directories(tree-sitter-python PUBLIC
 target_link_libraries(tree-sitter-python PUBLIC tree-sitter)
 set_target_properties(tree-sitter-python PROPERTIES C_STANDARD 11)
 
-# ── ImGui static library ──────────────────────────────────────────────────────
-add_library(imgui STATIC
-    ${imgui_SOURCE_DIR}/imgui.cpp
-    ${imgui_SOURCE_DIR}/imgui_draw.cpp
-    ${imgui_SOURCE_DIR}/imgui_tables.cpp
-    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
-    ${imgui_SOURCE_DIR}/imgui_demo.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_sdlgpu3.cpp
-)
-target_include_directories(imgui PUBLIC
-    ${imgui_SOURCE_DIR}
-    ${imgui_SOURCE_DIR}/backends
-)
-target_link_libraries(imgui PUBLIC SDL3::SDL3-static)
-
-# ── imnodes static library ────────────────────────────────────────────────────
-add_library(imnodes STATIC
-    ${imnodes_SOURCE_DIR}/imnodes.cpp
-)
-target_include_directories(imnodes PUBLIC ${imnodes_SOURCE_DIR})
-target_compile_definitions(imnodes PRIVATE IMGUI_DEFINE_MATH_OPERATORS)
-target_link_libraries(imnodes PUBLIC imgui)
-
 # ── SQLite static library (bundled amalgamation) ──────────────────────────────
 add_library(sqlite3 STATIC
     ${CMAKE_SOURCE_DIR}/third_party/sqlite/sqlite3.c
@@ -106,10 +59,9 @@ target_include_directories(sqlite3 PUBLIC
 set_target_properties(sqlite3 PROPERTIES C_STANDARD 11)
 
 # ── Telescode core (headless) ─────────────────────────────────────────────────
-# Parser, database, analysis and serialization, with no SDL / ImGui / imnodes in
-# this target or anything it links. That absence is the point of the library: it
-# is what lets the core run without a graphical environment, and what keeps the
-# legacy UI replaceable without touching any algorithm.
+# Parser, database, analysis and serialization. Nothing in this target or
+# anything it links needs a graphical environment, so any frontend can sit on
+# top of it without touching an algorithm.
 #
 # db/db.cpp deliberately stays in `algo` rather than being listed here -- it is
 # already part of that target, and compiling it into both would collide at link
@@ -143,9 +95,8 @@ if(MSVC)
 endif()
 
 # ── Telescode CLI (headless) ──────────────────────────────────────────────────
-# The subcommands and their dispatch table, shared by both executables so the
-# viewer and the headless binary cannot drift apart. Depends on telescode_core
-# only, so nothing here can reach a graphical library.
+# The subcommands and their dispatch table, kept apart from the entry point so
+# the tests can drive them directly. Depends on telescode_core only.
 add_library(telescode_cli STATIC
     src/cli/ts_cli.cpp
     src/cli/scan_main.cpp
@@ -159,57 +110,11 @@ if(MSVC)
 endif()
 
 # ── TelescodeHeadless executable ──────────────────────────────────────────────
-# Intentionally links no SDL / ImGui / imnodes. If core or CLI code ever picks up
-# a UI dependency again, this target fails to link and says so at build time.
+# The command-line entry point to the core.
 add_executable(TelescodeHeadless src/cli/headless_main.cpp)
 target_link_libraries(TelescodeHeadless PRIVATE telescode_cli)
 if(MSVC)
     target_compile_options(TelescodeHeadless PRIVATE /utf-8)
-endif()
-
-# ── Telescode executable ──────────────────────────────────────────────────────
-add_executable(Telescode
-    src/main.cpp
-    src/ui/ts_app.cpp
-    src/ui/ts_canvas.cpp
-    src/ui/ts_rail.cpp
-    src/ui/class_diagram/cd_view.cpp
-    src/ui/class_diagram/cd_arrowhead.cpp
-)
-target_include_directories(Telescode PRIVATE
-    ${tree-sitter_SOURCE_DIR}/lib/include
-    ${CMAKE_SOURCE_DIR}/src
-)
-
-# Copy font assets next to the executable so LoadFonts() can find them.
-add_custom_command(TARGET Telescode POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory
-        "$<TARGET_FILE_DIR:Telescode>/assets/fonts"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_SOURCE_DIR}/assets/fonts/Inter-Regular.ttf"
-        "${CMAKE_SOURCE_DIR}/assets/fonts/Inter-Medium.ttf"
-        "${CMAKE_SOURCE_DIR}/assets/fonts/JetBrainsMono-Regular.ttf"
-        "$<TARGET_FILE_DIR:Telescode>/assets/fonts/"
-    COMMENT "Copying fonts to build output"
-)
-target_link_libraries(Telescode PRIVATE
-    telescode_cli
-    SDL3::SDL3-static
-    imgui
-    imnodes
-)
-target_compile_definitions(Telescode PRIVATE IMGUI_DEFINE_MATH_OPERATORS)
-
-# MSVC requires /utf-8 to parse UTF-8 source files correctly on non-UTF-8 locales.
-if(MSVC)
-    target_compile_options(Telescode PRIVATE /utf-8)
-endif()
-
-# Enable the Warm Cream token preview panel (dev only -- off by default).
-# cmake -DTELESCODE_STYLE_PREVIEW=ON ..
-option(TELESCODE_STYLE_PREVIEW "Show Warm Cream token preview panel at startup" OFF)
-if(TELESCODE_STYLE_PREVIEW)
-    target_compile_definitions(Telescode PRIVATE TELESCODE_STYLE_PREVIEW)
 endif()
 
 # ── algo static library ────────────────────────────────────────────────────────
@@ -230,7 +135,7 @@ enable_testing()
 
 # tests/** is gitignored, so a checkout may carry only some of the test sources.
 # A missing file in add_executable() is a configure-time error that takes every
-# target down with it — Telescode included — so drop the absent files here and
+# target down with it, so drop the absent files here and
 # skip a target once it has no test source left to run.
 function(ts_test_sources out_var)
     set(found "")
@@ -295,63 +200,13 @@ if(TS_ALGO_TEST_SRC)
     add_test(NAME AlgoTests COMMAND AlgoTests)
 endif()
 
-ts_test_sources(TS_CANVAS_TEST_SRC
-    tests/ui/test_ts_canvas.cpp
-    src/ui/ts_canvas.cpp
-    src/ui/class_diagram/cd_view.cpp
-    src/ui/class_diagram/cd_arrowhead.cpp
-    src/core/diagram/cd_builder.cpp
-    src/core/diagram/cd_layout.cpp
-    src/core/ReadingSequenceQuery.cpp
-)
-if(TS_CANVAS_TEST_SRC)
-    add_executable(CanvasTests ${TS_CANVAS_TEST_SRC})
-    target_include_directories(CanvasTests PRIVATE
-        ${imgui_SOURCE_DIR}
-        ${CMAKE_SOURCE_DIR}/src
-    )
-    target_link_libraries(CanvasTests PRIVATE
-        imgui
-        imnodes
-        sqlite3
-        GTest::gtest_main
-    )
-    add_test(NAME CanvasTests COMMAND CanvasTests)
-endif()
-
-ts_test_sources(TS_DIAGRAM_TEST_SRC
-    tests/ui/test_cd_arrowhead.cpp
-    src/ui/class_diagram/cd_arrowhead.cpp
-)
-if(TS_DIAGRAM_TEST_SRC)
-    add_executable(DiagramTests ${TS_DIAGRAM_TEST_SRC})
-    target_include_directories(DiagramTests PRIVATE
-        ${imgui_SOURCE_DIR}
-        ${CMAKE_SOURCE_DIR}/src
-    )
-    target_compile_definitions(DiagramTests PRIVATE IMGUI_DEFINE_MATH_OPERATORS)
-    target_link_libraries(DiagramTests PRIVATE
-        imgui
-        GTest::gtest_main
-    )
-    add_test(NAME DiagramTests COMMAND DiagramTests)
-endif()
-
 ts_test_sources(TS_LAYOUT_TEST_SRC
     tests/ui/test_cd_layout.cpp
     src/core/diagram/cd_layout.cpp
 )
 if(TS_LAYOUT_TEST_SRC)
     add_executable(LayoutTests ${TS_LAYOUT_TEST_SRC})
-    target_include_directories(LayoutTests PRIVATE
-        ${imgui_SOURCE_DIR}
-        ${CMAKE_SOURCE_DIR}/src
-    )
-    target_compile_definitions(LayoutTests PRIVATE IMGUI_DEFINE_MATH_OPERATORS)
-    target_link_libraries(LayoutTests PRIVATE
-        imgui
-        imnodes
-        GTest::gtest_main
-    )
+    target_include_directories(LayoutTests PRIVATE ${CMAKE_SOURCE_DIR}/src)
+    target_link_libraries(LayoutTests PRIVATE GTest::gtest_main)
     add_test(NAME LayoutTests COMMAND LayoutTests)
 endif()

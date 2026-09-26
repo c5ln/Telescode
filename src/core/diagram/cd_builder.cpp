@@ -178,7 +178,7 @@ CDGraph BuildCDGraph(sqlite3* db)
     sqlite3_finalize(stmt);
 
     // Positions are left unset: node sizes are content-driven, so the layout is
-    // assigned by cd_layout once imnodes has measured them. See cd_view.cpp.
+    // assigned by cd_layout once the node sizes are known.
     return graph;
 }
 

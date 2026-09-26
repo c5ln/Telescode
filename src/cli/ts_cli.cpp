@@ -22,7 +22,7 @@ void PrintCoreUsage(std::FILE* out)
         "\n"
         "graph / sequence / analyze read an existing database and print JSON.\n"
         "Run `scan` first to create one. --algo recomputes the reading sequence\n"
-        "and complexity scores before reading, as the viewer does at startup;\n"
+        "and complexity scores before reading;\n"
         "without it the database is reported exactly as it stands.\n");
 }
 
