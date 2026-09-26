@@ -70,6 +70,8 @@ Performs multi-layer parsing based on Tree-sitter.
 | Build | CMake 3.20+ (FetchContent) |
 | Code Parsing | Tree-sitter v0.25.3, tree-sitter-python v0.23.6 |
 | Data Storage | SQLite3 (bundled amalgamation, WAL mode) |
+| Frontend | React 19, TypeScript, Vite |
+| Desktop Shell | Tauri 2 (C++ core runs as a sidecar) |
 
 ## Build
 
@@ -82,6 +84,18 @@ cmake --build .
 ```
 
 All external dependencies are automatically downloaded via CMake FetchContent — no manual installation required. SQLite3 amalgamation source is included in `third_party/sqlite/`.
+
+## Desktop App
+
+The desktop UI lives in [`frontend/`](frontend/): React + TypeScript (Vite) in a Tauri shell. It runs the C++ core as the `TelescodeHeadless` sidecar. With the core built as above and Node.js and Rust installed:
+
+```bash
+cd frontend
+npm install
+npm run desktop
+```
+
+See [frontend/README.md](frontend/README.md) for prerequisites, creating a database, and how the bridge works.
 
 
 ---
