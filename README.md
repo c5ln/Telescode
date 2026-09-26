@@ -69,8 +69,6 @@ Performs multi-layer parsing based on Tree-sitter.
 | Language | C++17 |
 | Build | CMake 3.20+ (FetchContent) |
 | Code Parsing | Tree-sitter v0.25.3, tree-sitter-python v0.23.6 |
-| Rendering | SDL3 (release-3.2.10, static) |
-| UI | Dear ImGui v1.91.9, imnodes v0.5 |
 | Data Storage | SQLite3 (bundled amalgamation, WAL mode) |
 
 ## Build

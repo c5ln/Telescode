@@ -5,10 +5,9 @@
 // argv shifted by one, so argv[0] is the subcommand name and every index after
 // it keeps the meaning it had as a separate binary.
 //
-// DispatchCoreCommand is what keeps the two entry points honest: both
-// src/main.cpp (the SDL viewer) and src/cli/headless_main.cpp route subcommands
-// through it, so there is one dispatch table and one usage text rather than a
-// copy per binary. Nothing declared here touches SDL, ImGui or imnodes.
+// DispatchCoreCommand is the single dispatch table: src/cli/headless_main.cpp
+// routes every subcommand through it, and PrintCoreUsage is the matching usage
+// text.
 
 #pragma once
 
@@ -49,13 +48,12 @@ bool SameFilePath(const std::string& a, const std::string& b);
 
 // ── Dispatch ─────────────────────────────────────────────────────────────────
 
-// The core subcommands, one line each, without the viewer-only entries.
+// The core subcommands, one line each.
 void PrintCoreUsage(std::FILE* out);
 
 // Runs argv[1] as a core subcommand when it names one.
 // Returns true and fills exit_code if it handled the call; false when argv[1] is
-// not a core subcommand, leaving the decision to the caller -- the viewer treats
-// that as "open this database", the headless binary as an error.
+// not a core subcommand, leaving the decision to the caller.
 bool DispatchCoreCommand(int argc, char* argv[], int& exit_code);
 
 } // namespace TS
