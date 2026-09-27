@@ -1,0 +1,19 @@
+.controls {
+  position: absolute;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: var(--z-overlay);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-menu);
+  background: var(--surface);
+}
+
+.divider {
+  height: 1px;
+  margin: 1px 4px;
+  background: var(--border);
+}

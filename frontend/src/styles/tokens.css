@@ -1,0 +1,134 @@
+/*
+ * Telescode design tokens.
+ *
+ * Two layers:
+ *   1. Primitives (--gray-*, --red-*, ...) -- raw values. Components never use
+ *      these directly.
+ *   2. Semantic tokens (--bg-*, --text-*, --border, ...) -- what components use.
+ *
+ * A future theme (e.g. dark) overrides only the semantic layer under its own
+ * selector, such as :root[data-theme='dark']. Only the light theme exists now.
+ *
+ * The base UI is deliberately monochrome. Hue is reserved for data the graph
+ * will encode later (complexity, selection, reading sequence), so the chrome
+ * must not compete with it. The status colours below are for UI messages only.
+ */
+
+:root {
+  /* ---- Primitives ------------------------------------------------------ */
+
+  --gray-0: #ffffff;
+  --gray-25: #fcfcfc;
+  --gray-50: #f7f7f7;
+  --gray-100: #f0f0f0;
+  --gray-150: #e8e8e8;
+  --gray-200: #dedede;
+  --gray-300: #cccccc;
+  --gray-400: #a3a3a3;
+  --gray-500: #7a7a7a;
+  --gray-600: #5c5c5c;
+  --gray-700: #3d3d3d;
+  --gray-800: #262626;
+  --gray-900: #141414;
+
+  --red-600: #c42b1c;
+  --red-50: #fdf3f2;
+  --amber-600: #9a6700;
+  --green-600: #1a7f37;
+
+  /* ---- Surfaces -------------------------------------------------------- */
+
+  --bg-app: var(--gray-25);
+  --bg-canvas: var(--gray-25);
+  --surface: var(--gray-0);
+  --surface-subtle: var(--gray-50);
+  --surface-raised: var(--gray-0); /* menus, tooltips-on-light */
+  --surface-inverse: var(--gray-900); /* tooltips */
+
+  /* ---- Text ------------------------------------------------------------ */
+
+  --text-primary: var(--gray-900);
+  --text-secondary: var(--gray-600);
+  --text-muted: var(--gray-500);
+  --text-disabled: var(--gray-400);
+  --text-inverse: var(--gray-0);
+  --text-inverse-muted: var(--gray-400);
+
+  /* ---- Lines & interaction -------------------------------------------- */
+
+  --border: var(--gray-200);
+  --border-strong: var(--gray-300);
+  --hover: rgb(0 0 0 / 0.045);
+  --active: rgb(0 0 0 / 0.08);
+  --selected: rgb(0 0 0 / 0.07);
+  --focus: var(--gray-800);
+  --selection: var(--gray-200); /* text selection */
+
+  /* ---- Status (UI messages only, not graph data) ----------------------- */
+
+  --error: var(--red-600);
+  --error-subtle: var(--red-50);
+  --warning: var(--amber-600);
+  --success: var(--green-600);
+
+  /* ---- Typography ------------------------------------------------------ */
+
+  --font-ui: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI',
+    Roboto, 'Helvetica Neue', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'SF Mono', Menlo, Consolas, ui-monospace, monospace;
+
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-md: 13px; /* default UI size */
+  --text-lg: 15px;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+
+  --tracking-tight: -0.005em;
+
+  /* ---- Space (4px grid) ------------------------------------------------ */
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* ---- Radii: restrained on purpose ----------------------------------- */
+
+  --radius-control: 5px; /* buttons, inputs */
+  --radius-menu: 7px; /* menus, popovers */
+  --radius-surface: 3px; /* larger surfaces, tooltips */
+  --radius-canvas: 0;
+
+  /* ---- Elevation: only floating layers get a shadow ------------------- */
+
+  --shadow-float: 0 1px 2px rgb(0 0 0 / 0.06), 0 4px 16px rgb(0 0 0 / 0.08);
+
+  /* ---- Layout ---------------------------------------------------------- */
+
+  --topbar-height: 48px;
+  --control-height: 28px;
+  --icon-size: 16px;
+
+  /* ---- Motion ---------------------------------------------------------- */
+
+  --duration-fast: 90ms;
+  --duration-tooltip-delay: 450ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+
+  /* ---- Layers ---------------------------------------------------------- */
+
+  --z-overlay: 10;
+  --z-menu: 50;
+  --z-tooltip: 60;
+
+  color-scheme: light;
+}

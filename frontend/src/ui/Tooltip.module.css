@@ -1,0 +1,78 @@
+.anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.tip {
+  position: absolute;
+  z-index: var(--z-tooltip);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 3px 7px;
+  border-radius: var(--radius-surface);
+  background: var(--surface-inverse);
+  color: var(--text-inverse);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-tight);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--duration-fast) var(--ease),
+    visibility 0s linear var(--duration-fast);
+}
+
+.anchor:hover > .tip,
+.anchor:has(:focus-visible) > .tip {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: var(--duration-tooltip-delay);
+}
+
+/* An open menu owns the space around its trigger. */
+.anchor:has([aria-expanded='true']) > .tip {
+  opacity: 0;
+  visibility: hidden;
+  transition-delay: 0s;
+}
+
+.tip[data-side='bottom'] {
+  top: calc(100% + 6px);
+  left: 50%;
+  translate: -50% 0;
+}
+
+.tip[data-side='top'] {
+  bottom: calc(100% + 6px);
+  left: 50%;
+  translate: -50% 0;
+}
+
+/* Keeps tips under edge controls inside the window. */
+.tip[data-align='end']:is([data-side='top'], [data-side='bottom']) {
+  left: auto;
+  right: 0;
+  translate: none;
+}
+
+.tip[data-side='left'] {
+  right: calc(100% + 8px);
+  top: 50%;
+  translate: 0 -50%;
+}
+
+.tip[data-side='right'] {
+  left: calc(100% + 8px);
+  top: 50%;
+  translate: 0 -50%;
+}
+
+.shortcut {
+  color: var(--text-inverse-muted);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-regular);
+}

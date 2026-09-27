@@ -1,0 +1,31 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--control-height);
+  height: var(--control-height);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-secondary);
+  transition:
+    background-color var(--duration-fast) var(--ease),
+    color var(--duration-fast) var(--ease);
+}
+
+.button:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text-primary);
+}
+
+.button:active:not(:disabled),
+.button[aria-expanded='true'] {
+  background: var(--active);
+  color: var(--text-primary);
+}
+
+.button:disabled {
+  color: var(--text-disabled);
+}

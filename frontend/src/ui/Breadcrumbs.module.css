@@ -1,0 +1,83 @@
+.nav {
+  display: flex;
+  min-width: 0;
+}
+
+.list {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  white-space: nowrap;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  /* Ancestors give up space long before the current item does. */
+  flex: 0 100 auto;
+}
+
+.item[data-kind='ancestor'] {
+  /* Room for about three characters before the ellipsis; also roughly the
+     width of a short name like `src`, so it does not pad those out. */
+  min-width: calc(2.25em + 16px);
+}
+
+.item[data-kind='current'] {
+  flex: 0 1 auto;
+}
+
+.item[data-kind='overflow'] {
+  flex: none;
+}
+
+.separator {
+  flex: none;
+  margin: 0 1px;
+  color: var(--text-disabled);
+}
+
+.crumb {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 220px;
+  height: 24px;
+  padding: 0 var(--space-1);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-md);
+  transition:
+    background-color var(--duration-fast) var(--ease),
+    color var(--duration-fast) var(--ease);
+}
+
+.crumb:hover:not(:disabled),
+.crumb[aria-expanded='true'] {
+  background: var(--hover);
+  color: var(--text-primary);
+}
+
+.crumb:disabled {
+  color: var(--text-secondary);
+}
+
+.text,
+.current {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.current {
+  padding: 0 var(--space-1);
+  color: var(--text-primary);
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+}
