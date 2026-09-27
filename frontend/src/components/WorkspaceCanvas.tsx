@@ -1,15 +1,20 @@
 // The graph workspace: fills everything below the top bar.
 //
-// Nothing is drawn yet. The graph viewport will mount inside `.viewport`;
-// the workspace states are overlays on top of it, so the layout stays the same
-// in every state.
+// The code map mounts inside `.viewport` once a workspace is ready; the other
+// states are overlays in the same place, so the layout stays the same in
+// every state.
+
+import type { RefObject } from 'react'
 
 import type { TelescodeErrorCode } from '../bridge'
-import { baseName, type WorkspaceState } from '../app/useWorkspace'
+import { baseName, repositoryName, type WorkspaceState } from '../app/useWorkspace'
+import type { GraphHandle } from '../graph/GraphCanvas'
+import type { GraphNode } from '../graph/model'
 import { Button } from '../ui/Button'
 import { ErrorState } from '../ui/ErrorState'
 import { Spinner } from '../ui/Spinner'
 import { CanvasControls } from './CanvasControls'
+import { CodeMap } from './CodeMap'
 import { EmptyWorkspace } from './EmptyWorkspace'
 import styles from './WorkspaceCanvas.module.css'
 
@@ -22,6 +27,8 @@ interface WorkspaceCanvasProps {
   allowLocalDatabase: boolean
   /** Database path to prefill when returning to the empty state. */
   lastDbPath?: string
+  graphRef: RefObject<GraphHandle | null>
+  onContextChange: (path: GraphNode[]) => void
 }
 
 const ERROR_TITLES: Partial<Record<TelescodeErrorCode, string>> = {
@@ -35,10 +42,29 @@ const ERROR_TITLES: Partial<Record<TelescodeErrorCode, string>> = {
   unsupported_schema_version: 'Unsupported database version',
 }
 
-export function WorkspaceCanvas({ state, onOpen, onRetry, onClose, allowLocalDatabase, lastDbPath }: WorkspaceCanvasProps) {
+export function WorkspaceCanvas({
+  state,
+  onOpen,
+  onRetry,
+  onClose,
+  allowLocalDatabase,
+  lastDbPath,
+  graphRef,
+  onContextChange,
+}: WorkspaceCanvasProps) {
   return (
     <main className={styles.canvas} aria-label="Workspace" aria-busy={state.status === 'loading'}>
-      <div className={styles.viewport} />
+      <div className={styles.viewport}>
+        {state.status === 'ready' && (
+          <CodeMap
+            snapshot={state.snapshot}
+            repositoryName={repositoryName(state.dbPath)}
+            onContextChange={onContextChange}
+            onRetry={onRetry}
+            graphRef={graphRef}
+          />
+        )}
+      </div>
 
       {state.status === 'empty' && (
         <div className={styles.center}>
@@ -70,13 +96,12 @@ export function WorkspaceCanvas({ state, onOpen, onRetry, onClose, allowLocalDat
         </div>
       )}
 
-      {state.status === 'ready' && (
-        <p className={styles.status} role="status">
-          {state.snapshot.totals.fileCount} files · {state.snapshot.totals.classCount} classes
-        </p>
-      )}
-
-      <CanvasControls disabled={state.status !== 'ready'} />
+      <CanvasControls
+        disabled={state.status !== 'ready'}
+        onZoomIn={() => graphRef.current?.zoomIn()}
+        onZoomOut={() => graphRef.current?.zoomOut()}
+        onFit={() => graphRef.current?.fit()}
+      />
     </main>
   )
 }

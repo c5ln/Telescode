@@ -61,6 +61,11 @@ export function useWorkspace(
   return { state, open: (dbPath) => void open(dbPath), reload, close }
 }
 
+/** A display name for the analysed repository: the database's file name without extension. */
+export function repositoryName(dbPath: string): string {
+  return baseName(dbPath).replace(/\.(db|sqlite3?)$/i, '')
+}
+
 /** The file name at the end of a path, for display. */
 export function baseName(path: string): string {
   const parts = path.split(/[\\/]/).filter(Boolean)

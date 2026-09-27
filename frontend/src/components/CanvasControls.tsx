@@ -1,7 +1,4 @@
 // Zoom in / zoom out / fit, floating in the canvas corner.
-//
-// Shell only: the graph viewport will supply the handlers. Until then the
-// buttons are enabled when a workspace is ready and do nothing.
 
 import { FitIcon, MinusIcon, PlusIcon } from '../ui/icons'
 import { IconButton } from '../ui/IconButton'

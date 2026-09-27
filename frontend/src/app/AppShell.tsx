@@ -1,21 +1,21 @@
 // Top bar over a full-bleed canvas. No sidebar: orientation comes from the
-// breadcrumbs, and later from semantic zoom and contextual UI.
+// breadcrumbs, which follow where the user is in the code map.
 
-import { useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 
 import type { TelescodeApi } from '../bridge'
 import { TopBar } from '../components/TopBar'
 import { WorkspaceCanvas } from '../components/WorkspaceCanvas'
+import type { GraphHandle } from '../graph/GraphCanvas'
+import type { GraphNode } from '../graph/model'
 import type { Crumb } from '../ui/Breadcrumbs'
 import type { DropdownItem } from '../ui/Dropdown'
 import styles from './AppShell.module.css'
-import { baseName, useWorkspace, type WorkspaceState } from './useWorkspace'
+import { repositoryName, useWorkspace, type WorkspaceState } from './useWorkspace'
 
 interface AppShellProps {
   api?: TelescodeApi
   initialState?: WorkspaceState
-  /** Levels below the database root. Semantic zoom will drive these later. */
-  initialPath?: Crumb[]
   /**
    * Let the empty state open a Telescode database by path. Development only:
    * users start from a repository URL and never see the database.
@@ -23,27 +23,33 @@ interface AppShellProps {
   allowLocalDatabase?: boolean
 }
 
-export function AppShell({ api, initialState, initialPath = [], allowLocalDatabase = false }: AppShellProps) {
+export function AppShell({ api, initialState, allowLocalDatabase = false }: AppShellProps) {
   const workspace = useWorkspace(api, initialState)
   const { state } = workspace
-  const [path, setPath] = useState<Crumb[]>(initialPath)
+  const graphRef = useRef<GraphHandle | null>(null)
+  /** Where the user is in the map, below the repository. */
+  const [trail, setTrail] = useState<Crumb[]>([])
   const [lastDbPath, setLastDbPath] = useState(state.status === 'empty' ? '' : state.dbPath)
 
   const open = (dbPath: string) => {
     setLastDbPath(dbPath)
-    setPath([])
+    setTrail([])
     workspace.open(dbPath)
   }
 
   const close = () => {
-    setPath([])
+    setTrail([])
     workspace.close()
   }
+
+  const onContextChange = useCallback((path: GraphNode[]) => {
+    setTrail(path.map((n) => ({ id: n.id, label: n.label })))
+  }, [])
 
   const crumbs: Crumb[] =
     state.status === 'empty'
       ? [{ id: 'home', label: 'Telescode' }]
-      : [{ id: 'root', label: baseName(state.dbPath), title: state.dbPath }, ...path]
+      : [{ id: 'root', label: repositoryName(state.dbPath), title: state.dbPath }, ...(state.status === 'ready' ? trail : [])]
 
   const menuItems: DropdownItem[] = [
     { id: 'open', label: 'Open repository…', onSelect: close },
@@ -57,7 +63,7 @@ export function AppShell({ api, initialState, initialPath = [], allowLocalDataba
 
   return (
     <div className={styles.shell}>
-      <TopBar crumbs={crumbs} onNavigate={(_, index) => setPath(path.slice(0, index))} menuItems={menuItems} />
+      <TopBar crumbs={crumbs} onNavigate={(crumb) => graphRef.current?.navigate(crumb.id)} menuItems={menuItems} />
       <WorkspaceCanvas
         state={state}
         onOpen={open}
@@ -65,6 +71,8 @@ export function AppShell({ api, initialState, initialPath = [], allowLocalDataba
         onClose={close}
         allowLocalDatabase={allowLocalDatabase}
         lastDbPath={lastDbPath}
+        graphRef={graphRef}
+        onContextChange={onContextChange}
       />
     </div>
   )
