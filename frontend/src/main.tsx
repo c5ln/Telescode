@@ -12,6 +12,6 @@ const preview = import.meta.env.DEV ? readPreview(window.location.search) : null
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AppShell {...preview} />
+    <AppShell allowLocalDatabase={import.meta.env.DEV} {...preview} />
   </StrictMode>,
 )

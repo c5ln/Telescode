@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from 'react'
 
 import { Button } from '../ui/Button'
-import styles from './OpenDatabaseForm.module.css'
+import styles from './InlineForm.module.css'
 
 interface OpenDatabaseFormProps {
   initialPath?: string

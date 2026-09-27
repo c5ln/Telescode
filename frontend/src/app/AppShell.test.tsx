@@ -39,7 +39,10 @@ function deferredApi() {
   return { api, analyze, pending }
 }
 
+/** The development-only path: switch the empty state to database entry, then open. */
 async function openDatabase(path: string) {
+  const devLink = screen.queryByRole('button', { name: 'Open a local database (dev)' })
+  if (devLink) await userEvent.click(devLink)
   await userEvent.type(screen.getByRole('textbox', { name: 'Database path' }), path)
   await userEvent.click(screen.getByRole('button', { name: 'Open' }))
 }
@@ -49,7 +52,7 @@ const canvasButtons = () =>
 
 describe('AppShell', () => {
   it('has only breadcrumbs, search and an overflow menu in the top bar, and no sidebar', () => {
-    render(<AppShell api={deferredApi().api} />)
+    render(<AppShell api={deferredApi().api} allowLocalDatabase />)
     const bar = screen.getByRole('banner')
 
     expect(within(bar).getByRole('navigation', { name: 'Breadcrumb' })).toBeTruthy()
@@ -59,11 +62,33 @@ describe('AppShell', () => {
     expect(screen.queryByRole('complementary')).toBeNull()
   })
 
-  it('starts empty, then goes through loading to ready', async () => {
-    const { api, analyze, pending } = deferredApi()
+  it('starts from a repository URL and never asks users for a database', async () => {
+    const { api, analyze } = deferredApi()
     render(<AppShell api={api} />)
 
-    expect(screen.getByText('No database open')).toBeTruthy()
+    expect(screen.getByText('Open a repository')).toBeTruthy()
+    const url = screen.getByRole('textbox', { name: 'Repository URL' })
+    expect(screen.queryByRole('textbox', { name: 'Database path' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Open a local database (dev)' })).toBeNull()
+    expect(screen.queryByText(/database/i)).toBeNull()
+
+    await userEvent.type(url, 'not a url')
+    await userEvent.click(screen.getByRole('button', { name: 'Analyze' }))
+    expect(screen.getByRole('status').textContent).toMatch(/^Enter a Git repository URL/)
+    expect(url.getAttribute('aria-invalid')).toBe('true')
+
+    await userEvent.clear(url)
+    await userEvent.type(url, 'https://github.com/c5ln/Telescode')
+    await userEvent.click(screen.getByRole('button', { name: 'Analyze' }))
+    expect(screen.getByRole('status').textContent).toBe('Repository scanning is not available yet.')
+    expect(analyze).not.toHaveBeenCalled()
+  })
+
+  it('starts empty, then goes through loading to ready', async () => {
+    const { api, analyze, pending } = deferredApi()
+    render(<AppShell api={api} allowLocalDatabase />)
+
+    expect(screen.getByText('Open a repository')).toBeTruthy()
     expect(canvasButtons().every((b) => b.disabled)).toBe(true)
 
     await openDatabase('C:/x/project.db')
@@ -79,7 +104,7 @@ describe('AppShell', () => {
 
   it('shows a concise bridge error and can retry', async () => {
     const { api, analyze, pending } = deferredApi()
-    render(<AppShell api={api} />)
+    render(<AppShell api={api} allowLocalDatabase />)
     await openDatabase('C:/x/missing.db')
 
     pending[0].reject(new TelescodeError('db_not_found', 'No database at C:/x/missing.db'))
@@ -93,27 +118,27 @@ describe('AppShell', () => {
     expect(screen.getByRole('status').textContent).toBe('Analyzing missing.db…')
   })
 
-  it('returns to the empty state from the overflow menu, keeping the last path', async () => {
+  it('returns to the empty state from the overflow menu, keeping the last database path', async () => {
     const { api, pending } = deferredApi()
-    render(<AppShell api={api} />)
+    render(<AppShell api={api} allowLocalDatabase />)
     await openDatabase('C:/x/project.db')
     pending[0].resolve(snapshot)
     await screen.findByText('16 files · 11 classes')
 
     await userEvent.click(screen.getByRole('button', { name: 'More actions' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Open database…' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Open repository…' }))
 
-    expect(screen.getByText('No database open')).toBeTruthy()
+    expect(screen.getByText('Open a local database')).toBeTruthy()
     expect((screen.getByRole('textbox', { name: 'Database path' }) as HTMLInputElement).value).toBe('C:/x/project.db')
   })
 
   it('ignores a slower, superseded request', async () => {
     const { api, pending } = deferredApi()
-    render(<AppShell api={api} />)
+    render(<AppShell api={api} allowLocalDatabase />)
     await openDatabase('C:/x/old.db')
 
     await userEvent.click(screen.getByRole('button', { name: 'More actions' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Open database…' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Open repository…' }))
     await userEvent.clear(screen.getByRole('textbox', { name: 'Database path' }))
     await openDatabase('C:/x/project.db')
 

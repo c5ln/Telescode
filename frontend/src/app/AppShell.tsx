@@ -16,16 +16,21 @@ interface AppShellProps {
   initialState?: WorkspaceState
   /** Levels below the database root. Semantic zoom will drive these later. */
   initialPath?: Crumb[]
+  /**
+   * Let the empty state open a Telescode database by path. Development only:
+   * users start from a repository URL and never see the database.
+   */
+  allowLocalDatabase?: boolean
 }
 
-export function AppShell({ api, initialState, initialPath = [] }: AppShellProps) {
+export function AppShell({ api, initialState, initialPath = [], allowLocalDatabase = false }: AppShellProps) {
   const workspace = useWorkspace(api, initialState)
   const { state } = workspace
   const [path, setPath] = useState<Crumb[]>(initialPath)
-  const [lastPath, setLastPath] = useState(state.status === 'empty' ? '' : state.dbPath)
+  const [lastDbPath, setLastDbPath] = useState(state.status === 'empty' ? '' : state.dbPath)
 
   const open = (dbPath: string) => {
-    setLastPath(dbPath)
+    setLastDbPath(dbPath)
     setPath([])
     workspace.open(dbPath)
   }
@@ -41,7 +46,7 @@ export function AppShell({ api, initialState, initialPath = [] }: AppShellProps)
       : [{ id: 'root', label: baseName(state.dbPath), title: state.dbPath }, ...path]
 
   const menuItems: DropdownItem[] = [
-    { id: 'open', label: 'Open database…', onSelect: close },
+    { id: 'open', label: 'Open repository…', onSelect: close },
     {
       id: 'reload',
       label: 'Reload analysis',
@@ -53,7 +58,14 @@ export function AppShell({ api, initialState, initialPath = [] }: AppShellProps)
   return (
     <div className={styles.shell}>
       <TopBar crumbs={crumbs} onNavigate={(_, index) => setPath(path.slice(0, index))} menuItems={menuItems} />
-      <WorkspaceCanvas state={state} onOpen={open} onRetry={workspace.reload} onClose={close} lastPath={lastPath} />
+      <WorkspaceCanvas
+        state={state}
+        onOpen={open}
+        onRetry={workspace.reload}
+        onClose={close}
+        allowLocalDatabase={allowLocalDatabase}
+        lastDbPath={lastDbPath}
+      />
     </div>
   )
 }
