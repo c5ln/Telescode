@@ -7,7 +7,7 @@ import { toScreenX, toScreenY, toWorld } from './camera'
 import sherlock from './fixtures/sherlock.graph.json'
 import { layoutGraph } from './layout'
 import { buildGraphModel, type GraphNode } from './model'
-import { capEdgeGroups, EDGE_BUDGET, GraphRenderer } from './renderer'
+import { capEdgeGroups, EDGE_BUDGET, GraphRenderer, HOVER_EDGE_CAP, SELECTION_EDGE_CAP } from './renderer'
 import type { GraphTheme } from './theme'
 
 function setup(reducedMotion = true) {
@@ -157,24 +157,37 @@ describe('capEdgeGroups', () => {
 
   it('draws at most the cap, strongest first by the existing score', () => {
     const groups = Array.from({ length: 1000 }, (_, i) => group(i))
-    const kept = capEdgeGroups(groups, EDGE_BUDGET)
+    const kept = capEdgeGroups(groups, EDGE_BUDGET, HOVER_EDGE_CAP)
     expect(kept).toHaveLength(EDGE_BUDGET)
     expect(kept.map((g) => g.score)).toEqual(Array.from({ length: EDGE_BUDGET }, (_, i) => 999 - i))
   })
 
-  it('keeps hovered or selected relationships even when the cap is full', () => {
+  it('draws hovered/selected relationships even when the main cap is full', () => {
     const weak = group(0, true)
     const groups = [...Array.from({ length: 50 }, (_, i) => group(100 + i)), weak, group(1, true)]
-    const kept = capEdgeGroups(groups, 10)
+    const kept = capEdgeGroups(groups, 10, HOVER_EDGE_CAP)
     expect(kept.filter((g) => !g.emphasized)).toHaveLength(10)
     expect(kept.filter((g) => g.emphasized)).toHaveLength(2)
     expect(kept).toContain(weak)
   })
 
-  it('draws everything below the cap and leaves the input untouched', () => {
+  it("caps a high-degree node's relationships separately, keeping the strongest", () => {
+    const hub = Array.from({ length: 500 }, (_, i) => group(i, true))
+    const others = Array.from({ length: 500 }, (_, i) => group(i))
+    const kept = capEdgeGroups([...hub, ...others], EDGE_BUDGET, HOVER_EDGE_CAP)
+    const emphasized = kept.filter((g) => g.emphasized)
+    expect(emphasized).toHaveLength(HOVER_EDGE_CAP)
+    expect(emphasized.map((g) => g.score)).toEqual(Array.from({ length: HOVER_EDGE_CAP }, (_, i) => 499 - i))
+    // Dropped relationships are not drawn as ordinary edges instead.
+    expect(kept.filter((g) => !g.emphasized)).toHaveLength(EDGE_BUDGET)
+    expect(capEdgeGroups(hub, EDGE_BUDGET, SELECTION_EDGE_CAP)).toHaveLength(SELECTION_EDGE_CAP)
+    expect(SELECTION_EDGE_CAP).toBeGreaterThan(HOVER_EDGE_CAP)
+  })
+
+  it('draws everything below the caps and leaves the input untouched', () => {
     const groups = [group(1), group(3), group(2)]
-    expect(capEdgeGroups(groups, 10).map((g) => g.score)).toEqual([3, 2, 1])
+    expect(capEdgeGroups(groups, 10, 10).map((g) => g.score)).toEqual([3, 2, 1])
     expect(groups.map((g) => g.score)).toEqual([1, 3, 2])
-    expect(capEdgeGroups(groups, 0)).toEqual([])
+    expect(capEdgeGroups(groups, 0, 0)).toEqual([])
   })
 })

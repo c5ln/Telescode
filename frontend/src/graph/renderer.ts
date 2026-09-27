@@ -50,8 +50,12 @@ const FOCUS_MARGIN = 0.08
 const WHEEL_ZOOM = 0.0022
 /** Smoothing time constant for wheel zoom, ms. Short: direct, not floaty. */
 const WHEEL_TAU = 55
-/** Most edge groups drawn at once; hovered/selected ones are drawn on top of this. */
+/** Most edge groups drawn at once, not counting hovered/selected relationships. */
 export const EDGE_BUDGET = 320
+/** Most emphasized relationships drawn for a hovered node, on top of EDGE_BUDGET. */
+export const HOVER_EDGE_CAP = 40
+/** Most emphasized relationships drawn for the selection (a deliberate choice, so more). */
+export const SELECTION_EDGE_CAP = 120
 /** Button zoom step. */
 const STEP = 1.6
 
@@ -719,7 +723,8 @@ export class GraphRenderer {
       candidates.push({ x0, y0, cx, cy, x1, y1, len, alpha: alpha * anchored, count: g.count, emphasized: g.emphasized, score: g.count * legible * anchored })
     }
 
-    for (const c of capEdgeGroups(candidates, EDGE_BUDGET)) {
+    const emphasisCap = this.hovered ? HOVER_EDGE_CAP : SELECTION_EDGE_CAP
+    for (const c of capEdgeGroups(candidates, EDGE_BUDGET, emphasisCap)) {
       const alpha = c.alpha
       if (!c.emphasized) drawn++
       const level = Math.max(1, Math.round(Math.min(1, alpha) * LEVELS))
@@ -895,16 +900,26 @@ export class GraphRenderer {
 }
 
 /**
- * The edge groups to draw: every hovered/selected (emphasized) group, plus at
- * most `cap` others, strongest first by the existing score. A hard cap, so a
- * dense repository cannot cover the canvas with lines.
+ * The edge groups to draw, strongest first by the existing score: at most
+ * `emphasisCap` hovered/selected (emphasized) groups plus at most `cap`
+ * others. Both are hard caps, so neither a dense repository nor a
+ * high-degree node can cover the canvas with lines. Emphasized groups past
+ * their cap are dropped, not drawn as ordinary edges.
  */
-export function capEdgeGroups<T extends { emphasized: boolean; score: number }>(groups: T[], cap: number): T[] {
+export function capEdgeGroups<T extends { emphasized: boolean; score: number }>(
+  groups: T[],
+  cap: number,
+  emphasisCap: number,
+): T[] {
   const ordered = [...groups].sort((a, b) => (b.emphasized ? 1 : 0) - (a.emphasized ? 1 : 0) || b.score - a.score)
   const out: T[] = []
+  let emphasized = 0
   let others = 0
   for (const g of ordered) {
-    if (!g.emphasized) {
+    if (g.emphasized) {
+      if (emphasized >= emphasisCap) continue
+      emphasized++
+    } else {
       if (others >= cap) break
       others++
     }
