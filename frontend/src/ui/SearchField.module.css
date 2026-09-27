@@ -1,0 +1,64 @@
+.field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  height: var(--control-height);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  container-type: inline-size;
+  transition: border-color var(--duration-fast) var(--ease);
+}
+
+.field:hover {
+  border-color: var(--border-strong);
+}
+
+.field:focus-within {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 1px var(--focus);
+}
+
+.icon {
+  flex: none;
+  color: var(--text-muted);
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font-size: var(--text-md);
+  text-overflow: ellipsis;
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+.hint {
+  flex: none;
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  line-height: 1;
+}
+
+/* Hide the hint while typing, and when the field is too narrow to spare it. */
+.field:focus-within .hint {
+  display: none;
+}
+
+@container (max-width: 190px) {
+  .hint {
+    display: none;
+  }
+}

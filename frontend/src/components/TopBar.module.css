@@ -1,0 +1,23 @@
+.bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-3);
+  height: var(--topbar-height);
+  padding: 0 var(--space-3) 0 var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-app);
+}
+
+/* Breadcrumbs take the flexible space and truncate before anything wraps. */
+.crumbs {
+  display: flex;
+  flex: 1 100 auto;
+  min-width: 0;
+}
+
+/* Search keeps its width until the breadcrumbs are compressed, then shrinks. */
+.search {
+  flex: 0 1 300px;
+  min-width: 140px;
+}

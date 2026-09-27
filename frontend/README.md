@@ -57,6 +57,22 @@ npm run dev          # http://localhost:5173
 The UI renders, but it cannot reach the core outside the desktop shell.
 Requests fail with `bridge_unavailable`.
 
+### Opening a codebase
+
+The app opens on a repository URL field. The intended flow is repository URL →
+clone and scan → internal database → analysis, and users never handle the
+database themselves. Cloning and scanning are not implemented yet, so the field
+only checks the URL shape and reports that scanning is unavailable.
+
+Until then, development builds (`npm run dev`, `npm run desktop`) show an
+**Open a local database (dev)** link under the field, which opens a database
+made with `TelescodeHeadless scan` directly. Release builds do not show it.
+
+To look at the workspace states without the core, add `?preview=` with
+`empty`, `loading`, `error`, `ready` or `deep` (a long breadcrumb path), e.g.
+<http://localhost:5173/?preview=ready>. Preview mode is development-only and
+is not included in builds.
+
 ### 3. Desktop app
 
 ```bash
@@ -85,7 +101,7 @@ Re-run it after rebuilding the C++ core so the app picks up the new binary.
 ```bash
 cd frontend
 npm run typecheck    # tsc -b
-npm test             # bridge unit tests (vitest)
+npm test             # bridge and UI tests (vitest; UI tests run in jsdom)
 npm run build        # typecheck + production bundle
 npm run lint
 
@@ -144,6 +160,26 @@ Every failure rejects with a `TelescodeError` whose `code` is one of:
 | `unsupported_schema_version` | TS | `schemaVersion` is not 1 |
 | `bridge_unavailable` | TS | not running inside the desktop app |
 | `unknown` | TS | anything unrecognised |
+
+## UI structure
+
+```text
+src/
+  app/          AppShell (top bar over the canvas) and useWorkspace (load state)
+  components/   Shell pieces: TopBar, WorkspaceCanvas, CanvasControls
+  ui/           Small reusable primitives: Breadcrumbs, SearchField, Dropdown,
+                IconButton, Tooltip, Button, Spinner, EmptyState, ErrorState
+  styles/       tokens.css (design tokens) and globals.css
+```
+
+- **Tokens only.** Components take colours, type, spacing and radii from
+  `src/styles/tokens.css`. Primitives (`--gray-*` etc.) feed semantic tokens
+  (`--bg-canvas`, `--text-muted`, ...), and components use only the semantic
+  ones, so a future theme overrides that one layer.
+- **Monochrome chrome.** Hue is reserved for what the graph will encode
+  (complexity, selection, reading order). Status colours are for UI messages.
+- **Pretendard** is bundled from the `pretendard` package (variable, dynamic
+  subset), since the app's CSP only allows local assets.
 
 ## Rendering large views
 
