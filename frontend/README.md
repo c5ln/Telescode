@@ -68,10 +68,19 @@ Until then, development builds (`npm run dev`, `npm run desktop`) show an
 **Open a local database (dev)** link under the field, which opens a database
 made with `TelescodeHeadless scan` directly. Release builds do not show it.
 
-To look at the workspace states without the core, add `?preview=` with
-`empty`, `loading`, `error`, `ready` or `deep` (a long breadcrumb path), e.g.
-<http://localhost:5173/?preview=ready>. Preview mode is development-only and
-is not included in builds.
+To look at the workspace without the core, add one of these to a dev URL.
+They are development-only and not included in builds.
+
+- `?preview=empty|loading|error|ready`. `ready` shows the code map for the
+  Sherlock sample repository, from real core output saved in
+  `src/graph/fixtures/sherlock.graph.json`.
+- `?snapshot=<url>` shows the map for any JSON printed by
+  `TelescodeHeadless graph` or `analyze`, fetched from the dev server. For a
+  quick look at a large repository, save it under `node_modules/.cache/`
+  (ignored by git) and open `?snapshot=/node_modules/.cache/<file>.json`.
+- `&bench` (with either of the above) zooms from the whole repository into
+  its busiest file and back, then pans, and prints draw-time statistics to
+  the console and `document.body.dataset.bench`.
 
 ### 3. Desktop app
 
@@ -101,7 +110,7 @@ Re-run it after rebuilding the C++ core so the app picks up the new binary.
 ```bash
 cd frontend
 npm run typecheck    # tsc -b
-npm test             # bridge and UI tests (vitest; UI tests run in jsdom)
+npm test             # bridge, UI and code-map tests (vitest; UI tests in jsdom)
 npm run build        # typecheck + production bundle
 npm run lint
 
@@ -166,7 +175,8 @@ Every failure rejects with a `TelescodeError` whose `code` is one of:
 ```text
 src/
   app/          AppShell (top bar over the canvas) and useWorkspace (load state)
-  components/   Shell pieces: TopBar, WorkspaceCanvas, CanvasControls
+  components/   Shell pieces: TopBar, WorkspaceCanvas, CanvasControls, CodeMap
+  graph/        The code map: model, layout, semantic zoom, camera, renderer
   ui/           Small reusable primitives: Breadcrumbs, SearchField, Dropdown,
                 IconButton, Tooltip, Button, Spinner, EmptyState, ErrorState
   styles/       tokens.css (design tokens) and globals.css
@@ -181,10 +191,62 @@ src/
 - **Pretendard** is bundled from the `pretendard` package (variable, dynamic
   subset), since the app's CSP only allows local assets.
 
-## Rendering large views
+## The code map
 
-React owns application UI and state. The upcoming code-map and graph viewports
-can reach thousands of nodes, so they should render into a single
-`<canvas>` (2D or WebGL) owned by one component rather than one DOM element
-per node. The bridge already returns whole snapshots, so a viewport can load
-once and redraw without further IPC.
+The ready state is one zoomable map of the repository. Zooming changes what is
+shown, not just its size: directories are regions, files are cards, classes
+list their members, and each level resolves in place as you move closer.
+
+```text
+snapshot ──buildGraphModel──▶ tree ──layoutGraph──▶ boxes ──GraphRenderer──▶ <canvas>
+(bridge, once)  (model.ts)          (layout.ts)            (renderer.ts, per frame)
+```
+
+- **Model** (`model.ts`). The tree comes straight from the core's output:
+  directories from each file's repo-relative `fileId`, classes from their
+  `fileId`, members from each class's fields and methods. Single-child
+  directory chains merge (`src/core`). Edges are the core's file and class
+  edges. Nothing is recomputed. The schema has no module-level function list
+  or call edges, so the symbol level is classes and their members.
+- **Layout** (`layout.ts`). One static, deterministic layout for every zoom
+  level: a nested squarified treemap (area grows with the square root of a
+  file's line count), with class members as rows, in columns for large
+  classes. Children always sit inside their parent's box, so zooming never
+  relays anything out, and the same repository always gives the same map.
+- **Semantic zoom** (`semantic.ts`). There are no global levels. Each
+  container has an *openness* between 0 and 1, a smooth function of how
+  legible its children would be on screen (and, for directories, whether
+  their header can carry a label). While it opens, its label first settles
+  into a header band, then its children fade in. A node's visibility is its
+  ancestors' openness multiplied, so zooming out folds detail back the same
+  way. Thresholds are in `OPEN_RANGE` and are tuned by eye.
+- **Edges.** Each edge end is a blend of its file and that file's ancestors,
+  weighted by which one is currently standing in for it. Edges are grouped by
+  the pair of stand-ins, so zoomed out, many imports read as one line between
+  two regions, and the line splits and glides to the files as the regions
+  open. Only edges with an end on screen are drawn, faint ones fade, and at
+  most `EDGE_BUDGET` groups are shown at once, weakest fading first. Class
+  relationships appear only at the symbol level.
+- **Camera** (`camera.ts`, `renderer.ts`). The wheel zooms around the
+  pointer (smoothed over about 55 ms), trackpad pinch zooms directly,
+  two-finger scroll and drag pan. Fit, zoom buttons, breadcrumbs and
+  double-click move the camera along a van Wijk–Nuij path, which pulls back
+  just enough on long moves to keep context. With `prefers-reduced-motion`,
+  camera moves are instant.
+- **Interaction.** Hover outlines a node, emphasises its edges and dims
+  unrelated files and classes. Click selects (the one accent colour), and
+  double-click or Enter focuses. Escape clears the selection. `+`, `-` and
+  `0` zoom and fit, and the arrow keys pan.
+- **Breadcrumbs** show the selection, else the node last navigated to, else
+  the deepest open node under the view centre. Clicking an ancestor flies
+  back to it.
+- **Rendering.** React mounts the canvas and hears only about context and
+  selection changes, so camera movement never re-renders React. Frames are
+  drawn on demand, not in an idle loop, and only visible nodes are visited.
+  The bridge is called once per load, never during interaction. Colours come
+  from the `--graph-*` tokens.
+
+On the Python standard library (1,848 files, 72k nodes, 63k edges), headless
+Chrome with software rendering draws a zoom-and-pan run in about 7 ms per
+frame on average, 13 ms at the 95th percentile (`&bench`). Building and
+laying out the map takes about 250 ms once per load.

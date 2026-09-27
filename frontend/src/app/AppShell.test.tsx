@@ -1,33 +1,18 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { TelescodeError, type AnalysisSnapshot, type TelescodeApi } from '../bridge'
+import { TelescodeError, type AnalysisSnapshot, type GraphResponse, type TelescodeApi } from '../bridge'
+import sherlock from '../graph/fixtures/sherlock.graph.json'
+import type { GraphRenderer } from '../graph/renderer'
 import { AppShell } from './AppShell'
 
 afterEach(cleanup)
 
-const snapshot: AnalysisSnapshot = {
-  schemaVersion: 1,
-  dbPath: 'C:/x/project.db',
-  totals: {
-    fileCount: 16,
-    classCount: 11,
-    classEdgeCount: 1,
-    fileNodeCount: 16,
-    fileEdgeCount: 18,
-    funcNodeCount: 198,
-    funcEdgeCount: 219,
-    sequenceCount: 74,
-  },
-  files: [],
-  fileGraph: { nodes: [], edges: [] },
-  classes: [],
-  classEdges: [],
-  readingSequence: [],
-}
+// Real core output for the Sherlock sample (16 files, 11 classes).
+const snapshot: AnalysisSnapshot = { ...(sherlock as GraphResponse), dbPath: 'C:/x/project.db', readingSequence: [] }
 
 /** An API whose analyze() calls stay pending until the test settles them. */
 function deferredApi() {
@@ -98,7 +83,7 @@ describe('AppShell', () => {
 
     pending[0].resolve(snapshot)
     expect(await screen.findByText('16 files · 11 classes')).toBeTruthy()
-    expect(screen.getByText('project.db').getAttribute('aria-current')).toBe('location')
+    expect(screen.getByText('project').getAttribute('aria-current')).toBe('location')
     expect(canvasButtons().every((b) => !b.disabled)).toBe(true)
   })
 
@@ -149,19 +134,37 @@ describe('AppShell', () => {
     expect(screen.queryByRole('alert')).toBeNull()
   })
 
-  it('navigates back up the breadcrumb path', async () => {
-    render(
-      <AppShell
-        api={deferredApi().api}
-        initialState={{ status: 'ready', dbPath: 'C:/x/project.db', snapshot }}
-        initialPath={['src', 'core', 'dependency.cpp'].map((label) => ({ id: label, label }))}
-      />,
-    )
-    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' })
-    expect(nav.textContent).toBe('project.dbsrccoredependency.cpp')
+  it('shows the code map when ready, and its breadcrumbs follow navigation in the map', async () => {
+    render(<AppShell api={deferredApi().api} initialState={{ status: 'ready', dbPath: 'C:/x/project.db', snapshot }} />)
+    expect(screen.getByRole('application', { name: /^Code map/ })).toBeTruthy()
+    expect(screen.getByText('16 files · 11 classes')).toBeTruthy()
 
-    await userEvent.click(within(nav).getByRole('button', { name: 'src' }))
-    expect(nav.textContent).toBe('project.dbsrc')
-    expect(within(nav).getByText('src').getAttribute('aria-current')).toBe('location')
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' })
+    expect(nav.textContent).toBe('project')
+
+    // Development builds expose the renderer; jsdom has no canvas to click on.
+    const renderer = (window as { __telescode?: GraphRenderer }).__telescode!
+    act(() => renderer.focus(renderer.model.byId.get('class:sherlock_project/notify.py::QueryNotify')!))
+    expect(nav.textContent).toBe('projectsherlock_projectnotify.pyQueryNotify')
+
+    await userEvent.click(within(nav).getByRole('button', { name: 'sherlock_project' }))
+    expect(nav.textContent).toBe('projectsherlock_project')
+    expect(within(nav).getByText('sherlock_project').getAttribute('aria-current')).toBe('location')
+
+    await userEvent.click(within(nav).getByRole('button', { name: 'project' }))
+    expect(nav.textContent).toBe('project')
+  })
+
+  it('wires the canvas controls to the map once ready', async () => {
+    render(<AppShell api={deferredApi().api} initialState={{ status: 'ready', dbPath: 'C:/x/project.db', snapshot }} />)
+    const renderer = (window as { __telescode?: GraphRenderer }).__telescode!
+    renderer.resize(1200, 750)
+    const k = renderer.camera.k
+    await userEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
+    renderer.step(performance.now() + 10_000, 16)
+    expect(renderer.camera.k).toBeGreaterThan(k)
+    await userEvent.click(screen.getByRole('button', { name: 'Fit to view' }))
+    renderer.step(performance.now() + 20_000, 16)
+    expect(renderer.camera.k).toBeCloseTo(k)
   })
 })

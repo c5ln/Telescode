@@ -1,0 +1,832 @@
+{
+  "schemaVersion": 1,
+  "dbPath": "sherlock.db",
+  "totals": {
+    "fileCount": 16,
+    "classCount": 11,
+    "classEdgeCount": 1,
+    "fileNodeCount": 16,
+    "fileEdgeCount": 18,
+    "funcNodeCount": 198,
+    "funcEdgeCount": 219,
+    "sequenceCount": 74
+  },
+  "files": [
+    {
+      "fileId": "devel/site-list.py",
+      "fileName": "site-list.py",
+      "language": "python",
+      "isGenerated": false,
+      "metrics": {
+        "rawLoc": 45,
+        "logicalLoc": 26,
+        "maxCyclomaticComplexity": 0,
+        "avgCyclomaticComplexity": 0,
+        "maxBlockDepth": 0,
+        "avgBlockDepth": 0,
+        "maxFunctionLoc": 0,
+        "avgFunctionLoc": 0,
+        "complexityScore": 0.04
+      }
+    },
+    {
+      "fileId": "devel/summarize_site_validation.py",
+      "fileName": "summarize_site_validation.py",
+      "language": "python",
+      "isGenerated": false,
+      "metrics": {
+        "rawLoc": 72,
+        "logicalLoc": 51,
+        "maxCyclomaticComplexity": 14,
+        "avgCyclomaticComplexity": 14,
+        "maxBlockDepth": 2,
+        "avgBlockDepth": 2,
+        "maxFunctionLoc": 51,
+        "avgFunctionLoc": 51,
+        "complexityScore": 0.4833333333333333
+      }
+    },
+    {
+      "fileId": "sherlock_project/__init__.py",
+      "fileName": "__init__.py",
+      "language": "python",
+      "isGenerated": false,
+      "metrics": {
+        "rawLoc": 30,
+        "logicalLoc": 21,
+        "maxCyclomaticComplexity": 2,
+        "avgCyclomaticComplexity": 2,
+        "maxBlockDepth": 2,
+        "avgBlockDepth": 2,
+        "maxFunctionLoc": 9,
+        "avgFunctionLoc": 9,
+        "complexityScore": 0.48333333333333334
+      }
+    },
+    {
+      "fileId": "sherlock_project/__main__.py",
+      "fileName": "__main__.py",
+      "language": "python",
+      "isGenerated": false,
+      "metrics": {
+        "rawLoc": 22,
+        "logicalLoc": 13,
+        "maxCyclomaticComplexity": 0,
+        "avgCyclomaticComplexity": 0,
+        "maxBlockDepth": 0,
+        "avgBlockDepth": 0,
+        "maxFunctionLoc": 0,
+        "avgFunctionLoc": 0,
+        "complexityScore": 0.09
+      }
+    },
+    {
+      "fileId": "sherlock_project/notify.py",
+      "fileName": "notify.py",
+      "language": "python",
+      "isGenerated": false,
+      "metrics": {
+        "rawLoc": 286,
+        "logicalLoc": 212,
+        "maxCyclomaticComplexity": 13,
+        "avgCyclomaticComplexity": 2.090909090909091,
+        "maxBlockDepth": 2,
+        "avgBlockDepth": 0.18181818181818182,
+        "maxFunctionLoc": 76,
+        "avgFunctionLoc": 22.454545454545453,
+        "complexityScore": 0.69
+      }
+    },
+    {
+      "fileId": "sherlock_project/result.py",
+      "fileName": "result.py",
+      "language": "python",
+      "isGenerated": false,
+      "metrics": {
+        "rawLoc": 89,
+        "logicalLoc": 69,
+        "maxCyclomaticComplexity": 2,
+        "avgCyclomaticComplexity": 1.3333333333333333,
+        "maxBlockDepth": 1,
+        "avgBlockDepth": 0.3333333333333333,
+        "maxFunctionLoc": 38,
+        "avgFunctionLoc": 21.333333333333332,
+        "complexityScore": 0.42666666666666664
+      }
+    },
+    {
+      "fileId": "sherlock_project/sherlock.py",
+      "fileName": "sherlock.py",
+      "language": "python",
+      "isGenerated": false,
+      "metrics": {
+        "rawLoc": 942,
+        "logicalLoc": 714,
+        "maxCyclomaticComplexity": 48,
+        "avgCyclomaticComplexity": 11.5,
+        "maxBlockDepth": 7,
+        "avgBlockDepth": 2,
+        "maxFunctionLoc": 401,
+        "avgFunctionLoc": 88.5,
+        "complexityScore": 0.9533333333333334
+      }
+    },
+    {
+      "fileId": "sherlock_project/sites.py",
+      "fileName": "sites.py",
+      "language": "python",
+      "isGenerated": false,
+      "metrics": {
+        "rawLoc": 265,
+        "logicalLoc": 204,
+        "maxCyclomaticComplexity": 19,
+        "avgCyclomaticComplexity": 4.142857142857143,
+        "maxBlockDepth": 5,
+        "avgBlockDepth": 1.2857142857142858,
+        "maxFunctionLoc": 133,
+        "avgFunctionLoc": 34.714285714285715,
+        "complexityScore": 0.7433333333333334
+      }
+    },
+    {
+      "fileId": "tests/conftest.py",
+      "fileName": "conftest.py",
+      "language": "python",
+      "isGenerated": false,
+      "metrics": {
+        "rawLoc": 51,
+        "logicalLoc": 42,
+        "maxCyclomaticComplexity": 3,
+        "avgCyclomaticComplexity": 1.3333333333333333,
+        "maxBlockDepth": 4,
+        "avgBlockDepth": 1,
+        "maxFunctionLoc": 16,
+        "avgFunctionLoc": 6.166666666666667,
+        "complexityScore": 0.45000000000000007
+      }
+    },
+    {
+      "fileId": "tests/few_test_basic.py",
+      "fileName": "few_test_basic.py",
+      "language": "python",
+      "isGenerated": false,
+      "metrics": {
+        "rawLoc": 7,
+        "logicalLoc": 3,
+        "maxCyclomaticComplexity": 1,
+        "avgCyclomaticComplexity": 1,
+        "maxBlockDepth": 0,
+        "avgBlockDepth": 0,
+        "maxFunctionLoc": 2,
+        "avgFunctionLoc": 2,
+        "complexityScore": 0.10999999999999999
+      }
+    },
+    {
+      "fileId": "tests/sherlock_interactives.py",
+      "fileName": "sherlock_interactives.py",
+      "language": "python",
+      "isGenerated": false,
+      "metrics": {
+        "rawLoc": 38,
+        "logicalLoc": 32,
+        "maxCyclomaticComplexity": 5,
+        "avgCyclomaticComplexity": 4,
+        "maxBlockDepth": 4,
+        "avgBlockDepth": 2.5,
+        "maxFunctionLoc": 14,
+        "avgFunctionLoc": 13.5,
+        "complexityScore": 0.4533333333333333
+      }
+    },
+    {
+      "fileId": "tests/test_manifest.py",
+      "fileName": "test_manifest.py",
+      "language": "python",
+      "isGenerated": false,
+      "metrics": {
+        "rawLoc": 39,
+        "logicalLoc": 29,
+        "maxCyclomaticComplexity": 1,
+        "avgCyclomaticComplexity": 1,
+        "maxBlockDepth": 1,
+        "avgBlockDepth": 0.6666666666666666,
+        "maxFunctionLoc": 14,
+        "avgFunctionLoc": 8.333333333333334,
+        "complexityScore": 0.15666666666666665
+      }
+    },
+    {
+      "fileId": "tests/test_probes.py",
+      "fileName": "test_probes.py",
+      "language": "python",
+      "isGenerated": false,
+      "metrics": {
+        "rawLoc": 105,
+        "logicalLoc": 77,
+        "maxCyclomaticComplexity": 3,
+        "avgCyclomaticComplexity": 1.5714285714285714,
+        "maxBlockDepth": 2,
+        "avgBlockDepth": 0.5714285714285714,
+        "maxFunctionLoc": 12,
+        "avgFunctionLoc": 6.571428571428571,
+        "complexityScore": 0.5233333333333333
+      }
+    },
+    {
+      "fileId": "tests/test_ux.py",
+      "fileName": "test_ux.py",
+      "language": "python",
+      "isGenerated": false,
+      "metrics": {
+        "rawLoc": 43,
+        "logicalLoc": 36,
+        "maxCyclomaticComplexity": 3,
+        "avgCyclomaticComplexity": 1.5,
+        "maxBlockDepth": 2,
+        "avgBlockDepth": 1,
+        "maxFunctionLoc": 8,
+        "avgFunctionLoc": 5.75,
+        "complexityScore": 0.4066666666666667
+      }
+    },
+    {
+      "fileId": "tests/test_validate_targets.py",
+      "fileName": "test_validate_targets.py",
+      "language": "python",
+      "isGenerated": false,
+      "metrics": {
+        "rawLoc": 100,
+        "logicalLoc": 76,
+        "maxCyclomaticComplexity": 5,
+        "avgCyclomaticComplexity": 3,
+        "maxBlockDepth": 2,
+        "avgBlockDepth": 1,
+        "maxFunctionLoc": 24,
+        "avgFunctionLoc": 13.166666666666666,
+        "complexityScore": 0.5466666666666666
+      }
+    },
+    {
+      "fileId": "tests/test_version.py",
+      "fileName": "test_version.py",
+      "language": "python",
+      "isGenerated": false,
+      "metrics": {
+        "rawLoc": 16,
+        "logicalLoc": 10,
+        "maxCyclomaticComplexity": 1,
+        "avgCyclomaticComplexity": 1,
+        "maxBlockDepth": 0,
+        "avgBlockDepth": 0,
+        "maxFunctionLoc": 12,
+        "avgFunctionLoc": 12,
+        "complexityScore": 0.12
+      }
+    }
+  ],
+  "fileGraph": {
+    "nodes": [
+      {
+        "fileId": "devel/site-list.py",
+        "inbound": 0,
+        "outbound": 0
+      },
+      {
+        "fileId": "devel/summarize_site_validation.py",
+        "inbound": 0,
+        "outbound": 0
+      },
+      {
+        "fileId": "sherlock_project/__init__.py",
+        "inbound": 5,
+        "outbound": 0
+      },
+      {
+        "fileId": "sherlock_project/__main__.py",
+        "inbound": 0,
+        "outbound": 1
+      },
+      {
+        "fileId": "sherlock_project/notify.py",
+        "inbound": 3,
+        "outbound": 1
+      },
+      {
+        "fileId": "sherlock_project/result.py",
+        "inbound": 4,
+        "outbound": 0
+      },
+      {
+        "fileId": "sherlock_project/sherlock.py",
+        "inbound": 4,
+        "outbound": 4
+      },
+      {
+        "fileId": "sherlock_project/sites.py",
+        "inbound": 2,
+        "outbound": 0
+      },
+      {
+        "fileId": "tests/conftest.py",
+        "inbound": 0,
+        "outbound": 1
+      },
+      {
+        "fileId": "tests/few_test_basic.py",
+        "inbound": 0,
+        "outbound": 1
+      },
+      {
+        "fileId": "tests/sherlock_interactives.py",
+        "inbound": 0,
+        "outbound": 0
+      },
+      {
+        "fileId": "tests/test_manifest.py",
+        "inbound": 0,
+        "outbound": 0
+      },
+      {
+        "fileId": "tests/test_probes.py",
+        "inbound": 0,
+        "outbound": 4
+      },
+      {
+        "fileId": "tests/test_ux.py",
+        "inbound": 0,
+        "outbound": 1
+      },
+      {
+        "fileId": "tests/test_validate_targets.py",
+        "inbound": 0,
+        "outbound": 4
+      },
+      {
+        "fileId": "tests/test_version.py",
+        "inbound": 0,
+        "outbound": 1
+      }
+    ],
+    "edges": [
+      {
+        "source": "sherlock_project/__main__.py",
+        "target": "sherlock_project/__init__.py"
+      },
+      {
+        "source": "sherlock_project/notify.py",
+        "target": "sherlock_project/result.py"
+      },
+      {
+        "source": "sherlock_project/sherlock.py",
+        "target": "sherlock_project/__init__.py"
+      },
+      {
+        "source": "sherlock_project/sherlock.py",
+        "target": "sherlock_project/result.py"
+      },
+      {
+        "source": "sherlock_project/sherlock.py",
+        "target": "sherlock_project/notify.py"
+      },
+      {
+        "source": "sherlock_project/sherlock.py",
+        "target": "sherlock_project/sites.py"
+      },
+      {
+        "source": "tests/conftest.py",
+        "target": "sherlock_project/sites.py"
+      },
+      {
+        "source": "tests/few_test_basic.py",
+        "target": "sherlock_project/__init__.py"
+      },
+      {
+        "source": "tests/test_probes.py",
+        "target": "sherlock_project/sherlock.py"
+      },
+      {
+        "source": "tests/test_probes.py",
+        "target": "sherlock_project/sherlock.py"
+      },
+      {
+        "source": "tests/test_probes.py",
+        "target": "sherlock_project/notify.py"
+      },
+      {
+        "source": "tests/test_probes.py",
+        "target": "sherlock_project/result.py"
+      },
+      {
+        "source": "tests/test_ux.py",
+        "target": "sherlock_project/__init__.py"
+      },
+      {
+        "source": "tests/test_validate_targets.py",
+        "target": "sherlock_project/sherlock.py"
+      },
+      {
+        "source": "tests/test_validate_targets.py",
+        "target": "sherlock_project/sherlock.py"
+      },
+      {
+        "source": "tests/test_validate_targets.py",
+        "target": "sherlock_project/notify.py"
+      },
+      {
+        "source": "tests/test_validate_targets.py",
+        "target": "sherlock_project/result.py"
+      },
+      {
+        "source": "tests/test_version.py",
+        "target": "sherlock_project/__init__.py"
+      }
+    ]
+  },
+  "classes": [
+    {
+      "classId": "sherlock_project/notify.py::QueryNotify",
+      "nodeId": 0,
+      "fileId": "sherlock_project/notify.py",
+      "className": "QueryNotify",
+      "package": "sherlock_project.notify",
+      "fields": [
+        {
+          "access": "+",
+          "name": "result"
+        }
+      ],
+      "methods": [
+        {
+          "access": "+",
+          "name": "__init__",
+          "params": "result",
+          "returnType": "void"
+        },
+        {
+          "access": "+",
+          "name": "start",
+          "params": "message",
+          "returnType": "void"
+        },
+        {
+          "access": "+",
+          "name": "update",
+          "params": "result",
+          "returnType": "void"
+        },
+        {
+          "access": "+",
+          "name": "finish",
+          "params": "message",
+          "returnType": "void"
+        },
+        {
+          "access": "+",
+          "name": "__str__",
+          "params": "",
+          "returnType": "void"
+        }
+      ]
+    },
+    {
+      "classId": "sherlock_project/notify.py::QueryNotifyPrint",
+      "nodeId": 1,
+      "fileId": "sherlock_project/notify.py",
+      "className": "QueryNotifyPrint",
+      "package": "sherlock_project.notify",
+      "fields": [
+        {
+          "access": "+",
+          "name": "browse"
+        },
+        {
+          "access": "+",
+          "name": "print_all"
+        },
+        {
+          "access": "+",
+          "name": "result"
+        },
+        {
+          "access": "+",
+          "name": "verbose"
+        }
+      ],
+      "methods": [
+        {
+          "access": "+",
+          "name": "__init__",
+          "params": "result, verbose, print_all, browse",
+          "returnType": "void"
+        },
+        {
+          "access": "+",
+          "name": "start",
+          "params": "message",
+          "returnType": "void"
+        },
+        {
+          "access": "+",
+          "name": "countResults",
+          "params": "",
+          "returnType": "void"
+        },
+        {
+          "access": "+",
+          "name": "update",
+          "params": "result",
+          "returnType": "void"
+        },
+        {
+          "access": "+",
+          "name": "finish",
+          "params": "message",
+          "returnType": "void"
+        },
+        {
+          "access": "+",
+          "name": "__str__",
+          "params": "",
+          "returnType": "void"
+        }
+      ]
+    },
+    {
+      "classId": "sherlock_project/result.py::QueryResult",
+      "nodeId": 2,
+      "fileId": "sherlock_project/result.py",
+      "className": "QueryResult",
+      "package": "sherlock_project.result",
+      "fields": [
+        {
+          "access": "+",
+          "name": "context"
+        },
+        {
+          "access": "+",
+          "name": "query_time"
+        },
+        {
+          "access": "+",
+          "name": "site_name"
+        },
+        {
+          "access": "+",
+          "name": "site_url_user"
+        },
+        {
+          "access": "+",
+          "name": "status"
+        },
+        {
+          "access": "+",
+          "name": "username"
+        }
+      ],
+      "methods": [
+        {
+          "access": "+",
+          "name": "__init__",
+          "params": "username, site_name, site_url_user, status, query_time, context",
+          "returnType": "void"
+        },
+        {
+          "access": "+",
+          "name": "__str__",
+          "params": "",
+          "returnType": "void"
+        }
+      ]
+    },
+    {
+      "classId": "sherlock_project/result.py::QueryStatus",
+      "nodeId": 3,
+      "fileId": "sherlock_project/result.py",
+      "className": "QueryStatus",
+      "package": "sherlock_project.result",
+      "fields": [],
+      "methods": [
+        {
+          "access": "+",
+          "name": "__str__",
+          "params": "",
+          "returnType": "void"
+        }
+      ]
+    },
+    {
+      "classId": "sherlock_project/sherlock.py::SherlockFuturesSession",
+      "nodeId": 4,
+      "fileId": "sherlock_project/sherlock.py",
+      "className": "SherlockFuturesSession",
+      "package": "sherlock_project.sherlock",
+      "fields": [],
+      "methods": [
+        {
+          "access": "+",
+          "name": "request",
+          "params": "method, url, hooks, args, kwargs",
+          "returnType": "void"
+        }
+      ]
+    },
+    {
+      "classId": "sherlock_project/sites.py::SiteInformation",
+      "nodeId": 5,
+      "fileId": "sherlock_project/sites.py",
+      "className": "SiteInformation",
+      "package": "sherlock_project.sites",
+      "fields": [
+        {
+          "access": "+",
+          "name": "information"
+        },
+        {
+          "access": "+",
+          "name": "is_nsfw"
+        },
+        {
+          "access": "+",
+          "name": "name"
+        },
+        {
+          "access": "+",
+          "name": "url_home"
+        },
+        {
+          "access": "+",
+          "name": "url_username_format"
+        },
+        {
+          "access": "+",
+          "name": "username_claimed"
+        },
+        {
+          "access": "+",
+          "name": "username_unclaimed"
+        }
+      ],
+      "methods": [
+        {
+          "access": "+",
+          "name": "__init__",
+          "params": "name, url_home, url_username_format, username_claimed, information, is_nsfw, username_unclaimed",
+          "returnType": "void"
+        },
+        {
+          "access": "+",
+          "name": "__str__",
+          "params": "",
+          "returnType": "void"
+        }
+      ]
+    },
+    {
+      "classId": "sherlock_project/sites.py::SitesInformation",
+      "nodeId": 6,
+      "fileId": "sherlock_project/sites.py",
+      "className": "SitesInformation",
+      "package": "sherlock_project.sites",
+      "fields": [
+        {
+          "access": "+",
+          "name": "sites"
+        }
+      ],
+      "methods": [
+        {
+          "access": "+",
+          "name": "__init__",
+          "params": "data_file_path, honor_exclusions, do_not_exclude",
+          "returnType": "void"
+        },
+        {
+          "access": "+",
+          "name": "remove_nsfw_sites",
+          "params": "do_not_remove",
+          "returnType": "void"
+        },
+        {
+          "access": "+",
+          "name": "site_name_list",
+          "params": "",
+          "returnType": "void"
+        },
+        {
+          "access": "+",
+          "name": "__iter__",
+          "params": "",
+          "returnType": "void"
+        },
+        {
+          "access": "+",
+          "name": "__len__",
+          "params": "",
+          "returnType": "void"
+        }
+      ]
+    },
+    {
+      "classId": "tests/sherlock_interactives.py::Interactives",
+      "nodeId": 7,
+      "fileId": "tests/sherlock_interactives.py",
+      "className": "Interactives",
+      "package": "tests.sherlock_interactives",
+      "fields": [],
+      "methods": [
+        {
+          "access": "+",
+          "name": "run_cli",
+          "params": "args",
+          "returnType": "void"
+        },
+        {
+          "access": "+",
+          "name": "walk_sherlock_for_files_with",
+          "params": "pattern",
+          "returnType": "void"
+        }
+      ]
+    },
+    {
+      "classId": "tests/sherlock_interactives.py::InteractivesSubprocessError",
+      "nodeId": 8,
+      "fileId": "tests/sherlock_interactives.py",
+      "className": "InteractivesSubprocessError",
+      "package": "tests.sherlock_interactives",
+      "fields": [],
+      "methods": []
+    },
+    {
+      "classId": "tests/test_probes.py::TestLiveTargets",
+      "nodeId": 9,
+      "fileId": "tests/test_probes.py",
+      "className": "TestLiveTargets",
+      "package": "tests.test_probes",
+      "fields": [],
+      "methods": [
+        {
+          "access": "+",
+          "name": "test_known_positives_via_message",
+          "params": "sites_info, site, username",
+          "returnType": "void"
+        },
+        {
+          "access": "+",
+          "name": "test_known_positives_via_status_code",
+          "params": "sites_info, site, username",
+          "returnType": "void"
+        },
+        {
+          "access": "+",
+          "name": "test_known_positives_via_response_url",
+          "params": "sites_info, site, username",
+          "returnType": "void"
+        },
+        {
+          "access": "+",
+          "name": "test_likely_negatives_via_message",
+          "params": "sites_info, site, random_len",
+          "returnType": "void"
+        },
+        {
+          "access": "+",
+          "name": "test_likely_negatives_via_status_code",
+          "params": "sites_info, site, random_len",
+          "returnType": "void"
+        }
+      ]
+    },
+    {
+      "classId": "tests/test_validate_targets.py::Test_All_Targets",
+      "nodeId": 10,
+      "fileId": "tests/test_validate_targets.py",
+      "className": "Test_All_Targets",
+      "package": "tests.test_validate_targets",
+      "fields": [],
+      "methods": [
+        {
+          "access": "+",
+          "name": "test_false_pos",
+          "params": "chunked_sites",
+          "returnType": "void"
+        },
+        {
+          "access": "+",
+          "name": "test_false_neg",
+          "params": "chunked_sites",
+          "returnType": "void"
+        }
+      ]
+    }
+  ],
+  "classEdges": [
+    {
+      "edgeId": 0,
+      "source": "sherlock_project/notify.py::QueryNotifyPrint",
+      "target": "sherlock_project/notify.py::QueryNotify",
+      "type": "dependency"
+    }
+  ]
+}

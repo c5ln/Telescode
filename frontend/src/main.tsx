@@ -8,7 +8,7 @@ import './styles/globals.css'
 import { AppShell } from './app/AppShell'
 import { readPreview } from './app/preview'
 
-const preview = import.meta.env.DEV ? readPreview(window.location.search) : null
+const preview = import.meta.env.DEV ? await readPreview(window.location.search) : null
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

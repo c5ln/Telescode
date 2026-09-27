@@ -35,6 +35,8 @@
   --red-50: #fdf3f2;
   --amber-600: #9a6700;
   --green-600: #1a7f37;
+  --blue-600: #2463d6;
+  --blue-600-a20: rgb(36 99 214 / 0.2);
 
   /* ---- Surfaces -------------------------------------------------------- */
 
@@ -70,6 +72,27 @@
   --error-subtle: var(--red-50);
   --warning: var(--amber-600);
   --success: var(--green-600);
+
+  /* ---- Graph --------------------------------------------------------- */
+  /* Monochrome by design: hue is left for future data overlays (complexity,
+     hotspots, reading order). The one hue here marks the selection. */
+
+  --graph-region: rgb(0 0 0 / 0.05); /* a closed directory */
+  --graph-region-open: rgb(0 0 0 / 0.022); /* an open directory's ground */
+  --graph-region-stroke: rgb(0 0 0 / 0.1);
+  --graph-node: var(--surface); /* files */
+  --graph-node-stroke: var(--border-strong);
+  --graph-symbol: var(--surface-subtle); /* classes */
+  --graph-symbol-stroke: var(--border);
+  --graph-edge: rgb(0 0 0 / 0.26);
+  --graph-edge-strong: rgb(0 0 0 / 0.72);
+  --graph-label: var(--text-primary);
+  --graph-label-secondary: var(--text-secondary);
+  --graph-label-muted: var(--text-muted);
+  --graph-hover: var(--gray-700);
+  --graph-hover-fill: rgb(0 0 0 / 0.04);
+  --graph-selected: var(--blue-600);
+  --graph-selected-fill: var(--blue-600-a20);
 
   /* ---- Typography ------------------------------------------------------ */
 
