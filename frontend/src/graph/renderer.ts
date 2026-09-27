@@ -50,8 +50,8 @@ const FOCUS_MARGIN = 0.08
 const WHEEL_ZOOM = 0.0022
 /** Smoothing time constant for wheel zoom, ms. Short: direct, not floaty. */
 const WHEEL_TAU = 55
-/** Most edge groups drawn at once; weaker ones fade out by rank. */
-const EDGE_BUDGET = 320
+/** Most edge groups drawn at once; hovered/selected ones are drawn on top of this. */
+export const EDGE_BUDGET = 320
 /** Button zoom step. */
 const STEP = 1.6
 
@@ -719,18 +719,9 @@ export class GraphRenderer {
       candidates.push({ x0, y0, cx, cy, x1, y1, len, alpha: alpha * anchored, count: g.count, emphasized: g.emphasized, score: g.count * legible * anchored })
     }
 
-    // Edge budget: only the strongest relationships at any one time, fading
-    // out by rank rather than cutting off, so zooming does not make lines pop.
-    candidates.sort((a, b) => (b.emphasized ? 1 : 0) - (a.emphasized ? 1 : 0) || b.score - a.score)
-    let rank = 0
-    for (const c of candidates) {
-      let alpha = c.alpha
-      if (!c.emphasized) {
-        alpha *= 1 - smoothstep(rank, EDGE_BUDGET * 0.7, EDGE_BUDGET)
-        rank++
-        if (alpha < 0.05) continue
-        drawn++
-      }
+    for (const c of capEdgeGroups(candidates, EDGE_BUDGET)) {
+      const alpha = c.alpha
+      if (!c.emphasized) drawn++
       const level = Math.max(1, Math.round(Math.min(1, alpha) * LEVELS))
       const p = pathFor(c.emphasized, c.emphasized ? LEVELS : level, c.count >= 6)
       p.line.moveTo(c.x0, c.y0)
@@ -901,6 +892,25 @@ export class GraphRenderer {
     ctx.fillStyle = this.theme.tipText
     ctx.fillText(label, x + padX, y + bh / 2)
   }
+}
+
+/**
+ * The edge groups to draw: every hovered/selected (emphasized) group, plus at
+ * most `cap` others, strongest first by the existing score. A hard cap, so a
+ * dense repository cannot cover the canvas with lines.
+ */
+export function capEdgeGroups<T extends { emphasized: boolean; score: number }>(groups: T[], cap: number): T[] {
+  const ordered = [...groups].sort((a, b) => (b.emphasized ? 1 : 0) - (a.emphasized ? 1 : 0) || b.score - a.score)
+  const out: T[] = []
+  let others = 0
+  for (const g of ordered) {
+    if (!g.emphasized) {
+      if (others >= cap) break
+      others++
+    }
+    out.push(g)
+  }
+  return out
 }
 
 // ---- Geometry helpers ----------------------------------------------------------

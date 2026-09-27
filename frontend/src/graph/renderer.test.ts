@@ -7,7 +7,7 @@ import { toScreenX, toScreenY, toWorld } from './camera'
 import sherlock from './fixtures/sherlock.graph.json'
 import { layoutGraph } from './layout'
 import { buildGraphModel, type GraphNode } from './model'
-import { GraphRenderer } from './renderer'
+import { capEdgeGroups, EDGE_BUDGET, GraphRenderer } from './renderer'
 import type { GraphTheme } from './theme'
 
 function setup(reducedMotion = true) {
@@ -149,5 +149,32 @@ describe('GraphRenderer', () => {
     const before = { ...r.camera }
     r.resize(900, 600)
     expect(r.camera).toEqual(before)
+  })
+})
+
+describe('capEdgeGroups', () => {
+  const group = (score: number, emphasized = false) => ({ score, emphasized })
+
+  it('draws at most the cap, strongest first by the existing score', () => {
+    const groups = Array.from({ length: 1000 }, (_, i) => group(i))
+    const kept = capEdgeGroups(groups, EDGE_BUDGET)
+    expect(kept).toHaveLength(EDGE_BUDGET)
+    expect(kept.map((g) => g.score)).toEqual(Array.from({ length: EDGE_BUDGET }, (_, i) => 999 - i))
+  })
+
+  it('keeps hovered or selected relationships even when the cap is full', () => {
+    const weak = group(0, true)
+    const groups = [...Array.from({ length: 50 }, (_, i) => group(100 + i)), weak, group(1, true)]
+    const kept = capEdgeGroups(groups, 10)
+    expect(kept.filter((g) => !g.emphasized)).toHaveLength(10)
+    expect(kept.filter((g) => g.emphasized)).toHaveLength(2)
+    expect(kept).toContain(weak)
+  })
+
+  it('draws everything below the cap and leaves the input untouched', () => {
+    const groups = [group(1), group(3), group(2)]
+    expect(capEdgeGroups(groups, 10).map((g) => g.score)).toEqual([3, 2, 1])
+    expect(groups.map((g) => g.score)).toEqual([1, 3, 2])
+    expect(capEdgeGroups(groups, 0)).toEqual([])
   })
 })
