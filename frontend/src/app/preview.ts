@@ -27,8 +27,22 @@ export async function readPreview(search: string): Promise<ShellPreview | null> 
   const params = new URLSearchParams(search)
   const snapshotUrl = params.get('snapshot')
   if (snapshotUrl) {
-    const graph = (await (await fetch(snapshotUrl)).json()) as GraphResponse
-    return { initialState: { status: 'ready', dbPath: graph.dbPath || snapshotUrl, snapshot: asSnapshot(graph) } }
+    // A failure here must not reject: main.tsx awaits this before rendering.
+    try {
+      const response = await fetch(snapshotUrl)
+      if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`.trim())
+      const graph = (await response.json()) as GraphResponse
+      return { initialState: { status: 'ready', dbPath: graph.dbPath || snapshotUrl, snapshot: asSnapshot(graph) } }
+    } catch (e) {
+      const reason = e instanceof Error ? e.message : String(e)
+      return {
+        initialState: {
+          status: 'error',
+          dbPath: snapshotUrl,
+          error: new TelescodeError('unknown', `Could not load the snapshot at ${snapshotUrl}: ${reason}`),
+        },
+      }
+    }
   }
 
   switch (params.get('preview')) {
