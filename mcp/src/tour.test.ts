@@ -6,17 +6,41 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { TourStore } from './store.ts'
 import { startHttp } from './http.ts'
-import { makeStops, toVtt, inspectNode } from '../../frontend/src/tour/model.ts'
+import { makeStops, toVtt, inspectNode, readingTourOrder } from '../../frontend/src/tour/model.ts'
 const fixture = new URL('../../frontend/src/graph/fixtures/sherlock.graph.json', import.meta.url)
 const snapshot = { ...JSON.parse(await readFile(fixture, 'utf8')), readingSequence: [] }
 const stops = [{ nodeId: 'root', caption: '전체 구조 <확인>', transitionMs: 1000, holdMs: 2000 }]
 
 test('limits and unsupported targets reject instead of silently truncating', () => {
   assert.throws(() => makeStops(snapshot, Array(9).fill(stops[0])), /1–8/)
-  assert.throws(() => makeStops(snapshot, [{ ...stops[0], holdMs: 120000 }]), /120 seconds/)
+  assert.throws(() => makeStops(snapshot, [{ ...stops[0], holdMs: 60000 }]), /60 seconds/)
+  assert.equal(makeStops(snapshot, [{ ...stops[0], transitionMs: 0, holdMs: 60000 }]).length, 1)
   assert.throws(() => makeStops(snapshot, [{ ...stops[0], nodeId: 'file:missing.py' }]), /Unsupported/)
   assert.throws(() => makeStops(snapshot, [{ ...stops[0], transitionMs: NaN }]), /transitionMs/)
   assert.throws(() => makeStops(snapshot, [{ ...stops[0], holdMs: 1000 }]), /holdMs/)
+})
+test('onboarding uses file ranks and class local ranks, not snapshot row order', () => {
+  const first = snapshot.files[0].fileId
+  const second = snapshot.files[1].fileId
+  const ranked = { ...snapshot, readingSequence: [
+    { entityId: first, entityType: 'file' as const, fileId: first, fileRank: 2, localRank: null, scores: { pagerank: null, betweenness: null, combined: null } },
+    { entityId: second, entityType: 'file' as const, fileId: second, fileRank: 1, localRank: null, scores: { pagerank: null, betweenness: null, combined: null } },
+  ] }
+  assert.equal(readingTourOrder(ranked)[0].nodeId, `file:${second}`)
+  assert.throws(() => makeStops(ranked, [{ ...stops[0], nodeId: `file:${first}` }, { ...stops[0], nodeId: `file:${second}` }]), /reading sequence order/)
+  assert.throws(() => makeStops(snapshot, [{ ...stops[0], nodeId: `file:${first}` }]), /Reading sequence required/)
+  const classRanked = { ...ranked,
+    classes: [
+      { ...snapshot.classes[0], classId: 'ranked-a', fileId: second },
+      { ...snapshot.classes[0], classId: 'ranked-b', fileId: second },
+    ],
+    readingSequence: [...ranked.readingSequence,
+      { entityId: 'ranked-a', entityType: 'class' as const, fileId: second, fileRank: null, localRank: 2, scores: { pagerank: null, betweenness: null, combined: null } },
+      { entityId: 'ranked-b', entityType: 'class' as const, fileId: second, fileRank: null, localRank: 1, scores: { pagerank: null, betweenness: null, combined: null } },
+    ],
+  }
+  assert.deepEqual(readingTourOrder(classRanked).slice(0, 3).map(n => n.nodeId), [`file:${second}`, 'class:ranked-b', 'class:ranked-a'])
+  assert.throws(() => makeStops(classRanked, [{ ...stops[0], nodeId: 'class:ranked-a' }, { ...stops[0], nodeId: 'class:ranked-b' }]), /reading sequence order/)
 })
 test('evidence uses actual data and captions begin after movement', () => {
   const info = inspectNode(snapshot, 'root')

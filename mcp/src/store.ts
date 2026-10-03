@@ -29,7 +29,11 @@ export class TourStore {
       if (!name.endsWith('.draft.json')) continue
       const draft = JSON.parse(await readFile(resolve(this.outputRoot, name), 'utf8')) as Draft
       if (!draft.project || !draft.reviewToken) continue
-      makeStops(draft.project.snapshot, draft.plan.stops)
+      try { makeStops(draft.project.snapshot, draft.plan.stops) } catch (error) {
+        draft.state = 'draft'
+        draft.approvedRevision = undefined
+        draft.error = `Plan needs revision under current onboarding limits: ${String(error)}`
+      }
       const hash = createHash('sha256').update(JSON.stringify(draft.project.snapshot)).digest('hex')
       if (hash !== draft.project.hash || hash !== draft.plan.snapshotHash) throw new Error(`Corrupt snapshot for ${draft.plan.id}`)
       if (draft.state === 'rendering') {
@@ -98,6 +102,7 @@ export class TourStore {
     await this.save(draft)
   }
   assertApproved(draft: Draft, revision: number) {
+    makeStops(draft.project.snapshot, draft.plan.stops)
     if (draft.state !== 'approved' || draft.approvedRevision !== revision || draft.plan.revision !== revision) throw new Error('User approval required for this exact revision; open the review URL')
     if (draft.plan.snapshotHash !== draft.project.hash) throw new Error('Snapshot changed')
   }

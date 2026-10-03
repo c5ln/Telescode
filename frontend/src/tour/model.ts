@@ -21,7 +21,23 @@ export interface TourPlan {
 export const FPS = 30
 export const WIDTH = 1920
 export const HEIGHT = 1080
+export const MAX_DURATION_MS = 60000
 export const durationMs = (plan: TourPlan) => plan.stops.reduce((sum, s) => sum + s.transitionMs + s.holdMs, 0)
+
+export function readingTourOrder(snapshot: AnalysisSnapshot) {
+  const model = buildGraphModel(snapshot, 'Repository')
+  const files = snapshot.readingSequence.filter(s => s.entityType === 'file' && s.fileRank != null && s.fileRank > 0)
+    .sort((a, b) => a.fileRank! - b.fileRank! || a.fileId.localeCompare(b.fileId))
+  return files.flatMap(file => {
+    const fileNode = model.byId.get(`file:${file.fileId}`)
+    if (!fileNode) return []
+    const classes = fileNode.children.map(node => {
+      const rank = snapshot.readingSequence.find(s => s.entityType === 'class' && `class:${s.entityId}` === node.id)?.localRank ?? null
+      return { nodeId: node.id, title: node.label, fileRank: file.fileRank!, localRank: rank }
+    }).sort((a, b) => (a.localRank ?? Infinity) - (b.localRank ?? Infinity) || a.nodeId.localeCompare(b.nodeId))
+    return [{ nodeId: fileNode.id, title: file.fileId, fileRank: file.fileRank!, localRank: null }, ...classes]
+  })
+}
 
 export function inspectNode(snapshot: AnalysisSnapshot, nodeId: string) {
   const model = buildGraphModel(snapshot, 'Repository')
@@ -64,16 +80,24 @@ export function inspectNode(snapshot: AnalysisSnapshot, nodeId: string) {
 export function makeStops(snapshot: AnalysisSnapshot, inputs: StopInput[]): TourStop[] {
   if (!Array.isArray(inputs) || inputs.length < 1 || inputs.length > 8) throw new Error('A tour requires 1–8 stops')
   let total = 0
+  const order = new Map(readingTourOrder(snapshot).map((node, index) => [node.nodeId, index]))
+  let previous = -1
   return inputs.map(input => {
     if (typeof input.caption !== 'string' || !input.caption.trim() || input.caption.length > 300 || [...input.caption].some(c => c.charCodeAt(0) < 9)) {
       throw new Error('Caption must contain 1–300 characters')
     }
     for (const [key, value] of Object.entries({ transitionMs: input.transitionMs, holdMs: input.holdMs })) {
-      if (!Number.isInteger(value) || value < (key === 'holdMs' ? 2000 : 0) || value > 120000) throw new Error(`Invalid ${key}`)
+      if (!Number.isInteger(value) || value < (key === 'holdMs' ? 2000 : 0) || value > MAX_DURATION_MS) throw new Error(`Invalid ${key}`)
     }
     total += input.transitionMs + input.holdMs
-    if (total > 120000) throw new Error('Tour exceeds 120 seconds')
+    if (total > MAX_DURATION_MS) throw new Error('Tour exceeds 60 seconds')
     const info = inspectNode(snapshot, input.nodeId)
+    if (info.kind === 'file' || info.kind === 'class') {
+      const index = order.get(input.nodeId)
+      if (index == null) throw new Error('Reading sequence required: run algo and load an analyze snapshot before touring files/classes')
+      if (index < previous) throw new Error('Stops must follow reading sequence order (fileRank, then class localRank)')
+      previous = index
+    }
     return { ...input, caption: input.caption.trim(), title: info.title, evidence: info.evidence }
   })
 }

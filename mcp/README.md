@@ -3,7 +3,7 @@
 Local stdio MCP tools let Codex inspect an existing project analysis, propose a
 tour, observe draft frames, and render a user-approved tour. Output is silent VP8
 WebM at 1920×1080 / 30fps, with a separate UTF-8 WebVTT file and an evidence panel.
-Tours have at most 8 stops and 120 seconds including movement. Files and classes
+Onboarding tours have at most 8 stops and 60 seconds including movement. Files and classes
 are supported; source-line and member stops are not.
 
 ## Setup (Linux / Windows)
@@ -55,14 +55,16 @@ TELESCODE_TOUR_OUTPUT = "/absolute/path/to/tours"
 ```
 
 An existing `analyze` JSON or `graph` JSON also works without the C++ executable.
-Graph-only snapshots have no reading ranks; missing values are omitted.
+Graph-only snapshots have no reading ranks; file/class tours require an analyze
+snapshot with reading sequence results. Run the core algorithm first when ranks
+are missing. The reading path uses fileRank, then class localRank within each file.
 The built frontend is served by the MCP process, so Vite and Tauri do not need to
 run. Rebuild `frontend` after modifying tour UI code.
 
 ## Agent workflow
 
 1. `open_project(path)` opens a DB or snapshot; it does not clone or scan.
-2. `get_project_overview`, `search_nodes`, `inspect_node` provide existing data
+2. `get_project_overview`, `get_reading_tour_order`, `search_nodes`, `inspect_node` provide existing data
    and valid node IDs. Use these to support factual captions.
 3. `create_tour_draft(projectId, title, language, stops)` accepts explicit
    `nodeId`, `caption`, `transitionMs`, `holdMs`. Hold must be at least 2 seconds.
@@ -99,8 +101,22 @@ rendered into the video; absent ranks are never invented. Class evidence labels
 any inherited rank as **Containing file rank**. Identifiers and captions are
 escaped when displayed. The manifest records snapshot hash, dimensions, codec,
 frame rate, duration and revision. Rendering samples frames from the approved
-timeline, so model latency is not included. A two-minute video can take longer
-than two minutes to render, depending on CPU and repository size.
+timeline, so model latency is not included. A one-minute video can take longer
+than one minute to render, depending on CPU and repository size.
+
+## Onboarding prompt and subtitle size
+
+The agent instructions are in [`prompts/onboarding.md`](prompts/onboarding.md).
+`src/server.ts` loads this file as MCP initialization instructions; restart the
+MCP server after editing it. It defines the onboarding purpose, reading sequence
+policy, caption writing, evidence handling, and review workflow. The server does
+not generate text itself; the connected agent writes captions using this guidance.
+
+The video shows the current and upcoming stops in a reading path panel. The
+generated `player.html` applies `video::cue { font-size: 50% }` to subtitles.
+VTT remains a separate portable file; external players control their own font
+size and do not inherit this HTML style. Existing videos/player files must be
+regenerated to get the new screen and subtitle styling.
 
 Use `playerUrl` while the server runs. For portable playback, serve the output
 directory with any local HTTP server and open `player.html`; loading VTT through

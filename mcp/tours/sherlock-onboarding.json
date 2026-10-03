@@ -1,0 +1,57 @@
+{
+  "title": "Sherlock 온보딩 — 결과 모델에서 검색 흐름까지",
+  "language": "ko",
+  "repositoryCommit": "574aeb4ac527b80c432fd04dd4411eddf3b54471",
+  "prompt": "mcp/prompts/onboarding.md",
+  "stops": [
+    {
+      "nodeId": "root",
+      "caption": "Sherlock은 여러 사이트에서 사용자 이름을 찾는 도구입니다.\n추천 읽기 순서로 결과 모델부터 사이트 정보와 검색 흐름까지 살펴봅니다.",
+      "transitionMs": 0,
+      "holdMs": 6000,
+      "sourceReferences": ["sherlock_project/sherlock.py:3", "sherlock_project/sherlock.py:170"]
+    },
+    {
+      "nodeId": "file:sherlock_project/result.py",
+      "caption": "result.py는 사이트별 검색 결과의 공통 형식을 정의합니다.\nQueryResult에는 사용자 이름, 사이트, 판정 상태와 조회 시간이 담깁니다.",
+      "transitionMs": 1000,
+      "holdMs": 7000,
+      "sourceReferences": ["sherlock_project/result.py:8", "sherlock_project/result.py:30"]
+    },
+    {
+      "nodeId": "class:sherlock_project/result.py::QueryStatus",
+      "caption": "QueryStatus는 발견·미발견·오류 등의 판정을 표현합니다.\n검색 결과와 화면 출력이 같은 상태 값을 사용한다는 점을 기억하세요.",
+      "transitionMs": 1000,
+      "holdMs": 5000,
+      "sourceReferences": ["sherlock_project/result.py:8", "sherlock_project/notify.py:6", "sherlock_project/sherlock.py:37"]
+    },
+    {
+      "nodeId": "file:sherlock_project/sites.py",
+      "caption": "sites.py는 검색할 사이트 목록과 URL 규칙을 읽습니다.\nSitesInformation은 JSON을 불러오고 SiteInformation은 개별 사이트 정보를 보관합니다.",
+      "transitionMs": 1000,
+      "holdMs": 7000,
+      "sourceReferences": ["sherlock_project/sites.py:14", "sherlock_project/sites.py:78", "sherlock_project/sites.py:149", "sherlock_project/sites.py:194"]
+    },
+    {
+      "nodeId": "file:sherlock_project/notify.py",
+      "caption": "notify.py는 검색 진행과 결과를 사용자에게 전달합니다.\nQueryNotify는 알림 인터페이스이고 QueryNotifyPrint는 터미널 출력 구현입니다.",
+      "transitionMs": 1000,
+      "holdMs": 7000,
+      "sourceReferences": ["sherlock_project/notify.py:14", "sherlock_project/notify.py:111"]
+    },
+    {
+      "nodeId": "file:sherlock_project/sherlock.py",
+      "caption": "이제 sherlock.py에서 앞의 구성요소가 연결되는 흐름을 읽습니다.\nmain은 입력과 설정을 준비하고, sherlock은 사이트를 조회해 결과와 알림을 만듭니다.",
+      "transitionMs": 1000,
+      "holdMs": 8000,
+      "sourceReferences": ["sherlock_project/sherlock.py:170", "sherlock_project/sherlock.py:212", "sherlock_project/sherlock.py:490", "sherlock_project/sherlock.py:538", "sherlock_project/sherlock.py:748", "sherlock_project/sherlock.py:811"]
+    },
+    {
+      "nodeId": "root",
+      "caption": "결과 모델·사이트 정보·알림을 알면 검색 로직을 읽기 쉬워집니다.\n다음은 sherlock.py의 main에서 입력이 검색으로 전달되는 과정을 따라가세요.",
+      "transitionMs": 1000,
+      "holdMs": 5000,
+      "sourceReferences": ["sherlock_project/sherlock.py:538", "sherlock_project/__main__.py:22"]
+    }
+  ]
+}

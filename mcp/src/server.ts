@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 import { randomUUID } from 'node:crypto'
+import { readFile } from 'node:fs/promises'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
@@ -9,7 +10,7 @@ import { startHttp } from './http.ts'
 import { renderTour } from './render.ts'
 import { chromium } from './browser.ts'
 import { buildGraphModel } from '../../frontend/src/graph/model.ts'
-import { inspectNode, durationMs } from '../../frontend/src/tour/model.ts'
+import { inspectNode, durationMs, readingTourOrder } from '../../frontend/src/tour/model.ts'
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
 const store = new TourStore(resolve(process.env.TELESCODE_TOUR_OUTPUT ?? resolve(root, 'mcp/artifacts')))
@@ -17,7 +18,7 @@ await store.restore()
 const http = await startHttp(store, resolve(root, 'frontend/dist'))
 const progress = new Map<string, { frame: number; total: number }>()
 const server = new McpServer({ name: 'telescode', version: '0.1.0' }, {
-  instructions: 'Investigate project nodes, then create a tour draft with captions and evidence. Show the review URL to the user and wait for their approval in that page. Never visit or submit the approval form yourself. Only render the exact approved revision. Tours are silent WebM plus separate VTT, at most 120 seconds and 8 stops; no member/source-line stops.',
+  instructions: await readFile(new URL('../prompts/onboarding.md', import.meta.url), 'utf8'),
 })
 const stop = z.object({ nodeId: z.string(), caption: z.string().min(1).max(300), transitionMs: z.number().int().min(0), holdMs: z.number().int().min(2000) })
 function tool(name: string, description: string, schema: z.ZodRawShape, readOnly: boolean, handler: (args: any) => unknown | Promise<unknown>) {
@@ -40,8 +41,9 @@ tool('search_nodes', 'Find repository, directory, file and class IDs by case-ins
   const model = buildGraphModel(store.project(projectId).snapshot, 'Repository')
   return model.nodes.filter(n => n.kind !== 'member' && `${n.id} ${n.label}`.toLowerCase().includes(query.toLowerCase())).slice(0, limit).map(n => ({ nodeId: n.id, kind: n.kind, title: n.label }))
 })
+tool('get_reading_tour_order', 'Read the onboarding path ordered by fileRank and class localRank. Maintain this relative order in tour stops.', { projectId: z.string() }, true, ({ projectId }) => readingTourOrder(store.project(projectId).snapshot))
 tool('inspect_node', 'Read a node, its children, direct relationships and computed evidence. Class metrics do not inherit file scores silently.', { projectId: z.string(), nodeId: z.string() }, true, ({ projectId, nodeId }) => inspectNode(store.project(projectId).snapshot, nodeId))
-tool('create_tour_draft', 'Save a proposed tour (1–8 stops, at most 120 seconds), return its full plan and user review URL. This does not generate a video.', { projectId: z.string(), title: z.string(), language: z.enum(['ko', 'en']).default('ko'), stops: z.array(stop).min(1).max(8) }, false, async ({ projectId, title, language, stops }) => {
+tool('create_tour_draft', 'Save an onboarding tour (1–8 stops, at most 60 seconds) in reading sequence order; return the full plan and user review URL.', { projectId: z.string(), title: z.string(), language: z.enum(['ko', 'en']).default('ko'), stops: z.array(stop).min(1).max(8) }, false, async ({ projectId, title, language, stops }) => {
   const draft = await store.create(projectId, title, language, stops)
   return { plan: draft.plan, durationMs: durationMs(draft.plan), reviewUrl: http.reviewUrl(draft), state: draft.state }
 })

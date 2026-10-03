@@ -8,3 +8,9 @@
 .tour-screen dl div { margin-top: 24px; }
 .tour-screen dt { font-size: 17px; color: var(--text-muted); }
 .tour-screen dd { margin: 6px 0 0; font-size: 26px; font-variant-numeric: tabular-nums; }
+.tour-screen nav { border-bottom: 1px solid var(--graph-region-stroke); padding-bottom: 16px; }
+.tour-screen nav ol { padding-left: 22px; font-size: 15px; }
+.tour-screen nav li { margin: 8px 0; overflow-wrap: anywhere; color: var(--text-muted); }
+.tour-screen nav li[aria-current] { color: var(--text-primary); font-weight: 700; }
+.tour-screen nav li.visited { opacity: 0.65; }
+.tour-screen dl div { margin-top: 14px; }

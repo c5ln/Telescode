@@ -52,7 +52,7 @@ export async function renderTour(draft: Draft, url: string, outputRoot: string, 
       writeFile(resolve(output, 'snapshot.json'), JSON.stringify(snapshot)),
       writeFile(resolve(output, 'tour.vtt'), toVtt(plan)),
       writeFile(resolve(output, 'manifest.json'), JSON.stringify({ schemaVersion: 1, tourId: plan.id, revision: plan.revision, snapshotHash: plan.snapshotHash, createdAt: new Date().toISOString(), video: { codec: 'vp8', width: WIDTH, height: HEIGHT, fps: FPS, durationMs: totalFrames * 1000 / FPS, audio: false }, subtitles: { format: 'webvtt', language: plan.language, embedded: false } }, null, 2)),
-      writeFile(resolve(output, 'player.html'), `<!doctype html><html lang="${plan.language}"><meta charset="utf-8"><title>Telescode tour</title><style>body{margin:0;background:#121212;color:white;font-family:system-ui}video{width:100%;max-height:95vh}</style><video controls><source src="tour.webm?token=${token}" type="video/webm"><track kind="subtitles" src="tour.vtt?token=${token}" srclang="${plan.language}" label="${plan.language}" default></video></html>`),
+      writeFile(resolve(output, 'player.html'), `<!doctype html><html lang="${plan.language}"><meta charset="utf-8"><title>Telescode tour</title><style>body{margin:0;background:#121212;color:white;font-family:system-ui}video{width:100%;max-height:95vh}video::cue{font-size:50%}</style><video controls><source src="tour.webm?token=${token}" type="video/webm"><track kind="subtitles" src="tour.vtt?token=${token}" srclang="${plan.language}" label="${plan.language}" default></video></html>`),
     ])
     return output
   } finally {
