@@ -76,6 +76,9 @@ secrets.*
 
 # AI / Claude tools
 .claude/
+.codex/
+.pytest_cache/
+.agents
 
 # ImGui
 imgui.ini
@@ -105,8 +108,13 @@ desktop.ini
 repos/*
 !repos/README.md
 docs/**
-output/**imgui.ini
+output/
 
 # Generated Learning-to-Rank model artifacts
 ltr/models/*
 !ltr/models/README.md
+!ltr/models/lambdarank-v1/
+!ltr/models/lambdarank-v1/model.txt
+!ltr/models/lambdarank-v1/artifact.json
+
+__pycache__

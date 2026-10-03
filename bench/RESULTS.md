@@ -381,7 +381,7 @@ non_overlap 0.869이다.
 
 **`file_rank`(제품이 실제 출력하는 읽기 순서)가 모든 지표에서 최하위다** — MRR 0.054로 원시 `pagerank`(0.116)의 절반도 안 된다.
 
-원인은 위상정렬 방향이다. condensation 간선을 뒤집어 leaf-first가 되는데(`ReadingSequencer.cpp`), 이는 "패치되는 파일"과 구조적으로 반대다. `docs/reading-direction.md` 참조.
+원인은 위상정렬 방향이다. condensation 간선을 뒤집어 leaf-first가 되는데(`ReadingSequencer.cpp`), 이는 "패치되는 파일"과 구조적으로 반대다. `ltr/docs/03-reading-direction.md` 참조.
 
 ⚠ **단 SWE-bench는 *관련성*을 재는 벤치마크이지 *읽는 순서*를 재지 않는다.** 온보딩 목적이라면 leaf-first가 옳을 수 있다. 벤치마크 점수를 근거로 뒤집을 사안이 아니며 **제품 결정으로 남아 있다.**
 
@@ -486,7 +486,7 @@ bench/.venv/bin/python -m bench.ltr.run_ltr \
   seed와 무관한 구조 피처(호출 거리, 모듈 응집도 등)를 따로 시험해볼 수 있다.
 - **PPR을 "1위 교체" 이상으로 만들 수 있는가** (§5) — `topk1`이 train CV에서 이기는 한
   전파는 부수적이다. d(damping)를 함께 튜닝하거나 seed를 더 넓게 유지하는 설계가 필요하다.
-- **읽기 방향 제품 결정** (§8) — `docs/reading-direction.md`
+- **읽기 방향 제품 결정** (§8) — `ltr/docs/03-reading-direction.md`
 - 온보딩용 순서와 작업 지원용 순서를 한 모델로 낼지, 모드를 분리할지
 - UI 통합 — `AlgoRunner::run(dbPath, cfg)`에 목적 질의 인자가 없다. 시그니처 변경 필요
 - 임베딩·리랭킹 비용/지연을 제품에서 감당할 것인가 — 현재 코퍼스 기준 임베딩 $0.97

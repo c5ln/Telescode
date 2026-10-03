@@ -20,3 +20,6 @@ artifact.json   # feature order, normalization, candidate policy, parameters
 The text model is intended to be loadable later through the LightGBM C API.
 The JSON sidecar must be validated first so C++ supplies features in exactly
 the training order and applies the same per-query min-max normalization.
+
+The design and experiment history is indexed chronologically in
+[`docs/README.md`](docs/README.md).

@@ -3,8 +3,13 @@ scratch/*
 bin/*
 !bin/.gitkeep
 data/*.csv
+!data/features_all_with_bm25__no_paths.csv
+!data/instances_all.csv
+!data/code_lexical2__no_paths.csv
+!data/vocab_overlap.csv
 data/*.log
 data/ltr_oof_*.json
+data/seed_all/embed_blobs.npz
 __pycache__/
 .venv/
 repos/

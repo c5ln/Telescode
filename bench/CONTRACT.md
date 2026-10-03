@@ -173,7 +173,7 @@ git checkout <base_commit>
 1. seed와 무관한 구조 피처 시험 (RESULTS.md §11) — 기각된 가설의 재도전 경로
 2. bm25 재조인을 커밋된 경로로 (감사 S2-2)
 3. `bench/features/test_extract.py` — C++/Python `resolve_module` 동등성 가드 (감사 S2-3)
-4. 읽기 방향 제품 결정 (`docs/reading-direction.md`)
+4. 읽기 방향 제품 결정 (`ltr/docs/03-reading-direction.md`)
 
 ---
 
