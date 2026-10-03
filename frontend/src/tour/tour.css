@@ -1,0 +1,10 @@
+.tour-screen { width: 1920px; height: 1080px; background: var(--bg-canvas); color: var(--text-primary); overflow: hidden; font-family: var(--font-ui); }
+.tour-screen header { height: 80px; padding: 24px 32px; box-sizing: border-box; font-size: 24px; border-bottom: 1px solid var(--graph-region-stroke); }
+.tour-screen header span { float: right; font-size: 18px; color: var(--text-muted); }
+.tour-screen canvas { display: block; width: 1540px; height: 1000px; }
+.tour-screen aside { position: absolute; top: 112px; left: 1564px; width: 324px; padding: 20px; box-sizing: border-box; }
+.tour-screen h2 { font-size: 22px; overflow-wrap: anywhere; }
+.tour-screen p { color: var(--text-muted); font-size: 16px; }
+.tour-screen dl div { margin-top: 24px; }
+.tour-screen dt { font-size: 17px; color: var(--text-muted); }
+.tour-screen dd { margin: 6px 0 0; font-size: 26px; font-variant-numeric: tabular-nums; }
