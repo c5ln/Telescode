@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "repositories": {
+    "pydata/xarray": {
+      "url": "https://github.com/pydata/xarray.git",
+      "path": "repos/xarray",
+      "instance_prefix": "pydata__xarray-"
+    },
+    "pytest-dev/pytest": {
+      "url": "https://github.com/pytest-dev/pytest.git",
+      "path": "repos/pytest",
+      "instance_prefix": "pytest-dev__pytest-"
+    }
+  }
+}

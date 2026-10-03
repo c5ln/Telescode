@@ -14,12 +14,15 @@
 // ── AlgoPass::run ─────────────────────────────────────────────────────────────
 
 AlgoPassResult AlgoPass::run(const Graph& g, const AlgoConfig& cfg,
-                              const std::vector<int>& loc_hint)
+                              const std::vector<double>& complexity)
 {
     auto pr  = PageRank::compute(g, cfg);
     auto bc  = make_bc_strategy(g.size(), cfg, level())->compute(g);
-    auto sc  = ScoreCombiner::combine(pr, bc, cfg.alpha, cfg.beta);
-    auto seq = ReadingSequencer::sequence(g, sc, loc_hint);
+    auto sc  = ScoreCombiner::combine(pr, bc, complexity,
+                                      cfg.alpha, cfg.beta, cfg.gamma,
+                                      cfg.score_norm_mode, cfg.complexity_neutral);
+    // complexity doubles as the tie-break cost: equal score -> easier file first.
+    auto seq = ReadingSequencer::sequence(g, sc, complexity);
     return {std::move(pr), std::move(bc), std::move(sc), std::move(seq)};
 }
 
@@ -118,6 +121,76 @@ AlgoRunResult AlgoRunner::merge(const AlgoPassResult&    file_result,
     return out;
 }
 
+// ── AlgoRunner::loadFileComplexity ────────────────────────────────────────────
+
+std::vector<double> AlgoRunner::loadFileComplexity(sqlite3*          db,
+                                                    const Graph&      file_graph,
+                                                    const AlgoConfig& cfg)
+{
+    // Neutral by default: file_graph also holds nodes with no `file` row, and
+    // is_generated files are skipped by ComplexityScorer, so their stored
+    // complexity_score is still the schema default 0.0 -- reading that as
+    // "trivially easy" would sort generated code to the very front.
+    std::vector<double> out(static_cast<std::size_t>(file_graph.size()),
+                            cfg.complexity_neutral);
+
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql = cfg.complexity_include_generated
+        ? "SELECT file_id, complexity_score FROM file;"
+        : "SELECT file_id, complexity_score FROM file WHERE is_generated = 0;";
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) return out;
+
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        const char* fid = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        if (!fid) continue;
+        auto it = file_graph.id_to_node.find(fid);
+        if (it == file_graph.id_to_node.end()) continue;
+        out[it->second] = sqlite3_column_double(stmt, 1);
+    }
+    sqlite3_finalize(stmt);
+    return out;
+}
+
+// ── AlgoRunner::personalizedPageRank ──────────────────────────────────────────
+
+std::vector<PprEntry> AlgoRunner::personalizedPageRank(
+        const char* dbPath, const std::vector<SeedEntry>& seeds, const AlgoConfig& cfg,
+        int* matched_seeds)
+{
+    if (matched_seeds) *matched_seeds = 0;
+
+    sqlite3* db = nullptr;
+    if (initDb(dbPath, &db) != SQLITE_OK) return {};
+
+    auto gbr = GraphBuilder::build(db, cfg);
+    sqlite3_close(db);
+
+    const Graph& fg = gbr.file_graph;
+    auto teleport = PageRank::makeTeleport(fg, seeds);
+    auto ppr      = PageRank::compute(fg, cfg, teleport);
+
+    if (matched_seeds) {
+        for (const SeedEntry& s : seeds)
+            if (s.weight > 0.0 && fg.id_to_node.count(s.file_id)) ++*matched_seeds;
+    }
+
+    std::vector<PprEntry> out;
+    out.reserve(gbr.file_loc_map.size());
+    for (int i = 0; i < fg.size(); ++i) {
+        const std::string& fid = fg.node_to_id[static_cast<NodeId>(i)];
+        // Same filter as merge(): the graph also holds unresolved IMPORTS
+        // targets (external module names) that are not project files.
+        if (gbr.file_loc_map.find(fid) == gbr.file_loc_map.end()) continue;
+        out.push_back({fid, static_cast<std::size_t>(i) < ppr.size() ? ppr[i] : 0.0});
+    }
+
+    std::sort(out.begin(), out.end(), [](const PprEntry& a, const PprEntry& b) {
+        if (a.ppr != b.ppr) return a.ppr > b.ppr;
+        return a.file_id < b.file_id;   // deterministic order for equal scores
+    });
+    return out;
+}
+
 // ── AlgoRunner::run ───────────────────────────────────────────────────────────
 
 AlgoRunResult AlgoRunner::run(const char* dbPath, const AlgoConfig& cfg)
@@ -125,31 +198,26 @@ AlgoRunResult AlgoRunner::run(const char* dbPath, const AlgoConfig& cfg)
     sqlite3* db = nullptr;
     if (initDb(dbPath, &db) != SQLITE_OK) return {};
 
-    auto gbr = GraphBuilder::build(db);
+    auto gbr = GraphBuilder::build(db, cfg);
 
-    // Complexity scoring is independent of the PageRank/BC reading-sequence
-    // pipeline below (writes directly to the `file` table), but needs the
-    // same open db handle and file_graph -- best-effort, doesn't block the
-    // reading-sequence result on failure.
+    // Complexity scoring writes directly to the `file` table, but the reading
+    // sequence also consumes it (as the gamma "ease" term and the tie-break
+    // cost), so it has to run first. Best-effort: on failure every file keeps
+    // the neutral cost and the sequence degrades to pure PR/BC.
     int complexityRc = ComplexityScorer::computeAndWrite(db, gbr.file_graph, cfg);
     if (complexityRc != SQLITE_OK) {
         std::fprintf(stderr, "AlgoRunner: complexity scoring failed (code %d): %s\n",
                      complexityRc, sqlite3_errmsg(db));
     }
 
-    // Build loc_hint for file-level pass (LOC descending tie-break)
-    const Graph& fg = gbr.file_graph;
-    std::vector<int> file_loc_hint(fg.size(), 0);
-    for (int i = 0; i < fg.size(); ++i) {
-        const std::string& fid = fg.node_to_id[static_cast<NodeId>(i)];
-        auto it = gbr.file_loc_map.find(fid);
-        if (it != gbr.file_loc_map.end()) file_loc_hint[i] = it->second;
-    }
-
-    auto file_result = FilePass{}.run(gbr.file_graph, cfg, file_loc_hint);
-    auto func_result = FunctionPass{}.run(gbr.func_graph, cfg);
+    auto file_complexity = loadFileComplexity(db, gbr.file_graph, cfg);
 
     sqlite3_close(db);
+
+    // Pass 2 entities have no complexity_score of their own, so the ease term
+    // and the cost tie-break are both inactive there.
+    auto file_result = FilePass{}.run(gbr.file_graph, cfg, file_complexity);
+    auto func_result = FunctionPass{}.run(gbr.func_graph, cfg);
 
     auto merged = merge(file_result, gbr.file_graph,
                         func_result, gbr.func_graph, gbr);

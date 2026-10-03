@@ -1,0 +1,1049 @@
+{
+  "headline": {
+    "LTR(full) - complexity [all]": {
+      "diff": 0.3305706319151232,
+      "ci_lo": 0.27123627992439875,
+      "ci_hi": 0.38871511664571756,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "LTR(full) - bm25 [all]": {
+      "diff": 0.1345117604969625,
+      "ci_lo": 0.09686403428899439,
+      "ci_hi": 0.1706503812511885,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "LTR(full) - ppr (목적 조건부 전파) [all]": {
+      "diff": 0.2192722856805221,
+      "ci_lo": 0.16808038991337632,
+      "ci_hi": 0.2670985394162596,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "LTR(full) - B2 = 0.6·PR + 0.4·BC [all]": {
+      "diff": 0.46647930377113195,
+      "ci_lo": 0.4104162004631801,
+      "ci_hi": 0.5224769861411203,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "LTR(full) - complexity [overlap]": {
+      "diff": 0.2417227666152997,
+      "ci_lo": 0.16337571109029633,
+      "ci_hi": 0.3157254267535394,
+      "p_two_sided": 0.0,
+      "n_paired": 106,
+      "underpowered": false
+    },
+    "LTR(full) - bm25 [overlap]": {
+      "diff": 0.1676213311633464,
+      "ci_lo": 0.11731488567856864,
+      "ci_hi": 0.22686768071312907,
+      "p_two_sided": 0.0,
+      "n_paired": 106,
+      "underpowered": false
+    },
+    "LTR(full) - ppr (목적 조건부 전파) [overlap]": {
+      "diff": 0.26503740991151215,
+      "ci_lo": 0.19685647018009308,
+      "ci_hi": 0.33774093406586486,
+      "p_two_sided": 0.0,
+      "n_paired": 106,
+      "underpowered": false
+    },
+    "LTR(full) - B2 = 0.6·PR + 0.4·BC [overlap]": {
+      "diff": 0.47896810679124285,
+      "ci_lo": 0.3956896780682303,
+      "ci_hi": 0.5595533011901507,
+      "p_two_sided": 0.0,
+      "n_paired": 106,
+      "underpowered": false
+    },
+    "LTR(full) - complexity [non_overlap]": {
+      "diff": 0.057581305810678426,
+      "ci_lo": 0.006046884577090395,
+      "ci_hi": 0.12017425886272222,
+      "p_two_sided": 0.026,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "LTR(full) - bm25 [non_overlap]": {
+      "diff": 0.05360405361593911,
+      "ci_lo": -0.014623237009533666,
+      "ci_hi": 0.14182307566648725,
+      "p_two_sided": 0.156,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "LTR(full) - ppr (목적 조건부 전파) [non_overlap]": {
+      "diff": 0.07666015924917322,
+      "ci_lo": 0.0032691596550226566,
+      "ci_hi": 0.17666785662000956,
+      "p_two_sided": 0.037,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "LTR(full) - B2 = 0.6·PR + 0.4·BC [non_overlap]": {
+      "diff": 0.013253431780004918,
+      "ci_lo": -0.11063854679953089,
+      "ci_hi": 0.14321628184949178,
+      "p_two_sided": 0.884,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "ppr - pagerank [all]": {
+      "diff": 0.25910231163698744,
+      "ci_lo": 0.20614977817167895,
+      "ci_hi": 0.3159169135683843,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "ppr - bc [all]": {
+      "diff": 0.21650428734645658,
+      "ci_lo": 0.16263464526718924,
+      "ci_hi": 0.2762204914306656,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "ppr - B2 = 0.6·PR + 0.4·BC [all]": {
+      "diff": 0.24720701809060985,
+      "ci_lo": 0.19554238529282447,
+      "ci_hi": 0.30437790804633924,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "ppr - combined (제품 현재 설정) [all]": {
+      "diff": 0.27637111020992156,
+      "ci_lo": 0.2230979281587254,
+      "ci_hi": 0.3337072584662374,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "ppr - complexity [all]": {
+      "diff": 0.11129834623460107,
+      "ci_lo": 0.05051961299736735,
+      "ci_hi": 0.17505220076550634,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "ppr - bm25 [all]": {
+      "diff": -0.0847605251835596,
+      "ci_lo": -0.10714148989027261,
+      "ci_hi": -0.06076608436376561,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "ppr - pagerank [overlap]": {
+      "diff": 0.21537856320089838,
+      "ci_lo": 0.14371318437808772,
+      "ci_hi": 0.29057859194548136,
+      "p_two_sided": 0.0,
+      "n_paired": 106,
+      "underpowered": false
+    },
+    "ppr - bc [overlap]": {
+      "diff": 0.1575523511881116,
+      "ci_lo": 0.0936048605086164,
+      "ci_hi": 0.22382650517252178,
+      "p_two_sided": 0.0,
+      "n_paired": 106,
+      "underpowered": false
+    },
+    "ppr - B2 = 0.6·PR + 0.4·BC [overlap]": {
+      "diff": 0.21393069687973076,
+      "ci_lo": 0.1452447778289707,
+      "ci_hi": 0.28469489437571005,
+      "p_two_sided": 0.0,
+      "n_paired": 106,
+      "underpowered": false
+    },
+    "ppr - combined (제품 현재 설정) [overlap]": {
+      "diff": 0.24484672145789185,
+      "ci_lo": 0.1773666367945638,
+      "ci_hi": 0.31690317775692867,
+      "p_two_sided": 0.0,
+      "n_paired": 106,
+      "underpowered": false
+    },
+    "ppr - complexity [overlap]": {
+      "diff": -0.023314643296212478,
+      "ci_lo": -0.10286094858881698,
+      "ci_hi": 0.0491386050581534,
+      "p_two_sided": 0.544,
+      "n_paired": 106,
+      "underpowered": false
+    },
+    "ppr - bm25 [overlap]": {
+      "diff": -0.09741607874816575,
+      "ci_lo": -0.13784364776399954,
+      "ci_hi": -0.06018985676972321,
+      "p_two_sided": 0.0,
+      "n_paired": 106,
+      "underpowered": false
+    },
+    "ppr - pagerank [non_overlap]": {
+      "diff": -0.04337791349851337,
+      "ci_lo": -0.07674104776452884,
+      "ci_hi": -0.01057051883713492,
+      "p_two_sided": 0.005,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "ppr - bc [non_overlap]": {
+      "diff": -0.14047020890141232,
+      "ci_lo": -0.33894676558210607,
+      "ci_hi": 0.030158796052163605,
+      "p_two_sided": 0.109,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "ppr - B2 = 0.6·PR + 0.4·BC [non_overlap]": {
+      "diff": -0.0634067274691683,
+      "ci_lo": -0.1522139481041968,
+      "ci_hi": 0.009991130257899584,
+      "p_two_sided": 0.096,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "ppr - combined (제품 현재 설정) [non_overlap]": {
+      "diff": -0.18160967569822062,
+      "ci_lo": -0.3832135794850365,
+      "ci_hi": -0.013946722684665989,
+      "p_two_sided": 0.03,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "ppr - complexity [non_overlap]": {
+      "diff": -0.019078853438494775,
+      "ci_lo": -0.112036603312854,
+      "ci_hi": 0.04600398878747615,
+      "p_two_sided": 0.737,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "ppr - bm25 [non_overlap]": {
+      "diff": -0.023056105633234097,
+      "ci_lo": -0.0807916603540265,
+      "ci_hi": 0.028698579836423634,
+      "p_two_sided": 0.393,
+      "n_paired": 17,
+      "underpowered": true
+    }
+  },
+  "ablation": {
+    "-graph - full [all]": {
+      "diff": -0.02046357489090467,
+      "ci_lo": -0.04501261682826084,
+      "ci_hi": 0.002642302691039098,
+      "p_two_sided": 0.074,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "-graph - full [overlap]": {
+      "diff": -0.031001469408071684,
+      "ci_lo": -0.07068579918701134,
+      "ci_hi": 0.008045104230432231,
+      "p_two_sided": 0.121,
+      "n_paired": 106,
+      "underpowered": false
+    },
+    "-graph - full [non_overlap]": {
+      "diff": 0.01685458979357231,
+      "ci_lo": -0.07082571001146838,
+      "ci_hi": 0.10513910690463647,
+      "p_two_sided": 0.684,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "-complexity - full [all]": {
+      "diff": -0.015661427247168107,
+      "ci_lo": -0.040776095378242366,
+      "ci_hi": 0.011233640402767106,
+      "p_two_sided": 0.26,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "-complexity - full [overlap]": {
+      "diff": -0.020399816994341992,
+      "ci_lo": -0.05621525959862909,
+      "ci_hi": 0.012090760544604746,
+      "p_two_sided": 0.237,
+      "n_paired": 106,
+      "underpowered": false
+    },
+    "-complexity - full [non_overlap]": {
+      "diff": -0.004124476639339856,
+      "ci_lo": -0.12995703583862125,
+      "ci_hi": 0.13535671823115983,
+      "p_two_sided": 0.876,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "-semantic - full [all]": {
+      "diff": -0.12336496348895992,
+      "ci_lo": -0.16581051656652004,
+      "ci_hi": -0.08057601926285235,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "-semantic - full [overlap]": {
+      "diff": -0.1149377874303539,
+      "ci_lo": -0.17297661715454585,
+      "ci_hi": -0.05861226078646738,
+      "p_two_sided": 0.001,
+      "n_paired": 106,
+      "underpowered": false
+    },
+    "-semantic - full [non_overlap]": {
+      "diff": -0.08583800908797658,
+      "ci_lo": -0.17267632037429442,
+      "ci_hi": -0.028259725448747098,
+      "p_two_sided": 0.0,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "graph only - full [all]": {
+      "diff": -0.13887736380509152,
+      "ci_lo": -0.18280447526462332,
+      "ci_hi": -0.09433546128952315,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "graph only - full [overlap]": {
+      "diff": -0.13339333331737968,
+      "ci_lo": -0.19086670755932947,
+      "ci_hi": -0.07787595482483306,
+      "p_two_sided": 0.0,
+      "n_paired": 106,
+      "underpowered": false
+    },
+    "graph only - full [non_overlap]": {
+      "diff": -0.09510219635232044,
+      "ci_lo": -0.18118965322253275,
+      "ci_hi": -0.03843200801679751,
+      "p_two_sided": 0.0,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "complexity only - full [all]": {
+      "diff": -0.30621575727660916,
+      "ci_lo": -0.36053879959149426,
+      "ci_hi": -0.2529654187471818,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "complexity only - full [overlap]": {
+      "diff": -0.2179478761876194,
+      "ci_lo": -0.29264743308461294,
+      "ci_hi": -0.13919409942082372,
+      "p_two_sided": 0.0,
+      "n_paired": 106,
+      "underpowered": false
+    },
+    "complexity only - full [non_overlap]": {
+      "diff": -0.05840877859087085,
+      "ci_lo": -0.11383930800656193,
+      "ci_hi": -0.017325834635341503,
+      "p_two_sided": 0.002,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "semantic only - full [all]": {
+      "diff": -0.13797892226794448,
+      "ci_lo": -0.17430250166412206,
+      "ci_hi": -0.10026573459502912,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "semantic only - full [overlap]": {
+      "diff": -0.17401007318213102,
+      "ci_lo": -0.23546467073767774,
+      "ci_hi": -0.12134018758871334,
+      "p_two_sided": 0.0,
+      "n_paired": 106,
+      "underpowered": false
+    },
+    "semantic only - full [non_overlap]": {
+      "diff": -0.06120648076685958,
+      "ci_lo": -0.1526980029690464,
+      "ci_hi": 0.013143427666706207,
+      "p_two_sided": 0.125,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "-ppr (목적 조건부만 제거) - full [all]": {
+      "diff": -0.005467020024627601,
+      "ci_lo": -0.024000394336988286,
+      "ci_hi": 0.011431406514846119,
+      "p_two_sided": 0.525,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "-ppr (목적 조건부만 제거) - full [overlap]": {
+      "diff": -0.025369057807300414,
+      "ci_lo": -0.06199298029759981,
+      "ci_hi": 0.01075585010500098,
+      "p_two_sided": 0.159,
+      "n_paired": 106,
+      "underpowered": false
+    },
+    "-ppr (목적 조건부만 제거) - full [non_overlap]": {
+      "diff": 0.031931710006369095,
+      "ci_lo": -0.010361302310097773,
+      "ci_hi": 0.09796288200371588,
+      "p_two_sided": 0.235,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "ppr only - full [all]": {
+      "diff": -0.22034857431155203,
+      "ci_lo": -0.2658761859355704,
+      "ci_hi": -0.16977977126618116,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "ppr only - full [overlap]": {
+      "diff": -0.26164010295708484,
+      "ci_lo": -0.33132481702148586,
+      "ci_hi": -0.1998117750010824,
+      "p_two_sided": 0.0,
+      "n_paired": 106,
+      "underpowered": false
+    },
+    "ppr only - full [non_overlap]": {
+      "diff": -0.10476435353179207,
+      "ci_lo": -0.22830894453290315,
+      "ci_hi": -0.02422529254817594,
+      "p_two_sided": 0.0,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "graph global only (ppr 제외) - full [all]": {
+      "diff": -0.3220690059391133,
+      "ci_lo": -0.3781876350731499,
+      "ci_hi": -0.2679862444974021,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "graph global only (ppr 제외) - full [overlap]": {
+      "diff": -0.21439485754457804,
+      "ci_lo": -0.2933550585412184,
+      "ci_hi": -0.13451052087963453,
+      "p_two_sided": 0.0,
+      "n_paired": 106,
+      "underpowered": false
+    },
+    "graph global only (ppr 제외) - full [non_overlap]": {
+      "diff": -0.0647620126763695,
+      "ci_lo": -0.11614988906178446,
+      "ci_hi": -0.025849721884381952,
+      "p_two_sided": 0.0,
+      "n_paired": 17,
+      "underpowered": true
+    }
+  },
+  "fusion": {
+    "RRF(bm25, ppr) - LTR(full) [all]": {
+      "diff": -0.13972314762424878,
+      "ci_lo": -0.18129828880256388,
+      "ci_hi": -0.09620280013710937,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "RRF(bm25, bc) - LTR(full) [all]": {
+      "diff": -0.26626277428658457,
+      "ci_lo": -0.3195789914517553,
+      "ci_hi": -0.21120505177471666,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "RRF(bm25, combined) - LTR(full) [all]": {
+      "diff": -0.26301556698389317,
+      "ci_lo": -0.31329457987447124,
+      "ci_hi": -0.21281555977169025,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "RRF(bm25, complexity, bc) - LTR(full) [all]": {
+      "diff": -0.278737923683437,
+      "ci_lo": -0.33366768098477895,
+      "ci_hi": -0.2233520717275903,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "RRF(LTR, ppr) - LTR(full) [all]": {
+      "diff": -0.11669725985388242,
+      "ci_lo": -0.15901994649287965,
+      "ci_hi": -0.07453294701466022,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "RRF(LTR, bc) - LTR(full) [all]": {
+      "diff": -0.2688334079667258,
+      "ci_lo": -0.32480490249456045,
+      "ci_hi": -0.2150199883659914,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "RRF(LTR, combined) - LTR(full) [all]": {
+      "diff": -0.2891124417990189,
+      "ci_lo": -0.3462154112645315,
+      "ci_hi": -0.2317163159382525,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "RRF(bm25, ppr) - bm25 [all]": {
+      "diff": -0.005211387127286271,
+      "ci_lo": -0.025112571611243452,
+      "ci_hi": 0.013562584657221911,
+      "p_two_sided": 0.583,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "RRF(bm25, bc) - bm25 [all]": {
+      "diff": -0.1317510137896221,
+      "ci_lo": -0.18832564507809627,
+      "ci_hi": -0.07895032030247837,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "RRF(bm25, combined) - bm25 [all]": {
+      "diff": -0.1285038064869307,
+      "ci_lo": -0.18258780102673816,
+      "ci_hi": -0.0790472642873484,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "RRF(bm25, complexity, bc) - bm25 [all]": {
+      "diff": -0.14422616318647458,
+      "ci_lo": -0.20301870538932112,
+      "ci_hi": -0.09045218112513556,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "RRF(LTR, ppr) - bm25 [all]": {
+      "diff": 0.017814500643080083,
+      "ci_lo": -0.011740576607490396,
+      "ci_hi": 0.04793690570601955,
+      "p_two_sided": 0.244,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "RRF(LTR, bc) - bm25 [all]": {
+      "diff": -0.1343216474697633,
+      "ci_lo": -0.19537530521723628,
+      "ci_hi": -0.08029526401601582,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "RRF(LTR, combined) - bm25 [all]": {
+      "diff": -0.15460068130205648,
+      "ci_lo": -0.21696373856135903,
+      "ci_hi": -0.097664172072913,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "RRF(bm25, ppr) - LTR(full) [non_overlap]": {
+      "diff": -0.03861636586466487,
+      "ci_lo": -0.16101376312271168,
+      "ci_hi": 0.044068533934578526,
+      "p_two_sided": 0.513,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "RRF(bm25, bc) - LTR(full) [non_overlap]": {
+      "diff": -0.029116241865429767,
+      "ci_lo": -0.09220846265671381,
+      "ci_hi": 0.023302154031902035,
+      "p_two_sided": 0.293,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "RRF(bm25, combined) - LTR(full) [non_overlap]": {
+      "diff": -0.03438058062911404,
+      "ci_lo": -0.14978143097077945,
+      "ci_hi": 0.060116041178196224,
+      "p_two_sided": 0.495,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "RRF(bm25, complexity, bc) - LTR(full) [non_overlap]": {
+      "diff": -0.04556196065347003,
+      "ci_lo": -0.10957609800336585,
+      "ci_hi": 0.008086870032709867,
+      "p_two_sided": 0.092,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "RRF(LTR, ppr) - LTR(full) [non_overlap]": {
+      "diff": -0.05511098878443788,
+      "ci_lo": -0.17322772385915164,
+      "ci_hi": 0.014943699494195177,
+      "p_two_sided": 0.259,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "RRF(LTR, bc) - LTR(full) [non_overlap]": {
+      "diff": -0.022176519694046312,
+      "ci_lo": -0.08691071926777506,
+      "ci_hi": 0.02812370563831516,
+      "p_two_sided": 0.474,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "RRF(LTR, combined) - LTR(full) [non_overlap]": {
+      "diff": 0.08837152073845365,
+      "ci_lo": -0.050323742161246056,
+      "ci_hi": 0.2440822440249995,
+      "p_two_sided": 0.242,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "RRF(bm25, ppr) - bm25 [non_overlap]": {
+      "diff": 0.014987687751274237,
+      "ci_lo": -0.04865350857520136,
+      "ci_hi": 0.07281444089467813,
+      "p_two_sided": 0.603,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "RRF(bm25, bc) - bm25 [non_overlap]": {
+      "diff": 0.024487811750509337,
+      "ci_lo": -0.058929848899088165,
+      "ci_hi": 0.11739912141596179,
+      "p_two_sided": 0.663,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "RRF(bm25, combined) - bm25 [non_overlap]": {
+      "diff": 0.019223472986825065,
+      "ci_lo": -0.04990086289759906,
+      "ci_hi": 0.07859289443878528,
+      "p_two_sided": 0.575,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "RRF(bm25, complexity, bc) - bm25 [non_overlap]": {
+      "diff": 0.008042092962469083,
+      "ci_lo": -0.07748531346030445,
+      "ci_hi": 0.10240519081061646,
+      "p_two_sided": 0.941,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "RRF(LTR, ppr) - bm25 [non_overlap]": {
+      "diff": -0.0015069351684987803,
+      "ci_lo": -0.0648744215424064,
+      "ci_hi": 0.04978691994910323,
+      "p_two_sided": 0.996,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "RRF(LTR, bc) - bm25 [non_overlap]": {
+      "diff": 0.03142753392189279,
+      "ci_lo": -0.05463703798874071,
+      "ci_hi": 0.12686034606719626,
+      "p_two_sided": 0.534,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "RRF(LTR, combined) - bm25 [non_overlap]": {
+      "diff": 0.14197557435439273,
+      "ci_lo": -0.011574641644774385,
+      "ci_hi": 0.31041875653581463,
+      "p_two_sided": 0.074,
+      "n_paired": 17,
+      "underpowered": true
+    }
+  },
+  "size_control": {
+    "complexity - logical_loc [all]": {
+      "diff": 0.10738915691743259,
+      "ci_lo": 0.0829154537590402,
+      "ci_hi": 0.13215959053730048,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "complexity | loc (rank resid) - logical_loc [all]": {
+      "diff": -0.10141945335398209,
+      "ci_lo": -0.13951035182181376,
+      "ci_hi": -0.06556879203090069,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "complexity - logical_loc [non_overlap]": {
+      "diff": 0.02907025202883813,
+      "ci_lo": 0.004223727049954795,
+      "ci_hi": 0.0670034567856528,
+      "p_two_sided": 0.0,
+      "n_paired": 17,
+      "underpowered": true
+    },
+    "complexity | loc (rank resid) - logical_loc [non_overlap]": {
+      "diff": 0.019279925724200536,
+      "ci_lo": -0.113165365317526,
+      "ci_hi": 0.13238623122310156,
+      "p_two_sided": 0.729,
+      "n_paired": 17,
+      "underpowered": true
+    }
+  },
+  "chosen_params": {
+    "full (all groups)": [
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 50,
+        "learning_rate": 0.1,
+        "n_estimators": 100
+      }
+    ],
+    "-graph": [
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 31,
+        "min_child_samples": 20,
+        "learning_rate": 0.1,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 50,
+        "learning_rate": 0.1,
+        "n_estimators": 100
+      }
+    ],
+    "-complexity": [
+      {
+        "num_leaves": 7,
+        "min_child_samples": 50,
+        "learning_rate": 0.1,
+        "n_estimators": 100
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      }
+    ],
+    "-semantic": [
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 50,
+        "learning_rate": 0.1,
+        "n_estimators": 100
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 50,
+        "learning_rate": 0.1,
+        "n_estimators": 100
+      }
+    ],
+    "graph only": [
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 50,
+        "learning_rate": 0.1,
+        "n_estimators": 100
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      }
+    ],
+    "complexity only": [
+      {
+        "num_leaves": 7,
+        "min_child_samples": 50,
+        "learning_rate": 0.1,
+        "n_estimators": 100
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      }
+    ],
+    "semantic only": [
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      }
+    ],
+    "-ppr (목적 조건부만 제거)": [
+      {
+        "num_leaves": 15,
+        "min_child_samples": 20,
+        "learning_rate": 0.05,
+        "n_estimators": 300
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 50,
+        "learning_rate": 0.1,
+        "n_estimators": 100
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 50,
+        "learning_rate": 0.1,
+        "n_estimators": 100
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 50,
+        "learning_rate": 0.1,
+        "n_estimators": 100
+      }
+    ],
+    "ppr only": [
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      }
+    ],
+    "graph global only (ppr 제외)": [
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 30,
+        "learning_rate": 0.05,
+        "n_estimators": 200
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 50,
+        "learning_rate": 0.1,
+        "n_estimators": 100
+      },
+      {
+        "num_leaves": 7,
+        "min_child_samples": 50,
+        "learning_rate": 0.1,
+        "n_estimators": 100
+      }
+    ]
+  },
+  "notes": [
+    "구간 라벨 없는 인스턴스 119개는 구간 분석에서 제외 (전체 229개 중). vocab_overlap은 xarray만 덮는다",
+    "gold 437개 중 스캔에 있는 것 423개 (차이 14개가 Recall 상한을 깎는다)"
+  ],
+  "dropped_features": []
+}

@@ -18,6 +18,13 @@ struct ReadingEntry {
     double      combined_score = 0.0;
 };
 
+// Personalized PageRank 결과 한 행. bench 피처 매트릭스의 `ppr` 컬럼 원본
+// (bench/schema.py C.ppr). reading_sequence에는 아직 저장 경로가 없다.
+struct PprEntry {
+    std::string file_id;
+    double      ppr = 0.0;
+};
+
 // AlgoRunner::run()의 반환값; reading_sequence 테이블 전체 내용을 메모리에 보관
 struct AlgoRunResult {
     std::vector<ReadingEntry> entries;
@@ -27,7 +34,7 @@ struct AlgoRunResult {
 struct AlgoPassResult {
     std::vector<double> pr;   // 노드별 PageRank 점수 (raw, NodeId 인덱스)
     std::vector<double> bc;   // 노드별 BC 점수 (raw, NodeId 인덱스)
-    std::vector<double> sc;   // 노드별 결합 점수 (min-max 정규화 후 가중합)
+    std::vector<double> sc;   // 노드별 결합 점수 (PR/BC 정규화 + ease 항 가중합)
     std::vector<NodeId> seq;  // 읽기 순서로 정렬된 NodeId 배열 (index 0 = 첫 번째로 읽을 노드)
 };
 
@@ -35,9 +42,11 @@ struct AlgoPassResult {
 // FilePass(Pass 1)와 FunctionPass(Pass 2)가 level()만 오버라이드해 BC 전략을 분기한다.
 class AlgoPass {
 public:
-    // loc_hint: 동점 시 LOC 내림차순 보조 정렬에 사용 (NodeId 인덱스, 없으면 빈 벡터)
+    // complexity: 노드별 이해 비용 [0,1] (NodeId 인덱스). combined_score의 gamma
+    // 항(= 1 - complexity)과 동점 시 오름차순 보조 정렬에 함께 쓰인다.
+    // 빈 벡터면 두 경로 모두 비활성 → 기존 PR/BC 전용 동작과 동일.
     AlgoPassResult run(const Graph& g, const AlgoConfig& cfg,
-                       const std::vector<int>& loc_hint = {});
+                       const std::vector<double>& complexity = {});
 protected:
     virtual PassLevel level() const = 0;
     virtual ~AlgoPass() = default;
@@ -73,4 +82,22 @@ public:
                                 const AlgoPassResult&    func_result,
                                 const Graph&             func_graph,
                                 const GraphBuilderResult& gbr);
+
+    // file.complexity_score를 file_graph의 NodeId 인덱스 벡터로 읽어온다.
+    // `file` 행이 없거나 ComplexityScorer가 건너뛴 노드는 cfg.complexity_neutral.
+    static std::vector<double> loadFileComplexity(sqlite3*          db,
+                                                   const Graph&      file_graph,
+                                                   const AlgoConfig& cfg);
+
+    // seed에서 출발하는 Personalized PageRank를 파일 그래프 위에서 계산한다.
+    // seeds가 비었거나 어느 file_id도 그래프에 없으면 균등 teleport로 폴백해
+    // 기존 PageRank와 동일한 결과를 낸다.
+    // 반환: 실제 `file` 행이 있는 노드만, ppr 내림차순. 해소되지 않은 import
+    // 대상(외부 모듈)은 그래프에는 있지만 결과에서 제외된다.
+    // matched_seeds(선택): 실제로 그래프 노드에 대응된 seed 파일 수. 0이면 결과가
+    // PPR이 아니라 plain PageRank다 — 호출자가 그 둘을 구분해야 할 때 쓴다.
+    static std::vector<PprEntry> personalizedPageRank(const char* dbPath,
+                                                       const std::vector<SeedEntry>& seeds,
+                                                       const AlgoConfig& cfg,
+                                                       int* matched_seeds = nullptr);
 };

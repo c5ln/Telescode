@@ -60,6 +60,19 @@ static uint64_t get_uint64(sqlite3* db, const char* key, uint64_t def)
     return val;
 }
 
+static bool has_key(sqlite3* db, const char* key)
+{
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(db,
+            "SELECT 1 FROM reading_sequence_config WHERE config_key = ?;",
+            -1, &stmt, nullptr) != SQLITE_OK)
+        return false;
+    sqlite3_bind_text(stmt, 1, key, -1, SQLITE_STATIC);
+    const bool found = sqlite3_step(stmt) == SQLITE_ROW;
+    sqlite3_finalize(stmt);
+    return found;
+}
+
 static int upsert(sqlite3* db, const char* key, const char* value)
 {
     sqlite3_stmt* stmt = nullptr;
@@ -90,8 +103,18 @@ AlgoConfig AlgoDbWriter::loadConfig(const char* dbPath)
     AlgoConfig cfg;
     if (initDb(dbPath, &db) != SQLITE_OK) return cfg;
 
+    // Version 1 = any DB seeded before the schema version existed.
+    const int stored_version = get_int(db, "config_version", 1);
+
     cfg.alpha           = get_double(db, "alpha",         cfg.alpha);
     cfg.beta            = get_double(db, "beta",          cfg.beta);
+    cfg.gamma           = get_double(db, "gamma",         cfg.gamma);
+    cfg.score_norm_mode = get_int   (db, "score_norm_mode", cfg.score_norm_mode);
+    cfg.complexity_neutral = get_double(db, "complexity_neutral", cfg.complexity_neutral);
+    cfg.edge_w_inherits = get_double(db, "edge_w_inherits", cfg.edge_w_inherits);
+    cfg.edge_w_calls    = get_double(db, "edge_w_calls",    cfg.edge_w_calls);
+    cfg.edge_w_imports  = get_double(db, "edge_w_imports",  cfg.edge_w_imports);
+    cfg.edge_count_mode = get_int   (db, "edge_count_mode", cfg.edge_count_mode);
     cfg.damping         = get_double(db, "damping",       cfg.damping);
     cfg.max_iter        = get_int   (db, "max_iter",      cfg.max_iter);
     cfg.convergence_eps = get_double(db, "eps",           cfg.convergence_eps);
@@ -116,6 +139,21 @@ AlgoConfig AlgoDbWriter::loadConfig(const char* dbPath)
     cfg.complexity_nesting_avg_blend = get_double(db, "complexity_nesting_avg_blend", cfg.complexity_nesting_avg_blend);
     cfg.complexity_include_generated = get_int(db, "complexity_include_generated",
                                                 cfg.complexity_include_generated ? 1 : 0) != 0;
+
+    // Defaults that must override what an older build already persisted.
+    // reading_sequence_config round-trips through write(), so without this a bad
+    // default seeded once would survive every later run of a corrected build.
+    // Only an actually-stored value can need overriding; a DB that has never been
+    // written carries no gamma row, and warning on every fresh instance DB would
+    // bury the cases that matter.
+    if (stored_version < 2 && has_key(db, "gamma")) {
+        // gamma 1.5 was fitted to the F4 summary statistic of the very corpus it
+        // was being validated on, and it let the ease term dominate the ranking.
+        cfg.gamma = AlgoConfig{}.gamma;
+        std::fprintf(stderr,
+            "AlgoDbWriter: config_version %d < %d -- resetting gamma to the "
+            "current default (%.3g)\n", stored_version, kAlgoConfigVersion, cfg.gamma);
+    }
 
     sqlite3_close(db);
     return cfg;
@@ -202,8 +240,16 @@ int AlgoDbWriter::updateConfig(sqlite3* db, const AlgoConfig& cfg)
         rc = upsert(db, k, buf);
     };
 
+    i("config_version", kAlgoConfigVersion);
     d("alpha",         cfg.alpha);
     d("beta",          cfg.beta);
+    d("gamma",         cfg.gamma);
+    i("score_norm_mode",    cfg.score_norm_mode);
+    d("complexity_neutral", cfg.complexity_neutral);
+    d("edge_w_inherits",    cfg.edge_w_inherits);
+    d("edge_w_calls",       cfg.edge_w_calls);
+    d("edge_w_imports",     cfg.edge_w_imports);
+    i("edge_count_mode",    cfg.edge_count_mode);
     d("damping",       cfg.damping);
     i("max_iter",      cfg.max_iter);
     d("eps",           cfg.convergence_eps);

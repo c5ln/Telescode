@@ -1,0 +1,15 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+  encode [400/6308] chunks=5,586 87s eta=1278s
+  encode [800/6308] chunks=12,321 187s eta=1285s
+  encode [1200/6308] chunks=18,893 319s eta=1357s
+  encode [1600/6308] chunks=26,266 442s eta=1301s
+  encode [2000/6308] chunks=33,152 580s eta=1250s
+  encode [2400/6308] chunks=40,349 712s eta=1160s
+  encode [2800/6308] chunks=47,043 833s eta=1044s
+  encode [3053/6308] chunks=51,024 905s eta=965s
+  encode [3453/6308] chunks=54,037 952s eta=788s
+  encode [3853/6308] chunks=56,976 1017s eta=648s
+  encode [4253/6308] chunks=59,874 1082s eta=523s
+  encode [4653/6308] chunks=62,810 1169s eta=416s
+  encode [5053/6308] chunks=65,780 1245s eta=309s
+  encode [5453/6308] chunks=68,757 3097s eta=486s

@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include "algo/AlgoRunner.h"
 #include "algo/Scoring.h"
 #include "db/db.h"
 #include <sqlite3.h>
@@ -220,5 +221,75 @@ TEST(ComplexityScorerComputeAndWrite, EmptyFileTableSucceedsWithoutError) {
     AlgoConfig cfg;
     EXPECT_EQ(ComplexityScorer::computeAndWrite(db, g, cfg), SQLITE_OK);
 
+    sqlite3_close(db);
+}
+
+// ── AlgoRunner::loadFileComplexity ────────────────────────────────────────────
+// The bridge that was missing: complexity_score was written to `file` and never
+// read back, so the sequencer could not use it.
+
+TEST(LoadFileComplexity, ReadsScoresAndNeutralizesUnscoredNodes) {
+    sqlite3* db = nullptr;
+    ASSERT_EQ(initDb(":memory:", &db), SQLITE_OK);
+
+    char* err = nullptr;
+    int rc = sqlite3_exec(db,
+        "INSERT INTO file(file_id, file_name, language, raw_loc, is_generated, complexity_score) VALUES"
+        " ('a.py','a.py','python',100,0,0.25),"
+        " ('b.py','b.py','python',100,0,0.75),"
+        " ('gen.py','gen.py','python',50,1,0.0);",
+        nullptr, nullptr, &err);
+    ASSERT_EQ(rc, SQLITE_OK) << (err ? err : "");
+
+    Graph g;
+    NodeId a   = g.get_or_add("a.py");
+    NodeId b   = g.get_or_add("b.py");
+    NodeId gen = g.get_or_add("gen.py");
+    NodeId ext = g.get_or_add("os");   // unresolved import target, no `file` row
+
+    AlgoConfig cfg;  // complexity_include_generated = false, neutral = 0.5
+    auto cx = AlgoRunner::loadFileComplexity(db, g, cfg);
+
+    ASSERT_EQ(cx.size(), 4u);
+    EXPECT_DOUBLE_EQ(cx[a], 0.25);
+    EXPECT_DOUBLE_EQ(cx[b], 0.75);
+    // gen.py's stored 0.0 is the schema default, not a real score -- taking it
+    // literally would rank generated code as the easiest thing in the repo.
+    EXPECT_DOUBLE_EQ(cx[gen], cfg.complexity_neutral);
+    EXPECT_DOUBLE_EQ(cx[ext], cfg.complexity_neutral);
+
+    sqlite3_close(db);
+}
+
+TEST(LoadFileComplexity, IncludeGeneratedFlagTakesStoredScore) {
+    sqlite3* db = nullptr;
+    ASSERT_EQ(initDb(":memory:", &db), SQLITE_OK);
+
+    char* err = nullptr;
+    int rc = sqlite3_exec(db,
+        "INSERT INTO file(file_id, file_name, language, raw_loc, is_generated, complexity_score) VALUES"
+        " ('gen.py','gen.py','python',50,1,0.4);",
+        nullptr, nullptr, &err);
+    ASSERT_EQ(rc, SQLITE_OK) << (err ? err : "");
+
+    Graph g;
+    NodeId gen = g.get_or_add("gen.py");
+
+    AlgoConfig cfg;
+    cfg.complexity_include_generated = true;
+    auto cx = AlgoRunner::loadFileComplexity(db, g, cfg);
+
+    ASSERT_EQ(cx.size(), 1u);
+    EXPECT_DOUBLE_EQ(cx[gen], 0.4);
+
+    sqlite3_close(db);
+}
+
+TEST(LoadFileComplexity, EmptyGraphReturnsEmpty) {
+    sqlite3* db = nullptr;
+    ASSERT_EQ(initDb(":memory:", &db), SQLITE_OK);
+    Graph g;
+    AlgoConfig cfg;
+    EXPECT_TRUE(AlgoRunner::loadFileComplexity(db, g, cfg).empty());
     sqlite3_close(db);
 }

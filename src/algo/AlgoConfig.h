@@ -2,12 +2,43 @@
 
 #include <cstdint>
 
+// reading_sequence_config 스키마 버전.
+// 이미 DB에 저장된 값을 **무시하고** 새 기본값을 강제해야 할 때만 올린다.
+// 오래된 빌드가 seed한 DB는 낮은 버전을 들고 있고, loadConfig가 해당 키의
+// 저장값을 버린다.
+//   1 -> 2: gamma 기본값 1.5 -> 0.2
+inline constexpr int kAlgoConfigVersion = 2;
+
 // 읽기 순서 알고리즘 전체에 걸친 하이퍼파라미터 집합.
 // DB 동기화는 AlgoDbWriter::loadConfig / write 를 통해 이루어진다.
 struct AlgoConfig {
-    // combined = (alpha/(alpha+beta)) * PR_norm + (beta/(alpha+beta)) * BC_norm
+    // combined = (alpha*PR_norm + beta*BC_norm + gamma*ease) / (alpha+beta+gamma)
+    // where ease = 1 - complexity_score. gamma is only applied at the file level
+    // (Pass 2 has no complexity_score).
+    //
+    // Importance decides the order; understanding cost only breaks near-ties.
+    // gamma=0.2 gives ease 1/6 of the weight, enough to separate files PR and BC
+    // score alike and not enough to reorder files they rank differently.
+    // Raising gamma until "read the easy files first" wins outright inverts the
+    // tool: the sequence fills up with trivial leaves and the files that carry
+    // the codebase sink. gamma is a hyperparameter, so its value belongs to
+    // Phase 4 CV on training instances -- never to a summary statistic measured
+    // on the corpus being diagnosed.
     double   alpha             = 0.6;
     double   beta              = 0.4;
+    double   gamma             = 0.2;
+
+    // How PR/BC are mapped to [0,1] before the weighted sum.
+    //   0 = min-max, 1 = percentile rank.
+    // min-max squashes a 187x-span PageRank distribution against the bottom of
+    // the range, collapsing most files onto an identical score; percentile rank
+    // is position-based and also matches what ComplexityScorer already does.
+    int      score_norm_mode   = 1;
+
+    // complexity_score stand-in for files the scorer skipped (is_generated=1) or
+    // graph nodes with no `file` row. 0.5 = neutral; the schema default is 0.0,
+    // which would otherwise read as "trivially easy" and sort them to the front.
+    double   complexity_neutral = 0.5;
 
     // PageRank (power method)
     double   damping           = 0.85;  // random surfer가 링크를 따를 확률
@@ -51,4 +82,15 @@ struct AlgoConfig {
 
     // false(0): is_generated=1 files are excluded from the scoring population.
     bool complexity_include_generated = false;
+
+    // ── Graph edge weights ────────────────────────────────────────────────
+    // Only PageRank consumes these; SCC and Brandes see the unweighted graph.
+    double edge_w_inherits = 3.0;
+    double edge_w_calls    = 2.0;
+    double edge_w_imports  = 1.0;
+
+    // How the number of entity pairs behind one file→file edge scales its weight.
+    //   0 = ignore, 1 = linear (w*cnt), 2 = log (w*(1+ln cnt))
+    // Linear lets a single hot file pair swamp the graph, so log is the default.
+    int    edge_count_mode = 2;
 };

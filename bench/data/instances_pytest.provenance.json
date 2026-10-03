@@ -1,0 +1,15 @@
+{
+  "pinned_from": "commit : e2501cb2e296e3ffb0ed9c268e4fff5af5083ca9\nsubject: fix(algo): 상대 임포트 해석 + PPR CLI + 어휘 중첩 분석 (#37)\ndate   : 2026-08-24T10:13:43+09:00\nclean  : 0 uncommitted changes\n반영된 것:\n  - gamma = 0.2 (ease는 tie-break 수준)\n  - resolve_module 상대 임포트 해석 (336/336)\n  - 간선 가중치 INHERITS>CALLS>IMPORTS\n  - percentile 정규화, complexity 연결",
+  "binaries": {
+    "scanner": {
+      "path": "/home/cheonsh/Telescode/bench/bin/TelescodeScanner",
+      "md5": "921cbf6b4895944feb749dec66d2d0bb"
+    },
+    "algo": {
+      "path": "/home/cheonsh/Telescode/bench/bin/TelescodeAlgo",
+      "md5": "18eaf26b8a689c81050929634f9f537f"
+    }
+  },
+  "features_csv": "bench/data/features_pytest.csv",
+  "repo": "pytest-dev/pytest"
+}

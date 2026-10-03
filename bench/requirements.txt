@@ -1,0 +1,10 @@
+# Reproduces the Python model-training and test stack from bench/.venv.
+# Python: CPython 3.11.2
+joblib==1.5.3
+lightgbm==4.7.0
+numpy==1.26.4
+pandas==3.0.2
+pytest==9.1.1
+scikit-learn==1.8.0
+scipy==1.17.1
+threadpoolctl==3.6.0
