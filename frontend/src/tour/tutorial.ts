@@ -20,10 +20,20 @@ export interface SavedTour {
   updatedMs: number
 }
 
+/** Whether the agent that writes tours, Claude Code, can run. */
+export interface AgentStatus {
+  installed: boolean
+  signedIn: boolean
+}
+
 export interface TourLibrary {
   list(): Promise<SavedTour[]>
   /** Have a tour written for the repository analyzed in `dbPath`; resolves once it is saved. */
   generate?(dbPath: string): Promise<void>
+  /** Whether the agent is installed and signed in. Asked only when a tour must be written. */
+  agentStatus?(): Promise<AgentStatus>
+  /** Start the agent's sign-in in the browser; resolves once signed in. */
+  signIn?(): Promise<void>
 }
 
 async function invokeTours<T>(command: string, args?: Record<string, unknown>): Promise<T> {
@@ -47,6 +57,8 @@ const generating = new Map<string, Promise<void>>()
  */
 export const tauriTourLibrary: TourLibrary = {
   list: () => invokeTours<SavedTour[]>('list_tours'),
+  agentStatus: () => invokeTours<AgentStatus>('claude_status'),
+  signIn: () => invokeTours<void>('claude_sign_in'),
   generate(dbPath) {
     let run = generating.get(dbPath)
     if (!run) {

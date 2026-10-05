@@ -14,10 +14,16 @@ export type TutorialState =
   | { status: 'off' }
   /** Looking for a saved tour after the user asked for the tutorial. */
   | { status: 'searching' }
-  /** No tour yet: one is being generated; `ready` once it is saved, `error` if that failed. */
-  | { status: 'setup'; ready: SavedTour | null; error: string | null }
+  /**
+   * No tour yet, so one is made: Claude Code is checked, signed in if needed
+   * (`signing-in`), then writes it (`generating`). `ready` once it is saved,
+   * `error` if a step failed.
+   */
+  | { status: 'setup'; phase: SetupPhase; ready: SavedTour | null; error: string | null }
   /** `finished` once playback has run through the last step. */
   | { status: 'playing'; tour: SavedTour; index: number; playing: boolean; finished: boolean }
+
+export type SetupPhase = 'generating' | 'signing-in' | 'not-installed'
 
 export interface Tutorial {
   state: TutorialState
@@ -81,24 +87,38 @@ export function useTutorial(
     if (!snapshot) return
     const id = ++searchId.current
     setState({ status: 'searching' })
-    const failed = (e: unknown) => {
-      if (id === searchId.current) setState({ status: 'setup', ready: null, error: message(e) })
+    const current = () => id === searchId.current
+    // The step under way, which a failure is reported against.
+    let phase: SetupPhase = 'generating'
+    const setup = (next: SetupPhase, error: string | null = null) => {
+      phase = next
+      setState({ status: 'setup', phase, ready: null, error })
     }
-    find().then((tour) => {
-      if (id !== searchId.current) return
+    const make = async () => {
+      const tour = await find()
+      if (!current()) return
       if (tour) return play(tour)
-      setState({ status: 'setup', ready: null, error: null })
-      if (!library.generate || !dbPath) return
+      if (!library.generate || !dbPath) return setup('generating')
+      // Claude Code is only looked at now, when a tutorial has to be written.
+      const agent = (await library.agentStatus?.()) ?? { installed: true, signedIn: true }
+      if (!current()) return
+      if (!agent.installed) return setup('not-installed')
+      if (!agent.signedIn && library.signIn) {
+        setup('signing-in')
+        await library.signIn()
+        if (!current()) return
+      }
+      setup('generating')
+      await library.generate(dbPath)
       // Once generation is done the tour is saved; offer it (polling may already have).
-      void library
-        .generate(dbPath)
-        .then(find)
-        .then((saved) => {
-          if (id !== searchId.current) return
-          if (saved) setState({ status: 'setup', ready: saved, error: null })
-          else failed(new Error('Generation finished without saving a tutorial.'))
-        }, failed)
-    }, failed)
+      const saved = await find()
+      if (!current()) return
+      if (!saved) throw new Error('Generation finished without saving a tutorial.')
+      setState({ status: 'setup', phase: 'generating', ready: saved, error: null })
+    }
+    make().catch((e: unknown) => {
+      if (current()) setup(phase, message(e))
+    })
   }, [snapshot, dbPath, library, find, play, setState])
 
   const exit = useCallback(() => {
@@ -151,17 +171,17 @@ export function useTutorial(
   }, [autoplay, step, index, goTo])
 
   // The generation flow: check for the tour until it appears or generation fails.
-  const waiting = state.status === 'setup' && !state.ready && !state.error
+  const waiting = state.status === 'setup' && state.phase === 'generating' && !state.ready && !state.error
   useEffect(() => {
     if (!waiting) return
     const id = searchId.current
     const timer = setInterval(() => {
       find().then(
         (tour) => {
-          if (id === searchId.current && tour) setState({ status: 'setup', ready: tour, error: null })
+          if (id === searchId.current && tour) setState({ status: 'setup', phase: 'generating', ready: tour, error: null })
         },
         (e: unknown) => {
-          if (id === searchId.current) setState({ status: 'setup', ready: null, error: message(e) })
+          if (id === searchId.current) setState({ status: 'setup', phase: 'generating', ready: null, error: message(e) })
         },
       )
     }, POLL_MS)

@@ -302,6 +302,74 @@ describe('AppShell', () => {
       expect(within(panel).getByText('1 / 3')).toBeTruthy()
     })
 
+    it('looks at Claude Code only when ▷ finds no tutorial, never on opening', async () => {
+      const agentStatus = vi.fn(async () => ({ installed: true, signedIn: true }))
+      const generate = vi.fn(async () => {})
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={{ ...library([sherlockTour(60_000)]), agentStatus, generate }} />)
+      expect(agentStatus).not.toHaveBeenCalled()
+      await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+      await within(await screen.findByRole('region', { name: 'Tutorial' })).findByText('1 / 3')
+      expect(agentStatus).not.toHaveBeenCalled()
+      expect(generate).not.toHaveBeenCalled()
+    })
+
+    it('signs in to Claude first when signed out, then generates', async () => {
+      let signedIn!: () => void
+      const signIn = vi.fn(() => new Promise<void>((r) => (signedIn = r)))
+      const generate = vi.fn(() => new Promise<void>(() => {}))
+      const tours = { ...library([]), agentStatus: async () => ({ installed: true, signedIn: false }), signIn, generate }
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+      const panel = await screen.findByRole('region', { name: 'Tutorial' })
+      await within(panel).findByText('Sign in to Claude to generate a tutorial for project')
+      expect(within(panel).getByRole('status').textContent).toBe(
+        'Finish signing in to Claude in your browser. The tutorial is generated right after.',
+      )
+      expect(signIn).toHaveBeenCalledTimes(1)
+      expect(generate).not.toHaveBeenCalled()
+
+      await act(async () => signedIn())
+      await within(panel).findByText('Generating a tutorial for project')
+      expect(generate).toHaveBeenCalledWith('C:/x/project.db')
+    })
+
+    it('does not sign in when already signed in', async () => {
+      const signIn = vi.fn(async () => {})
+      const generate = vi.fn(() => new Promise<void>(() => {}))
+      const tours = { ...library([]), agentStatus: async () => ({ installed: true, signedIn: true }), signIn, generate }
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+      await within(await screen.findByRole('region', { name: 'Tutorial' })).findByText('Generating a tutorial for project')
+      expect(signIn).not.toHaveBeenCalled()
+      expect(generate).toHaveBeenCalled()
+    })
+
+    it('explains how to install Claude Code when it is missing', async () => {
+      const generate = vi.fn(async () => {})
+      const tours = { ...library([]), agentStatus: async () => ({ installed: false, signedIn: false }), generate }
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+      const panel = await screen.findByRole('region', { name: 'Tutorial' })
+      await within(panel).findByText('Claude Code is needed to generate tutorials')
+      expect(within(panel).getByText('curl -fsSL https://claude.ai/install.sh | bash')).toBeTruthy()
+      expect(generate).not.toHaveBeenCalled()
+    })
+
+    it('reports a failed sign-in', async () => {
+      const tours = {
+        ...library([]),
+        agentStatus: async () => ({ installed: true, signedIn: false }),
+        signIn: () => Promise.reject(new TelescodeError('tour_generation_failed', 'Signing in to Claude did not finish in time.')),
+        generate: vi.fn(async () => {}),
+      }
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+      const panel = await screen.findByRole('region', { name: 'Tutorial' })
+      expect(await within(panel).findByText('Cannot generate the tutorial: Signing in to Claude did not finish in time.')).toBeTruthy()
+      expect(within(panel).getByText('Sign in to Claude to generate a tutorial for project')).toBeTruthy()
+      expect(tours.generate).not.toHaveBeenCalled()
+    })
+
     it('offers a tutorial saved while generation is still running', async () => {
       vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
       try {

@@ -3,7 +3,7 @@
 
 import type { KeyboardEvent } from 'react'
 
-import type { Tutorial } from '../app/useTutorial'
+import type { SetupPhase, Tutorial } from '../app/useTutorial'
 import { formatEvidenceValue } from '../tour/model'
 import { stepDurationMs } from '../tour/tutorial'
 import { Button } from '../ui/Button'
@@ -11,6 +11,19 @@ import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, PauseIcon, PlayIcon } fro
 import { IconButton } from '../ui/IconButton'
 import { Spinner } from '../ui/Spinner'
 import styles from './TutorialPanel.module.css'
+
+const SETUP_TITLES: Record<SetupPhase, (repository: string) => string> = {
+  generating: (r) => `Generating a tutorial for ${r}`,
+  'signing-in': (r) => `Sign in to Claude to generate a tutorial for ${r}`,
+  'not-installed': () => 'Claude Code is needed to generate tutorials',
+}
+
+/** Claude Code's official one-line installer for this platform. */
+function installCommand(): string {
+  return /Windows/i.test(navigator.userAgent)
+    ? 'irm https://claude.ai/install.ps1 | iex'
+    : 'curl -fsSL https://claude.ai/install.sh | bash'
+}
 
 interface TutorialPanelProps {
   tutorial: Tutorial
@@ -69,13 +82,22 @@ export function TutorialPanel({ tutorial, repositoryName }: TutorialPanelProps) 
           </>
         ) : (
           <>
-            <h2 className={styles.title}>Generating a tutorial for {repositoryName}</h2>
-            {error ? (
+            <h2 className={styles.title}>{SETUP_TITLES[state.phase](repositoryName)}</h2>
+            {state.phase === 'not-installed' ? (
+              <>
+                <p className={styles.text}>
+                  Tutorials are written by Claude Code with your Claude account. Install it, then press ▷ again:
+                </p>
+                <code className={styles.command}>{installCommand()}</code>
+              </>
+            ) : error ? (
               <p className={styles.error}>Cannot generate the tutorial: {error}</p>
             ) : (
               <p className={styles.waiting} role="status">
                 <Spinner />
-                Generating… It appears here as soon as it is ready.
+                {state.phase === 'signing-in'
+                  ? 'Finish signing in to Claude in your browser. The tutorial is generated right after.'
+                  : 'Generating… It appears here as soon as it is ready.'}
               </p>
             )}
           </>
