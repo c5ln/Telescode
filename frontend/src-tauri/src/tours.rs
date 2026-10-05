@@ -1,91 +1,162 @@
-//! Saved code tours, for the tutorial mode.
+//! Code tours, for the tutorial mode.
 //!
-//! The Telescode MCP server (`mcp/`) writes every tour an agent drafts to
-//! `<output>/<tour-id>.draft.json`, together with the snapshot it was written
-//! against. This module only reads those files: it hands the frontend each
-//! tour's plan and snapshot hash, never the snapshot itself, and never writes.
+//! Tours are kept by the Telescode MCP server (`mcp/`). The shell lists them
+//! through the server's `list_tours` tool, and has one written by running
+//! Claude Code headless with that server attached: the server never calls a
+//! model itself, so an agent writes the captions, with the user's own Claude
+//! Code sign-in.
 
-use serde::Serialize;
-use serde_json::Value;
-use std::path::{Path, PathBuf};
-use std::time::UNIX_EPOCH;
+use serde_json::{json, Value};
+use std::ffi::OsString;
+use std::path::Path;
+use std::process::{Command, Stdio};
+use std::time::{Duration, Instant};
 
-use crate::bridge::BridgeError;
+use crate::bridge::{validate_db_path, BridgeError};
+use crate::mcp;
 
-/// Where the MCP server keeps its tours. The same variable configures the server.
-const TOURS_ENV: &str = "TELESCODE_TOUR_OUTPUT";
+/// The Claude Code executable, when `claude` on PATH is not the one to use.
+const CLAUDE_ENV: &str = "TELESCODE_CLAUDE";
 
-const DRAFT_SUFFIX: &str = ".draft.json";
+/// Longest a generation may run before it is stopped.
+const GENERATION_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 
-/// One saved tour, without the snapshot it carries.
-#[derive(Debug, Serialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct SavedTour {
-    plan: Value,
-    /// SHA-256 of the snapshot the tour was written against.
-    snapshot_hash: String,
-    /// The draft's review state: `draft`, `approved`, `rendering`, `completed` or `failed`.
-    state: String,
-    /// Last write, in milliseconds since the Unix epoch.
-    updated_ms: u64,
+/// The only tools the agent may use: reading the analysis and saving a draft.
+/// Frame previews and video rendering are left out; tutorials need neither.
+const AGENT_TOOLS: &[&str] = &[
+    "open_project",
+    "get_project_overview",
+    "search_nodes",
+    "get_reading_tour_order",
+    "inspect_node",
+    "create_tour_draft",
+    "revise_tour_draft",
+    "get_tour_status",
+];
+
+fn claude() -> OsString {
+    std::env::var_os(CLAUDE_ENV).filter(|p| !p.is_empty()).unwrap_or_else(|| "claude".into())
 }
 
-/// `$TELESCODE_TOUR_OUTPUT` if set. Development builds fall back to the MCP
-/// server's own default, `mcp/artifacts` in this repository.
-pub fn tour_dir() -> Result<PathBuf, BridgeError> {
-    match std::env::var_os(TOURS_ENV) {
-        Some(p) if !p.is_empty() => Ok(PathBuf::from(p)),
-        _ if cfg!(debug_assertions) => Ok(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../mcp/artifacts")),
-        _ => Err(BridgeError::ToursUnavailable {
-            message: format!("Set {TOURS_ENV} to the Telescode MCP server's tour directory."),
-        }),
-    }
+/// What the agent is asked to do. The server's onboarding instructions,
+/// which it receives on connecting, say how to write the tour.
+fn generation_prompt(db: &Path) -> String {
+    format!(
+        "Create a Telescode onboarding tutorial for the repository analyzed in the database {db}.\n\
+         Use the telescode MCP tools: open_project with exactly that path, then get_project_overview, \
+         get_reading_tour_order and inspect_node, and save the tour with create_tour_draft. \
+         Follow the server's onboarding instructions for the reading order and captions, \
+         and write the title and captions in English.\n\
+         Only save the draft. Do not preview frames, render a video, or wait for approval: \
+         the user plays the draft as an interactive tutorial. Reply with the tour ID.",
+        db = db.display()
+    )
 }
 
-/// Every readable tour in `dir`. A missing directory has no tours; a file that
-/// is not a tour draft is skipped rather than failing the whole list.
-pub fn read_tours(dir: &Path) -> Result<Vec<SavedTour>, BridgeError> {
-    let entries = match std::fs::read_dir(dir) {
-        Ok(entries) => entries,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
-        Err(e) => {
-            return Err(BridgeError::ToursUnavailable {
-                message: format!("Cannot read tours in {}: {e}", dir.display()),
-            })
+/// The arguments for `claude`: print mode, only the Telescode server, and
+/// only its drafting tools allowed (print mode denies everything else).
+fn claude_args(db: &Path, server: &mcp::ServerCommand) -> Vec<OsString> {
+    let env: serde_json::Map<String, Value> = server
+        .env
+        .iter()
+        .map(|(k, v)| (k.clone(), Value::from(v.to_string_lossy().into_owned())))
+        .collect();
+    let config = json!({
+        "mcpServers": {
+            "telescode": {
+                "type": "stdio",
+                "command": server.program.to_string_lossy(),
+                "args": server.args.iter().map(|a| a.to_string_lossy()).collect::<Vec<_>>(),
+                "env": env,
+            }
         }
+    });
+    let allowed = AGENT_TOOLS.iter().map(|t| format!("mcp__telescode__{t}")).collect::<Vec<_>>().join(",");
+    vec![
+        "-p".into(),
+        generation_prompt(db).into(),
+        "--mcp-config".into(),
+        config.to_string().into(),
+        "--strict-mcp-config".into(),
+        "--allowedTools".into(),
+        allowed.into(),
+    ]
+}
+
+/// Runs Claude Code until it has saved a tour for `db_path`, or fails.
+fn generate(db_path: &str) -> Result<(), BridgeError> {
+    let db = validate_db_path(db_path)?;
+    let server = mcp::server_command()?;
+    let mut cmd = Command::new(claude());
+    cmd.args(claude_args(&db, &server))
+        // Away from any project, so no project settings or files come into play.
+        .current_dir(std::env::temp_dir())
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    let mut child = cmd.spawn().map_err(|e| BridgeError::TourGenerationFailed {
+        message: if e.kind() == std::io::ErrorKind::NotFound {
+            format!("Claude Code was not found. Install it, or set {CLAUDE_ENV} to the claude executable.")
+        } else {
+            format!("Could not start Claude Code: {e}")
+        },
+    })?;
+
+    let started = Instant::now();
+    let status = loop {
+        if let Some(status) = child.try_wait().map_err(|e| BridgeError::Internal {
+            message: format!("Lost track of Claude Code: {e}"),
+        })? {
+            break status;
+        }
+        if started.elapsed() > GENERATION_TIMEOUT {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(BridgeError::TourGenerationFailed {
+                message: "Claude Code did not finish the tutorial in time.".into(),
+            });
+        }
+        std::thread::sleep(Duration::from_millis(250));
     };
-
-    let mut tours = Vec::new();
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if !path.to_string_lossy().ends_with(DRAFT_SUFFIX) {
-            continue;
-        }
-        if let Some(tour) = read_tour(&path) {
-            tours.push(tour);
-        }
+    if status.success() {
+        return Ok(());
     }
-    Ok(tours)
+    let mut stderr = String::new();
+    if let Some(mut pipe) = child.stderr.take() {
+        let _ = std::io::Read::read_to_string(&mut pipe, &mut stderr);
+    }
+    let stderr = stderr.trim();
+    Err(BridgeError::TourGenerationFailed {
+        message: if stderr.is_empty() {
+            format!("Claude Code exited with {status}.")
+        } else {
+            format!("Claude Code exited with {status}: {stderr}")
+        },
+    })
 }
 
-fn read_tour(path: &Path) -> Option<SavedTour> {
-    let text = std::fs::read_to_string(path).ok()?;
-    let mut draft: Value = serde_json::from_str(&text).ok()?;
-    let plan = draft.get_mut("plan").filter(|p| p.is_object())?.take();
-    let snapshot_hash = draft.pointer("/project/hash")?.as_str()?.to_string();
-    let state = draft.get("state").and_then(Value::as_str).unwrap_or("draft").to_string();
-    let updated_ms = std::fs::metadata(path)
-        .and_then(|m| m.modified())
-        .ok()
-        .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
-        .map_or(0, |d| d.as_millis() as u64);
-    Some(SavedTour { plan, snapshot_hash, state, updated_ms })
-}
-
-/// IPC entry point: `invoke("list_tours")`.
+/// IPC entry point: `invoke("list_tours")`. Every tour the server has saved;
+/// the frontend picks the one for the open repository.
 #[tauri::command]
-pub async fn list_tours() -> Result<Vec<SavedTour>, BridgeError> {
-    tauri::async_runtime::spawn_blocking(|| read_tours(&tour_dir()?))
+pub async fn list_tours() -> Result<Value, BridgeError> {
+    tauri::async_runtime::spawn_blocking(|| mcp::call("list_tours", json!({})))
+        .await
+        .map_err(|e| BridgeError::Internal {
+            message: format!("Tour worker failed: {e}"),
+        })?
+}
+
+/// IPC entry point: `invoke("generate_tour", { dbPath })`. Resolves once
+/// Claude Code has finished; the new tour is then in `list_tours`.
+#[tauri::command]
+pub async fn generate_tour(db_path: String) -> Result<(), BridgeError> {
+    tauri::async_runtime::spawn_blocking(move || generate(&db_path))
         .await
         .map_err(|e| BridgeError::Internal {
             message: format!("Tour worker failed: {e}"),
@@ -96,40 +167,46 @@ pub async fn list_tours() -> Result<Vec<SavedTour>, BridgeError> {
 mod tests {
     use super::*;
 
-    fn temp_dir(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("telescode-tours-{name}-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
-        dir
+    fn server() -> mcp::ServerCommand {
+        mcp::ServerCommand {
+            program: "node".into(),
+            args: vec!["--import".into(), "/t/mcp/node_modules/tsx/dist/loader.mjs".into(), "/t/mcp/src/server.ts".into()],
+            env: vec![("TELESCODE_HEADLESS".into(), "/t/TelescodeHeadless".into())],
+        }
     }
 
     #[test]
-    fn missing_directory_has_no_tours() {
-        let dir = temp_dir("missing").join("absent");
-        assert_eq!(read_tours(&dir).unwrap(), Vec::new());
-        assert!(!dir.exists());
+    fn claude_gets_only_the_telescode_server_and_its_drafting_tools() {
+        let args = claude_args(Path::new("/t/repo.db"), &server());
+        let args: Vec<String> = args.iter().map(|a| a.to_string_lossy().into_owned()).collect();
+        assert_eq!(args[0], "-p");
+        assert!(args[1].contains("/t/repo.db") && args[1].contains("create_tour_draft"));
+        assert!(args.contains(&"--strict-mcp-config".to_string()));
+
+        let config: Value = serde_json::from_str(&args[args.iter().position(|a| a == "--mcp-config").unwrap() + 1]).unwrap();
+        let telescode = &config["mcpServers"]["telescode"];
+        assert_eq!(telescode["command"], "node");
+        assert_eq!(telescode["args"][2], "/t/mcp/src/server.ts");
+        assert_eq!(telescode["env"]["TELESCODE_HEADLESS"], "/t/TelescodeHeadless");
+
+        let allowed = &args[args.iter().position(|a| a == "--allowedTools").unwrap() + 1];
+        assert!(allowed.contains("mcp__telescode__create_tour_draft"));
+        assert!(!allowed.contains("render_approved_tour") && !allowed.contains("preview_tour_frame"));
     }
 
+    // Has Claude Code write a real tour when TELESCODE_TEST_CLAUDE=1 and
+    // TELESCODE_TEST_DB names an analyzed database (plus what the server needs:
+    // Node.js and `npm --prefix mcp install`). A no-op otherwise: it uses the
+    // developer's Claude Code sign-in and takes minutes.
     #[test]
-    fn reads_drafts_without_their_snapshot() {
-        let dir = temp_dir("drafts");
-        let draft = r#"{
-            "plan": { "id": "t1", "title": "Tour", "stops": [] },
-            "project": { "id": "p1", "hash": "abc", "snapshot": { "files": [] } },
-            "reviewToken": "secret",
-            "state": "approved"
-        }"#;
-        std::fs::write(dir.join("t1.draft.json"), draft).unwrap();
-        std::fs::write(dir.join("broken.draft.json"), "{ not json").unwrap();
-        std::fs::write(dir.join("notes.json"), r#"{ "plan": {} }"#).unwrap();
-
-        let tours = read_tours(&dir).unwrap();
-        assert_eq!(tours.len(), 1);
-        let v = serde_json::to_value(&tours[0]).unwrap();
-        assert_eq!(v["plan"]["id"], "t1");
-        assert_eq!(v["snapshotHash"], "abc");
-        assert_eq!(v["state"], "approved");
-        assert!(v["updatedMs"].as_u64().unwrap() > 0);
-        assert!(v.get("project").is_none() && v.get("reviewToken").is_none());
+    fn real_generation() {
+        let (Some(_), Some(db)) = (std::env::var_os("TELESCODE_TEST_CLAUDE"), std::env::var_os("TELESCODE_TEST_DB")) else {
+            return;
+        };
+        let db = db.into_string().unwrap();
+        let before = mcp::call("list_tours", json!({})).unwrap().as_array().unwrap().len();
+        generate(&db).unwrap();
+        let tours = mcp::call("list_tours", json!({})).unwrap();
+        assert_eq!(tours.as_array().unwrap().len(), before + 1);
     }
 }

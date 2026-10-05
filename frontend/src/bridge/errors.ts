@@ -12,6 +12,7 @@ export type NativeErrorCode =
   | 'sidecar_failed'
   | 'output_not_utf8'
   | 'tours_unavailable'
+  | 'tour_generation_failed'
   | 'internal'
 
 /** Codes produced on the TypeScript side. */
@@ -57,6 +58,7 @@ const NATIVE_CODES: ReadonlySet<string> = new Set<NativeErrorCode>([
   'sidecar_failed',
   'output_not_utf8',
   'tours_unavailable',
+  'tour_generation_failed',
   'internal',
 ])
 
