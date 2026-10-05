@@ -339,15 +339,47 @@ fn fnv1a(bytes: &[u8]) -> u64 {
     bytes.iter().fold(0xcbf2_9ce4_8422_2325, |h, b| (h ^ u64::from(*b)).wrapping_mul(0x0100_0000_01b3))
 }
 
+/// The user's home directory, for expanding `~`.
+fn home_dir() -> Option<PathBuf> {
+    let var = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
+    std::env::var_os(var).filter(|h| !h.is_empty()).map(PathBuf::from)
+}
+
+/// `raw` with a leading `~` or `~/` replaced by `home`. A path a shell would
+/// expand, so it is what people paste; `~user` is left alone.
+fn expand_home(raw: &str, home: Option<&Path>) -> PathBuf {
+    let rest = if raw == "~" {
+        Some("")
+    } else {
+        raw.strip_prefix("~/").or_else(|| if cfg!(windows) { raw.strip_prefix("~\\") } else { None })
+    };
+    match (rest, home) {
+        (Some(rest), Some(home)) => home.join(rest),
+        _ => PathBuf::from(raw),
+    }
+}
+
 /// Checks that `raw` names an existing directory and returns its canonical path.
 fn validate_folder(raw: &str) -> Result<PathBuf, BridgeError> {
+    validate_folder_from(raw, home_dir().as_deref())
+}
+
+fn validate_folder_from(raw: &str, home: Option<&Path>) -> Result<PathBuf, BridgeError> {
     let trimmed = raw.trim();
     if trimmed.is_empty() {
         return Err(BridgeError::InvalidArgument { message: "A folder path is required.".into() });
     }
-    let shown = trimmed.to_string();
-    match fs::metadata(trimmed) {
-        Ok(m) if m.is_dir() => fs::canonicalize(trimmed).map_err(|e| BridgeError::InvalidArgument {
+    let path = expand_home(trimmed, home);
+    // A relative path would resolve against wherever the app was started from,
+    // which the user cannot see.
+    if !path.is_absolute() {
+        return Err(BridgeError::InvalidArgument {
+            message: format!("Enter the folder's full path, not a relative one: {trimmed}"),
+        });
+    }
+    let shown = path.display().to_string();
+    match fs::metadata(&path) {
+        Ok(m) if m.is_dir() => fs::canonicalize(&path).map_err(|e| BridgeError::InvalidArgument {
             message: format!("Cannot resolve folder path: {e}"),
         }),
         Ok(_) => Err(BridgeError::NotAFolder { message: format!("Not a folder: {shown}"), path: shown }),
@@ -517,6 +549,25 @@ mod tests {
         let missing = dir.join("missing");
         assert!(matches!(validate_folder(missing.to_str().unwrap()), Err(BridgeError::FolderNotFound { .. })));
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn folders_may_start_from_home_but_not_be_relative() {
+        let home = std::env::temp_dir().join(format!("telescode-home-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&home);
+        fs::create_dir_all(home.join("code/repo")).unwrap();
+        let canonical = fs::canonicalize(home.join("code/repo")).unwrap();
+
+        assert_eq!(validate_folder_from("~/code/repo", Some(&home)).unwrap(), canonical);
+        assert_eq!(validate_folder_from(" ~ ", Some(&home)).unwrap(), fs::canonicalize(&home).unwrap());
+        assert_eq!(expand_home("~other/repo", Some(&home)), PathBuf::from("~other/repo"));
+        assert_eq!(expand_home("~/repo", None), PathBuf::from("~/repo"));
+        assert!(matches!(validate_folder_from("code/repo", Some(&home)), Err(BridgeError::InvalidArgument { .. })));
+        assert!(matches!(
+            validate_folder_from("~/code/missing", Some(&home)),
+            Err(BridgeError::FolderNotFound { path, .. }) if path == home.join("code/missing").display().to_string()
+        ));
+        let _ = fs::remove_dir_all(&home);
     }
 
     #[test]

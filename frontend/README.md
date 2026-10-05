@@ -80,8 +80,8 @@ pull requests) are refused. Downloads are capped at 500 MB compressed and
 2 GB unpacked; symbolic links in the archive are skipped.
 
 Development builds (`npm run dev`, `npm run desktop`) also show an
-**Open a local folder (dev)** link under the field. It takes the path of a
-repository folder on this computer, which `invoke('open_folder')` scans in
+**Open a local folder (dev)** link under the field. It takes the full path of
+a repository folder on this computer (`~` is expanded), which `invoke('open_folder')` scans in
 place into `<app cache>/folders/<name>-<hash>/<name>.db` and then analyzes the
 same way. Release builds do not show it.
 
