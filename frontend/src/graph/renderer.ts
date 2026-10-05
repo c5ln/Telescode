@@ -153,7 +153,8 @@ export class GraphRenderer {
   private hoverMuted = false
   private hasCamera = false
   private failed = false
-  /** Per node (by order), the scale at which everything in its subtree is open and full size. */
+  /** Per node (by order), the scale at which it is fully open and full size: itself only, and its whole subtree. */
+  private readonly ownK: Float64Array
   private readonly fullK: Float64Array
   /** The scale below which every top-level area is closed. */
   private readonly overviewK: number
@@ -183,6 +184,7 @@ export class GraphRenderer {
     this.overviewK = top.length ? Math.min(...top) * 0.999 : Infinity
 
     const count = model.nodes.length
+    this.ownK = new Float64Array(count)
     this.fullK = new Float64Array(count)
     for (let i = count - 1; i >= 0; i--) {
       const n = model.nodes[i]
@@ -190,6 +192,7 @@ export class GraphRenderer {
       let k = openingK(n, 'end')
       if (n.kind === 'class' && n.children.length) k = Math.max(k, MAX_ROW_PX / n.rowHeight)
       if (n.children.length === 0 && n.w > 0 && n.h > 0) k = Math.max(k, MAX_LEAF_PX / Math.min(n.w, n.h))
+      this.ownK[i] = k
       this.fullK[i] = Math.max(this.fullK[i], k)
       if (n.parent) this.fullK[n.parent.order] = Math.max(this.fullK[n.parent.order], this.fullK[i])
     }
@@ -256,10 +259,10 @@ export class GraphRenderer {
   }
 
   /**
-   * Close enough to see a node's contents fully open and at full size, and
-   * no closer: past that only the boxes grow, and small text in a huge box
-   * reads worse. A small class stops early; a large one lets you in far
-   * enough for its rows.
+   * Close enough to see everything inside a node fully open and at full
+   * size, and no closer: past that only the boxes grow, and small text in a
+   * huge box reads worse. A small class stops early; a large one lets you in
+   * far enough for its rows. Used to frame a node (focus).
    */
   maxKFor(node: GraphNode): number {
     const o = (node.kind === 'member' ? node.parent! : node).order
@@ -267,14 +270,24 @@ export class GraphRenderer {
   }
 
   /**
-   * The zoom-in limit at a screen point, from what is there. Never below the
-   * current zoom (or the zoom already headed for), so moving onto a smaller
-   * node does not pull the camera back out; it only stops it going further.
+   * Close enough to see the node itself fully open and at full size. Going
+   * deeper means pointing at something inside it, which then sets the limit.
+   */
+  zoomLimitFor(node: GraphNode): number {
+    const o = (node.kind === 'member' ? node.parent! : node).order
+    return Math.max(this.fitKRaw() * MAX_ZOOM_FLOOR, this.ownK[o])
+  }
+
+  /**
+   * The zoom-in limit at a screen point, from what is there: the gap
+   * between boxes or the background stops at its container's own limit, not
+   * at whatever is deepest inside it. Never below the current zoom (or the
+   * zoom already headed for), so moving onto a smaller node does not pull
+   * the camera back out; it only stops it going further.
    */
   private maxKAt(sx: number, sy: number, k = this.camera.k): number {
-    const node = this.hitTest(sx, sy)
-    const limit = node ? this.maxKFor(node) : this.maxK
-    return Math.max(limit, Math.min(k, this.maxK))
+    const node = this.hitTest(sx, sy) ?? this.model.root
+    return Math.max(this.zoomLimitFor(node), Math.min(k, this.maxK))
   }
 
   private fitKRaw(): number {

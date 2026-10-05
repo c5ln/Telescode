@@ -218,6 +218,28 @@ describe('GraphRenderer', () => {
     for (const c of model.root.children) expect(openness(c, r.camera.k)).toBe(0)
   })
 
+  it('stops zooming in at the gaps between boxes, not at the deepest thing in the area', () => {
+    const { model, r } = setup()
+    const dir = model.byId.get('dir:sherlock_project')!
+    const screen = (wx: number, wy: number): [number, number] => [toScreenX(r.camera, r.viewport, wx), toScreenY(r.camera, r.viewport, wy)]
+    for (const at of [screen(dir.x + dir.w / 2, dir.y + dir.h - dir.pad / 2), [2, 2] as [number, number]]) {
+      r.fit(false)
+      for (let i = 0; i < 200; i++) r.wheel(0, -120, 0, false, ...at)
+      expect(r.camera.k).toBeLessThan(r.maxK * 0.5)
+    }
+  })
+
+  it('zooms in step by step: each node opens fully, then what is inside it takes over', () => {
+    const { model, r } = setup()
+    const cls = model.byId.get('class:sherlock_project/notify.py::QueryNotifyPrint')!
+    r.fit(false)
+    for (let i = 0; i < 300; i++) r.wheel(0, -120, 0, false, ...centre(r, cls.children[0]))
+    // Reaches the class's rows at full size, and stops there.
+    expect(r.hitTest(...centre(r, cls.children[0]))).toBe(cls.children[0])
+    expect(r.camera.k).toBeCloseTo(r.zoomLimitFor(cls))
+    expect(cls.rowHeight * r.camera.k).toBeGreaterThanOrEqual(20)
+  })
+
   it('stops zooming into a small class sooner than into a large one', () => {
     const { model, r } = setup()
     const classes = model.nodes.filter((n) => n.kind === 'class' && n.children.length)
