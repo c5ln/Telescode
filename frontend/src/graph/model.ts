@@ -29,6 +29,8 @@ export interface GraphNode {
   weight: number
   fileCount: number
   classCount: number
+  /** Files only: the core's maxCyclomaticComplexity. */
+  complexity?: number
 
   // Layout, in world units (see layout.ts).
   x: number
@@ -150,6 +152,7 @@ export function buildGraphModel(graph: GraphResponse, rootLabel: string): GraphM
     const node = makeNode(`file:${file.fileId}`, 'file', name, dirFor(segments))
     const loc = file.metrics.rawLoc
     node.detail = `${loc} ${loc === 1 ? 'line' : 'lines'}`
+    node.complexity = file.metrics.maxCyclomaticComplexity
     // Area grows with size, but sub-linearly so large files do not swamp the map.
     node.weight = Math.sqrt(Math.max(loc, 1)) + 4
     files.set(file.fileId, node)

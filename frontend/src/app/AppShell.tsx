@@ -29,6 +29,8 @@ export function AppShell({ api, initialState, allowLocalDatabase = false }: AppS
   const graphRef = useRef<GraphHandle | null>(null)
   /** Where the user is in the map, below the repository. */
   const [trail, setTrail] = useState<Crumb[]>([])
+  /** Complexity mode: off by default, kept across repositories. */
+  const [complexity, setComplexity] = useState(false)
   const [lastDbPath, setLastDbPath] = useState(state.status === 'empty' ? '' : state.dbPath)
 
   const open = (dbPath: string) => {
@@ -59,6 +61,8 @@ export function AppShell({ api, initialState, allowLocalDatabase = false }: AppS
       onSelect: workspace.reload,
       disabled: state.status === 'empty' || state.status === 'loading',
     },
+    { type: 'separator', id: 'view' },
+    { type: 'toggle', id: 'complexity', label: 'Complexity', checked: complexity, onChange: setComplexity },
   ]
 
   return (
@@ -73,6 +77,7 @@ export function AppShell({ api, initialState, allowLocalDatabase = false }: AppS
         lastDbPath={lastDbPath}
         graphRef={graphRef}
         onContextChange={onContextChange}
+        complexity={complexity}
       />
     </div>
   )

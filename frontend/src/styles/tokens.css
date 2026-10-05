@@ -93,6 +93,12 @@
   --graph-hover-fill: rgb(0 0 0 / 0.04);
   --graph-selected: var(--blue-600);
   --graph-selected-fill: var(--blue-600-a20);
+  /* Complexity mode: one muted blue, darker for more complex files. Kept well
+     below --graph-selected in saturation so the selection still stands out. */
+  --graph-complexity-1: #eef3f9; /* low */
+  --graph-complexity-2: #dce6f2; /* moderate */
+  --graph-complexity-3: #c1d2e6; /* high */
+  --graph-complexity-4: #9fb8d6; /* very high */
 
   /* ---- Typography ------------------------------------------------------ */
 

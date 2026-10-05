@@ -23,6 +23,8 @@ interface GraphCanvasProps {
   model: GraphModel
   onContextChange: (path: GraphNode[]) => void
   onError: (error: unknown) => void
+  /** Shade files by complexity. */
+  complexity?: boolean
   ref?: Ref<GraphHandle>
 }
 
@@ -32,10 +34,12 @@ const ARROW_PAN = 80
 
 const KIND_NAMES = { root: 'repository', dir: 'directory', file: 'file', class: 'class', member: 'member' } as const
 
-export function GraphCanvas({ model, onContextChange, onError, ref }: GraphCanvasProps) {
+export function GraphCanvas({ model, onContextChange, onError, complexity = false, ref }: GraphCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rendererRef = useRef<GraphRenderer | null>(null)
   const [announcement, setAnnouncement] = useState('')
+  // Read when the renderer is (re)created; later changes go through setComplexityMode.
+  const complexityRef = useRef(complexity)
 
   // Latest callbacks without re-creating the renderer when they change.
   const callbacks = useRef({ onContextChange, onError })
@@ -76,6 +80,7 @@ export function GraphCanvas({ model, onContextChange, onError, ref }: GraphCanva
         canvas,
         theme: readTheme(canvas),
         reducedMotion: motion?.matches ?? false,
+        complexity: complexityRef.current,
         callbacks: {
           onContextChange: (path) => callbacks.current.onContextChange(path),
           onError: (e) => callbacks.current.onError(e),
@@ -232,6 +237,11 @@ export function GraphCanvas({ model, onContextChange, onError, ref }: GraphCanva
       if (rendererRef.current === renderer) rendererRef.current = null
     }
   }, [model])
+
+  useEffect(() => {
+    complexityRef.current = complexity
+    rendererRef.current?.setComplexityMode(complexity)
+  }, [complexity])
 
   return (
     <>

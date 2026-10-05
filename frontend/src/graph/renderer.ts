@@ -22,6 +22,7 @@ import {
   type Flight,
   type Viewport,
 } from './camera'
+import { modelComplexityLevels, NO_COMPLEXITY } from './complexity'
 import { WORLD } from './layout'
 import { ancestors, contains, type GraphEdge, type GraphModel, type GraphNode } from './model'
 import { LodFrame, openingK, settle, smoothstep, type StandIn } from './semantic'
@@ -42,6 +43,8 @@ export interface RendererOptions {
   callbacks: RendererCallbacks
   /** Camera to start from, e.g. when the data is reloaded. */
   camera?: Camera
+  /** Shade files by complexity (see complexity.ts). */
+  complexity?: boolean
 }
 
 /** Margin around a focused node, as a fraction of its size. */
@@ -139,6 +142,9 @@ export class GraphRenderer {
   private readonly text: TextMeasurer | null
   private theme: GraphTheme
   private reducedMotion: boolean
+  private complexityMode: boolean
+  /** Complexity shade per node, by order; computed the first time the mode is on. */
+  private complexityLevels: Int8Array | null = null
   private dpr = 1
   private frameId = 0
   private lastTime = 0
@@ -170,6 +176,7 @@ export class GraphRenderer {
     this.ctx = options.canvas?.getContext('2d') ?? null
     this.theme = options.theme
     this.reducedMotion = options.reducedMotion
+    this.complexityMode = options.complexity ?? false
     this.callbacks = options.callbacks
     this.lod = new LodFrame(model)
     this.text = this.ctx ? new TextMeasurer(this.ctx, options.theme.font) : null
@@ -232,6 +239,20 @@ export class GraphRenderer {
 
   setReducedMotion(reduced: boolean) {
     this.reducedMotion = reduced
+  }
+
+  /** Colour files by complexity, or back to neutral. Layout and camera are untouched. */
+  setComplexityMode(on: boolean) {
+    if (on === this.complexityMode) return
+    this.complexityMode = on
+    this.invalidate()
+  }
+
+  /** The node's complexity shade, or NO_COMPLEXITY when the mode is off or it has no data. */
+  complexityLevel(n: GraphNode): number {
+    if (!this.complexityMode) return NO_COMPLEXITY
+    this.complexityLevels ??= modelComplexityLevels(this.model)
+    return this.complexityLevels[n.order]
   }
 
   /** Re-measure text, e.g. after web fonts load. */
@@ -666,11 +687,13 @@ export class GraphRenderer {
         ctx.globalAlpha = vis
         strokeRect(ctx, b, 2, t.regionStroke)
         break
-      case 'file':
+      case 'file': {
+        const level = this.complexityLevel(n)
         ctx.globalAlpha = vis
-        fillRect(ctx, b, 3, t.node)
+        fillRect(ctx, b, 3, level === NO_COMPLEXITY ? t.node : t.complexity[level])
         strokeRect(ctx, b, 3, t.nodeStroke)
         break
+      }
       case 'class':
         ctx.globalAlpha = vis
         fillRect(ctx, b, 2, t.symbol)

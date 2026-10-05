@@ -1,6 +1,8 @@
 // The canvas cannot use CSS variables directly, so the renderer reads the
 // design tokens once (and again if the theme ever changes).
 
+import { COMPLEXITY_LEVELS } from './complexity'
+
 export interface GraphTheme {
   region: string
   regionOpen: string
@@ -20,10 +22,12 @@ export interface GraphTheme {
   selectedFill: string
   tipBackground: string
   tipText: string
+  /** File fills in complexity mode, lightest first. */
+  complexity: string[]
   font: string
 }
 
-const TOKENS: Record<Exclude<keyof GraphTheme, 'font'>, string> = {
+const TOKENS: Record<Exclude<keyof GraphTheme, 'font' | 'complexity'>, string> = {
   region: '--graph-region',
   regionOpen: '--graph-region-open',
   regionStroke: '--graph-region-stroke',
@@ -52,5 +56,6 @@ export function readTheme(element: Element): GraphTheme {
   const read = (name: string) => style.getPropertyValue(name).trim() || FALLBACK
   const theme = { font: style.getPropertyValue('--font-ui').trim() || 'sans-serif' } as GraphTheme
   for (const [key, token] of Object.entries(TOKENS)) theme[key as keyof typeof TOKENS] = read(token)
+  theme.complexity = Array.from({ length: COMPLEXITY_LEVELS }, (_, i) => read(`--graph-complexity-${i + 1}`))
   return theme
 }
