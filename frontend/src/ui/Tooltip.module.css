@@ -51,7 +51,12 @@
   translate: -50% 0;
 }
 
-/* Keeps tips under edge controls inside the window. */
+/* Keep tips by an edge inside the window, or inside a panel that clips. */
+.tip[data-align='start']:is([data-side='top'], [data-side='bottom']) {
+  left: 0;
+  translate: none;
+}
+
 .tip[data-align='end']:is([data-side='top'], [data-side='bottom']) {
   left: auto;
   right: 0;
