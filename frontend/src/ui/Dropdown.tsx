@@ -3,6 +3,8 @@
 // Follows the WAI-ARIA menu button pattern: Enter/Space/ArrowDown open it and
 // focus the first item, arrows/Home/End move between enabled items, Escape
 // closes and returns focus to the trigger, Tab or an outside click closes.
+// A toggle item is a menuitemcheckbox drawn as a switch; it flips in place and
+// leaves the menu open so the change is visible.
 
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode, type Ref } from 'react'
 
@@ -19,6 +21,14 @@ export type DropdownItem =
       hint?: string
       /** Full text shown on hover when the label is truncated. */
       title?: string
+    }
+  | {
+      type: 'toggle'
+      id: string
+      label: ReactNode
+      checked: boolean
+      onChange: (checked: boolean) => void
+      disabled?: boolean
     }
   | { type: 'separator'; id: string }
 
@@ -51,7 +61,7 @@ export function Dropdown({ trigger, items, align = 'start', label }: DropdownPro
   const menuId = useId()
 
   const enabledItems = () =>
-    Array.from(menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)') ?? [])
+    Array.from(menuRef.current?.querySelectorAll<HTMLButtonElement>('[role^="menuitem"]:not(:disabled)') ?? [])
 
   const close = useCallback((returnFocus: boolean) => {
     setOpen(false)
@@ -130,6 +140,20 @@ export function Dropdown({ trigger, items, align = 'start', label }: DropdownPro
           {items.map((item) =>
             item.type === 'separator' ? (
               <div key={item.id} role="separator" className={styles.separator} />
+            ) : item.type === 'toggle' ? (
+              <button
+                key={item.id}
+                type="button"
+                role="menuitemcheckbox"
+                aria-checked={item.checked}
+                tabIndex={-1}
+                disabled={item.disabled}
+                className={styles.item}
+                onClick={() => item.onChange(!item.checked)}
+              >
+                <span className={styles.label}>{item.label}</span>
+                <span className={styles.switch} aria-hidden="true" />
+              </button>
             ) : (
               <button
                 key={item.id}

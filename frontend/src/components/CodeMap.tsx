@@ -20,11 +20,12 @@ interface CodeMapProps {
   onContextChange: (path: GraphNode[]) => void
   onRetry: () => void
   graphRef: RefObject<GraphHandle | null>
+  complexity: boolean
 }
 
 type Built = { model: GraphModel; error?: undefined } | { model?: undefined; error: unknown }
 
-export function CodeMap({ snapshot, repositoryName, onContextChange, onRetry, graphRef }: CodeMapProps) {
+export function CodeMap({ snapshot, repositoryName, onContextChange, onRetry, graphRef, complexity }: CodeMapProps) {
   const built = useMemo<Built>(() => {
     try {
       const model = buildGraphModel(snapshot, repositoryName)
@@ -63,7 +64,13 @@ export function CodeMap({ snapshot, repositoryName, onContextChange, onRetry, gr
 
   return (
     <>
-      <GraphCanvas ref={graphRef} model={model} onContextChange={onContextChange} onError={setDrawError} />
+      <GraphCanvas
+        ref={graphRef}
+        model={model}
+        onContextChange={onContextChange}
+        onError={setDrawError}
+        complexity={complexity}
+      />
       <p className={styles.status}>
         {model.root.fileCount} files · {model.root.classCount} classes
       </p>

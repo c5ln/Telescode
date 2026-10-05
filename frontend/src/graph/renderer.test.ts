@@ -179,12 +179,21 @@ describe('GraphRenderer', () => {
     expect(toScreenY(r.camera, r.viewport, wy)).toBeCloseTo(200)
   })
 
-  it('pans on two-finger trackpad scroll and zooms on pinch', () => {
+  it('zooms on small and fractional scroll steps, as many mouse wheels send', () => {
+    const { r } = setup(true)
+    const before = r.camera.k
+    r.wheel(0, -4, 0, false, 600, 375)
+    r.wheel(0, -1.5, 0, false, 600, 375)
+    expect(r.camera.k).toBeGreaterThan(before)
+  })
+
+  it('pans on a sideways scroll and zooms on pinch', () => {
     const { r } = setup()
     const before = { ...r.camera }
     r.wheel(12, 7.5, 0, false, 600, 375)
     expect(r.camera.k).toBe(before.k)
     expect(r.camera.x).toBeGreaterThan(before.x)
+    expect(r.camera.y).toBe(before.y)
     r.wheel(0, -20, 0, true, 600, 375)
     expect(r.camera.k).toBeGreaterThan(before.k)
   })

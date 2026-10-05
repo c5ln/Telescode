@@ -29,6 +29,8 @@ interface WorkspaceCanvasProps {
   lastDbPath?: string
   graphRef: RefObject<GraphHandle | null>
   onContextChange: (path: GraphNode[]) => void
+  /** Shade files by complexity. */
+  complexity: boolean
 }
 
 const ERROR_TITLES: Partial<Record<TelescodeErrorCode, string>> = {
@@ -51,6 +53,7 @@ export function WorkspaceCanvas({
   lastDbPath,
   graphRef,
   onContextChange,
+  complexity,
 }: WorkspaceCanvasProps) {
   return (
     <main className={styles.canvas} aria-label="Workspace" aria-busy={state.status === 'loading'}>
@@ -62,6 +65,7 @@ export function WorkspaceCanvas({
             onContextChange={onContextChange}
             onRetry={onRetry}
             graphRef={graphRef}
+            complexity={complexity}
           />
         )}
       </div>
