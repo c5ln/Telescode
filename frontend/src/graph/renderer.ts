@@ -58,6 +58,8 @@ export const HOVER_EDGE_CAP = 40
 export const SELECTION_EDGE_CAP = 120
 /** Opacity of the outline on what the selection is connected to, relative to the selection's. */
 const RELATED_STRENGTH = 0.45
+/** Openness over which a closed node's caption ("12 files") fades out: as its children fade in. */
+const CAPTION_FADE = [0.35, 0.6] as const
 /** Button zoom step. */
 const STEP = 1.6
 /** Zoom range, relative to the scale that fits the whole repository. */
@@ -872,15 +874,20 @@ export class GraphRenderer {
     ctx.fillStyle = n.kind === 'dir' && moved > 0.5 ? t.labelSecondary : t.label
     ctx.fillText(label, x, y)
 
-    // The caption belongs to the closed look; it leaves first as the node opens.
-    if (showSecondary && secondary && open < 0.25) {
+    // The caption belongs to the closed look. It travels under the label as
+    // the label moves to the header, and leaves as the children arrive, so
+    // a half-open node always shows either its count or its contents.
+    const captionAlpha = 1 - smoothstep(open, CAPTION_FADE[0], CAPTION_FADE[1])
+    if (showSecondary && secondary && captionAlpha > 0.01) {
       const s2 = TextMeasurer.quantize(Math.max(10.5, size * 0.72))
-      const sub = text.fit(secondary, s2, 400, closedMax)
+      const sub = text.fit(secondary, s2, 400, lerp(closedMax, openMax, moved))
       if (sub) {
-        ctx.globalAlpha = alpha * (1 - open / 0.25)
+        const subWidth = text.width(sub, s2, 400)
+        ctx.globalAlpha = alpha * captionAlpha
         text.use(s2, 400)
         ctx.fillStyle = t.labelMuted
-        ctx.fillText(sub, b.x + b.w / 2 - text.width(sub, s2, 400) / 2, closedY + size * 1.35)
+        // Centred under the label when closed, left-aligned with it when open.
+        ctx.fillText(sub, x + lerp((width - subWidth) / 2, 0, moved), y + size * 1.35)
       }
     }
     ctx.globalAlpha = 1
