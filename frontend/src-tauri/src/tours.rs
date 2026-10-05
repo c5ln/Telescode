@@ -9,14 +9,10 @@
 use serde_json::{json, Value};
 use std::ffi::OsString;
 use std::path::Path;
-use std::process::{Command, Stdio};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use crate::bridge::{validate_db_path, BridgeError};
-use crate::mcp;
-
-/// The Claude Code executable, when `claude` on PATH is not the one to use.
-const CLAUDE_ENV: &str = "TELESCODE_CLAUDE";
+use crate::{claude, mcp};
 
 /// Longest a generation may run before it is stopped.
 const GENERATION_TIMEOUT: Duration = Duration::from_secs(15 * 60);
@@ -33,10 +29,6 @@ const AGENT_TOOLS: &[&str] = &[
     "revise_tour_draft",
     "get_tour_status",
 ];
-
-fn claude() -> OsString {
-    std::env::var_os(CLAUDE_ENV).filter(|p| !p.is_empty()).unwrap_or_else(|| "claude".into())
-}
 
 /// What the agent is asked to do. The server's onboarding instructions,
 /// which it receives on connecting, say how to write the tour.
@@ -87,58 +79,9 @@ fn claude_args(db: &Path, server: &mcp::ServerCommand) -> Vec<OsString> {
 fn generate(db_path: &str) -> Result<(), BridgeError> {
     let db = validate_db_path(db_path)?;
     let server = mcp::server_command()?;
-    let mut cmd = Command::new(claude());
-    cmd.args(claude_args(&db, &server))
-        // Away from any project, so no project settings or files come into play.
-        .current_dir(std::env::temp_dir())
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped());
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        cmd.creation_flags(CREATE_NO_WINDOW);
-    }
-    let mut child = cmd.spawn().map_err(|e| BridgeError::TourGenerationFailed {
-        message: if e.kind() == std::io::ErrorKind::NotFound {
-            format!("Claude Code was not found. Install it, or set {CLAUDE_ENV} to the claude executable.")
-        } else {
-            format!("Could not start Claude Code: {e}")
-        },
-    })?;
-
-    let started = Instant::now();
-    let status = loop {
-        if let Some(status) = child.try_wait().map_err(|e| BridgeError::Internal {
-            message: format!("Lost track of Claude Code: {e}"),
-        })? {
-            break status;
-        }
-        if started.elapsed() > GENERATION_TIMEOUT {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err(BridgeError::TourGenerationFailed {
-                message: "Claude Code did not finish the tutorial in time.".into(),
-            });
-        }
-        std::thread::sleep(Duration::from_millis(250));
-    };
-    if status.success() {
-        return Ok(());
-    }
-    let mut stderr = String::new();
-    if let Some(mut pipe) = child.stderr.take() {
-        let _ = std::io::Read::read_to_string(&mut pipe, &mut stderr);
-    }
-    let stderr = stderr.trim();
-    Err(BridgeError::TourGenerationFailed {
-        message: if stderr.is_empty() {
-            format!("Claude Code exited with {status}.")
-        } else {
-            format!("Claude Code exited with {status}: {stderr}")
-        },
-    })
+    let mut cmd = claude::command(&claude::find().ok_or_else(claude::not_installed)?);
+    cmd.args(claude_args(&db, &server));
+    claude::run(cmd, GENERATION_TIMEOUT, "Claude Code")
 }
 
 /// IPC entry point: `invoke("list_tours")`. Every tour the server has saved;

@@ -1,4 +1,5 @@
 mod bridge;
+mod claude;
 mod mcp;
 mod tours;
 
@@ -15,7 +16,7 @@ pub fn run() {
       }
       Ok(())
     })
-    .invoke_handler(tauri::generate_handler![bridge::run_headless, tours::list_tours, tours::generate_tour])
+    .invoke_handler(tauri::generate_handler![bridge::run_headless, tours::list_tours, tours::generate_tour, claude::claude_status, claude::claude_sign_in])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
