@@ -21,7 +21,7 @@ interface Rect {
 /** Space around and between children, as fractions of the parent's short side. */
 const SPACING = {
   root: { pad: 0.012, header: 0, gap: 0.02 },
-  dir: { pad: 0.03, header: 0.085, gap: 0.05 },
+  dir: { pad: 0.03, header: 0.085, gap: 0.1 },
   file: { pad: 0.05, header: 0.13, gap: 0.07 },
 } as const
 
