@@ -79,11 +79,11 @@
 
   --graph-region: rgb(0 0 0 / 0.05); /* a closed directory */
   --graph-region-open: rgb(0 0 0 / 0.022); /* an open directory's ground */
-  --graph-region-stroke: rgb(0 0 0 / 0.1);
+  --graph-region-stroke: rgb(0 0 0 / 0.14);
   --graph-node: var(--surface); /* files */
-  --graph-node-stroke: var(--border-strong);
+  --graph-node-stroke: rgb(0 0 0 / 0.27); /* a step past --border-strong */
   --graph-symbol: var(--surface-subtle); /* classes */
-  --graph-symbol-stroke: var(--border);
+  --graph-symbol-stroke: var(--border-strong);
   --graph-edge: rgb(0 0 0 / 0.26);
   --graph-edge-strong: rgb(0 0 0 / 0.72);
   --graph-label: var(--text-primary);
