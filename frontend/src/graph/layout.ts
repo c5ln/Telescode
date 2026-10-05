@@ -20,9 +20,9 @@ interface Rect {
 
 /** Space around and between children, as fractions of the parent's short side. */
 const SPACING = {
-  root: { pad: 0.012, header: 0, gap: 0.012 },
-  dir: { pad: 0.03, header: 0.085, gap: 0.03 },
-  file: { pad: 0.05, header: 0.13, gap: 0.05 },
+  root: { pad: 0.012, header: 0, gap: 0.02 },
+  dir: { pad: 0.03, header: 0.085, gap: 0.05 },
+  file: { pad: 0.05, header: 0.13, gap: 0.07 },
 } as const
 
 export function layoutGraph(model: GraphModel): void {
