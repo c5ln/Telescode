@@ -354,6 +354,12 @@ export class GraphRenderer {
     this.emitContext()
   }
 
+  /** Move the camera to a view saved earlier. */
+  moveTo(camera: Camera, animate = true) {
+    this.pinned = null
+    this.flyTo(camera, animate)
+  }
+
   panBy(dx: number, dy: number) {
     this.cancelAnimations()
     this.pinned = null

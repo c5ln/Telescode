@@ -6,6 +6,7 @@
 
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react'
 
+import type { Camera } from './camera'
 import styles from './GraphCanvas.module.css'
 import type { GraphModel, GraphNode } from './model'
 import { GraphRenderer } from './renderer'
@@ -17,6 +18,16 @@ export interface GraphHandle {
   fit(): void
   /** Clear the selection and move to a node (the root fits the whole map). */
   navigate(id: string): void
+  /** Select a node and move to it, showing its relationships (the root fits the whole map). */
+  spotlight(id: string): void
+  /** Where the camera is and what is selected, to return to later. */
+  saveView(): MapView | null
+  restoreView(view: MapView): void
+}
+
+export interface MapView {
+  camera: Camera
+  selected: string | null
 }
 
 interface GraphCanvasProps {
@@ -64,6 +75,24 @@ export function GraphCanvas({ model, onContextChange, onError, complexity = fals
         if (!r || !node) return
         r.select(null)
         r.focus(node)
+      },
+      spotlight: (id) => {
+        const r = rendererRef.current
+        const node = r?.model.byId.get(id)
+        if (!r || !node) return
+        r.select(node)
+        if (node === r.model.root) r.fit()
+        else r.focus(node)
+      },
+      saveView: () => {
+        const r = rendererRef.current
+        return r ? { camera: { ...r.camera }, selected: r.selected?.id ?? null } : null
+      },
+      restoreView: (view) => {
+        const r = rendererRef.current
+        if (!r) return
+        r.select(view.selected ? (r.model.byId.get(view.selected) ?? null) : null)
+        r.moveTo(view.camera)
       },
     }),
     [],
