@@ -16,7 +16,8 @@ export type TutorialState =
   | { status: 'searching' }
   /** No tour yet: the agent is asked to write one; `ready` once it is saved. */
   | { status: 'setup'; ready: SavedTour | null; error: string | null }
-  | { status: 'playing'; tour: SavedTour; index: number; playing: boolean }
+  /** `finished` once playback has run through the last step. */
+  | { status: 'playing'; tour: SavedTour; index: number; playing: boolean; finished: boolean }
 
 export interface Tutorial {
   state: TutorialState
@@ -70,7 +71,7 @@ export function useTutorial(
       searchId.current++
       savedView.current = graphRef.current?.saveView() ?? null
       remaining.current = null
-      setState({ status: 'playing', tour, index: 0, playing: true })
+      setState({ status: 'playing', tour, index: 0, playing: true, finished: false })
     },
     [graphRef, setState],
   )
@@ -103,21 +104,20 @@ export function useTutorial(
     (index: number) => {
       if (state.status !== 'playing') return
       const last = state.tour.plan.stops.length - 1
-      const clamped = Math.max(0, Math.min(last, index))
       remaining.current = null
-      // Playback stops at the end rather than looping.
-      setState({ ...state, index: clamped, playing: state.playing && clamped < last })
+      // Moving on from the last step finishes the tour: playback stops rather than looping.
+      if (index > last) setState({ ...state, playing: false, finished: true })
+      else setState({ ...state, index: Math.max(0, index), finished: false })
     },
     [state, setState],
   )
 
   const togglePlaying = useCallback(() => {
     if (state.status !== 'playing') return
-    const atEnd = state.index === state.tour.plan.stops.length - 1
-    // Play from the end starts over.
-    if (!state.playing && atEnd) {
+    // Play after the end starts over.
+    if (state.finished) {
       remaining.current = null
-      setState({ ...state, index: 0, playing: true })
+      setState({ ...state, index: 0, playing: true, finished: false })
     }
     else setState({ ...state, playing: !state.playing })
   }, [state, setState])

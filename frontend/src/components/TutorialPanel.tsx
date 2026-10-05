@@ -123,9 +123,9 @@ export function TutorialPanel({ tutorial, repositoryName, dbPath }: TutorialPane
         </div>
         <ol className={styles.track} aria-hidden="true">
           {plan.stops.map((s, i) => (
-            <li key={i} data-state={i < state.index ? 'done' : i === state.index ? 'current' : undefined}>
+            <li key={i} data-state={i < state.index || (i === state.index && state.finished) ? 'done' : i === state.index ? 'current' : undefined}>
               {/* Fills over the step's time; mounted afresh for each step, and frozen while paused. */}
-              {i === state.index && (
+              {i === state.index && !state.finished && (
                 <span
                   className={styles.fill}
                   data-testid="step-progress"

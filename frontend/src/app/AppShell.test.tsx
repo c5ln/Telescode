@@ -252,6 +252,10 @@ describe('AppShell', () => {
       fireEvent.keyDown(panel, { key: 'ArrowRight' })
       expect(r.selected?.id).toBe('class:sherlock_project/result.py::QueryStatus')
       expect((within(panel).getByRole('button', { name: 'Next step' }) as HTMLButtonElement).disabled).toBe(true)
+      // Play on a last step reached by hand plays that step rather than starting over.
+      await userEvent.click(within(panel).getByRole('button', { name: 'Play' }))
+      expect(within(panel).getByText('3 / 3')).toBeTruthy()
+      await userEvent.click(within(panel).getByRole('button', { name: 'Pause' }))
       await userEvent.click(within(panel).getByRole('button', { name: 'Previous step' }))
       expect(within(panel).getByText('2 / 3')).toBeTruthy()
 
@@ -269,7 +273,11 @@ describe('AppShell', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
       const panel = await screen.findByRole('region', { name: 'Tutorial' })
       await within(panel).findByText('3 / 3')
-      expect(within(panel).getByRole('button', { name: 'Play' })).toBeTruthy()
+      // The last step plays out too, and its bar ends full.
+      expect(within(panel).getByTestId('step-progress').style.animationPlayState).toBe('running')
+      await within(panel).findByRole('button', { name: 'Play' })
+      expect(within(panel).queryByTestId('step-progress')).toBeNull()
+      expect([...panel.querySelectorAll('li')].map((li) => li.dataset.state)).toEqual(['done', 'done', 'done'])
       expect(renderer().selected?.id).toBe('class:sherlock_project/result.py::QueryStatus')
 
       // Play from the end starts over.
