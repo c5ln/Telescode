@@ -232,6 +232,8 @@ describe('AppShell', () => {
       expect(screen.getByRole('button', { name: 'Exit tutorial', pressed: true })).toBeTruthy()
       expect(within(panel).getByText('Sherlock finds a username across sites.')).toBeTruthy()
       expect(within(panel).getByText('1 / 3')).toBeTruthy()
+      expect(within(panel).getByText('Tutorial')).toBeTruthy()
+      expect(within(panel).queryByText(/Sherlock onboarding/)).toBeNull()
       expect(r.selected).toBeNull()
 
       // The current step's bar fills over its time, a little quicker than the video, and freezes on pause.

@@ -53,9 +53,7 @@ export function TutorialPanel({ tutorial, repositoryName, dbPath }: TutorialPane
     return (
       <section className={styles.panel} aria-label="Tutorial" onKeyDown={onKeyDown}>
         <header className={styles.header}>
-          <p className={styles.eyebrow} title={plan.title}>
-          Tutorial · {plan.title}
-        </p>
+          <p className={styles.eyebrow}>Tutorial</p>
           {close}
         </header>
         {ready ? (
