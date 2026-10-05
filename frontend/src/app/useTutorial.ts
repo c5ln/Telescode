@@ -49,6 +49,8 @@ export function useTutorial(
   const setState = useCallback((next: TutorialState) => setOwned({ snapshot, state: next }), [snapshot])
 
   const savedView = useRef<MapView | null>(null)
+  // Time left on a paused step, so resuming continues it instead of starting it over.
+  const remaining = useRef<{ index: number; ms: number } | null>(null)
   // Answers to an earlier search are dropped once the tutorial moves on.
   const searchId = useRef(0)
 
@@ -67,6 +69,7 @@ export function useTutorial(
     (tour: SavedTour) => {
       searchId.current++
       savedView.current = graphRef.current?.saveView() ?? null
+      remaining.current = null
       setState({ status: 'playing', tour, index: 0, playing: true })
     },
     [graphRef, setState],
@@ -101,6 +104,7 @@ export function useTutorial(
       if (state.status !== 'playing') return
       const last = state.tour.plan.stops.length - 1
       const clamped = Math.max(0, Math.min(last, index))
+      remaining.current = null
       // Playback stops at the end rather than looping.
       setState({ ...state, index: clamped, playing: state.playing && clamped < last })
     },
@@ -111,7 +115,10 @@ export function useTutorial(
     if (state.status !== 'playing') return
     const atEnd = state.index === state.tour.plan.stops.length - 1
     // Play from the end starts over.
-    if (!state.playing && atEnd) setState({ ...state, index: 0, playing: true })
+    if (!state.playing && atEnd) {
+      remaining.current = null
+      setState({ ...state, index: 0, playing: true })
+    }
     else setState({ ...state, playing: !state.playing })
   }, [state, setState])
 
@@ -126,8 +133,13 @@ export function useTutorial(
   const autoplay = state.status === 'playing' && state.playing
   useEffect(() => {
     if (!autoplay || !step) return
-    const timer = setTimeout(() => goTo(index + 1), stepDurationMs(step))
-    return () => clearTimeout(timer)
+    const ms = remaining.current?.index === index ? remaining.current.ms : stepDurationMs(step)
+    const started = performance.now()
+    const timer = setTimeout(() => goTo(index + 1), ms)
+    return () => {
+      clearTimeout(timer)
+      remaining.current = { index, ms: Math.max(0, ms - (performance.now() - started)) }
+    }
   }, [autoplay, step, index, goTo])
 
   // The generation flow: check for the agent's tour until it appears.

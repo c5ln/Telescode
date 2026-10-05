@@ -99,17 +99,34 @@
 
 .track li {
   flex: 1;
-  height: 3px;
+  height: 4px;
+  overflow: hidden;
   border-radius: 2px;
   background: var(--border);
 }
 
 .track li[data-state='done'] {
-  background: var(--border-strong);
+  background: var(--graph-selected);
 }
 
-.track li[data-state='current'] {
+/* The current step fills from the left over its time on screen. */
+.fill {
+  display: block;
+  height: 100%;
   background: var(--graph-selected);
+  transform-origin: left;
+  animation-name: step-fill;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes step-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
 }
 
 .progress {

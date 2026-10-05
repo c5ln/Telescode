@@ -234,7 +234,12 @@ describe('AppShell', () => {
       expect(within(panel).getByText('1 / 3')).toBeTruthy()
       expect(r.selected).toBeNull()
 
+      // The current step's bar fills over its time, a little quicker than the video, and freezes on pause.
+      const fill = () => within(panel).getByTestId('step-progress')
+      expect(fill().style.animationDuration).toBe('48000ms')
+      expect(fill().style.animationPlayState).toBe('running')
       await userEvent.click(within(panel).getByRole('button', { name: 'Pause' }))
+      expect(fill().style.animationPlayState).toBe('paused')
       await userEvent.click(within(panel).getByRole('button', { name: 'Next step' }))
       expect(within(panel).getByText('result.py defines the shape of a result.')).toBeTruthy()
       expect(within(panel).getByText('2 / 3')).toBeTruthy()

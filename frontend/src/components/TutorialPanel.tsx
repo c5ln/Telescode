@@ -5,7 +5,7 @@ import { useState, type KeyboardEvent } from 'react'
 
 import type { Tutorial } from '../app/useTutorial'
 import { formatEvidenceValue } from '../tour/model'
-import { tutorialRequest } from '../tour/tutorial'
+import { stepDurationMs, tutorialRequest } from '../tour/tutorial'
 import { Button } from '../ui/Button'
 import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, PauseIcon, PlayIcon } from '../ui/icons'
 import { IconButton } from '../ui/IconButton'
@@ -53,7 +53,9 @@ export function TutorialPanel({ tutorial, repositoryName, dbPath }: TutorialPane
     return (
       <section className={styles.panel} aria-label="Tutorial" onKeyDown={onKeyDown}>
         <header className={styles.header}>
-          <p className={styles.eyebrow}>Tutorial</p>
+          <p className={styles.eyebrow} title={plan.title}>
+          Tutorial · {plan.title}
+        </p>
           {close}
         </header>
         {ready ? (
@@ -92,9 +94,7 @@ export function TutorialPanel({ tutorial, repositoryName, dbPath }: TutorialPane
   return (
     <section className={styles.panel} aria-label="Tutorial" onKeyDown={onKeyDown}>
       <header className={styles.header}>
-        <p className={styles.eyebrow} title={plan.title}>
-          Tutorial · {plan.title}
-        </p>
+        <p className={styles.eyebrow}>Tutorial</p>
         {close}
       </header>
       <div aria-live="polite">
@@ -124,8 +124,20 @@ export function TutorialPanel({ tutorial, repositoryName, dbPath }: TutorialPane
           </IconButton>
         </div>
         <ol className={styles.track} aria-hidden="true">
-          {plan.stops.map((_, i) => (
-            <li key={i} data-state={i < state.index ? 'done' : i === state.index ? 'current' : undefined} />
+          {plan.stops.map((s, i) => (
+            <li key={i} data-state={i < state.index ? 'done' : i === state.index ? 'current' : undefined}>
+              {/* Fills over the step's time; mounted afresh for each step, and frozen while paused. */}
+              {i === state.index && (
+                <span
+                  className={styles.fill}
+                  data-testid="step-progress"
+                  style={{
+                    animationDuration: `${stepDurationMs(s)}ms`,
+                    animationPlayState: state.playing ? 'running' : 'paused',
+                  }}
+                />
+              )}
+            </li>
           ))}
         </ol>
         <p className={styles.progress} aria-label={`Step ${state.index + 1} of ${plan.stops.length}`}>
