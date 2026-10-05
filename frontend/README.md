@@ -227,9 +227,9 @@ snapshot ──buildGraphModel──▶ tree ──layoutGraph──▶ boxes �
   open. Only edges with an end on screen are drawn, faint ones fade, and at
   most `EDGE_BUDGET` groups are shown at once, weakest fading first. Class
   relationships appear only at the symbol level.
-- **Camera** (`camera.ts`, `renderer.ts`). The wheel zooms around the
-  pointer (smoothed over about 55 ms), trackpad pinch zooms directly,
-  two-finger scroll and drag pan. Fit, zoom buttons, breadcrumbs and
+- **Camera** (`camera.ts`, `renderer.ts`). Scrolling, with a mouse wheel
+  or two fingers, zooms around the pointer (smoothed over about 55 ms),
+  trackpad pinch zooms directly, and a sideways scroll and drag pan. Fit, zoom buttons, breadcrumbs and
   double-click move the camera along a van Wijk–Nuij path, which pulls back
   just enough on long moves to keep context. With `prefers-reduced-motion`,
   camera moves are instant.

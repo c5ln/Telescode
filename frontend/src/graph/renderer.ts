@@ -376,10 +376,11 @@ export class GraphRenderer {
       this.invalidate()
       return
     }
-    // Two-finger trackpad scroll pans; a mouse wheel (large, vertical-only steps) zooms.
-    const trackpad = deltaMode === 0 && (deltaX !== 0 || Math.abs(dy) < 40 || !Number.isInteger(dy))
-    if (trackpad) {
-      this.panBy(-dx, -dy)
+    // Scrolling zooms, whatever the device: mouse wheels often send small or
+    // fractional steps, so they cannot be told apart from a trackpad. Only a
+    // mostly sideways scroll pans, since there is no sideways zoom.
+    if (Math.abs(dx) > Math.abs(dy)) {
+      this.panBy(-dx, 0)
       return
     }
 
