@@ -7,7 +7,6 @@
 // openness, so detail fades in inside its parent and fades back out the same
 // way. Everything here is a pure function of the node and the scale.
 
-import type { Box } from './camera'
 import type { GraphModel, GraphNode } from './model'
 
 export function smoothstep(x: number, a: number, b: number): number {
@@ -101,10 +100,9 @@ export class LodFrame {
   private readonly visV: Float64Array
   private readonly openAt: Uint32Array
   private readonly visAt: Uint32Array
-  /** Endpoint boxes (x, y, w, h per node) and their dominant stand-in. */
-  private readonly endV: Float64Array
-  private readonly endRep: Int32Array
-  private readonly endAt: Uint32Array
+  /** Edge stand-ins per node (see `standIns`), reused between frames. */
+  private readonly standInV: StandIn[][]
+  private readonly standInAt: Uint32Array
   private frame = 0
 
   constructor(model: GraphModel) {
@@ -114,9 +112,8 @@ export class LodFrame {
     this.visV = new Float64Array(n)
     this.openAt = new Uint32Array(n)
     this.visAt = new Uint32Array(n)
-    this.endV = new Float64Array(n * 4)
-    this.endRep = new Int32Array(n)
-    this.endAt = new Uint32Array(n)
+    this.standInV = new Array(n)
+    this.standInAt = new Uint32Array(n)
   }
 
   begin(k: number) {
@@ -145,58 +142,37 @@ export class LodFrame {
   }
 
   /**
-   * Where an edge attached to `node` should meet the map at this scale: a
-   * blend of the node and its ancestors, each weighted by how much it is the
-   * visible stand-in (visible but not yet open). The weights sum to 1, so as
-   * a region opens the endpoint glides from the region to the node inside it
-   * instead of jumping. Returns the stand-in with the largest weight, which
-   * edges are grouped by.
+   * Where an edge attached to `node` meets the map at this scale: the nodes
+   * on its path from the root that are drawn as themselves, each weighted by
+   * how much (its visibility, less the part handed on to its children as it
+   * opens). The weights sum to 1. Edges are drawn to each stand-in's own box
+   * and faded by its weight, so a line always ends on a box that is really
+   * there; as a region opens, its line fades out while the lines to the
+   * nodes inside it fade in.
    */
-  endpoint(node: GraphNode, out: Box): GraphNode {
-    // Many edges share an endpoint; compute each node's blend once per frame.
+  standIns(node: GraphNode): readonly StandIn[] {
+    // Many edges share an endpoint; compute each node's stand-ins once per frame.
     const i = node.order
-    if (this.endAt[i] === this.frame) {
-      out.x = this.endV[i * 4]
-      out.y = this.endV[i * 4 + 1]
-      out.w = this.endV[i * 4 + 2]
-      out.h = this.endV[i * 4 + 3]
-      return this.model.nodes[this.endRep[i]]
-    }
-    const dominant = this.blend(node, out)
-    this.endV[i * 4] = out.x
-    this.endV[i * 4 + 1] = out.y
-    this.endV[i * 4 + 2] = out.w
-    this.endV[i * 4 + 3] = out.h
-    this.endRep[i] = dominant.order
-    this.endAt[i] = this.frame
-    return dominant
-  }
-
-  private blend(node: GraphNode, out: Box): GraphNode {
-    out.x = out.y = out.w = out.h = 0
+    let list = this.standInV[i]
+    if (this.standInAt[i] === this.frame && list) return list
+    if (!list) this.standInV[i] = list = []
+    list.length = 0
     const chain = chainOf(node, this.model)
-    let remaining = 1
-    let dominant = chain[0]
-    let best = -1
-    for (let i = 0; i < chain.length; i++) {
-      const a = chain[i]
-      const o = i === chain.length - 1 ? 0 : this.open(a)
-      const weight = remaining * (1 - o)
-      if (weight > 0) {
-        out.x += a.x * weight
-        out.y += a.y * weight
-        out.w += a.w * weight
-        out.h += a.h * weight
-      }
-      if (weight > best) {
-        best = weight
-        dominant = a
-      }
-      remaining *= o
-      if (remaining <= 0) break
+    for (let j = 0; j < chain.length; j++) {
+      const a = chain[j]
+      const vis = this.vis(a)
+      if (vis <= 0) break
+      const weight = j === chain.length - 1 ? vis : vis * (1 - reveal(this.open(a)))
+      if (weight > 1e-3) list.push({ node: a, weight })
     }
-    return dominant
+    this.standInAt[i] = this.frame
+    return list
   }
+}
+
+export interface StandIn {
+  node: GraphNode
+  weight: number
 }
 
 const chains = new WeakMap<GraphModel, Map<number, GraphNode[]>>()

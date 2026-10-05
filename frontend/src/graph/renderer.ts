@@ -84,10 +84,11 @@ interface WheelZoom {
 }
 
 interface EdgeGroup {
-  /** Sums of endpoint boxes, averaged before drawing. */
-  s: Box
-  t: Box
+  /** The boxes the group's lines run between, exactly as drawn. */
+  s: GraphNode
+  t: GraphNode
   count: number
+  /** How much these stand-ins are what is drawn (see LodFrame.standIns), and for class relationships, their visibility. */
   alpha: number
   emphasized: boolean
 }
@@ -101,6 +102,8 @@ interface EdgeCandidate {
   y1: number
   len: number
   alpha: number
+  /** Opacity of an emphasized line: its stand-ins' weight alone. */
+  weight: number
   count: number
   emphasized: boolean
   score: number
@@ -679,8 +682,16 @@ export class GraphRenderer {
     const { width, height } = this.viewport
     const n = this.model.nodes.length
     const groups = new Map<number, EdgeGroup>()
-    const sb: Box = { x: 0, y: 0, w: 0, h: 0 }
-    const tb: Box = { x: 0, y: 0, w: 0, h: 0 }
+    const add = (e: GraphEdge, s: GraphNode, t: GraphNode, alpha: number) => {
+      // Both ends inside one stand-in: internal to a region at this scale.
+      if (contains(s, t) || contains(t, s)) return
+      const key = s.order * n + t.order
+      let g = groups.get(key)
+      if (!g) groups.set(key, (g = { s, t, count: 0, alpha: 0, emphasized: false }))
+      g.count++
+      g.alpha = Math.max(g.alpha, alpha)
+      if (focus && !g.emphasized && (contains(focus, e.source) || contains(focus, e.target))) g.emphasized = true
+    }
 
     // Imports everywhere; class relationships only from files open on screen.
     const edges: GraphEdge[] = this.importEdges.slice()
@@ -691,34 +702,19 @@ export class GraphRenderer {
     }
 
     for (const e of edges) {
-      let sRep: GraphNode
-      let tRep: GraphNode
-      let alpha = 1
       if (e.kind === 'import') {
-        sRep = this.lod.endpoint(e.source, sb)
-        tRep = this.lod.endpoint(e.target, tb)
+        // An import is drawn between every pair of stand-ins for its ends,
+        // faded by how much each pair is what is on screen.
+        for (const s of this.lod.standIns(e.source))
+          for (const t of this.lod.standIns(e.target)) {
+            const weight = s.weight * t.weight
+            if (weight >= 0.05) add(e, s.node, t.node, weight)
+          }
       } else {
         // Class relationships belong to the symbol level only.
-        alpha = Math.min(this.lod.vis(e.source), this.lod.vis(e.target))
-        if (alpha < 0.05) continue
-        sRep = e.source
-        tRep = e.target
-        copyBox(e.source, sb)
-        copyBox(e.target, tb)
+        const alpha = Math.min(this.lod.vis(e.source), this.lod.vis(e.target))
+        if (alpha >= 0.05) add(e, e.source, e.target, alpha)
       }
-      // Both ends inside one stand-in: internal to a region at this scale.
-      if (contains(sRep, tRep) || contains(tRep, sRep)) continue
-      const key = sRep.order * n + tRep.order
-      let g = groups.get(key)
-      if (!g) {
-        g = { s: { x: 0, y: 0, w: 0, h: 0 }, t: { x: 0, y: 0, w: 0, h: 0 }, count: 0, alpha: 0, emphasized: false }
-        groups.set(key, g)
-      }
-      addBox(g.s, sb)
-      addBox(g.t, tb)
-      g.count++
-      g.alpha = Math.max(g.alpha, alpha)
-      if (focus && !g.emphasized && (contains(focus, e.source) || contains(focus, e.target))) g.emphasized = true
     }
 
     // Paths batched by (emphasis, opacity step, width) so a frame makes only a
@@ -738,22 +734,21 @@ export class GraphRenderer {
     const ox = width / 2 - this.camera.x * k
     const oy = height / 2 - this.camera.y * k
     for (const g of groups.values()) {
-      const inv = 1 / g.count
       // Screen boxes, computed in place (this loop runs for thousands of groups).
-      const sw = g.s.w * inv * k
-      const sh = g.s.h * inv * k
-      const dw = g.t.w * inv * k
-      const dh = g.t.h * inv * k
+      const sw = g.s.w * k
+      const sh = g.s.h * k
+      const dw = g.t.w * k
+      const dh = g.t.h * k
       // Fade out edges whose ends are too small to see.
       const legible = smoothstep(Math.min(sw, sh, dw, dh), 10, 32)
       const strength = 0.45 + 0.55 * Math.min(1, Math.log2(g.count + 1) / 4)
       const alpha = g.alpha * legible * strength
       if (alpha < 0.05 && !g.emphasized) continue
 
-      const scx = g.s.x * inv * k + ox + sw / 2
-      const scy = g.s.y * inv * k + oy + sh / 2
-      const dcx = g.t.x * inv * k + ox + dw / 2
-      const dcy = g.t.y * inv * k + oy + dh / 2
+      const scx = g.s.x * k + ox + sw / 2
+      const scy = g.s.y * k + oy + sh / 2
+      const dcx = g.t.x * k + ox + dw / 2
+      const dcy = g.t.y * k + oy + dh / 2
       // Only relationships anchored in view: a line between two off-screen
       // places would just cross the screen. One end off-screen: fainter.
       const sOn = overlapsView(scx, scy, sw, sh, width, height)
@@ -784,15 +779,23 @@ export class GraphRenderer {
       const cy = (y0 + y1) / 2 - (lx / len) * bend
       if (Math.max(x0, x1, cx) < 0 || Math.max(y0, y1, cy) < 0 || Math.min(x0, x1, cx) > width || Math.min(y0, y1, cy) > height) continue
 
-      candidates.push({ x0, y0, cx, cy, x1, y1, len, alpha: alpha * anchored, count: g.count, emphasized: g.emphasized, score: g.count * legible * anchored })
+      candidates.push({
+        x0, y0, cx, cy, x1, y1, len,
+        alpha: alpha * anchored,
+        weight: g.alpha,
+        count: g.count,
+        emphasized: g.emphasized,
+        // A line that is fading out between levels gives way to the one fading in.
+        score: g.count * legible * anchored * g.alpha,
+      })
     }
 
     const emphasisCap = focus === this.selected ? SELECTION_EDGE_CAP : HOVER_EDGE_CAP
     for (const c of capEdgeGroups(candidates, EDGE_BUDGET, emphasisCap)) {
       const alpha = c.alpha
       if (!c.emphasized) drawn++
-      const level = Math.max(1, Math.round(Math.min(1, alpha) * LEVELS))
-      const p = pathFor(c.emphasized, c.emphasized ? LEVELS : level, c.count >= 6)
+      const level = Math.max(1, Math.round(Math.min(1, c.emphasized ? c.weight : alpha) * LEVELS))
+      const p = pathFor(c.emphasized, level, c.count >= 6)
       p.line.moveTo(c.x0, c.y0)
       p.line.quadraticCurveTo(c.cx, c.cy, c.x1, c.y1)
       if (c.len > 48) arrowHead(p.heads, c.cx, c.cy, c.x1, c.y1, c.emphasized ? 6 : 5)
@@ -805,7 +808,7 @@ export class GraphRenderer {
       const emphasized = key >= 1000
       const level = Math.floor((key % 1000) / 2)
       const wide = key % 2 === 1
-      ctx.globalAlpha = emphasized ? 1 : (level / LEVELS) * crowd * (focus ? 0.4 : 1)
+      ctx.globalAlpha = (level / LEVELS) * (emphasized ? 1 : crowd * (focus ? 0.4 : 1))
       ctx.strokeStyle = ctx.fillStyle = emphasized ? selectedColor : t.edge
       ctx.lineWidth = (wide ? 1.6 : 1) * (emphasized ? 1.25 : 1)
       ctx.stroke(p.line)
@@ -1036,20 +1039,6 @@ function inside(b: Box, x: number, y: number): boolean {
 /** Whether a box given by its screen centre and size overlaps the viewport. */
 function overlapsView(cx: number, cy: number, w: number, h: number, width: number, height: number): boolean {
   return cx + w / 2 >= 0 && cy + h / 2 >= 0 && cx - w / 2 <= width && cy - h / 2 <= height
-}
-
-function addBox(to: Box, b: Box) {
-  to.x += b.x
-  to.y += b.y
-  to.w += b.w
-  to.h += b.h
-}
-
-function copyBox(from: Box, to: Box) {
-  to.x = from.x
-  to.y = from.y
-  to.w = from.w
-  to.h = from.h
 }
 
 function lerp(a: number, b: number, t: number): number {
