@@ -26,6 +26,18 @@ function deferredApi() {
   return { api, analyze, pending }
 }
 
+/** A repository opener whose downloads stay pending until the test settles them. */
+function deferredRepositories() {
+  const opened: { resolve: (dbPath: string) => void; reject: (e: unknown) => void }[] = []
+  const repositories = vi.fn(() => new Promise<string>((resolve, reject) => opened.push({ resolve, reject })))
+  return { repositories, opened }
+}
+
+async function openRepository(url: string) {
+  await userEvent.type(screen.getByRole('textbox', { name: 'Repository URL' }), url)
+  await userEvent.click(screen.getByRole('button', { name: 'Analyze' }))
+}
+
 /** The development-only path: switch the empty state to database entry, then open. */
 async function openDatabase(path: string) {
   const devLink = screen.queryByRole('button', { name: 'Open a local database (dev)' })
@@ -72,8 +84,9 @@ describe('AppShell', () => {
   })
 
   it('starts from a repository URL and never asks users for a database', async () => {
-    const { api, analyze } = deferredApi()
-    render(<AppShell api={api} />)
+    const { api } = deferredApi()
+    const { repositories, opened } = deferredRepositories()
+    render(<AppShell api={api} repositories={repositories} />)
 
     expect(screen.getByText('Open a repository')).toBeTruthy()
     const url = screen.getByRole('textbox', { name: 'Repository URL' })
@@ -81,16 +94,81 @@ describe('AppShell', () => {
     expect(screen.queryByRole('button', { name: 'Open a local database (dev)' })).toBeNull()
     expect(screen.queryByText(/database/i)).toBeNull()
 
-    await userEvent.type(url, 'not a url')
-    await userEvent.click(screen.getByRole('button', { name: 'Analyze' }))
-    expect(screen.getByRole('status').textContent).toMatch(/^Enter a Git repository URL/)
-    expect(url.getAttribute('aria-invalid')).toBe('true')
+    for (const bad of ['not a url', 'https://gitlab.com/c5ln/Telescode', 'https://github.com/c5ln/Telescode/pull/1']) {
+      await userEvent.clear(url)
+      await userEvent.type(url, bad)
+      await userEvent.click(screen.getByRole('button', { name: 'Analyze' }))
+      expect(screen.getByRole('status').textContent).toMatch(/^Enter a public GitHub repository URL/)
+      expect(url.getAttribute('aria-invalid')).toBe('true')
+    }
+    expect(repositories).not.toHaveBeenCalled()
 
     await userEvent.clear(url)
     await userEvent.type(url, 'https://github.com/c5ln/Telescode')
     await userEvent.click(screen.getByRole('button', { name: 'Analyze' }))
-    expect(screen.getByRole('status').textContent).toBe('Repository scanning is not available yet.')
+    expect(repositories).toHaveBeenCalledWith('https://github.com/c5ln/Telescode')
+    expect(opened).toHaveLength(1)
+  })
+
+  it('downloads a repository, then analyzes it like a local database', async () => {
+    const { api, analyze, pending } = deferredApi()
+    const { repositories, opened } = deferredRepositories()
+    render(<AppShell api={api} repositories={repositories} />)
+    await openRepository('https://github.com/c5ln/Telescode')
+
+    expect(screen.getByRole('status').textContent).toBe('Downloading and scanning c5ln/Telescode…')
+    expect(screen.getByRole('main', { name: 'Workspace' }).getAttribute('aria-busy')).toBe('true')
+    expect(screen.getByText('Telescode').getAttribute('aria-current')).toBe('location')
     expect(analyze).not.toHaveBeenCalled()
+
+    opened[0]!.resolve('/cache/repositories/c5ln/telescode/Telescode.db')
+    await vi.waitFor(() => expect(analyze).toHaveBeenCalledWith('/cache/repositories/c5ln/telescode/Telescode.db'))
+    expect(screen.getByRole('status').textContent).toBe('Analyzing c5ln/Telescode…')
+
+    pending[0]!.resolve(snapshot)
+    expect(await screen.findByText('16 files · 11 classes')).toBeTruthy()
+    expect(screen.getByText('Telescode').getAttribute('aria-current')).toBe('location')
+  })
+
+  it('shows why a repository could not be opened, retries the download, and offers the URL again', async () => {
+    const { api, analyze } = deferredApi()
+    const { repositories, opened } = deferredRepositories()
+    render(<AppShell api={api} repositories={repositories} allowLocalDatabase />)
+    await openRepository('https://github.com/c5ln/private')
+
+    opened[0]!.reject(new TelescodeError('repository_not_found', 'c5ln/private does not exist or is private.'))
+    const alert = await screen.findByRole('alert')
+    expect(within(alert).getByText('Repository not found')).toBeTruthy()
+    expect(within(alert).getByText('c5ln/private does not exist or is private.')).toBeTruthy()
+    expect(screen.queryByText('16 files · 11 classes')).toBeNull()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(repositories).toHaveBeenCalledTimes(2)
+    expect(analyze).not.toHaveBeenCalled()
+
+    opened[1]!.reject(new TelescodeError('repository_empty', 'c5ln/private has no source files Telescode can analyze.'))
+    expect(await screen.findByText('No supported source files')).toBeTruthy()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }))
+    expect(screen.getByText('Open a repository')).toBeTruthy()
+    expect((screen.getByRole('textbox', { name: 'Repository URL' }) as HTMLInputElement).value).toBe(
+      'https://github.com/c5ln/private',
+    )
+  })
+
+  it('drops a download the user has moved on from', async () => {
+    const { api, analyze } = deferredApi()
+    const { repositories, opened } = deferredRepositories()
+    render(<AppShell api={api} repositories={repositories} />)
+    await openRepository('https://github.com/c5ln/Telescode')
+
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Open repository…' }))
+    opened[0]!.resolve('/cache/Telescode.db')
+    await new Promise((r) => setTimeout(r, 0))
+
+    expect(analyze).not.toHaveBeenCalled()
+    expect(screen.getByText('Open a repository')).toBeTruthy()
   })
 
   it('starts empty, then goes through loading to ready', async () => {

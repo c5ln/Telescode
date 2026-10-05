@@ -1,19 +1,26 @@
 import { describe, expect, it } from 'vitest'
 
-import { isRepositoryUrl } from './repositoryUrl'
+import { parseGitHubRepositoryUrl } from './repositoryUrl'
 
-describe('isRepositoryUrl', () => {
+describe('parseGitHubRepositoryUrl', () => {
   it.each([
     'https://github.com/c5ln/Telescode',
+    'https://github.com/c5ln/Telescode/',
     'https://github.com/c5ln/Telescode.git',
-    'http://gitlab.example.com/group/sub/repo',
-    'ssh://git@github.com/c5ln/Telescode.git',
-    'git://example.com/repo.git',
-    'git@github.com:c5ln/Telescode.git',
-  ])('accepts %s', (url) => expect(isRepositoryUrl(url)).toBe(true))
+    'http://www.github.com/c5ln/Telescode',
+    ' https://GitHub.com/c5ln/Telescode?tab=readme#top ',
+  ])('reads %s', (url) => expect(parseGitHubRepositoryUrl(url)).toEqual({ owner: 'c5ln', name: 'Telescode' }))
 
-  it.each(['', 'Telescode', 'github.com/c5ln/Telescode', 'https://github.com', 'ftp://example.com/repo', 'C:\repo'])(
-    'rejects %j',
-    (url) => expect(isRepositoryUrl(url)).toBe(false),
-  )
+  it.each([
+    '',
+    'Telescode',
+    'github.com/c5ln/Telescode',
+    'git@github.com:c5ln/Telescode.git',
+    'https://gitlab.com/c5ln/Telescode',
+    'https://github.com.evil.example/c5ln/Telescode',
+    'https://github.com/c5ln',
+    'https://github.com/c5ln/Telescode/blob/main/README.md',
+    'https://github.com/c5ln/Telescode/pull/1',
+    'https://github.com/c5ln/..',
+  ])('refuses %j', (url) => expect(parseGitHubRepositoryUrl(url)).toBeNull())
 })

@@ -1,35 +1,30 @@
 // Repository URL entry: the product's front door.
 //
-// The intended flow is URL → clone and scan → internal database → analysis.
-// Cloning and scanning do not exist yet, so without `onSubmit` the form only
-// checks the URL and says the step is not available.
+// URL → download and scan → internal database → analysis. The form only
+// checks that the URL names a GitHub repository; everything after that
+// happens once it is submitted.
 
 import { useState, type FormEvent } from 'react'
 
 import { Button } from '../ui/Button'
 import styles from './InlineForm.module.css'
-import { isRepositoryUrl } from './repositoryUrl'
+import { parseGitHubRepositoryUrl } from './repositoryUrl'
 
 interface RepositoryUrlFormProps {
-  onSubmit?: (url: string) => void
+  onSubmit: (url: string) => void
+  /** URL to prefill, e.g. the repository opened last. */
+  initialUrl?: string
 }
 
-type Notice = { kind: 'invalid' | 'unavailable'; text: string } | null
-
-export function RepositoryUrlForm({ onSubmit }: RepositoryUrlFormProps) {
-  const [url, setUrl] = useState('')
-  const [notice, setNotice] = useState<Notice>(null)
+export function RepositoryUrlForm({ onSubmit, initialUrl = '' }: RepositoryUrlFormProps) {
+  const [url, setUrl] = useState(initialUrl)
+  const [invalid, setInvalid] = useState(false)
   const trimmed = url.trim()
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    if (!isRepositoryUrl(trimmed)) {
-      setNotice({ kind: 'invalid', text: 'Enter a Git repository URL, such as https://github.com/owner/repo.' })
-    } else if (onSubmit) {
-      onSubmit(trimmed)
-    } else {
-      setNotice({ kind: 'unavailable', text: 'Repository scanning is not available yet.' })
-    }
+    if (parseGitHubRepositoryUrl(trimmed)) onSubmit(trimmed)
+    else setInvalid(true)
   }
 
   return (
@@ -40,12 +35,12 @@ export function RepositoryUrlForm({ onSubmit }: RepositoryUrlFormProps) {
           value={url}
           onChange={(e) => {
             setUrl(e.target.value)
-            setNotice(null)
+            setInvalid(false)
           }}
           placeholder="https://github.com/owner/repo"
           aria-label="Repository URL"
-          aria-invalid={notice?.kind === 'invalid' || undefined}
-          aria-describedby={notice ? 'repository-url-notice' : undefined}
+          aria-invalid={invalid || undefined}
+          aria-describedby={invalid ? 'repository-url-notice' : undefined}
           spellCheck={false}
           autoComplete="off"
           autoFocus
@@ -54,9 +49,9 @@ export function RepositoryUrlForm({ onSubmit }: RepositoryUrlFormProps) {
           Analyze
         </Button>
       </form>
-      {notice && (
-        <p id="repository-url-notice" className={styles.notice} data-kind={notice.kind} role="status">
-          {notice.text}
+      {invalid && (
+        <p id="repository-url-notice" className={styles.notice} data-kind="invalid" role="status">
+          Enter a public GitHub repository URL, such as https://github.com/owner/repo.
         </p>
       )}
     </div>

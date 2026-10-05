@@ -1,8 +1,8 @@
 // What the canvas shows before anything is open: a repository URL field.
 //
 // Users never deal with Telescode's internal database. In development builds
-// a quiet link switches to entering a database path directly, which is the
-// only way to exercise the bridge until repository scanning exists.
+// a quiet link switches to entering a database path directly, for opening a
+// database made with TelescodeHeadless scan without going through GitHub.
 
 import { useState } from 'react'
 
@@ -15,11 +15,20 @@ interface EmptyWorkspaceProps {
   /** Offer the development-only database path entry. */
   allowLocalDatabase: boolean
   onOpenDatabase: (dbPath: string) => void
+  onOpenRepository: (url: string) => void
   /** Last database path, to prefill; also starts in database mode. */
   lastDbPath?: string
+  /** Last repository URL, to prefill. */
+  lastUrl?: string
 }
 
-export function EmptyWorkspace({ allowLocalDatabase, onOpenDatabase, lastDbPath }: EmptyWorkspaceProps) {
+export function EmptyWorkspace({
+  allowLocalDatabase,
+  onOpenDatabase,
+  onOpenRepository,
+  lastDbPath,
+  lastUrl,
+}: EmptyWorkspaceProps) {
   const [mode, setMode] = useState<'repository' | 'database'>(
     allowLocalDatabase && lastDbPath ? 'database' : 'repository',
   )
@@ -38,9 +47,9 @@ export function EmptyWorkspace({ allowLocalDatabase, onOpenDatabase, lastDbPath 
   }
 
   return (
-    <EmptyState title="Open a repository" description="Paste a Git repository URL to map its code.">
+    <EmptyState title="Open a repository" description="Paste a public GitHub repository URL to map its code.">
       <div className={styles.stack}>
-        <RepositoryUrlForm />
+        <RepositoryUrlForm onSubmit={onOpenRepository} initialUrl={lastUrl} />
         {allowLocalDatabase && (
           <button type="button" className={styles.link} onClick={() => setMode('database')}>
             Open a local database (dev)

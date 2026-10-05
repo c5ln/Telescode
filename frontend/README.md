@@ -59,12 +59,26 @@ Requests fail with `bridge_unavailable`.
 
 ### Opening a codebase
 
-The app opens on a repository URL field. The intended flow is repository URL →
-clone and scan → internal database → analysis, and users never handle the
-database themselves. Cloning and scanning are not implemented yet, so the field
-only checks the URL shape and reports that scanning is unavailable.
+The app opens on a repository URL field. Paste a public GitHub repository
+URL (`https://github.com/owner/repo`) and press **Analyze**:
 
-Until then, development builds (`npm run dev`, `npm run desktop`) show an
+```text
+URL ──invoke('open_repository')──▶ Rust (src-tauri/src/repository.rs)
+        │  GitHub API: check the repository, then download the default
+        │  branch as a tarball into <app cache>/repositories/<owner>/<repo>/source
+        │  TelescodeHeadless scan source <repo>.db, then algo <repo>.db
+        ▼
+database path ──telescode.analyze──▶ the same path as any database
+```
+
+Users never handle the database. Opening the same repository again downloads
+its current default branch and scans it afresh. Only public repositories are
+supported: no token is sent, and GitHub answers a private repository the same
+way as a missing one. URLs that point inside a repository (branches, files,
+pull requests) are refused. Downloads are capped at 500 MB compressed and
+2 GB unpacked; symbolic links in the archive are skipped.
+
+Development builds (`npm run dev`, `npm run desktop`) also show an
 **Open a local database (dev)** link under the field, which opens a database
 made with `TelescodeHeadless scan` directly. Release builds do not show it.
 
@@ -125,6 +139,13 @@ TELESCODE_HEADLESS=<build>/Release/TelescodeHeadless.exe \
 TELESCODE_TEST_DB=<scanned database> cargo test
 ```
 
+and downloads and scans a real repository when these are set:
+
+```bash
+TELESCODE_HEADLESS=<build>/Release/TelescodeHeadless.exe \
+TELESCODE_TEST_REPOSITORY=https://github.com/sherlock-project/sherlock cargo test
+```
+
 ## The bridge
 
 `src/bridge` is the only way the UI reaches the core:
@@ -163,6 +184,12 @@ Every failure rejects with a `TelescodeError` whose `code` is one of:
 | `sidecar_spawn_failed` | Rust | the sidecar exists but could not be started |
 | `sidecar_failed` | Rust | non-zero exit; `details.exitCode` and `details.stderr` are set |
 | `output_not_utf8` | Rust | stdout was not UTF-8 |
+| `invalid_repository_url` | Rust | not a `https://github.com/owner/repo` URL |
+| `repository_not_found` | Rust | the repository does not exist or is private |
+| `repository_unreachable` | Rust | GitHub could not be reached, or is rate-limiting |
+| `repository_too_large` | Rust | over the size limits above |
+| `repository_empty` | Rust | the scan found no supported source files |
+| `repository_fetch_failed` | Rust | the download or unpacking failed |
 | `internal` | Rust | bridge worker failure |
 | `malformed_json` | TS | stdout was not valid JSON |
 | `unexpected_schema` | TS | valid JSON, wrong shape |

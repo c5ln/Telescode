@@ -51,3 +51,24 @@ export const tauriRunner: HeadlessRunner = async (op, dbPath) => {
 }
 
 export const telescode: TelescodeApi = createTelescodeApi(tauriRunner)
+
+/**
+ * Downloads a public GitHub repository and scans it, resolving with the path of
+ * the database to analyze. One coarse call, like the others.
+ */
+export type RepositoryOpener = (url: string) => Promise<string>
+
+/** The opener used inside the desktop app: the `open_repository` Tauri command. */
+export const tauriRepositoryOpener: RepositoryOpener = async (url) => {
+  if (!isTauri()) {
+    throw new TelescodeError(
+      'bridge_unavailable',
+      'Repositories can only be opened from the desktop app. Start it with `npm run desktop`.',
+    )
+  }
+  try {
+    return await invoke<string>('open_repository', { url })
+  } catch (e) {
+    throw fromNativeError(e)
+  }
+}
