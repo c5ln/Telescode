@@ -71,6 +71,10 @@ function place(node: GraphNode, rect: Rect) {
   })
 }
 
+/** A class's header band and the space under its rule, in member rows. */
+const CLASS_HEADER_ROWS = 1.6
+const CLASS_RULE_GAP_ROWS = 0.4
+
 /**
  * Class members are rows under a header row, like a compact class diagram.
  * Large classes flow into columns: the column count is whichever gives the
@@ -84,19 +88,20 @@ function placeMembers(cls: GraphNode) {
   let best = { cols: 1, row: 0 }
   for (let cols = 1; cols <= Math.min(n, 6); cols++) {
     const perCol = Math.ceil(n / cols)
-    // Header takes 1.6 rows; rows never get taller than a comfortable line.
-    const row = Math.min(availH / (perCol + 1.6), availW / cols / 9, cls.w * 0.11)
+    // Rows never get taller than a comfortable line.
+    const row = Math.min(availH / (perCol + CLASS_HEADER_ROWS + CLASS_RULE_GAP_ROWS), availW / cols / 9, cls.w * 0.11)
     if (row > best.row * 1.001) best = { cols, row }
   }
   const { cols, row } = best
   const perCol = Math.ceil(n / cols)
   const colW = availW / cols
   cls.rowHeight = row
-  cls.header = row * 1.6
+  cls.header = row * CLASS_HEADER_ROWS
+  const top = cls.y + cls.pad + cls.header + row * CLASS_RULE_GAP_ROWS
   cls.children.forEach((m, i) => {
     const col = Math.floor(i / perCol)
     m.x = cls.x + cls.pad + col * colW
-    m.y = cls.y + cls.pad + cls.header + (i % perCol) * row
+    m.y = top + (i % perCol) * row
     m.w = colW * 0.96
     m.h = row
   })

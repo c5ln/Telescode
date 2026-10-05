@@ -73,6 +73,14 @@ describe('layoutGraph', () => {
       }
   })
 
+  it('leaves space between a class header rule and its first member', () => {
+    for (const cls of model.nodes) {
+      if (cls.kind !== 'class' || !cls.children.length) continue
+      const rule = cls.y + cls.pad + cls.header
+      expect(cls.children[0].y - rule).toBeGreaterThanOrEqual(cls.rowHeight * 0.3)
+    }
+  })
+
   it('is deterministic, whatever order the core lists files in', () => {
     const again = build({ ...graph, files: [...graph.files].reverse(), classes: [...graph.classes].reverse() })
     for (const n of model.nodes) {
