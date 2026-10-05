@@ -123,6 +123,25 @@ describe('GraphRenderer', () => {
     expect(r.relationFocus).toBe(unrelated)
   })
 
+  it('hovers nothing in the gaps of an open container, but still its header', () => {
+    const { model, r } = setup()
+    const dir = model.byId.get('dir:sherlock_project')!
+    const screen = (wx: number, wy: number): [number, number] => [toScreenX(r.camera, r.viewport, wx), toScreenY(r.camera, r.viewport, wy)]
+    // Inside the directory's bottom padding, below all of its files.
+    const gap = screen(dir.x + dir.w / 2, dir.y + dir.h - dir.pad / 2)
+    expect(r.hitTest(...gap)).toBe(dir)
+    r.pointerMove(...gap)
+    expect(r.hovered).toBeNull()
+    expect(r.relationFocus).toBeNull()
+
+    r.pointerMove(...screen(dir.x + dir.w / 2, dir.y + dir.header / 2))
+    expect(r.hovered).toBe(dir)
+
+    // Clicking a gap still selects the container.
+    r.click(...gap)
+    expect(r.selected).toBe(dir)
+  })
+
   it('double-click selects and focuses', () => {
     const { model, r } = setup()
     const file = model.byId.get('file:sherlock_project/sites.py')!

@@ -352,7 +352,7 @@ export class GraphRenderer {
 
   pointerMove(sx: number, sy: number) {
     this.pointer = { x: sx, y: sy }
-    this.setHovered(this.hitTest(sx, sy))
+    this.setHovered(this.hoverTest(sx, sy))
     this.invalidate()
   }
 
@@ -391,6 +391,19 @@ export class GraphRenderer {
     this.hoverMuted = this.dimmedBySelection(node)
     this.updateRelated()
     this.invalidate()
+  }
+
+  /**
+   * What the pointer hovers: like hitTest, but the empty space inside an open
+   * container (between its children) hovers nothing, so passing over the gaps
+   * does not light up the whole container's relationships. Its header band
+   * still hovers it.
+   */
+  hoverTest(sx: number, sy: number): GraphNode | null {
+    const node = this.hitTest(sx, sy)
+    if (!node || node.children.length === 0 || this.lod.open(node) < 0.35) return node
+    const [, wy] = toWorld(this.camera, this.viewport, sx, sy)
+    return wy < node.y + node.pad + node.header ? node : null
   }
 
   /** The deepest node at a screen point that is visible enough to point at. */
@@ -518,7 +531,7 @@ export class GraphRenderer {
       this.camera = anchoredAt(this.viewport, k, z.wx, z.wy, z.sx, z.sy)
       if (done) this.wheelZoom = null
     }
-    if (this.pointer && this.animating) this.setHovered(this.hitTest(this.pointer.x, this.pointer.y))
+    if (this.pointer && this.animating) this.setHovered(this.hoverTest(this.pointer.x, this.pointer.y))
   }
 
   // ---- Drawing -----------------------------------------------------------------
