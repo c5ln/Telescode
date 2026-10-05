@@ -29,8 +29,8 @@ export function AppShell({ api, initialState, allowLocalDatabase = false }: AppS
   const graphRef = useRef<GraphHandle | null>(null)
   /** Where the user is in the map, below the repository. */
   const [trail, setTrail] = useState<Crumb[]>([])
-  /** Complexity mode: off by default, kept across repositories. */
-  const [complexity, setComplexity] = useState(false)
+  /** Complexity mode: on by default, kept across repositories. */
+  const [complexity, setComplexity] = useState(true)
   const [lastDbPath, setLastDbPath] = useState(state.status === 'empty' ? '' : state.dbPath)
 
   const open = (dbPath: string) => {

@@ -168,23 +168,23 @@ describe('AppShell', () => {
     expect(renderer.camera.k).toBeCloseTo(k)
   })
 
-  it('colours files by complexity only while the Complexity toggle is on, without moving anything', async () => {
+  it('colours files by complexity by default, and only while the Complexity toggle is on, without moving anything', async () => {
     render(<AppShell api={deferredApi().api} initialState={{ status: 'ready', dbPath: 'C:/x/project.db', snapshot }} />)
     const renderer = (window as { __telescode?: GraphRenderer }).__telescode!
     renderer.resize(1200, 750)
     const hotspot = renderer.model.nodes.find((n) => n.complexity === 48)!
     const before = { camera: { ...renderer.camera }, box: [hotspot.x, hotspot.y, hotspot.w, hotspot.h] }
-    expect(renderer.complexityLevel(hotspot)).toBe(-1)
+    expect(renderer.complexityLevel(hotspot)).toBe(3)
 
     await userEvent.click(screen.getByRole('button', { name: 'More actions' }))
     const toggle = screen.getByRole('menuitemcheckbox', { name: 'Complexity' })
-    expect(toggle.getAttribute('aria-checked')).toBe('false')
-    await userEvent.click(toggle)
     expect(toggle.getAttribute('aria-checked')).toBe('true')
-    expect(renderer.complexityLevel(hotspot)).toBe(3)
+    await userEvent.click(toggle)
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
+    expect(renderer.complexityLevel(hotspot)).toBe(-1)
 
     await userEvent.click(toggle)
-    expect(renderer.complexityLevel(hotspot)).toBe(-1)
+    expect(renderer.complexityLevel(hotspot)).toBe(3)
     expect(renderer.camera).toEqual(before.camera)
     expect([hotspot.x, hotspot.y, hotspot.w, hotspot.h]).toEqual(before.box)
   })
