@@ -24,7 +24,7 @@ import {
 } from './camera'
 import { WORLD } from './layout'
 import { ancestors, contains, type GraphEdge, type GraphModel, type GraphNode } from './model'
-import { LodFrame, settle, smoothstep } from './semantic'
+import { LodFrame, openingK, settle, smoothstep, type StandIn } from './semantic'
 import { TextMeasurer } from './text'
 import type { GraphTheme } from './theme'
 
@@ -56,8 +56,28 @@ export const EDGE_BUDGET = 320
 export const HOVER_EDGE_CAP = 40
 /** Most emphasized relationships drawn for the selection (a deliberate choice, so more). */
 export const SELECTION_EDGE_CAP = 120
+/** Opacity of the outline on what the selection is connected to, relative to the selection's. */
+const RELATED_STRENGTH = 0.45
+/** Openness over which a closed node's caption ("12 files") fades out: as its children fade in. */
+const CAPTION_FADE = [0.35, 0.6] as const
 /** Button zoom step. */
 const STEP = 1.6
+/**
+ * Furthest zoom-out, relative to the scale that fits the whole repository:
+ * far enough that every top-level area is closed, so the overview reads as
+ * one set of labelled regions, but never smaller than the lower bound.
+ */
+const MIN_ZOOM = [0.25, 0.6] as const
+/** Zooming in is always allowed this far, whatever is in view. */
+const MAX_ZOOM_FLOOR = 2
+/**
+ * Zooming in stops once what is being zoomed into is fully open and reads at
+ * full size: its smallest member row this tall on screen, px (member text is
+ * full size from about 20px)...
+ */
+const MAX_ROW_PX = 24
+/** ...and its smallest box this large, px (labels are full size from about this). */
+const MAX_LEAF_PX = 120
 
 const raf: (cb: FrameRequestCallback) => number =
   typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (cb) => setTimeout(() => cb(performance.now()), 16) as unknown as number
@@ -72,10 +92,11 @@ interface WheelZoom {
 }
 
 interface EdgeGroup {
-  /** Sums of endpoint boxes, averaged before drawing. */
-  s: Box
-  t: Box
+  /** The boxes the group's lines run between, exactly as drawn. */
+  s: GraphNode
+  t: GraphNode
   count: number
+  /** How much these stand-ins are what is drawn (see LodFrame.standIns), and for class relationships, their visibility. */
   alpha: number
   emphasized: boolean
 }
@@ -89,6 +110,8 @@ interface EdgeCandidate {
   y1: number
   len: number
   alpha: number
+  /** Opacity of an emphasized line: its stand-ins' weight alone. */
+  weight: number
   count: number
   emphasized: boolean
   score: number
@@ -123,11 +146,18 @@ export class GraphRenderer {
   private flightAnim: FlightAnim | null = null
   private pointer: { x: number; y: number } | null = null
   private contextKey = ''
+  /** Nodes related to the focus (see `relationFocus`) and to the selection, by order. */
   private related = new Set<number>()
+  private selectionRelated = new Set<number>()
+  /** The hovered node is dimmed against the selection, so it does not take the focus. */
+  private hoverMuted = false
   private hasCamera = false
   private failed = false
-  private readonly minRow: number
-  private readonly minLeaf: number
+  /** Per node (by order), the scale at which it is fully open and full size: itself only, and its whole subtree. */
+  private readonly ownK: Float64Array
+  private readonly fullK: Float64Array
+  /** The scale below which every top-level area is closed. */
+  private readonly overviewK: number
   private readonly importEdges: GraphEdge[]
   /** Class edges by the file of their source class: only visible files' are looked at. */
   private readonly classEdgesByFile = new Map<GraphNode, GraphEdge[]>()
@@ -148,14 +178,24 @@ export class GraphRenderer {
       this.hasCamera = true
     }
 
-    let minRow = Infinity
-    let minLeaf = Infinity
-    for (const n of model.nodes) {
-      if (n.kind === 'class' && n.children.length) minRow = Math.min(minRow, n.rowHeight)
-      if (n.children.length === 0 && n.w > 0 && n.h > 0) minLeaf = Math.min(minLeaf, Math.min(n.w, n.h))
+    // Children come after their parent in depth-first order, so a backwards
+    // pass sees each subtree before the node that holds it.
+    const top = model.root.children.filter((c) => c.children.length > 0).map((c) => openingK(c, 'start'))
+    this.overviewK = top.length ? Math.min(...top) * 0.999 : Infinity
+
+    const count = model.nodes.length
+    this.ownK = new Float64Array(count)
+    this.fullK = new Float64Array(count)
+    for (let i = count - 1; i >= 0; i--) {
+      const n = model.nodes[i]
+      if (n.kind === 'member') continue // covered by its class's row height
+      let k = openingK(n, 'end')
+      if (n.kind === 'class' && n.children.length) k = Math.max(k, MAX_ROW_PX / n.rowHeight)
+      if (n.children.length === 0 && n.w > 0 && n.h > 0) k = Math.max(k, MAX_LEAF_PX / Math.min(n.w, n.h))
+      this.ownK[i] = k
+      this.fullK[i] = Math.max(this.fullK[i], k)
+      if (n.parent) this.fullK[n.parent.order] = Math.max(this.fullK[n.parent.order], this.fullK[i])
     }
-    this.minRow = Number.isFinite(minRow) ? minRow : 1
-    this.minLeaf = Number.isFinite(minLeaf) ? minLeaf : 1
 
     this.importEdges = model.edges.filter((e) => e.kind === 'import')
     for (const e of model.edges) {
@@ -207,15 +247,47 @@ export class GraphRenderer {
 
   // ---- Zoom limits -----------------------------------------------------------
 
-  /** Far enough out that the whole repository collapses into one region. */
+  /** Past the whole repository until every top-level area is closed, never so far that it shrinks to a speck. */
   get minK(): number {
-    return this.fitKRaw() * 0.25
+    const fit = this.fitKRaw()
+    return clamp(this.overviewK, fit * MIN_ZOOM[0], fit * MIN_ZOOM[1])
   }
 
-  /** Close enough to read the smallest member row comfortably. */
+  /** The furthest zoom anywhere: enough for the smallest things in the repository. */
   get maxK(): number {
-    const f = this.fitKRaw()
-    return Math.max(f * 8, 40 / this.minRow, Math.min(this.viewport.width, this.viewport.height) / this.minLeaf)
+    return this.maxKFor(this.model.root)
+  }
+
+  /**
+   * Close enough to see everything inside a node fully open and at full
+   * size, and no closer: past that only the boxes grow, and small text in a
+   * huge box reads worse. A small class stops early; a large one lets you in
+   * far enough for its rows. Used to frame a node (focus).
+   */
+  maxKFor(node: GraphNode): number {
+    const o = (node.kind === 'member' ? node.parent! : node).order
+    return Math.max(this.fitKRaw() * MAX_ZOOM_FLOOR, this.fullK[o])
+  }
+
+  /**
+   * Close enough to see the node itself fully open and at full size. Going
+   * deeper means pointing at something inside it, which then sets the limit.
+   */
+  zoomLimitFor(node: GraphNode): number {
+    const o = (node.kind === 'member' ? node.parent! : node).order
+    return Math.max(this.fitKRaw() * MAX_ZOOM_FLOOR, this.ownK[o])
+  }
+
+  /**
+   * The zoom-in limit at a screen point, from what is there: the gap
+   * between boxes or the background stops at its container's own limit, not
+   * at whatever is deepest inside it. Never below the current zoom (or the
+   * zoom already headed for), so moving onto a smaller node does not pull
+   * the camera back out; it only stops it going further.
+   */
+  private maxKAt(sx: number, sy: number, k = this.camera.k): number {
+    const node = this.hitTest(sx, sy) ?? this.model.root
+    return Math.max(this.zoomLimitFor(node), Math.min(k, this.maxK))
   }
 
   private fitKRaw(): number {
@@ -247,14 +319,16 @@ export class GraphRenderer {
   zoomBy(factor: number, animate = true) {
     this.pinned = null
     const { width, height } = this.viewport
-    const target = zoomAround(this.targetCamera(), this.viewport, factor, width / 2, height / 2, this.minK, this.maxK)
+    const from = this.targetCamera()
+    const max = this.maxKAt(width / 2, height / 2, from.k)
+    const target = zoomAround(from, this.viewport, factor, width / 2, height / 2, this.minK, max)
     this.flyTo(target, animate)
   }
 
   /** Move the camera to show a node whole, and make it the navigation context. */
   focus(node: GraphNode, animate = true) {
     this.pinned = node
-    const camera = fitBox(this.viewport, node, FOCUS_MARGIN, this.minK, this.maxK)
+    const camera = fitBox(this.viewport, node, FOCUS_MARGIN, this.minK, this.maxKFor(node))
     this.flyTo(camera, animate)
     this.emitContext()
   }
@@ -277,7 +351,7 @@ export class GraphRenderer {
     if (ctrlKey) {
       // Trackpad pinch (browsers report it as ctrl + wheel): direct, no smoothing.
       this.wheelZoom = null
-      this.camera = zoomAround(this.camera, this.viewport, Math.exp(-dy * 0.01), sx, sy, this.minK, this.maxK)
+      this.camera = zoomAround(this.camera, this.viewport, Math.exp(-dy * 0.01), sx, sy, this.minK, this.maxKAt(sx, sy))
       this.invalidate()
       return
     }
@@ -290,16 +364,16 @@ export class GraphRenderer {
 
     const factor = Math.exp(-dy * WHEEL_ZOOM)
     if (this.reducedMotion) {
-      this.camera = zoomAround(this.camera, this.viewport, factor, sx, sy, this.minK, this.maxK)
+      this.camera = zoomAround(this.camera, this.viewport, factor, sx, sy, this.minK, this.maxKAt(sx, sy))
       this.invalidate()
       return
     }
     const z = this.wheelZoom
     if (z && Math.abs(z.sx - sx) < 2 && Math.abs(z.sy - sy) < 2) {
-      z.targetK = clamp(z.targetK * factor, this.minK, this.maxK)
+      z.targetK = clamp(z.targetK * factor, this.minK, this.maxKAt(sx, sy, z.targetK))
     } else {
       const [wx, wy] = toWorld(this.camera, this.viewport, sx, sy)
-      this.wheelZoom = { targetK: clamp(this.camera.k * factor, this.minK, this.maxK), sx, sy, wx, wy }
+      this.wheelZoom = { targetK: clamp(this.camera.k * factor, this.minK, this.maxKAt(sx, sy)), sx, sy, wx, wy }
     }
     this.invalidate()
   }
@@ -338,7 +412,7 @@ export class GraphRenderer {
 
   pointerMove(sx: number, sy: number) {
     this.pointer = { x: sx, y: sy }
-    this.setHovered(this.hitTest(sx, sy))
+    this.setHovered(this.hoverTest(sx, sy))
     this.invalidate()
   }
 
@@ -362,6 +436,8 @@ export class GraphRenderer {
     if (node === this.model.root) node = null
     if (node === this.selected) return
     this.selected = node
+    this.selectionRelated = relatedTo(this.model, node)
+    this.hoverMuted = this.dimmedBySelection(this.hovered)
     this.updateRelated()
     this.callbacks.onSelectionChange?.(node)
     this.emitContext()
@@ -372,8 +448,22 @@ export class GraphRenderer {
     if (node === this.model.root) node = null
     if (node === this.hovered) return
     this.hovered = node
+    this.hoverMuted = this.dimmedBySelection(node)
     this.updateRelated()
     this.invalidate()
+  }
+
+  /**
+   * What the pointer hovers: like hitTest, but the empty space inside an open
+   * container (between its children) hovers nothing, so passing over the gaps
+   * does not light up the whole container's relationships. Its header band
+   * still hovers it.
+   */
+  hoverTest(sx: number, sy: number): GraphNode | null {
+    const node = this.hitTest(sx, sy)
+    if (!node || node.children.length === 0 || this.lod.open(node) < 0.35) return node
+    const [, wy] = toWorld(this.camera, this.viewport, sx, sy)
+    return wy < node.y + node.pad + node.header ? node : null
   }
 
   /** The deepest node at a screen point that is visible enough to point at. */
@@ -397,15 +487,27 @@ export class GraphRenderer {
     }
   }
 
-  /** Nodes connected by an edge to the hovered (or selected) node's subtree. */
+  /**
+   * What relationships are shown for: the hovered node, unless it is dimmed
+   * against the selection (its connections show only once it is selected),
+   * else the selection.
+   */
+  get relationFocus(): GraphNode | null {
+    return this.hovered && !this.hoverMuted ? this.hovered : this.selected
+  }
+
   private updateRelated() {
-    this.related = new Set()
-    const focus = this.hovered ?? this.selected
-    if (!focus) return
-    for (const e of this.model.edges) {
-      if (contains(focus, e.source)) this.related.add(e.target.order)
-      else if (contains(focus, e.target)) this.related.add(e.source.order)
-    }
+    const focus = this.relationFocus
+    this.related = focus === this.selected ? this.selectionRelated : relatedTo(this.model, focus)
+  }
+
+  /** Whether a node reads as dimmed while only the selection is in focus. */
+  private dimmedBySelection(n: GraphNode | null): boolean {
+    const s = this.selected
+    if (!n || !s || n === s) return false
+    // Directories are never faded themselves; one reads as dimmed when nothing in it is lit.
+    if (n.kind === 'dir') return dims(s) && !contains(n, s) && !someIn(this.selectionRelated, n)
+    return dimFor(n, s, this.selectionRelated) < 1
   }
 
   // ---- Navigation context ------------------------------------------------------
@@ -489,7 +591,7 @@ export class GraphRenderer {
       this.camera = anchoredAt(this.viewport, k, z.wx, z.wy, z.sx, z.sy)
       if (done) this.wheelZoom = null
     }
-    if (this.pointer && this.animating) this.setHovered(this.hitTest(this.pointer.x, this.pointer.y))
+    if (this.pointer && this.animating) this.setHovered(this.hoverTest(this.pointer.x, this.pointer.y))
   }
 
   // ---- Drawing -----------------------------------------------------------------
@@ -535,16 +637,8 @@ export class GraphRenderer {
     return { x: toScreenX(this.camera, this.viewport, n.x), y: toScreenY(this.camera, this.viewport, n.y), w: n.w * k, h: n.h * k }
   }
 
-  /** De-emphasis for files and symbols unrelated to what is hovered or selected. */
   private dim(n: GraphNode): number {
-    const focus = this.hovered ?? this.selected
-    if (!focus || focus.kind === 'root' || focus.kind === 'dir') return 1
-    if (n.kind === 'root' || n.kind === 'dir') return 1
-    const subject = n.kind === 'member' ? n.parent! : n
-    if (contains(focus, subject) || contains(subject, focus)) return 1
-    if (this.related.has(subject.order)) return 1
-    if (subject.kind === 'class' && subject.parent && this.related.has(subject.parent.order)) return 1
-    return 0.5
+    return dimFor(n, this.relationFocus, this.related)
   }
 
   private drawBox(ctx: CanvasRenderingContext2D, n: GraphNode) {
@@ -611,12 +705,20 @@ export class GraphRenderer {
    */
   private drawEdges(ctx: CanvasRenderingContext2D, visible: GraphNode[]) {
     const t = this.theme
-    const focus = this.hovered ?? this.selected
+    const focus = this.relationFocus
     const { width, height } = this.viewport
     const n = this.model.nodes.length
     const groups = new Map<number, EdgeGroup>()
-    const sb: Box = { x: 0, y: 0, w: 0, h: 0 }
-    const tb: Box = { x: 0, y: 0, w: 0, h: 0 }
+    const add = (e: GraphEdge, s: GraphNode, t: GraphNode, alpha: number) => {
+      // Both ends inside one stand-in: internal to a region at this scale.
+      if (contains(s, t) || contains(t, s)) return
+      const key = s.order * n + t.order
+      let g = groups.get(key)
+      if (!g) groups.set(key, (g = { s, t, count: 0, alpha: 0, emphasized: false }))
+      g.count++
+      g.alpha = Math.max(g.alpha, alpha)
+      if (focus && !g.emphasized && (contains(focus, e.source) || contains(focus, e.target))) g.emphasized = true
+    }
 
     // Imports everywhere; class relationships only from files open on screen.
     const edges: GraphEdge[] = this.importEdges.slice()
@@ -627,34 +729,19 @@ export class GraphRenderer {
     }
 
     for (const e of edges) {
-      let sRep: GraphNode
-      let tRep: GraphNode
-      let alpha = 1
       if (e.kind === 'import') {
-        sRep = this.lod.endpoint(e.source, sb)
-        tRep = this.lod.endpoint(e.target, tb)
+        // An import is drawn between every pair of stand-ins for its ends,
+        // faded by how much each pair is what is on screen.
+        for (const s of this.lod.standIns(e.source))
+          for (const t of this.lod.standIns(e.target)) {
+            const weight = s.weight * t.weight
+            if (weight >= 0.05) add(e, s.node, t.node, weight)
+          }
       } else {
         // Class relationships belong to the symbol level only.
-        alpha = Math.min(this.lod.vis(e.source), this.lod.vis(e.target))
-        if (alpha < 0.05) continue
-        sRep = e.source
-        tRep = e.target
-        copyBox(e.source, sb)
-        copyBox(e.target, tb)
+        const alpha = Math.min(this.lod.vis(e.source), this.lod.vis(e.target))
+        if (alpha >= 0.05) add(e, e.source, e.target, alpha)
       }
-      // Both ends inside one stand-in: internal to a region at this scale.
-      if (contains(sRep, tRep) || contains(tRep, sRep)) continue
-      const key = sRep.order * n + tRep.order
-      let g = groups.get(key)
-      if (!g) {
-        g = { s: { x: 0, y: 0, w: 0, h: 0 }, t: { x: 0, y: 0, w: 0, h: 0 }, count: 0, alpha: 0, emphasized: false }
-        groups.set(key, g)
-      }
-      addBox(g.s, sb)
-      addBox(g.t, tb)
-      g.count++
-      g.alpha = Math.max(g.alpha, alpha)
-      if (focus && !g.emphasized && (contains(focus, e.source) || contains(focus, e.target))) g.emphasized = true
     }
 
     // Paths batched by (emphasis, opacity step, width) so a frame makes only a
@@ -674,22 +761,21 @@ export class GraphRenderer {
     const ox = width / 2 - this.camera.x * k
     const oy = height / 2 - this.camera.y * k
     for (const g of groups.values()) {
-      const inv = 1 / g.count
       // Screen boxes, computed in place (this loop runs for thousands of groups).
-      const sw = g.s.w * inv * k
-      const sh = g.s.h * inv * k
-      const dw = g.t.w * inv * k
-      const dh = g.t.h * inv * k
+      const sw = g.s.w * k
+      const sh = g.s.h * k
+      const dw = g.t.w * k
+      const dh = g.t.h * k
       // Fade out edges whose ends are too small to see.
       const legible = smoothstep(Math.min(sw, sh, dw, dh), 10, 32)
       const strength = 0.45 + 0.55 * Math.min(1, Math.log2(g.count + 1) / 4)
       const alpha = g.alpha * legible * strength
-      if (alpha < 0.05 && !g.emphasized) continue
+      if (!g.emphasized && (alpha < 0.05 || !shownAtRest(g.s, g.t))) continue
 
-      const scx = g.s.x * inv * k + ox + sw / 2
-      const scy = g.s.y * inv * k + oy + sh / 2
-      const dcx = g.t.x * inv * k + ox + dw / 2
-      const dcy = g.t.y * inv * k + oy + dh / 2
+      const scx = g.s.x * k + ox + sw / 2
+      const scy = g.s.y * k + oy + sh / 2
+      const dcx = g.t.x * k + ox + dw / 2
+      const dcy = g.t.y * k + oy + dh / 2
       // Only relationships anchored in view: a line between two off-screen
       // places would just cross the screen. One end off-screen: fainter.
       const sOn = overlapsView(scx, scy, sw, sh, width, height)
@@ -720,15 +806,23 @@ export class GraphRenderer {
       const cy = (y0 + y1) / 2 - (lx / len) * bend
       if (Math.max(x0, x1, cx) < 0 || Math.max(y0, y1, cy) < 0 || Math.min(x0, x1, cx) > width || Math.min(y0, y1, cy) > height) continue
 
-      candidates.push({ x0, y0, cx, cy, x1, y1, len, alpha: alpha * anchored, count: g.count, emphasized: g.emphasized, score: g.count * legible * anchored })
+      candidates.push({
+        x0, y0, cx, cy, x1, y1, len,
+        alpha: alpha * anchored,
+        weight: g.alpha,
+        count: g.count,
+        emphasized: g.emphasized,
+        // A line that is fading out between levels gives way to the one fading in.
+        score: g.count * legible * anchored * g.alpha,
+      })
     }
 
-    const emphasisCap = this.hovered ? HOVER_EDGE_CAP : SELECTION_EDGE_CAP
+    const emphasisCap = focus === this.selected ? SELECTION_EDGE_CAP : HOVER_EDGE_CAP
     for (const c of capEdgeGroups(candidates, EDGE_BUDGET, emphasisCap)) {
       const alpha = c.alpha
       if (!c.emphasized) drawn++
-      const level = Math.max(1, Math.round(Math.min(1, alpha) * LEVELS))
-      const p = pathFor(c.emphasized, c.emphasized ? LEVELS : level, c.count >= 6)
+      const level = Math.max(1, Math.round(Math.min(1, c.emphasized ? c.weight : alpha) * LEVELS))
+      const p = pathFor(c.emphasized, level, c.count >= 6)
       p.line.moveTo(c.x0, c.y0)
       p.line.quadraticCurveTo(c.cx, c.cy, c.x1, c.y1)
       if (c.len > 48) arrowHead(p.heads, c.cx, c.cy, c.x1, c.y1, c.emphasized ? 6 : 5)
@@ -736,12 +830,12 @@ export class GraphRenderer {
 
     // Fainter when crowded, and fainter still while something is in focus.
     const crowd = drawn > 200 ? 0.8 : 1
-    const selectedColor = this.selected && !this.hovered ? t.selected : t.edgeStrong
+    const selectedColor = focus === this.selected ? t.selected : t.edgeStrong
     for (const [key, p] of paths) {
       const emphasized = key >= 1000
       const level = Math.floor((key % 1000) / 2)
       const wide = key % 2 === 1
-      ctx.globalAlpha = emphasized ? 1 : (level / LEVELS) * crowd * (focus ? 0.4 : 1)
+      ctx.globalAlpha = (level / LEVELS) * (emphasized ? 1 : crowd * (focus ? 0.4 : 1))
       ctx.strokeStyle = ctx.fillStyle = emphasized ? selectedColor : t.edge
       ctx.lineWidth = (wide ? 1.6 : 1) * (emphasized ? 1.25 : 1)
       ctx.stroke(p.line)
@@ -803,15 +897,20 @@ export class GraphRenderer {
     ctx.fillStyle = n.kind === 'dir' && moved > 0.5 ? t.labelSecondary : t.label
     ctx.fillText(label, x, y)
 
-    // The caption belongs to the closed look; it leaves first as the node opens.
-    if (showSecondary && secondary && open < 0.25) {
+    // The caption belongs to the closed look. It travels under the label as
+    // the label moves to the header, and leaves as the children arrive, so
+    // a half-open node always shows either its count or its contents.
+    const captionAlpha = 1 - smoothstep(open, CAPTION_FADE[0], CAPTION_FADE[1])
+    if (showSecondary && secondary && captionAlpha > 0.01) {
       const s2 = TextMeasurer.quantize(Math.max(10.5, size * 0.72))
-      const sub = text.fit(secondary, s2, 400, closedMax)
+      const sub = text.fit(secondary, s2, 400, lerp(closedMax, openMax, moved))
       if (sub) {
-        ctx.globalAlpha = alpha * (1 - open / 0.25)
+        const subWidth = text.width(sub, s2, 400)
+        ctx.globalAlpha = alpha * captionAlpha
         text.use(s2, 400)
         ctx.fillStyle = t.labelMuted
-        ctx.fillText(sub, b.x + b.w / 2 - text.width(sub, s2, 400) / 2, closedY + size * 1.35)
+        // Centred under the label when closed, left-aligned with it when open.
+        ctx.fillText(sub, x + lerp((width - subWidth) / 2, 0, moved), y + size * 1.35)
       }
     }
     ctx.globalAlpha = 1
@@ -860,16 +959,36 @@ export class GraphRenderer {
     return true
   }
 
+  /**
+   * The boxes to mark as connected to the selection, more quietly than the
+   * selection itself: for each related node, the box its arrow meets at this
+   * scale. Only while the selection's relationships are the ones shown.
+   */
+  relatedHighlights(): GraphNode[] {
+    const sel = this.selected
+    if (!sel || this.relationFocus !== sel) return []
+    this.lod.begin(this.camera.k)
+    const lit = new Set<GraphNode>()
+    for (const o of this.related) {
+      let best: StandIn | null = null
+      for (const s of this.lod.standIns(this.model.nodes[o])) if (!best || s.weight > best.weight) best = s
+      const n = best?.node
+      if (n && n.kind !== 'root' && !contains(n, sel) && !contains(sel, n)) lit.add(n)
+    }
+    return [...lit]
+  }
+
   private drawHighlights(ctx: CanvasRenderingContext2D) {
     const t = this.theme
-    const outline = (n: GraphNode, color: string, width: number) => {
+    const outline = (n: GraphNode, color: string, width: number, strength = 1) => {
       if (n.kind === 'member' || this.lod.vis(n) < 0.05) return
       const b = snap(this.screenBox(n))
       if (b.w < 2 || b.h < 2) return
-      ctx.globalAlpha = Math.min(1, this.lod.vis(n) * 1.5)
+      ctx.globalAlpha = Math.min(1, this.lod.vis(n) * 1.5) * strength
       ctx.lineWidth = width
       strokeRect(ctx, inset(b, -(width - 1) / 2), n.kind === 'file' ? 3 : 2, color)
     }
+    for (const n of this.relatedHighlights()) outline(n, t.selected, 1.5, RELATED_STRENGTH)
     if (this.hovered && this.hovered !== this.selected) outline(this.hovered, t.hover, 1)
     if (this.selected) outline(this.selected, t.selected, 2)
     ctx.globalAlpha = 1
@@ -897,6 +1016,18 @@ export class GraphRenderer {
     ctx.fillStyle = this.theme.tipText
     ctx.fillText(label, x + padX, y + bh / 2)
   }
+}
+
+/**
+ * Whether a relationship is drawn when nothing is hovered or selected that
+ * it belongs to. Between directories, lines summarise how areas of the
+ * repository depend on each other. Lines to files and symbols would cover
+ * the map once there are many of them, so those appear only for the hovered
+ * or selected node.
+ */
+export function shownAtRest(s: GraphNode, t: GraphNode): boolean {
+  const region = (n: GraphNode) => n.kind === 'dir' || n.kind === 'root'
+  return region(s) && region(t)
 }
 
 /**
@@ -928,6 +1059,41 @@ export function capEdgeGroups<T extends { emphasized: boolean; score: number }>(
   return out
 }
 
+// ---- Focus helpers -------------------------------------------------------------
+
+/** Nodes connected by an edge to a node's subtree, by order. */
+function relatedTo(model: GraphModel, focus: GraphNode | null): Set<number> {
+  const related = new Set<number>()
+  if (!focus) return related
+  for (const e of model.edges) {
+    if (contains(focus, e.source)) related.add(e.target.order)
+    else if (contains(focus, e.target)) related.add(e.source.order)
+  }
+  return related
+}
+
+/** Whether focusing this node fades anything. */
+function dims(focus: GraphNode): boolean {
+  return focus.kind !== 'root' && focus.kind !== 'dir'
+}
+
+/** Whether any of these nodes (by order) lies in a node's subtree. */
+function someIn(orders: Set<number>, node: GraphNode): boolean {
+  for (const o of orders) if (o >= node.order && o < node.end) return true
+  return false
+}
+
+/** De-emphasis for files and symbols unrelated to the focus. */
+function dimFor(n: GraphNode, focus: GraphNode | null, related: Set<number>): number {
+  if (!focus || !dims(focus)) return 1
+  if (n.kind === 'root' || n.kind === 'dir') return 1
+  const subject = n.kind === 'member' ? n.parent! : n
+  if (contains(focus, subject) || contains(subject, focus)) return 1
+  if (related.has(subject.order)) return 1
+  if (subject.kind === 'class' && subject.parent && related.has(subject.parent.order)) return 1
+  return 0.5
+}
+
 // ---- Geometry helpers ----------------------------------------------------------
 
 function inside(b: Box, x: number, y: number): boolean {
@@ -937,20 +1103,6 @@ function inside(b: Box, x: number, y: number): boolean {
 /** Whether a box given by its screen centre and size overlaps the viewport. */
 function overlapsView(cx: number, cy: number, w: number, h: number, width: number, height: number): boolean {
   return cx + w / 2 >= 0 && cy + h / 2 >= 0 && cx - w / 2 <= width && cy - h / 2 <= height
-}
-
-function addBox(to: Box, b: Box) {
-  to.x += b.x
-  to.y += b.y
-  to.w += b.w
-  to.h += b.h
-}
-
-function copyBox(from: Box, to: Box) {
-  to.x = from.x
-  to.y = from.y
-  to.w = from.w
-  to.h = from.h
 }
 
 function lerp(a: number, b: number, t: number): number {

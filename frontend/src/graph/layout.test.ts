@@ -62,6 +62,25 @@ describe('layoutGraph', () => {
     }
   })
 
+  it('leaves clear space between neighbouring top-level areas', () => {
+    const c = model.root.children
+    const short = Math.min(WORLD.width, WORLD.height)
+    for (let i = 0; i < c.length; i++)
+      for (let j = i + 1; j < c.length; j++) {
+        const [a, b] = [c[i], c[j]]
+        const apart = Math.max(b.x - (a.x + a.w), a.x - (b.x + b.w), b.y - (a.y + a.h), a.y - (b.y + b.h))
+        expect(apart).toBeGreaterThanOrEqual(short * 0.02 - EPS)
+      }
+  })
+
+  it('leaves space between a class header rule and its first member', () => {
+    for (const cls of model.nodes) {
+      if (cls.kind !== 'class' || !cls.children.length) continue
+      const rule = cls.y + cls.pad + cls.header
+      expect(cls.children[0].y - rule).toBeGreaterThanOrEqual(cls.rowHeight * 0.3)
+    }
+  })
+
   it('is deterministic, whatever order the core lists files in', () => {
     const again = build({ ...graph, files: [...graph.files].reverse(), classes: [...graph.classes].reverse() })
     for (const n of model.nodes) {

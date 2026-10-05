@@ -6,8 +6,9 @@ import type { GraphResponse } from '../bridge'
 import { toScreenX, toScreenY, toWorld } from './camera'
 import sherlock from './fixtures/sherlock.graph.json'
 import { layoutGraph } from './layout'
-import { buildGraphModel, type GraphNode } from './model'
-import { capEdgeGroups, EDGE_BUDGET, GraphRenderer, HOVER_EDGE_CAP, SELECTION_EDGE_CAP } from './renderer'
+import { buildGraphModel, contains, type GraphNode } from './model'
+import { openness } from './semantic'
+import { capEdgeGroups, EDGE_BUDGET, GraphRenderer, HOVER_EDGE_CAP, SELECTION_EDGE_CAP, shownAtRest } from './renderer'
 import type { GraphTheme } from './theme'
 
 function setup(reducedMotion = true) {
@@ -45,9 +46,12 @@ describe('GraphRenderer', () => {
     r.focus(cls)
     expect(labels(r.contextPath())).toEqual(['sherlock_project', 'notify.py', 'QueryNotifyPrint'])
     expect(labels(onContextChange.mock.lastCall![0])).toEqual(['sherlock_project', 'notify.py', 'QueryNotifyPrint'])
-    // The node now fills the view, centred.
+    // The node is centred, and fills the view unless that would zoom past
+    // the point where its contents read at full size.
     expect(r.camera.x).toBeCloseTo(cls.x + cls.w / 2)
-    expect(Math.max((cls.w * r.camera.k) / 1200, (cls.h * r.camera.k) / 750)).toBeGreaterThan(0.8)
+    const fill = Math.max((cls.w * r.camera.k) / 1200, (cls.h * r.camera.k) / 750)
+    if (fill < 0.8) expect(r.camera.k).toBeCloseTo(r.maxKFor(cls))
+    expect(cls.rowHeight * r.camera.k).toBeGreaterThanOrEqual(20)
   })
 
   it('navigates back up to an ancestor', () => {
@@ -94,6 +98,70 @@ describe('GraphRenderer', () => {
     expect(onSelectionChange).toHaveBeenLastCalledWith(null)
   })
 
+  it('hovering a dimmed node keeps the focus on the selection until it is selected', () => {
+    const { model, r } = setup()
+    const selected = model.byId.get('file:tests/test_ux.py')!
+    const linked = (n: GraphNode) =>
+      model.edges.some((e) => (contains(n, e.source) && contains(selected, e.target)) || (contains(n, e.target) && contains(selected, e.source)))
+    const files = model.nodes.filter((n) => n.kind === 'file' && n !== selected)
+    const unrelated = files.find((n) => !linked(n))!
+    const related = files.find(linked)!
+
+    r.select(selected)
+    r.pointerMove(...centre(r, unrelated))
+    expect(r.hovered).toBe(unrelated)
+    expect(r.relationFocus).toBe(selected)
+
+    // A node that is lit by the selection still shows its own relationships on hover.
+    r.pointerMove(...centre(r, related))
+    expect(r.relationFocus).toBe(related)
+
+    // Without a selection nothing is dimmed, so hover shows relationships as before.
+    r.select(null)
+    r.pointerMove(...centre(r, unrelated))
+    expect(r.relationFocus).toBe(unrelated)
+
+    // Selecting the dimmed node reveals its relationships.
+    r.select(selected)
+    r.click(...centre(r, unrelated))
+    expect(r.relationFocus).toBe(unrelated)
+  })
+
+  it('hovers nothing in the gaps of an open container, but still its header', () => {
+    const { model, r } = setup()
+    const dir = model.byId.get('dir:sherlock_project')!
+    const screen = (wx: number, wy: number): [number, number] => [toScreenX(r.camera, r.viewport, wx), toScreenY(r.camera, r.viewport, wy)]
+    // Inside the directory's bottom padding, below all of its files.
+    const gap = screen(dir.x + dir.w / 2, dir.y + dir.h - dir.pad / 2)
+    expect(r.hitTest(...gap)).toBe(dir)
+    r.pointerMove(...gap)
+    expect(r.hovered).toBeNull()
+    expect(r.relationFocus).toBeNull()
+
+    r.pointerMove(...screen(dir.x + dir.w / 2, dir.y + dir.header / 2))
+    expect(r.hovered).toBe(dir)
+
+    // Clicking a gap still selects the container.
+    r.click(...gap)
+    expect(r.selected).toBe(dir)
+  })
+
+  it('marks what the selection is connected to, on the boxes its arrows meet', () => {
+    const { model, r } = setup()
+    const selected = model.byId.get('file:tests/test_ux.py')!
+    r.select(selected)
+    const lit = r.relatedHighlights()
+    expect(lit.length).toBeGreaterThan(0)
+    const linked = model.edges.filter((e) => contains(selected, e.source) || contains(selected, e.target)).map((e) => (contains(selected, e.source) ? e.target : e.source))
+    for (const n of lit) {
+      expect(contains(n, selected) || contains(selected, n)).toBe(false)
+      // Each marked box is a related node or the region standing in for one.
+      expect(linked.some((l) => contains(n, l))).toBe(true)
+    }
+    r.select(null)
+    expect(r.relatedHighlights()).toEqual([])
+  })
+
   it('double-click selects and focuses', () => {
     const { model, r } = setup()
     const file = model.byId.get('file:sherlock_project/sites.py')!
@@ -126,7 +194,66 @@ describe('GraphRenderer', () => {
     for (let i = 0; i < 60; i++) r.zoomOut(false)
     expect(r.camera.k).toBeCloseTo(r.minK)
     for (let i = 0; i < 200; i++) r.zoomIn(false)
-    expect(r.camera.k).toBeCloseTo(r.maxK)
+    const k = r.camera.k
+    expect(k).toBeLessThanOrEqual(r.maxK + 1e-9)
+    r.zoomIn(false)
+    expect(r.camera.k).toBe(k)
+  })
+
+  it('keeps the zoom range useful: the map stays sizeable, member rows readable but not huge', () => {
+    const { model, r } = setup()
+    r.fit(false)
+    const fit = r.camera.k
+    expect(r.minK).toBeGreaterThanOrEqual(fit * 0.25 - 1e-9)
+    expect(r.minK).toBeLessThanOrEqual(fit * 0.6 + 1e-9)
+    const rows = model.nodes.filter((n) => n.kind === 'class' && n.children.length).map((n) => n.rowHeight)
+    const minRow = Math.min(...rows)
+    expect(minRow * r.maxK).toBeGreaterThanOrEqual(20)
+    expect(minRow * r.maxK).toBeLessThan(40)
+  })
+
+  it('zoomed all the way out, shows every top-level area closed', () => {
+    const { model, r } = setup()
+    for (let i = 0; i < 60; i++) r.zoomOut(false)
+    for (const c of model.root.children) expect(openness(c, r.camera.k)).toBe(0)
+  })
+
+  it('stops zooming in at the gaps between boxes, not at the deepest thing in the area', () => {
+    const { model, r } = setup()
+    const dir = model.byId.get('dir:sherlock_project')!
+    const screen = (wx: number, wy: number): [number, number] => [toScreenX(r.camera, r.viewport, wx), toScreenY(r.camera, r.viewport, wy)]
+    for (const at of [screen(dir.x + dir.w / 2, dir.y + dir.h - dir.pad / 2), [2, 2] as [number, number]]) {
+      r.fit(false)
+      for (let i = 0; i < 200; i++) r.wheel(0, -120, 0, false, ...at)
+      expect(r.camera.k).toBeLessThan(r.maxK * 0.5)
+    }
+  })
+
+  it('zooms in step by step: each node opens fully, then what is inside it takes over', () => {
+    const { model, r } = setup()
+    const cls = model.byId.get('class:sherlock_project/notify.py::QueryNotifyPrint')!
+    r.fit(false)
+    for (let i = 0; i < 300; i++) r.wheel(0, -120, 0, false, ...centre(r, cls.children[0]))
+    // Reaches the class's rows at full size, and stops there.
+    expect(r.hitTest(...centre(r, cls.children[0]))).toBe(cls.children[0])
+    expect(r.camera.k).toBeCloseTo(r.zoomLimitFor(cls))
+    expect(cls.rowHeight * r.camera.k).toBeGreaterThanOrEqual(20)
+  })
+
+  it('stops zooming into a small class sooner than into a large one', () => {
+    const { model, r } = setup()
+    const classes = model.nodes.filter((n) => n.kind === 'class' && n.children.length)
+    const roomy = classes.reduce((a, b) => (b.rowHeight > a.rowHeight ? b : a))
+    const dense = classes.reduce((a, b) => (b.rowHeight < a.rowHeight ? b : a))
+    expect(r.maxKFor(roomy)).toBeLessThan(r.maxKFor(dense))
+    // Every container can still be zoomed to fully open.
+    for (const n of model.nodes) if (n.kind !== 'member' && n.children.length) expect(openness(n, r.maxKFor(n))).toBeGreaterThan(0.999)
+    // Wheel in on the roomy class until it stops: its rows read at full size, not oversized.
+    r.focus(roomy, false)
+    for (let i = 0; i < 100; i++) r.wheel(0, -120, 0, false, ...centre(r, roomy.children[0]))
+    const row = roomy.rowHeight * r.camera.k
+    expect(row).toBeGreaterThanOrEqual(20)
+    expect(row).toBeLessThan(Math.max(30, roomy.rowHeight * r.maxKFor(model.root) * 0.5))
   })
 
   it('animates camera moves unless reduced motion is on', () => {
@@ -149,6 +276,20 @@ describe('GraphRenderer', () => {
     const before = { ...r.camera }
     r.resize(900, 600)
     expect(r.camera).toEqual(before)
+  })
+})
+
+describe('shownAtRest', () => {
+  it('draws lines between directories at rest, and lines to files or symbols only on hover or selection', () => {
+    const model = buildGraphModel(sherlock as GraphResponse, 'sherlock')
+    const dir = model.byId.get('dir:sherlock_project')!
+    const tests = model.byId.get('dir:tests')!
+    const file = model.byId.get('file:tests/test_ux.py')!
+    const cls = model.byId.get('class:sherlock_project/notify.py::QueryNotifyPrint')!
+    expect(shownAtRest(dir, tests)).toBe(true)
+    expect(shownAtRest(dir, file)).toBe(false)
+    expect(shownAtRest(file, dir)).toBe(false)
+    expect(shownAtRest(cls, file)).toBe(false)
   })
 })
 
