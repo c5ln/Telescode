@@ -144,3 +144,21 @@ test('approval requires user review; revisions invalidate approval', async () =>
     assert.throws(() => restored.assertApproved(restored.draft(d.plan.id), 2), /approval/)
   } finally { await http.close() }
 })
+
+test('list reads every saved draft from disk without its snapshot, skipping broken files', async () => {
+  const output = await mkdtemp(join(tmpdir(), 'telescode-list-'))
+  const store = new TourStore(output)
+  const project = await store.open(fileURLToPath(fixture))
+  const draft = await store.create(project.id, 'Listed', 'en', [{ nodeId: 'root', caption: 'Overview', transitionMs: 0, holdMs: 2000 }])
+  const { writeFile } = await import('node:fs/promises')
+  await writeFile(join(output, 'broken.draft.json'), '{ not json')
+  // A second store stands in for another server process that saved after this one started.
+  const other = new TourStore(output)
+  const tours = await other.list()
+  assert.equal(tours.length, 1)
+  assert.equal(tours[0].plan.id, draft.plan.id)
+  assert.equal(tours[0].snapshotHash, project.hash)
+  assert.equal(tours[0].state, 'draft')
+  assert.ok(tours[0].updatedMs > 0)
+  assert.equal('project' in tours[0], false)
+})
