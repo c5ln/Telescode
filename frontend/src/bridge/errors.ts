@@ -19,6 +19,8 @@ export type NativeErrorCode =
   | 'repository_too_large'
   | 'repository_empty'
   | 'repository_fetch_failed'
+  | 'folder_not_found'
+  | 'not_a_folder'
   | 'internal'
 
 /** Codes produced on the TypeScript side. */
@@ -71,6 +73,8 @@ const NATIVE_CODES: ReadonlySet<string> = new Set<NativeErrorCode>([
   'repository_too_large',
   'repository_empty',
   'repository_fetch_failed',
+  'folder_not_found',
+  'not_a_folder',
   'internal',
 ])
 

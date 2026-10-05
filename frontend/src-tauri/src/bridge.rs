@@ -69,6 +69,8 @@ pub enum BridgeError {
     RepositoryTooLarge { message: String },
     RepositoryEmpty { message: String },
     RepositoryFetchFailed { message: String },
+    FolderNotFound { message: String, path: String },
+    NotAFolder { message: String, path: String },
     Internal { message: String },
 }
 

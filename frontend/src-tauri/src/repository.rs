@@ -1,10 +1,12 @@
-//! Opening a public GitHub repository from its URL.
+//! Opening a repository: a public GitHub repository from its URL, or a folder
+//! on this computer.
 //!
-//! The repository's default branch is downloaded as a tarball, unpacked into
-//! the app's cache, and scanned into a database there with the same
-//! `TelescodeHeadless scan` and `algo` a local repository goes through. The
-//! frontend then opens that database like any other, so both kinds of
-//! repository share one analysis path.
+//! A GitHub repository's default branch is downloaded as a tarball and
+//! unpacked into the app's cache; a local folder is used where it is. Either
+//! way the source is scanned into a database in the cache with
+//! `TelescodeHeadless scan` and `algo`, and the frontend then opens that
+//! database like any other, so both kinds of repository share one analysis
+//! path.
 //!
 //! Only public repositories are supported: no token is ever sent, and GitHub
 //! answers a private repository exactly as it does a missing one.
@@ -331,6 +333,70 @@ fn open(cache: &Path, url: &str) -> Result<PathBuf, BridgeError> {
     Ok(db)
 }
 
+/// A stable 64-bit FNV-1a hash, so a folder keeps its cache directory (and its
+/// saved tutorials) across runs and app updates.
+fn fnv1a(bytes: &[u8]) -> u64 {
+    bytes.iter().fold(0xcbf2_9ce4_8422_2325, |h, b| (h ^ u64::from(*b)).wrapping_mul(0x0100_0000_01b3))
+}
+
+/// Checks that `raw` names an existing directory and returns its canonical path.
+fn validate_folder(raw: &str) -> Result<PathBuf, BridgeError> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Err(BridgeError::InvalidArgument { message: "A folder path is required.".into() });
+    }
+    let shown = trimmed.to_string();
+    match fs::metadata(trimmed) {
+        Ok(m) if m.is_dir() => fs::canonicalize(trimmed).map_err(|e| BridgeError::InvalidArgument {
+            message: format!("Cannot resolve folder path: {e}"),
+        }),
+        Ok(_) => Err(BridgeError::NotAFolder { message: format!("Not a folder: {shown}"), path: shown }),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => {
+            Err(BridgeError::FolderNotFound { message: format!("Folder not found: {shown}"), path: shown })
+        }
+        Err(e) => Err(BridgeError::InvalidArgument { message: format!("Cannot read folder {shown}: {e}") }),
+    }
+}
+
+/// Scans the folder at `path` into a database under `cache`, returning the
+/// database to open. The folder itself is only read.
+fn open_folder_in(cache: &Path, path: &str) -> Result<PathBuf, BridgeError> {
+    let folder = validate_folder(path)?;
+    let sidecar = bridge::locate_sidecar()?;
+    let name = folder
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .filter(|n| !n.is_empty())
+        .unwrap_or_else(|| "repository".into());
+
+    // One directory per folder: its name for reading, its path's hash for uniqueness.
+    let key = format!("{}-{:016x}", name.to_lowercase(), fnv1a(folder.as_os_str().as_encoded_bytes()));
+    let dir = cache.join("folders").join(key);
+    let lock = lock_for(&dir);
+    let _guard = lock.lock().unwrap_or_else(|e| e.into_inner());
+    fs::create_dir_all(&dir).map_err(|e| BridgeError::Internal {
+        message: format!("Could not create {}: {e}", dir.display()),
+    })?;
+
+    let db = dir.join(format!("{name}.db"));
+    scan(&sidecar, &folder, &db, &name)?;
+    Ok(db)
+}
+
+/// IPC entry point: `invoke("open_folder", { path })`. Resolves with the path
+/// of the scanned database, ready for `run_headless`.
+#[tauri::command]
+pub async fn open_folder(app: tauri::AppHandle, path: String) -> Result<String, BridgeError> {
+    let cache = app.path().app_cache_dir().map_err(|e| BridgeError::Internal {
+        message: format!("Cannot locate the app's cache directory: {e}"),
+    })?;
+    tauri::async_runtime::spawn_blocking(move || open_folder_in(&cache, &path).map(|db| db.display().to_string()))
+        .await
+        .map_err(|e| BridgeError::Internal {
+            message: format!("Folder worker failed: {e}"),
+        })?
+}
+
 /// IPC entry point: `invoke("open_repository", { url })`. Resolves with the
 /// path of the scanned database, ready for `run_headless`.
 #[tauri::command]
@@ -438,6 +504,28 @@ mod tests {
     }
 
     #[test]
+    fn folders_are_checked_before_scanning() {
+        let dir = std::env::temp_dir().join(format!("telescode-folder-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("a.py");
+        fs::write(&file, "x = 1\n").unwrap();
+
+        assert!(validate_folder(dir.to_str().unwrap()).unwrap().is_absolute());
+        assert!(matches!(validate_folder("  "), Err(BridgeError::InvalidArgument { .. })));
+        assert!(matches!(validate_folder(file.to_str().unwrap()), Err(BridgeError::NotAFolder { .. })));
+        let missing = dir.join("missing");
+        assert!(matches!(validate_folder(missing.to_str().unwrap()), Err(BridgeError::FolderNotFound { .. })));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn folder_hashes_are_stable() {
+        assert_eq!(fnv1a(b""), 0xcbf2_9ce4_8422_2325);
+        assert_eq!(fnv1a(b"a"), 0xaf63_dc4c_8601_ec8c);
+    }
+
+    #[test]
     fn scan_output_gives_the_file_count() {
         assert_eq!(parsed_file_count("[scan] Parsed 0 files.\n[scan] Inserted"), Some(0));
         assert_eq!(parsed_file_count("[scan] Parsed 42 files.\n"), Some(42));
@@ -464,6 +552,14 @@ mod tests {
 
         // Opening again replaces the previous download rather than failing on it.
         assert_eq!(open(&cache, &url).unwrap(), db);
+
+        // The downloaded source, opened as a local folder, scans the same way.
+        let source = db.parent().unwrap().join("source");
+        let folder_db = open_folder_in(&cache, source.to_str().unwrap()).unwrap();
+        assert_eq!(folder_db.file_name().unwrap(), "source.db");
+        let out = bridge::run(&bridge::locate_sidecar().unwrap(), bridge::Operation::Analyze, folder_db.to_str().unwrap()).unwrap();
+        let w: serde_json::Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(w["totals"]["fileCount"], v["totals"]["fileCount"]);
         let _ = fs::remove_dir_all(&cache);
     }
 }

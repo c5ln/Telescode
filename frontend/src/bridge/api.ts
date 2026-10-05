@@ -52,14 +52,18 @@ export const tauriRunner: HeadlessRunner = async (op, dbPath) => {
 
 export const telescode: TelescodeApi = createTelescodeApi(tauriRunner)
 
-/**
- * Downloads a public GitHub repository and scans it, resolving with the path of
- * the database to analyze. One coarse call, like the others.
- */
-export type RepositoryOpener = (url: string) => Promise<string>
+/** Where a repository comes from: a public GitHub URL, or a folder on this computer. */
+export type RepositorySource = { kind: 'github'; url: string } | { kind: 'folder'; path: string }
 
-/** The opener used inside the desktop app: the `open_repository` Tauri command. */
-export const tauriRepositoryOpener: RepositoryOpener = async (url) => {
+/**
+ * Scans a repository into a database (downloading it first if it is on
+ * GitHub), resolving with the path of the database to analyze. One coarse
+ * call, like the others.
+ */
+export type RepositoryOpener = (source: RepositorySource) => Promise<string>
+
+/** The opener used inside the desktop app: the `open_repository` and `open_folder` Tauri commands. */
+export const tauriRepositoryOpener: RepositoryOpener = async (source) => {
   if (!isTauri()) {
     throw new TelescodeError(
       'bridge_unavailable',
@@ -67,7 +71,9 @@ export const tauriRepositoryOpener: RepositoryOpener = async (url) => {
     )
   }
   try {
-    return await invoke<string>('open_repository', { url })
+    return source.kind === 'github'
+      ? await invoke<string>('open_repository', { url: source.url })
+      : await invoke<string>('open_folder', { path: source.path })
   } catch (e) {
     throw fromNativeError(e)
   }

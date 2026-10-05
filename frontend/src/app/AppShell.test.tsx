@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { TelescodeError, type AnalysisSnapshot, type GraphResponse, type TelescodeApi } from '../bridge'
+import { TelescodeError, type AnalysisSnapshot, type GraphResponse, type RepositorySource, type TelescodeApi } from '../bridge'
 import sherlock from '../graph/fixtures/sherlock.graph.json'
 import type { GraphRenderer } from '../graph/renderer'
 import type { TourStop } from '../tour/model'
@@ -38,11 +38,18 @@ async function openRepository(url: string) {
   await userEvent.click(screen.getByRole('button', { name: 'Analyze' }))
 }
 
-/** The development-only path: switch the empty state to database entry, then open. */
-async function openDatabase(path: string) {
-  const devLink = screen.queryByRole('button', { name: 'Open a local database (dev)' })
+/** A repository opener that scans a folder at once, into `C:/cache/<folder name>.db`. */
+const scanFolder = () =>
+  vi.fn(async (source: RepositorySource) => {
+    if (source.kind !== 'folder') throw new Error('only folders')
+    return `C:/cache/${source.path.split('/').pop()}.db`
+  })
+
+/** The development-only path: switch the empty state to folder entry, then open. */
+async function openFolder(path: string) {
+  const devLink = screen.queryByRole('button', { name: 'Open a local folder (dev)' })
   if (devLink) await userEvent.click(devLink)
-  await userEvent.type(screen.getByRole('textbox', { name: 'Database path' }), path)
+  await userEvent.type(screen.getByRole('textbox', { name: 'Folder path' }), path)
   await userEvent.click(screen.getByRole('button', { name: 'Open' }))
 }
 
@@ -70,7 +77,7 @@ const canvasButtons = () =>
 
 describe('AppShell', () => {
   it('has only breadcrumbs, search, the tutorial button and an overflow menu in the top bar, and no sidebar', () => {
-    render(<AppShell api={deferredApi().api} allowLocalDatabase />)
+    render(<AppShell api={deferredApi().api} allowLocalFolder />)
     const bar = screen.getByRole('banner')
 
     expect(within(bar).getByRole('navigation', { name: 'Breadcrumb' })).toBeTruthy()
@@ -90,8 +97,8 @@ describe('AppShell', () => {
 
     expect(screen.getByText('Open a repository')).toBeTruthy()
     const url = screen.getByRole('textbox', { name: 'Repository URL' })
-    expect(screen.queryByRole('textbox', { name: 'Database path' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Open a local database (dev)' })).toBeNull()
+    expect(screen.queryByRole('textbox', { name: 'Folder path' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Open a local folder (dev)' })).toBeNull()
     expect(screen.queryByText(/database/i)).toBeNull()
 
     for (const bad of ['not a url', 'https://gitlab.com/c5ln/Telescode', 'https://github.com/c5ln/Telescode/pull/1']) {
@@ -106,7 +113,7 @@ describe('AppShell', () => {
     await userEvent.clear(url)
     await userEvent.type(url, 'https://github.com/c5ln/Telescode')
     await userEvent.click(screen.getByRole('button', { name: 'Analyze' }))
-    expect(repositories).toHaveBeenCalledWith('https://github.com/c5ln/Telescode')
+    expect(repositories).toHaveBeenCalledWith({ kind: 'github', url: 'https://github.com/c5ln/Telescode' })
     expect(opened).toHaveLength(1)
   })
 
@@ -133,7 +140,7 @@ describe('AppShell', () => {
   it('shows why a repository could not be opened, retries the download, and offers the URL again', async () => {
     const { api, analyze } = deferredApi()
     const { repositories, opened } = deferredRepositories()
-    render(<AppShell api={api} repositories={repositories} allowLocalDatabase />)
+    render(<AppShell api={api} repositories={repositories} allowLocalFolder />)
     await openRepository('https://github.com/c5ln/private')
 
     opened[0]!.reject(new TelescodeError('repository_not_found', 'c5ln/private does not exist or is private.'))
@@ -171,67 +178,93 @@ describe('AppShell', () => {
     expect(screen.getByText('Open a repository')).toBeTruthy()
   })
 
-  it('starts empty, then goes through loading to ready', async () => {
+  it('starts empty, then scans a local folder and goes through loading to ready', async () => {
     const { api, analyze, pending } = deferredApi()
-    render(<AppShell api={api} allowLocalDatabase />)
+    const { repositories, opened } = deferredRepositories()
+    render(<AppShell api={api} repositories={repositories} allowLocalFolder />)
 
     expect(screen.getByText('Open a repository')).toBeTruthy()
     expect(canvasButtons().every((b) => b.disabled)).toBe(true)
 
-    await openDatabase('C:/x/project.db')
-    expect(analyze).toHaveBeenCalledWith('C:/x/project.db')
-    expect(screen.getByRole('status').textContent).toBe('Analyzing project.db…')
+    await openFolder('C:/x/project')
+    expect(repositories).toHaveBeenCalledWith({ kind: 'folder', path: 'C:/x/project' })
+    expect(screen.getByRole('status').textContent).toBe('Scanning project…')
     expect(screen.getByRole('main', { name: 'Workspace' }).getAttribute('aria-busy')).toBe('true')
 
-    pending[0].resolve(snapshot)
+    opened[0]!.resolve('C:/cache/project.db')
+    await vi.waitFor(() => expect(analyze).toHaveBeenCalledWith('C:/cache/project.db'))
+    expect(screen.getByRole('status').textContent).toBe('Analyzing project…')
+
+    pending[0]!.resolve(snapshot)
     expect(await screen.findByText('16 files · 11 classes')).toBeTruthy()
     expect(screen.getByText('project').getAttribute('aria-current')).toBe('location')
     expect(canvasButtons().every((b) => !b.disabled)).toBe(true)
   })
 
   it('shows a concise bridge error and can retry', async () => {
-    const { api, analyze, pending } = deferredApi()
-    render(<AppShell api={api} allowLocalDatabase />)
-    await openDatabase('C:/x/missing.db')
+    const { api, analyze } = deferredApi()
+    const { repositories, opened } = deferredRepositories()
+    render(<AppShell api={api} repositories={repositories} allowLocalFolder />)
+    await openFolder('C:/x/missing')
 
-    pending[0].reject(new TelescodeError('db_not_found', 'No database at C:/x/missing.db'))
+    opened[0]!.reject(new TelescodeError('folder_not_found', 'Folder not found: C:/x/missing'))
     const alert = await screen.findByRole('alert')
-    expect(within(alert).getByText('Database not found')).toBeTruthy()
-    expect(within(alert).getByText('No database at C:/x/missing.db')).toBeTruthy()
-    expect(within(alert).getByText('db_not_found')).toBeTruthy()
+    expect(within(alert).getByText('Folder not found')).toBeTruthy()
+    expect(within(alert).getByText('Folder not found: C:/x/missing')).toBeTruthy()
+    expect(within(alert).getByText('folder_not_found')).toBeTruthy()
 
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
-    expect(analyze).toHaveBeenCalledTimes(2)
-    expect(screen.getByRole('status').textContent).toBe('Analyzing missing.db…')
+    expect(repositories).toHaveBeenCalledTimes(2)
+    expect(analyze).not.toHaveBeenCalled()
+    expect(screen.getByRole('status').textContent).toBe('Scanning missing…')
   })
 
-  it('returns to the empty state from the overflow menu, keeping the last database path', async () => {
+  it('re-analyzes a scanned folder without scanning it again', async () => {
+    const { api, analyze, pending } = deferredApi()
+    const repositories = scanFolder()
+    render(<AppShell api={api} repositories={repositories} allowLocalFolder />)
+    await openFolder('C:/x/project')
+    await vi.waitFor(() => expect(analyze).toHaveBeenCalledTimes(1))
+    pending[0]!.resolve(snapshot)
+    await screen.findByText('16 files · 11 classes')
+
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Reload analysis' }))
+    expect(analyze).toHaveBeenCalledTimes(2)
+    expect(analyze).toHaveBeenLastCalledWith('C:/cache/project.db')
+    expect(repositories).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns to the empty state from the overflow menu, keeping the last folder path', async () => {
     const { api, pending } = deferredApi()
-    render(<AppShell api={api} allowLocalDatabase />)
-    await openDatabase('C:/x/project.db')
-    pending[0].resolve(snapshot)
+    render(<AppShell api={api} repositories={scanFolder()} allowLocalFolder />)
+    await openFolder('C:/x/project')
+    await vi.waitFor(() => expect(pending).toHaveLength(1))
+    pending[0]!.resolve(snapshot)
     await screen.findByText('16 files · 11 classes')
 
     await userEvent.click(screen.getByRole('button', { name: 'More actions' }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Open repository…' }))
 
-    expect(screen.getByText('Open a local database')).toBeTruthy()
-    expect((screen.getByRole('textbox', { name: 'Database path' }) as HTMLInputElement).value).toBe('C:/x/project.db')
+    expect(screen.getByText('Open a local folder')).toBeTruthy()
+    expect((screen.getByRole('textbox', { name: 'Folder path' }) as HTMLInputElement).value).toBe('C:/x/project')
   })
 
   it('ignores a slower, superseded request', async () => {
     const { api, pending } = deferredApi()
-    render(<AppShell api={api} allowLocalDatabase />)
-    await openDatabase('C:/x/old.db')
+    render(<AppShell api={api} repositories={scanFolder()} allowLocalFolder />)
+    await openFolder('C:/x/old')
+    await vi.waitFor(() => expect(pending).toHaveLength(1))
 
     await userEvent.click(screen.getByRole('button', { name: 'More actions' }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Open repository…' }))
-    await userEvent.clear(screen.getByRole('textbox', { name: 'Database path' }))
-    await openDatabase('C:/x/project.db')
+    await userEvent.clear(screen.getByRole('textbox', { name: 'Folder path' }))
+    await openFolder('C:/x/project')
+    await vi.waitFor(() => expect(pending).toHaveLength(2))
 
-    pending[1].resolve(snapshot)
+    pending[1]!.resolve(snapshot)
     await screen.findByText('16 files · 11 classes')
-    pending[0].reject(new TelescodeError('db_invalid', 'late failure'))
+    pending[0]!.reject(new TelescodeError('db_invalid', 'late failure'))
     await new Promise((r) => setTimeout(r, 0))
     expect(screen.queryByRole('alert')).toBeNull()
   })

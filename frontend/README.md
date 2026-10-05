@@ -36,7 +36,8 @@ cmake -S . -B build
 cmake --build build --config Release --target TelescodeHeadless
 ```
 
-You need a database to open. Create one with the same binary:
+The app scans repositories itself, so no database needs to be prepared. To
+look at one by hand, the same binary makes it:
 
 ```bash
 build/Release/TelescodeHeadless scan <path/to/python/repo> telescode.db
@@ -79,8 +80,10 @@ pull requests) are refused. Downloads are capped at 500 MB compressed and
 2 GB unpacked; symbolic links in the archive are skipped.
 
 Development builds (`npm run dev`, `npm run desktop`) also show an
-**Open a local database (dev)** link under the field, which opens a database
-made with `TelescodeHeadless scan` directly. Release builds do not show it.
+**Open a local folder (dev)** link under the field. It takes the path of a
+repository folder on this computer, which `invoke('open_folder')` scans in
+place into `<app cache>/folders/<name>-<hash>/<name>.db` and then analyzes the
+same way. Release builds do not show it.
 
 To look at the workspace without the core, add one of these to a dev URL.
 They are development-only and not included in builds.
@@ -190,6 +193,8 @@ Every failure rejects with a `TelescodeError` whose `code` is one of:
 | `repository_too_large` | Rust | over the size limits above |
 | `repository_empty` | Rust | the scan found no supported source files |
 | `repository_fetch_failed` | Rust | the download or unpacking failed |
+| `folder_not_found` | Rust | no folder at that path |
+| `not_a_folder` | Rust | the path is a file, not a folder |
 | `internal` | Rust | bridge worker failure |
 | `malformed_json` | TS | stdout was not valid JSON |
 | `unexpected_schema` | TS | valid JSON, wrong shape |
