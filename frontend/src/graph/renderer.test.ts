@@ -204,11 +204,18 @@ describe('GraphRenderer', () => {
     const { model, r } = setup()
     r.fit(false)
     const fit = r.camera.k
-    expect(r.minK).toBeGreaterThanOrEqual(fit * 0.5)
+    expect(r.minK).toBeGreaterThanOrEqual(fit * 0.25 - 1e-9)
+    expect(r.minK).toBeLessThanOrEqual(fit * 0.6 + 1e-9)
     const rows = model.nodes.filter((n) => n.kind === 'class' && n.children.length).map((n) => n.rowHeight)
     const minRow = Math.min(...rows)
     expect(minRow * r.maxK).toBeGreaterThanOrEqual(20)
     expect(minRow * r.maxK).toBeLessThan(40)
+  })
+
+  it('zoomed all the way out, shows every top-level area closed', () => {
+    const { model, r } = setup()
+    for (let i = 0; i < 60; i++) r.zoomOut(false)
+    for (const c of model.root.children) expect(openness(c, r.camera.k)).toBe(0)
   })
 
   it('stops zooming into a small class sooner than into a large one', () => {

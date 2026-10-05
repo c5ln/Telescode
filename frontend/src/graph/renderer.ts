@@ -24,7 +24,7 @@ import {
 } from './camera'
 import { WORLD } from './layout'
 import { ancestors, contains, type GraphEdge, type GraphModel, type GraphNode } from './model'
-import { fullyOpenK, LodFrame, settle, smoothstep, type StandIn } from './semantic'
+import { LodFrame, openingK, settle, smoothstep, type StandIn } from './semantic'
 import { TextMeasurer } from './text'
 import type { GraphTheme } from './theme'
 
@@ -62,8 +62,12 @@ const RELATED_STRENGTH = 0.45
 const CAPTION_FADE = [0.35, 0.6] as const
 /** Button zoom step. */
 const STEP = 1.6
-/** Zoom range, relative to the scale that fits the whole repository. */
-const MIN_ZOOM = 0.6
+/**
+ * Furthest zoom-out, relative to the scale that fits the whole repository:
+ * far enough that every top-level area is closed, so the overview reads as
+ * one set of labelled regions, but never smaller than the lower bound.
+ */
+const MIN_ZOOM = [0.25, 0.6] as const
 /** Zooming in is always allowed this far, whatever is in view. */
 const MAX_ZOOM_FLOOR = 2
 /**
@@ -151,6 +155,8 @@ export class GraphRenderer {
   private failed = false
   /** Per node (by order), the scale at which everything in its subtree is open and full size. */
   private readonly fullK: Float64Array
+  /** The scale below which every top-level area is closed. */
+  private readonly overviewK: number
   private readonly importEdges: GraphEdge[]
   /** Class edges by the file of their source class: only visible files' are looked at. */
   private readonly classEdgesByFile = new Map<GraphNode, GraphEdge[]>()
@@ -173,12 +179,15 @@ export class GraphRenderer {
 
     // Children come after their parent in depth-first order, so a backwards
     // pass sees each subtree before the node that holds it.
+    const top = model.root.children.filter((c) => c.children.length > 0).map((c) => openingK(c, 'start'))
+    this.overviewK = top.length ? Math.min(...top) * 0.999 : Infinity
+
     const count = model.nodes.length
     this.fullK = new Float64Array(count)
     for (let i = count - 1; i >= 0; i--) {
       const n = model.nodes[i]
       if (n.kind === 'member') continue // covered by its class's row height
-      let k = fullyOpenK(n)
+      let k = openingK(n, 'end')
       if (n.kind === 'class' && n.children.length) k = Math.max(k, MAX_ROW_PX / n.rowHeight)
       if (n.children.length === 0 && n.w > 0 && n.h > 0) k = Math.max(k, MAX_LEAF_PX / Math.min(n.w, n.h))
       this.fullK[i] = Math.max(this.fullK[i], k)
@@ -235,9 +244,10 @@ export class GraphRenderer {
 
   // ---- Zoom limits -----------------------------------------------------------
 
-  /** A little past the whole repository, never so far that it shrinks to a speck. */
+  /** Past the whole repository until every top-level area is closed, never so far that it shrinks to a speck. */
   get minK(): number {
-    return this.fitKRaw() * MIN_ZOOM
+    const fit = this.fitKRaw()
+    return clamp(this.overviewK, fit * MIN_ZOOM[0], fit * MIN_ZOOM[1])
   }
 
   /** The furthest zoom anywhere: enough for the smallest things in the repository. */

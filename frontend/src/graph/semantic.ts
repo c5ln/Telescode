@@ -69,21 +69,27 @@ export function openness(node: GraphNode, k: number): number {
   }
 }
 
-/** The scale at which a container is fully open (0 for a leaf). */
-export function fullyOpenK(node: GraphNode): number {
+/**
+ * The scale at which a container starts to open (`start`: open above it) or
+ * is fully open (`end`). 0 for a leaf.
+ */
+export function openingK(node: GraphNode, end: 'start' | 'end'): number {
   if (node.children.length === 0) return 0
-  const at = (px: number, size: number) => (size > 0 ? px / size : 0)
+  const e = end === 'start' ? 0 : 1
+  const at = (range: readonly [number, number], size: number) => (size > 0 ? range[e] / size : 0)
   const child = childScale(node)
   const short = Math.min(node.w, node.h)
+  // Openness is the least of its parts, so a node starts to open, and is
+  // fully open, only once every part has.
   switch (node.kind) {
     case 'root':
-      return at(OPEN_RANGE.root.child[1], child)
+      return at(OPEN_RANGE.root.child, child)
     case 'dir':
-      return Math.max(at(OPEN_RANGE.dir.child[1], child), at(OPEN_RANGE.dir.header[1], node.header))
+      return Math.max(at(OPEN_RANGE.dir.child, child), at(OPEN_RANGE.dir.header, node.header))
     case 'file':
-      return Math.max(at(OPEN_RANGE.file.child[1], child), at(OPEN_RANGE.file.size[1], short))
+      return Math.max(at(OPEN_RANGE.file.child, child), at(OPEN_RANGE.file.size, short))
     case 'class':
-      return Math.max(at(OPEN_RANGE.class.row[1], node.rowHeight), at(OPEN_RANGE.class.size[1], short))
+      return Math.max(at(OPEN_RANGE.class.row, node.rowHeight), at(OPEN_RANGE.class.size, short))
     default:
       return 0
   }
