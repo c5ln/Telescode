@@ -110,6 +110,40 @@ describe('Dropdown', () => {
     await userEvent.click(screen.getByText('outside'))
     expect(screen.queryByRole('menu')).toBeNull()
   })
+
+  it('flips a toggle item in place and keeps the menu open', async () => {
+    const onChange = vi.fn()
+    const { rerender } = render(
+      <Dropdown
+        items={[{ type: 'toggle', id: 't', label: 'Complexity', checked: false, onChange }]}
+        trigger={(props) => (
+          <button {...props} type="button">
+            View
+          </button>
+        )}
+      />,
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'View' }))
+    const toggle = screen.getByRole('menuitemcheckbox', { name: 'Complexity' })
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
+    expect(document.activeElement).toBe(toggle)
+
+    await userEvent.keyboard('{Enter}')
+    expect(onChange).toHaveBeenCalledWith(true)
+    expect(screen.getByRole('menu')).toBeTruthy()
+
+    rerender(
+      <Dropdown
+        items={[{ type: 'toggle', id: 't', label: 'Complexity', checked: true, onChange }]}
+        trigger={(props) => (
+          <button {...props} type="button">
+            View
+          </button>
+        )}
+      />,
+    )
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Complexity' }).getAttribute('aria-checked')).toBe('true')
+  })
 })
 
 describe('SearchField', () => {
