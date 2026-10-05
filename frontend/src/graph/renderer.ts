@@ -747,7 +747,7 @@ export class GraphRenderer {
       const legible = smoothstep(Math.min(sw, sh, dw, dh), 10, 32)
       const strength = 0.45 + 0.55 * Math.min(1, Math.log2(g.count + 1) / 4)
       const alpha = g.alpha * legible * strength
-      if (alpha < 0.05 && !g.emphasized) continue
+      if (!g.emphasized && (alpha < 0.05 || !shownAtRest(g.s, g.t))) continue
 
       const scx = g.s.x * k + ox + sw / 2
       const scy = g.s.y * k + oy + sh / 2
@@ -993,6 +993,18 @@ export class GraphRenderer {
     ctx.fillStyle = this.theme.tipText
     ctx.fillText(label, x + padX, y + bh / 2)
   }
+}
+
+/**
+ * Whether a relationship is drawn when nothing is hovered or selected that
+ * it belongs to. Between directories, lines summarise how areas of the
+ * repository depend on each other. Lines to files and symbols would cover
+ * the map once there are many of them, so those appear only for the hovered
+ * or selected node.
+ */
+export function shownAtRest(s: GraphNode, t: GraphNode): boolean {
+  const region = (n: GraphNode) => n.kind === 'dir' || n.kind === 'root'
+  return region(s) && region(t)
 }
 
 /**

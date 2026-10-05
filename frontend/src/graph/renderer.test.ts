@@ -8,7 +8,7 @@ import sherlock from './fixtures/sherlock.graph.json'
 import { layoutGraph } from './layout'
 import { buildGraphModel, contains, type GraphNode } from './model'
 import { openness } from './semantic'
-import { capEdgeGroups, EDGE_BUDGET, GraphRenderer, HOVER_EDGE_CAP, SELECTION_EDGE_CAP } from './renderer'
+import { capEdgeGroups, EDGE_BUDGET, GraphRenderer, HOVER_EDGE_CAP, SELECTION_EDGE_CAP, shownAtRest } from './renderer'
 import type { GraphTheme } from './theme'
 
 function setup(reducedMotion = true) {
@@ -247,6 +247,20 @@ describe('GraphRenderer', () => {
     const before = { ...r.camera }
     r.resize(900, 600)
     expect(r.camera).toEqual(before)
+  })
+})
+
+describe('shownAtRest', () => {
+  it('draws lines between directories at rest, and lines to files or symbols only on hover or selection', () => {
+    const model = buildGraphModel(sherlock as GraphResponse, 'sherlock')
+    const dir = model.byId.get('dir:sherlock_project')!
+    const tests = model.byId.get('dir:tests')!
+    const file = model.byId.get('file:tests/test_ux.py')!
+    const cls = model.byId.get('class:sherlock_project/notify.py::QueryNotifyPrint')!
+    expect(shownAtRest(dir, tests)).toBe(true)
+    expect(shownAtRest(dir, file)).toBe(false)
+    expect(shownAtRest(file, dir)).toBe(false)
+    expect(shownAtRest(cls, file)).toBe(false)
   })
 })
 
