@@ -59,6 +59,8 @@ pub enum BridgeError {
     SidecarSpawnFailed { message: String },
     SidecarFailed { message: String, exit_code: Option<i32>, stderr: String },
     OutputNotUtf8 { message: String },
+    ToursUnavailable { message: String },
+    TourGenerationFailed { message: String },
     Internal { message: String },
 }
 

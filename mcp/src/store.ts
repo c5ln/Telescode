@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { readFile, readdir, mkdir, writeFile, rename } from 'node:fs/promises'
+import { readFile, readdir, mkdir, writeFile, rename, stat } from 'node:fs/promises'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { resolve } from 'node:path'
@@ -43,6 +43,22 @@ export class TourStore {
       this.projects.set(draft.project.id, draft.project)
       this.drafts.set(draft.plan.id, draft)
     }
+  }
+  /**
+   * Every saved tour, read from disk rather than memory so tours another
+   * server process saved are included. Without the snapshot, which can be large.
+   */
+  async list() {
+    const names = await readdir(this.outputRoot).catch(() => [] as string[])
+    const tours = await Promise.all(names.filter(name => name.endsWith('.draft.json')).map(async name => {
+      const path = resolve(this.outputRoot, name)
+      try {
+        const draft = JSON.parse(await readFile(path, 'utf8')) as Draft
+        if (!draft.plan || typeof draft.project?.hash !== 'string') return []
+        return [{ plan: draft.plan, snapshotHash: draft.project.hash, state: draft.state, updatedMs: Math.round((await stat(path)).mtimeMs) }]
+      } catch { return [] }
+    }))
+    return tours.flat()
   }
   async open(path: string, headless?: string) {
     const absolute = resolve(path)

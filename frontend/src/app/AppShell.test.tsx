@@ -1,12 +1,14 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { TelescodeError, type AnalysisSnapshot, type GraphResponse, type TelescodeApi } from '../bridge'
 import sherlock from '../graph/fixtures/sherlock.graph.json'
 import type { GraphRenderer } from '../graph/renderer'
+import type { TourStop } from '../tour/model'
+import type { SavedTour, TourLibrary } from '../tour/tutorial'
 import { AppShell } from './AppShell'
 
 afterEach(cleanup)
@@ -32,18 +34,40 @@ async function openDatabase(path: string) {
   await userEvent.click(screen.getByRole('button', { name: 'Open' }))
 }
 
+/** A saved tour of the Sherlock sample, short enough to play through in a test. */
+function sherlockTour(holdMs: number): SavedTour {
+  const stop = (nodeId: string, caption: string): TourStop => ({ nodeId, caption, title: nodeId, evidence: [], transitionMs: 0, holdMs })
+  const stops = [
+    stop('root', 'Sherlock finds a username across sites.'),
+    stop('file:sherlock_project/result.py', 'result.py defines the shape of a result.'),
+    stop('class:sherlock_project/result.py::QueryStatus', 'QueryStatus is the verdict for one site.'),
+  ]
+  const plan = { schemaVersion: 1 as const, id: 't1', revision: 1, title: 'Sherlock onboarding', language: 'en' as const, snapshotHash: 'x', stops }
+  return { plan, snapshotHash: 'x', state: 'draft', updatedMs: 1 }
+}
+
+const library = (...lists: SavedTour[][]): TourLibrary => {
+  let call = 0
+  return { list: vi.fn(async () => lists[Math.min(call++, lists.length - 1)]!) }
+}
+
+const renderer = () => (window as { __telescode?: GraphRenderer }).__telescode!
+
 const canvasButtons = () =>
   within(screen.getByRole('toolbar', { name: 'Canvas' })).getAllByRole('button') as HTMLButtonElement[]
 
 describe('AppShell', () => {
-  it('has only breadcrumbs, search and an overflow menu in the top bar, and no sidebar', () => {
+  it('has only breadcrumbs, search, the tutorial button and an overflow menu in the top bar, and no sidebar', () => {
     render(<AppShell api={deferredApi().api} allowLocalDatabase />)
     const bar = screen.getByRole('banner')
 
     expect(within(bar).getByRole('navigation', { name: 'Breadcrumb' })).toBeTruthy()
     expect(within(bar).getByRole('search')).toBeTruthy()
     expect(within(bar).getByPlaceholderText('Search files, classes, functions…')).toBeTruthy()
-    expect(within(bar).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['More actions'])
+    expect(within(bar).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual([
+      'Tutorial',
+      'More actions',
+    ])
     expect(screen.queryByRole('complementary')).toBeNull()
   })
 
@@ -187,5 +211,208 @@ describe('AppShell', () => {
     expect(renderer.complexityLevel(hotspot)).toBe(3)
     expect(renderer.camera).toEqual(before.camera)
     expect([hotspot.x, hotspot.y, hotspot.w, hotspot.h]).toEqual(before.box)
+  })
+
+  describe('tutorial mode', () => {
+    const ready = { status: 'ready' as const, dbPath: 'C:/x/project.db', snapshot }
+
+    it('is only available once a repository is open', () => {
+      render(<AppShell api={deferredApi().api} tours={library([])} />)
+      expect((screen.getByRole('button', { name: 'Tutorial' }) as HTMLButtonElement).disabled).toBe(true)
+    })
+
+    it('plays the saved tour on the map, step by step, and puts the view back on exit', async () => {
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={library([sherlockTour(60_000)])} />)
+      const r = renderer()
+      r.resize(1200, 750)
+      const before = { ...r.camera }
+
+      await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+      const panel = await screen.findByRole('region', { name: 'Tutorial' })
+      expect(screen.getByRole('button', { name: 'Exit tutorial', pressed: true })).toBeTruthy()
+      expect(within(panel).getByText('Sherlock finds a username across sites.')).toBeTruthy()
+      expect(within(panel).getByText('1 / 3')).toBeTruthy()
+      expect(within(panel).getByText('Tutorial')).toBeTruthy()
+      expect(within(panel).queryByText(/Sherlock onboarding/)).toBeNull()
+      expect(r.selected).toBeNull()
+
+      // The current step's bar fills over its time, a little quicker than the video, and freezes on pause.
+      const fill = () => within(panel).getByTestId('step-progress')
+      expect(fill().style.animationDuration).toBe('48000ms')
+      expect(fill().style.animationPlayState).toBe('running')
+      await userEvent.click(within(panel).getByRole('button', { name: 'Pause' }))
+      expect(fill().style.animationPlayState).toBe('paused')
+      await userEvent.click(within(panel).getByRole('button', { name: 'Next step' }))
+      expect(within(panel).getByText('result.py defines the shape of a result.')).toBeTruthy()
+      expect(within(panel).getByText('2 / 3')).toBeTruthy()
+      expect(r.selected?.id).toBe('file:sherlock_project/result.py')
+      r.step(performance.now() + 10_000, 16)
+      expect(r.camera.k).toBeGreaterThan(before.k)
+
+      fireEvent.keyDown(panel, { key: 'ArrowRight' })
+      expect(r.selected?.id).toBe('class:sherlock_project/result.py::QueryStatus')
+      expect((within(panel).getByRole('button', { name: 'Next step' }) as HTMLButtonElement).disabled).toBe(true)
+      // Play on a last step reached by hand plays that step rather than starting over.
+      await userEvent.click(within(panel).getByRole('button', { name: 'Play' }))
+      expect(within(panel).getByText('3 / 3')).toBeTruthy()
+      await userEvent.click(within(panel).getByRole('button', { name: 'Pause' }))
+      await userEvent.click(within(panel).getByRole('button', { name: 'Previous step' }))
+      expect(within(panel).getByText('2 / 3')).toBeTruthy()
+
+      await userEvent.click(within(panel).getByRole('button', { name: 'Exit tutorial' }))
+      expect(screen.queryByRole('region', { name: 'Tutorial' })).toBeNull()
+      expect(r.selected).toBeNull()
+      r.step(performance.now() + 20_000, 16)
+      expect(r.camera.x).toBeCloseTo(before.x)
+      expect(r.camera.k).toBeCloseTo(before.k)
+      expect(r.model.nodes.length).toBeGreaterThan(0)
+    })
+
+    it('advances on its own while playing and stops at the last step', async () => {
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={library([sherlockTour(30)])} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+      const panel = await screen.findByRole('region', { name: 'Tutorial' })
+      await within(panel).findByText('3 / 3')
+      // The last step plays out too, and its bar ends full.
+      expect(within(panel).getByTestId('step-progress').style.animationPlayState).toBe('running')
+      await within(panel).findByRole('button', { name: 'Play' })
+      expect(within(panel).queryByTestId('step-progress')).toBeNull()
+      expect([...panel.querySelectorAll('li')].map((li) => li.dataset.state)).toEqual(['done', 'done', 'done'])
+      expect(renderer().selected?.id).toBe('class:sherlock_project/result.py::QueryStatus')
+
+      // Play from the end starts over.
+      await userEvent.click(within(panel).getByRole('button', { name: 'Play' }))
+      expect(within(panel).getByText('1 / 3')).toBeTruthy()
+    })
+
+    it('generates a tutorial when there is none, and offers it once it is saved', async () => {
+      let finish!: () => void
+      const tours = { ...library([], [sherlockTour(60_000)]), generate: vi.fn(() => new Promise<void>((r) => (finish = r))) }
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+      const panel = await screen.findByRole('region', { name: 'Tutorial' })
+      await within(panel).findByText('Generating a tutorial for project')
+      expect(within(panel).getByRole('status').textContent).toBe('Generating… It appears here as soon as it is ready.')
+      expect(tours.generate).toHaveBeenCalledWith('C:/x/project.db')
+
+      await act(async () => finish())
+      await within(panel).findByText('Tutorial ready')
+      expect(within(panel).getByText('Sherlock onboarding · 3 steps')).toBeTruthy()
+      await userEvent.click(within(panel).getByRole('button', { name: 'Start tutorial' }))
+      expect(within(panel).getByText('1 / 3')).toBeTruthy()
+    })
+
+    it('looks at Claude Code only when ▷ finds no tutorial, never on opening', async () => {
+      const agentStatus = vi.fn(async () => ({ installed: true, signedIn: true }))
+      const generate = vi.fn(async () => {})
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={{ ...library([sherlockTour(60_000)]), agentStatus, generate }} />)
+      expect(agentStatus).not.toHaveBeenCalled()
+      await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+      await within(await screen.findByRole('region', { name: 'Tutorial' })).findByText('1 / 3')
+      expect(agentStatus).not.toHaveBeenCalled()
+      expect(generate).not.toHaveBeenCalled()
+    })
+
+    it('signs in to Claude first when signed out, then generates', async () => {
+      let signedIn!: () => void
+      const signIn = vi.fn(() => new Promise<void>((r) => (signedIn = r)))
+      const generate = vi.fn(() => new Promise<void>(() => {}))
+      const tours = { ...library([]), agentStatus: async () => ({ installed: true, signedIn: false }), signIn, generate }
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+      const panel = await screen.findByRole('region', { name: 'Tutorial' })
+      await within(panel).findByText('Sign in to Claude to generate a tutorial for project')
+      expect(within(panel).getByRole('status').textContent).toBe(
+        'Finish signing in to Claude in your browser. The tutorial is generated right after.',
+      )
+      expect(signIn).toHaveBeenCalledTimes(1)
+      expect(generate).not.toHaveBeenCalled()
+
+      await act(async () => signedIn())
+      await within(panel).findByText('Generating a tutorial for project')
+      expect(generate).toHaveBeenCalledWith('C:/x/project.db')
+    })
+
+    it('does not sign in when already signed in', async () => {
+      const signIn = vi.fn(async () => {})
+      const generate = vi.fn(() => new Promise<void>(() => {}))
+      const tours = { ...library([]), agentStatus: async () => ({ installed: true, signedIn: true }), signIn, generate }
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+      await within(await screen.findByRole('region', { name: 'Tutorial' })).findByText('Generating a tutorial for project')
+      expect(signIn).not.toHaveBeenCalled()
+      expect(generate).toHaveBeenCalled()
+    })
+
+    it('explains how to install Claude Code when it is missing', async () => {
+      const generate = vi.fn(async () => {})
+      const tours = { ...library([]), agentStatus: async () => ({ installed: false, signedIn: false }), generate }
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+      const panel = await screen.findByRole('region', { name: 'Tutorial' })
+      await within(panel).findByText('Claude Code is needed to generate tutorials')
+      expect(within(panel).getByText('curl -fsSL https://claude.ai/install.sh | bash')).toBeTruthy()
+      expect(generate).not.toHaveBeenCalled()
+    })
+
+    it('reports a failed sign-in', async () => {
+      const tours = {
+        ...library([]),
+        agentStatus: async () => ({ installed: true, signedIn: false }),
+        signIn: () => Promise.reject(new TelescodeError('tour_generation_failed', 'Signing in to Claude did not finish in time.')),
+        generate: vi.fn(async () => {}),
+      }
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+      const panel = await screen.findByRole('region', { name: 'Tutorial' })
+      expect(await within(panel).findByText('Cannot generate the tutorial: Signing in to Claude did not finish in time.')).toBeTruthy()
+      expect(within(panel).getByText('Sign in to Claude to generate a tutorial for project')).toBeTruthy()
+      expect(tours.generate).not.toHaveBeenCalled()
+    })
+
+    it('offers a tutorial saved while generation is still running', async () => {
+      vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+      try {
+        const tours = { ...library([], [], [sherlockTour(60_000)]), generate: vi.fn(() => new Promise<void>(() => {})) }
+        render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
+        await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+        const panel = await screen.findByRole('region', { name: 'Tutorial' })
+        await within(panel).findByText('Generating a tutorial for project')
+
+        await act(async () => vi.advanceTimersByTime(3000))
+        expect(within(panel).queryByText('Tutorial ready')).toBeNull()
+        await act(async () => vi.advanceTimersByTime(3000))
+        await within(panel).findByText('Tutorial ready')
+        expect(tours.list).toHaveBeenCalledTimes(3)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('reports a failed generation', async () => {
+      const failing = (e: Error) => ({ ...library([]), generate: () => Promise.reject(e) })
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={failing(new TelescodeError('tour_generation_failed', 'Claude Code was not found.'))} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+      const panel = await screen.findByRole('region', { name: 'Tutorial' })
+      expect(await within(panel).findByText('Cannot generate the tutorial: Claude Code was not found.')).toBeTruthy()
+      expect(within(panel).queryByRole('status')).toBeNull()
+    })
+
+    it('reports a generation that saved nothing', async () => {
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={{ ...library([]), generate: async () => {} }} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+      const panel = await screen.findByRole('region', { name: 'Tutorial' })
+      expect(await within(panel).findByText('Cannot generate the tutorial: Generation finished without saving a tutorial.')).toBeTruthy()
+    })
+
+    it('reports when saved tours cannot be read, without generating', async () => {
+      const generate = vi.fn(async () => {})
+      const tours: TourLibrary = { list: () => Promise.reject(new TelescodeError('tours_unavailable', 'No MCP server.')), generate }
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+      const panel = await screen.findByRole('region', { name: 'Tutorial' })
+      expect(await within(panel).findByText('Cannot generate the tutorial: No MCP server.')).toBeTruthy()
+      expect(generate).not.toHaveBeenCalled()
+    })
   })
 })

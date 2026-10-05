@@ -1,4 +1,7 @@
 mod bridge;
+mod claude;
+mod mcp;
+mod tours;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -13,7 +16,7 @@ pub fn run() {
       }
       Ok(())
     })
-    .invoke_handler(tauri::generate_handler![bridge::run_headless])
+    .invoke_handler(tauri::generate_handler![bridge::run_headless, tours::list_tours, tours::generate_tour, claude::claude_status, claude::claude_sign_in])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }

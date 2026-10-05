@@ -10,7 +10,9 @@ import type { GraphHandle } from '../graph/GraphCanvas'
 import type { GraphNode } from '../graph/model'
 import type { Crumb } from '../ui/Breadcrumbs'
 import type { DropdownItem } from '../ui/Dropdown'
+import { tauriTourLibrary, type TourLibrary } from '../tour/tutorial'
 import styles from './AppShell.module.css'
+import { useTutorial } from './useTutorial'
 import { repositoryName, useWorkspace, type WorkspaceState } from './useWorkspace'
 
 interface AppShellProps {
@@ -21,12 +23,16 @@ interface AppShellProps {
    * users start from a repository URL and never see the database.
    */
   allowLocalDatabase?: boolean
+  /** Where saved code tours are read from, for tutorial mode. */
+  tours?: TourLibrary
 }
 
-export function AppShell({ api, initialState, allowLocalDatabase = false }: AppShellProps) {
+export function AppShell({ api, initialState, allowLocalDatabase = false, tours = tauriTourLibrary }: AppShellProps) {
   const workspace = useWorkspace(api, initialState)
   const { state } = workspace
   const graphRef = useRef<GraphHandle | null>(null)
+  const ready = state.status === 'ready' ? state : null
+  const tutorial = useTutorial(tours, ready?.snapshot ?? null, ready?.dbPath ?? null, graphRef)
   /** Where the user is in the map, below the repository. */
   const [trail, setTrail] = useState<Crumb[]>([])
   /** Complexity mode: on by default, kept across repositories. */
@@ -67,7 +73,16 @@ export function AppShell({ api, initialState, allowLocalDatabase = false }: AppS
 
   return (
     <div className={styles.shell}>
-      <TopBar crumbs={crumbs} onNavigate={(crumb) => graphRef.current?.navigate(crumb.id)} menuItems={menuItems} />
+      <TopBar
+        crumbs={crumbs}
+        onNavigate={(crumb) => graphRef.current?.navigate(crumb.id)}
+        menuItems={menuItems}
+        tutorial={{
+          active: tutorial.state.status !== 'off',
+          disabled: state.status !== 'ready',
+          onToggle: tutorial.state.status === 'off' ? tutorial.start : tutorial.exit,
+        }}
+      />
       <WorkspaceCanvas
         state={state}
         onOpen={open}
@@ -78,6 +93,7 @@ export function AppShell({ api, initialState, allowLocalDatabase = false }: AppS
         graphRef={graphRef}
         onContextChange={onContextChange}
         complexity={complexity}
+        tutorial={tutorial}
       />
     </div>
   )

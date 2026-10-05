@@ -51,6 +51,7 @@ tool('revise_tour_draft', 'Revise a saved plan; invalidates prior approval. Show
   const draft = await store.revise(tourId, expectedRevision, title, stops)
   return { plan: draft.plan, reviewUrl: http.reviewUrl(draft), durationMs: durationMs(draft.plan), state: draft.state }
 })
+tool('list_tours', 'List every saved tour draft (plan, snapshot hash, state), including drafts saved by other Telescode MCP server processes.', {}, true, () => store.list())
 tool('get_tour_status', 'Read draft approval and render job progress, errors and artifact links.', { tourId: z.string() }, true, ({ tourId }) => {
   const d = store.draft(tourId)
   return { plan: d.plan, state: d.state, approvedRevision: d.approvedRevision, jobId: d.jobId, progress: progress.get(tourId), error: d.error, outputDirectory: d.output, reviewUrl: http.reviewUrl(d), playerUrl: d.state === 'completed' ? http.playerUrl(d) : undefined }

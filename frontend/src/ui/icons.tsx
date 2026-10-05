@@ -63,3 +63,27 @@ export const ChevronRightIcon = (p: IconProps) => (
     <path d="m6.25 4 4 4-4 4" />
   </Icon>
 )
+
+export const ChevronLeftIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="m9.75 4-4 4 4 4" />
+  </Icon>
+)
+
+export const PlayIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M5 3.25v9.5L12.5 8 5 3.25Z" />
+  </Icon>
+)
+
+export const PauseIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M5.5 3.5v9M10.5 3.5v9" />
+  </Icon>
+)
+
+export const CloseIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="m4 4 8 8M12 4l-8 8" />
+  </Icon>
+)

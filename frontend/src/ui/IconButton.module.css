@@ -21,7 +21,8 @@
 }
 
 .button:active:not(:disabled),
-.button[aria-expanded='true'] {
+.button[aria-expanded='true'],
+.button[aria-pressed='true'] {
   background: var(--active);
   color: var(--text-primary);
 }
