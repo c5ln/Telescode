@@ -129,6 +129,17 @@ describe('GraphRenderer', () => {
     expect(r.camera.k).toBeCloseTo(r.maxK)
   })
 
+  it('keeps the zoom range useful: the map stays sizeable, member rows readable but not huge', () => {
+    const { model, r } = setup()
+    r.fit(false)
+    const fit = r.camera.k
+    expect(r.minK).toBeGreaterThanOrEqual(fit * 0.5)
+    const rows = model.nodes.filter((n) => n.kind === 'class' && n.children.length).map((n) => n.rowHeight)
+    const minRow = Math.min(...rows)
+    expect(minRow * r.maxK).toBeGreaterThanOrEqual(20)
+    expect(minRow * r.maxK).toBeLessThan(80)
+  })
+
   it('animates camera moves unless reduced motion is on', () => {
     const smooth = setup(false)
     smooth.r.zoomIn()

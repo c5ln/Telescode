@@ -58,6 +58,13 @@ export const HOVER_EDGE_CAP = 40
 export const SELECTION_EDGE_CAP = 120
 /** Button zoom step. */
 const STEP = 1.6
+/** Zoom range, relative to the scale that fits the whole repository. */
+const MIN_ZOOM = 0.6
+const MAX_ZOOM = 6
+/** At most zoom, the smallest member row is at least this tall on screen, px (full-size text). */
+const MAX_ROW_PX = 28
+/** ...and the smallest box this large, px (enough for its label). */
+const MAX_LEAF_PX = 48
 
 const raf: (cb: FrameRequestCallback) => number =
   typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (cb) => setTimeout(() => cb(performance.now()), 16) as unknown as number
@@ -152,7 +159,8 @@ export class GraphRenderer {
     let minLeaf = Infinity
     for (const n of model.nodes) {
       if (n.kind === 'class' && n.children.length) minRow = Math.min(minRow, n.rowHeight)
-      if (n.children.length === 0 && n.w > 0 && n.h > 0) minLeaf = Math.min(minLeaf, Math.min(n.w, n.h))
+      // Members are covered by their row height.
+      if (n.kind !== 'member' && n.children.length === 0 && n.w > 0 && n.h > 0) minLeaf = Math.min(minLeaf, Math.min(n.w, n.h))
     }
     this.minRow = Number.isFinite(minRow) ? minRow : 1
     this.minLeaf = Number.isFinite(minLeaf) ? minLeaf : 1
@@ -207,15 +215,17 @@ export class GraphRenderer {
 
   // ---- Zoom limits -----------------------------------------------------------
 
-  /** Far enough out that the whole repository collapses into one region. */
+  /** A little past the whole repository, never so far that it shrinks to a speck. */
   get minK(): number {
-    return this.fitKRaw() * 0.25
+    return this.fitKRaw() * MIN_ZOOM
   }
 
-  /** Close enough to read the smallest member row comfortably. */
+  /**
+   * Close enough to read the smallest member row and the smallest box
+   * comfortably, and no closer.
+   */
   get maxK(): number {
-    const f = this.fitKRaw()
-    return Math.max(f * 8, 40 / this.minRow, Math.min(this.viewport.width, this.viewport.height) / this.minLeaf)
+    return Math.max(this.fitKRaw() * MAX_ZOOM, MAX_ROW_PX / this.minRow, MAX_LEAF_PX / this.minLeaf)
   }
 
   private fitKRaw(): number {
