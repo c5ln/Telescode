@@ -70,6 +70,26 @@ export function openness(node: GraphNode, k: number): number {
   }
 }
 
+/** The scale at which a container is fully open (0 for a leaf). */
+export function fullyOpenK(node: GraphNode): number {
+  if (node.children.length === 0) return 0
+  const at = (px: number, size: number) => (size > 0 ? px / size : 0)
+  const child = childScale(node)
+  const short = Math.min(node.w, node.h)
+  switch (node.kind) {
+    case 'root':
+      return at(OPEN_RANGE.root.child[1], child)
+    case 'dir':
+      return Math.max(at(OPEN_RANGE.dir.child[1], child), at(OPEN_RANGE.dir.header[1], node.header))
+    case 'file':
+      return Math.max(at(OPEN_RANGE.file.child[1], child), at(OPEN_RANGE.file.size[1], short))
+    case 'class':
+      return Math.max(at(OPEN_RANGE.class.row[1], node.rowHeight), at(OPEN_RANGE.class.size[1], short))
+    default:
+      return 0
+  }
+}
+
 /**
  * Per-frame cache of openness and visibility, indexed by depth-first order.
  * Call `begin(k)` once per frame; values are computed on first use.

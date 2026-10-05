@@ -24,7 +24,7 @@ import {
 } from './camera'
 import { WORLD } from './layout'
 import { ancestors, contains, type GraphEdge, type GraphModel, type GraphNode } from './model'
-import { LodFrame, settle, smoothstep } from './semantic'
+import { fullyOpenK, LodFrame, settle, smoothstep } from './semantic'
 import { TextMeasurer } from './text'
 import type { GraphTheme } from './theme'
 
@@ -60,11 +60,16 @@ export const SELECTION_EDGE_CAP = 120
 const STEP = 1.6
 /** Zoom range, relative to the scale that fits the whole repository. */
 const MIN_ZOOM = 0.6
-const MAX_ZOOM = 6
-/** At most zoom, the smallest member row is at least this tall on screen, px (full-size text). */
-const MAX_ROW_PX = 28
-/** ...and the smallest box this large, px (enough for its label). */
-const MAX_LEAF_PX = 48
+/** Zooming in is always allowed this far, whatever is in view. */
+const MAX_ZOOM_FLOOR = 2
+/**
+ * Zooming in stops once what is being zoomed into is fully open and reads at
+ * full size: its smallest member row this tall on screen, px (member text is
+ * full size from about 20px)...
+ */
+const MAX_ROW_PX = 24
+/** ...and its smallest box this large, px (labels are full size from about this). */
+const MAX_LEAF_PX = 120
 
 const raf: (cb: FrameRequestCallback) => number =
   typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (cb) => setTimeout(() => cb(performance.now()), 16) as unknown as number
@@ -137,8 +142,8 @@ export class GraphRenderer {
   private hoverMuted = false
   private hasCamera = false
   private failed = false
-  private readonly minRow: number
-  private readonly minLeaf: number
+  /** Per node (by order), the scale at which everything in its subtree is open and full size. */
+  private readonly fullK: Float64Array
   private readonly importEdges: GraphEdge[]
   /** Class edges by the file of their source class: only visible files' are looked at. */
   private readonly classEdgesByFile = new Map<GraphNode, GraphEdge[]>()
@@ -159,15 +164,19 @@ export class GraphRenderer {
       this.hasCamera = true
     }
 
-    let minRow = Infinity
-    let minLeaf = Infinity
-    for (const n of model.nodes) {
-      if (n.kind === 'class' && n.children.length) minRow = Math.min(minRow, n.rowHeight)
-      // Members are covered by their row height.
-      if (n.kind !== 'member' && n.children.length === 0 && n.w > 0 && n.h > 0) minLeaf = Math.min(minLeaf, Math.min(n.w, n.h))
+    // Children come after their parent in depth-first order, so a backwards
+    // pass sees each subtree before the node that holds it.
+    const count = model.nodes.length
+    this.fullK = new Float64Array(count)
+    for (let i = count - 1; i >= 0; i--) {
+      const n = model.nodes[i]
+      if (n.kind === 'member') continue // covered by its class's row height
+      let k = fullyOpenK(n)
+      if (n.kind === 'class' && n.children.length) k = Math.max(k, MAX_ROW_PX / n.rowHeight)
+      if (n.children.length === 0 && n.w > 0 && n.h > 0) k = Math.max(k, MAX_LEAF_PX / Math.min(n.w, n.h))
+      this.fullK[i] = Math.max(this.fullK[i], k)
+      if (n.parent) this.fullK[n.parent.order] = Math.max(this.fullK[n.parent.order], this.fullK[i])
     }
-    this.minRow = Number.isFinite(minRow) ? minRow : 1
-    this.minLeaf = Number.isFinite(minLeaf) ? minLeaf : 1
 
     this.importEdges = model.edges.filter((e) => e.kind === 'import')
     for (const e of model.edges) {
@@ -224,12 +233,31 @@ export class GraphRenderer {
     return this.fitKRaw() * MIN_ZOOM
   }
 
-  /**
-   * Close enough to read the smallest member row and the smallest box
-   * comfortably, and no closer.
-   */
+  /** The furthest zoom anywhere: enough for the smallest things in the repository. */
   get maxK(): number {
-    return Math.max(this.fitKRaw() * MAX_ZOOM, MAX_ROW_PX / this.minRow, MAX_LEAF_PX / this.minLeaf)
+    return this.maxKFor(this.model.root)
+  }
+
+  /**
+   * Close enough to see a node's contents fully open and at full size, and
+   * no closer: past that only the boxes grow, and small text in a huge box
+   * reads worse. A small class stops early; a large one lets you in far
+   * enough for its rows.
+   */
+  maxKFor(node: GraphNode): number {
+    const o = (node.kind === 'member' ? node.parent! : node).order
+    return Math.max(this.fitKRaw() * MAX_ZOOM_FLOOR, this.fullK[o])
+  }
+
+  /**
+   * The zoom-in limit at a screen point, from what is there. Never below the
+   * current zoom (or the zoom already headed for), so moving onto a smaller
+   * node does not pull the camera back out; it only stops it going further.
+   */
+  private maxKAt(sx: number, sy: number, k = this.camera.k): number {
+    const node = this.hitTest(sx, sy)
+    const limit = node ? this.maxKFor(node) : this.maxK
+    return Math.max(limit, Math.min(k, this.maxK))
   }
 
   private fitKRaw(): number {
@@ -261,14 +289,16 @@ export class GraphRenderer {
   zoomBy(factor: number, animate = true) {
     this.pinned = null
     const { width, height } = this.viewport
-    const target = zoomAround(this.targetCamera(), this.viewport, factor, width / 2, height / 2, this.minK, this.maxK)
+    const from = this.targetCamera()
+    const max = this.maxKAt(width / 2, height / 2, from.k)
+    const target = zoomAround(from, this.viewport, factor, width / 2, height / 2, this.minK, max)
     this.flyTo(target, animate)
   }
 
   /** Move the camera to show a node whole, and make it the navigation context. */
   focus(node: GraphNode, animate = true) {
     this.pinned = node
-    const camera = fitBox(this.viewport, node, FOCUS_MARGIN, this.minK, this.maxK)
+    const camera = fitBox(this.viewport, node, FOCUS_MARGIN, this.minK, this.maxKFor(node))
     this.flyTo(camera, animate)
     this.emitContext()
   }
@@ -291,7 +321,7 @@ export class GraphRenderer {
     if (ctrlKey) {
       // Trackpad pinch (browsers report it as ctrl + wheel): direct, no smoothing.
       this.wheelZoom = null
-      this.camera = zoomAround(this.camera, this.viewport, Math.exp(-dy * 0.01), sx, sy, this.minK, this.maxK)
+      this.camera = zoomAround(this.camera, this.viewport, Math.exp(-dy * 0.01), sx, sy, this.minK, this.maxKAt(sx, sy))
       this.invalidate()
       return
     }
@@ -304,16 +334,16 @@ export class GraphRenderer {
 
     const factor = Math.exp(-dy * WHEEL_ZOOM)
     if (this.reducedMotion) {
-      this.camera = zoomAround(this.camera, this.viewport, factor, sx, sy, this.minK, this.maxK)
+      this.camera = zoomAround(this.camera, this.viewport, factor, sx, sy, this.minK, this.maxKAt(sx, sy))
       this.invalidate()
       return
     }
     const z = this.wheelZoom
     if (z && Math.abs(z.sx - sx) < 2 && Math.abs(z.sy - sy) < 2) {
-      z.targetK = clamp(z.targetK * factor, this.minK, this.maxK)
+      z.targetK = clamp(z.targetK * factor, this.minK, this.maxKAt(sx, sy, z.targetK))
     } else {
       const [wx, wy] = toWorld(this.camera, this.viewport, sx, sy)
-      this.wheelZoom = { targetK: clamp(this.camera.k * factor, this.minK, this.maxK), sx, sy, wx, wy }
+      this.wheelZoom = { targetK: clamp(this.camera.k * factor, this.minK, this.maxKAt(sx, sy)), sx, sy, wx, wy }
     }
     this.invalidate()
   }

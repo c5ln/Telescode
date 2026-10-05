@@ -7,6 +7,7 @@ import { toScreenX, toScreenY, toWorld } from './camera'
 import sherlock from './fixtures/sherlock.graph.json'
 import { layoutGraph } from './layout'
 import { buildGraphModel, contains, type GraphNode } from './model'
+import { openness } from './semantic'
 import { capEdgeGroups, EDGE_BUDGET, GraphRenderer, HOVER_EDGE_CAP, SELECTION_EDGE_CAP } from './renderer'
 import type { GraphTheme } from './theme'
 
@@ -45,9 +46,12 @@ describe('GraphRenderer', () => {
     r.focus(cls)
     expect(labels(r.contextPath())).toEqual(['sherlock_project', 'notify.py', 'QueryNotifyPrint'])
     expect(labels(onContextChange.mock.lastCall![0])).toEqual(['sherlock_project', 'notify.py', 'QueryNotifyPrint'])
-    // The node now fills the view, centred.
+    // The node is centred, and fills the view unless that would zoom past
+    // the point where its contents read at full size.
     expect(r.camera.x).toBeCloseTo(cls.x + cls.w / 2)
-    expect(Math.max((cls.w * r.camera.k) / 1200, (cls.h * r.camera.k) / 750)).toBeGreaterThan(0.8)
+    const fill = Math.max((cls.w * r.camera.k) / 1200, (cls.h * r.camera.k) / 750)
+    if (fill < 0.8) expect(r.camera.k).toBeCloseTo(r.maxKFor(cls))
+    expect(cls.rowHeight * r.camera.k).toBeGreaterThanOrEqual(20)
   })
 
   it('navigates back up to an ancestor', () => {
@@ -174,7 +178,10 @@ describe('GraphRenderer', () => {
     for (let i = 0; i < 60; i++) r.zoomOut(false)
     expect(r.camera.k).toBeCloseTo(r.minK)
     for (let i = 0; i < 200; i++) r.zoomIn(false)
-    expect(r.camera.k).toBeCloseTo(r.maxK)
+    const k = r.camera.k
+    expect(k).toBeLessThanOrEqual(r.maxK + 1e-9)
+    r.zoomIn(false)
+    expect(r.camera.k).toBe(k)
   })
 
   it('keeps the zoom range useful: the map stays sizeable, member rows readable but not huge', () => {
@@ -185,7 +192,23 @@ describe('GraphRenderer', () => {
     const rows = model.nodes.filter((n) => n.kind === 'class' && n.children.length).map((n) => n.rowHeight)
     const minRow = Math.min(...rows)
     expect(minRow * r.maxK).toBeGreaterThanOrEqual(20)
-    expect(minRow * r.maxK).toBeLessThan(80)
+    expect(minRow * r.maxK).toBeLessThan(40)
+  })
+
+  it('stops zooming into a small class sooner than into a large one', () => {
+    const { model, r } = setup()
+    const classes = model.nodes.filter((n) => n.kind === 'class' && n.children.length)
+    const roomy = classes.reduce((a, b) => (b.rowHeight > a.rowHeight ? b : a))
+    const dense = classes.reduce((a, b) => (b.rowHeight < a.rowHeight ? b : a))
+    expect(r.maxKFor(roomy)).toBeLessThan(r.maxKFor(dense))
+    // Every container can still be zoomed to fully open.
+    for (const n of model.nodes) if (n.kind !== 'member' && n.children.length) expect(openness(n, r.maxKFor(n))).toBeGreaterThan(0.999)
+    // Wheel in on the roomy class until it stops: its rows read at full size, not oversized.
+    r.focus(roomy, false)
+    for (let i = 0; i < 100; i++) r.wheel(0, -120, 0, false, ...centre(r, roomy.children[0]))
+    const row = roomy.rowHeight * r.camera.k
+    expect(row).toBeGreaterThanOrEqual(20)
+    expect(row).toBeLessThan(Math.max(30, roomy.rowHeight * r.maxKFor(model.root) * 0.5))
   })
 
   it('animates camera moves unless reduced motion is on', () => {
