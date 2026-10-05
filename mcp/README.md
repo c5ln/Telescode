@@ -1,14 +1,15 @@
 # Telescode agent tours
 
 Local stdio MCP tools let Codex inspect an existing project analysis, propose a
-tour, observe draft frames, and render a user-approved tour. Output is silent VP8
-WebM at 1920×1080 / 30fps, with a separate UTF-8 WebVTT file and an evidence panel.
+tour, observe draft frames, and render a user-approved tour. Output is silent H.264
+MP4 at 1920×1080 / 30fps, with captions burned into the video and an evidence panel.
+A separate UTF-8 WebVTT file is retained as a reference artifact.
 Onboarding tours have at most 8 stops and 60 seconds including movement. Files and classes
 are supported; source-line and member stops are not.
 
 ## Setup (Linux / Windows)
 
-Prerequisites: Node 22+, FFmpeg with `libvpx` on PATH, and the Chromium system
+Prerequisites: Node 22+, FFmpeg with `libx264` on PATH (`libvpx` for WebM), and the Chromium system
 libraries required by Playwright. No OpenAI API key is needed: Codex provides
 the agent; the MCP server never calls an LLM itself.
 
@@ -52,6 +53,7 @@ Optional environment settings:
 [mcp_servers.telescode.env]
 TELESCODE_HEADLESS = "/absolute/path/to/build/TelescodeHeadless"
 TELESCODE_TOUR_OUTPUT = "/absolute/path/to/tours"
+TELESCODE_VIDEO_FORMAT = "mp4"  # or "webm" (VP8) for browser-only playback
 ```
 
 An existing `analyze` JSON or `graph` JSON also works without the C++ executable.
@@ -88,7 +90,7 @@ get a fresh URL from `get_tour_status`.
 
 ```text
 artifacts/<tour-id>/revision-<revision>/
-  tour.webm
+  tour.mp4            # tour.webm when TELESCODE_VIDEO_FORMAT=webm
   tour.vtt
   tour.json
   snapshot.json
@@ -96,13 +98,22 @@ artifacts/<tour-id>/revision-<revision>/
   player.html
 ```
 
-Captions appear only in the VTT, during each stop's hold interval. Evidence is
+Captions are drawn at the bottom of the video during each stop's hold interval. Evidence is
 rendered into the video; absent ranks are never invented. Class evidence labels
 any inherited rank as **Containing file rank**. Identifiers and captions are
 escaped when displayed. The manifest records snapshot hash, dimensions, codec,
 frame rate, duration and revision. Rendering samples frames from the approved
 timeline, so model latency is not included. A one-minute video can take longer
 than one minute to render, depending on CPU and repository size.
+
+Movement frames are captured individually. During each stop's hold interval,
+the renderer captures the first settled screen after the camera, selection and
+evidence panel update, then reuses that PNG for the remaining frames. Each stop
+gets a fresh capture, even when it visits the same node. The encoder still
+receives every 30fps frame, preserving duration and VTT timing. The manifest's
+`rendering` object records `capturedFrames`, `reusedFrames` and `elapsedMs`
+(startup through encoding completion). Hold reuse assumes the tour screen stays
+static; animated panels or clocks would require revisiting this optimization.
 
 ## Onboarding prompt and subtitle size
 
@@ -113,14 +124,16 @@ policy, caption writing, evidence handling, and review workflow. The server does
 not generate text itself; the connected agent writes captions using this guidance.
 
 The video shows the current and upcoming stops in a reading path panel. The
-generated `player.html` applies `video::cue { font-size: 50% }` to subtitles.
-VTT remains a separate portable file; external players control their own font
-size and do not inherit this HTML style. Existing videos/player files must be
-regenerated to get the new screen and subtitle styling.
+caption is drawn into each captured frame at 40px: 100% of the 40px reference
+size at 1920×1080. It appears in the video itself, so no HTML or external subtitle
+file is needed for playback. Existing videos must be regenerated to include it.
+The optional `player.html` does not activate the VTT track, avoiding duplicate
+captions. VTT remains available as a reference file; burned captions cannot be
+disabled or resized independently during playback.
 
 Use `playerUrl` while the server runs. For portable playback, serve the output
 directory with any local HTTP server and open `player.html`; loading VTT through
-`file://` is restricted in some browsers. You can also import WebM and VTT into a
+`file://` is restricted in some browsers. You can also import the video and VTT into a
 player with external subtitle support.
 
 ## Checks

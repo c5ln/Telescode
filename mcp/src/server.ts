@@ -75,7 +75,7 @@ server.registerTool('preview_tour_frame', {
     return { content: [{ type: 'image', data: png.toString('base64'), mimeType: 'image/png' }, { type: 'text', text: JSON.stringify({ tourId, revision: draft.plan.revision, timeMs }) }] }
   } finally { await browser.close(); session.dispose() }
 })
-tool('render_approved_tour', 'Start local Chromium/FFmpeg WebM and VTT generation for a user-approved revision. Returns a job ID immediately; poll get_tour_status. Cannot approve a draft.', { tourId: z.string(), approvedRevision: z.number().int() }, false, async ({ tourId, approvedRevision }) => {
+tool('render_approved_tour', 'Start local Chromium/FFmpeg MP4 (or WebM via TELESCODE_VIDEO_FORMAT) and VTT generation for a user-approved revision. Returns a job ID immediately; poll get_tour_status. Cannot approve a draft.', { tourId: z.string(), approvedRevision: z.number().int() }, false, async ({ tourId, approvedRevision }) => {
   const d = store.draft(tourId)
   store.assertApproved(d, approvedRevision)
   const payload = http.registerRender(d)

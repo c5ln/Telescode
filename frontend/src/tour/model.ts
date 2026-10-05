@@ -8,6 +8,12 @@ export interface StopInput {
   holdMs: number
 }
 export interface Evidence { label: string; value: string }
+export function formatEvidenceValue(evidence: Evidence) {
+  const value = Number(evidence.value)
+  return evidence.label === 'Complexity score' && evidence.value.trim() && Number.isFinite(value)
+    ? value.toFixed(2)
+    : evidence.value
+}
 export interface TourStop extends StopInput { title: string; evidence: Evidence[] }
 export interface TourPlan {
   schemaVersion: 1
@@ -21,8 +27,28 @@ export interface TourPlan {
 export const FPS = 30
 export const WIDTH = 1920
 export const HEIGHT = 1080
+export const CAPTION_BASE_FONT_SIZE_PX = 40
+export const CAPTION_SCALE = 1
+export const CAPTION_FONT_SIZE_PX = CAPTION_BASE_FONT_SIZE_PX * CAPTION_SCALE
 export const MAX_DURATION_MS = 60000
 export const durationMs = (plan: TourPlan) => plan.stops.reduce((sum, s) => sum + s.transitionMs + s.holdMs, 0)
+
+export function tourTimeline(stops: StopInput[]) {
+  let time = 0
+  return stops.map(stop => {
+    const start = time
+    time += stop.transitionMs + stop.holdMs
+    return { start, end: time, transitionMs: stop.transitionMs }
+  })
+}
+
+export function tourFrameState(timeline: ReturnType<typeof tourTimeline>, ms: number) {
+  const found = timeline.findIndex(item => ms < item.end)
+  const index = found === -1 ? timeline.length - 1 : found
+  const item = timeline[index]!
+  const progress = item.transitionMs === 0 ? 1 : Math.min(1, Math.max(0, (ms - item.start) / item.transitionMs))
+  return { index, progress, holding: progress === 1 }
+}
 
 export function readingTourOrder(snapshot: AnalysisSnapshot) {
   const model = buildGraphModel(snapshot, 'Repository')

@@ -3,15 +3,15 @@ import { readFile, stat } from 'node:fs/promises'
 import { resolve, extname, sep } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import type { TourStore, Draft } from './store.ts'
-import { durationMs } from '../../frontend/src/tour/model.ts'
+import { durationMs, formatEvidenceValue } from '../../frontend/src/tour/model.ts'
 
 export const escapeHtml = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
 const html = (body: string) => `<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Telescode tour</title><style>body{font:18px system-ui;max-width:960px;margin:40px auto;padding:20px;background:#121212;color:#eee}li{margin:24px 0}button{font:inherit;padding:12px 24px;cursor:pointer}small{color:#aaa}video{width:100%}a{color:#9cc8ff}</style>${body}</html>`
 function send(res: ServerResponse, status: number, type: string, body: string | Buffer) {
-  res.writeHead(status, { 'Content-Type': type, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer' })
+  res.writeHead(status, { 'Content-Type': type, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'same-origin' })
   res.end(body)
 }
-const types: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2', '.webm': 'video/webm', '.vtt': 'text/vtt; charset=utf-8', '.json': 'application/json' }
+const types: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2', '.mp4': 'video/mp4', '.webm': 'video/webm', '.vtt': 'text/vtt; charset=utf-8', '.json': 'application/json' }
 
 export async function startHttp(store: TourStore, frontendDist: string) {
   const renderPayloads = new Map<string, { plan: Draft['plan']; snapshot: Draft['project']['snapshot'] }>()
@@ -35,9 +35,9 @@ export async function startHttp(store: TourStore, frontendDist: string) {
         }
         if (req.method !== 'GET') return send(res, 405, 'text/plain', 'Method not allowed')
         const p = draft.plan
-        const stops = p.stops.map(s => `<li><strong>${escapeHtml(s.title)}</strong> · ${(s.transitionMs + s.holdMs) / 1000}초<p>${escapeHtml(s.caption)}</p><small>${s.evidence.map(e => `${escapeHtml(e.label)}: ${escapeHtml(e.value)}`).join(' · ')}</small></li>`).join('')
+        const stops = p.stops.map(s => `<li><strong>${escapeHtml(s.title)}</strong> · ${(s.transitionMs + s.holdMs) / 1000}초<p>${escapeHtml(s.caption)}</p><small>${s.evidence.map(e => `${escapeHtml(e.label)}: ${escapeHtml(formatEvidenceValue(e))}`).join(' · ')}</small></li>`).join('')
         const action = `/review/${p.id}?token=${token}&revision=${p.revision}`
-        return send(res, 200, 'text/html; charset=utf-8', html(`<h1>${escapeHtml(p.title)}</h1><p>Revision ${p.revision} · ${durationMs(p) / 1000}초 · ${p.stops.length}개 정차 지점</p><p>무음 WebM · 자막은 별도 VTT · 분석 근거 패널 포함</p><ol>${stops}</ol>${draft.state === 'draft' ? `<form method="post" action="${action}"><button>이 계획으로 영상 생성 승인</button></form>` : `<p>상태: ${draft.state}</p>`}`))
+        return send(res, 200, 'text/html; charset=utf-8', html(`<h1>${escapeHtml(p.title)}</h1><p>Revision ${p.revision} · ${durationMs(p) / 1000}초 · ${p.stops.length}개 정차 지점</p><p>무음 MP4 · 자막 영상 합성 + 참고용 VTT · 분석 근거 패널 포함</p><ol>${stops}</ol>${draft.state === 'draft' ? `<form method="post" action="${action}"><button>이 계획으로 영상 생성 승인</button></form>` : `<p>상태: ${draft.state}</p>`}`))
       }
       if (req.method !== 'GET') return send(res, 405, 'text/plain', 'Method not allowed')
       let root = frontendDist
