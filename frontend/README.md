@@ -193,6 +193,11 @@ src/
 
 ## The code map
 
+Agent-driven approved tours and silent WebM/VTT rendering are available through
+the local MCP package. See [mcp/README.md](../mcp/README.md) for setup and the
+review/approval workflow. The renderer reuses this code map and reserves a
+right-hand column for analysis evidence. Captions are external WebVTT only.
+
 The ready state is one zoomable map of the repository. Zooming changes what is
 shown, not just its size: directories are regions, files are cards, classes
 list their members, and each level resolves in place as you move closer.

@@ -108,6 +108,7 @@ desktop.ini
 repos/*
 !repos/README.md
 docs/**
+!docs/agent-tour-plan.md
 output/
 
 # Generated Learning-to-Rank model artifacts

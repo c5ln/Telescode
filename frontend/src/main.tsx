@@ -7,11 +7,13 @@ import './styles/globals.css'
 
 import { AppShell } from './app/AppShell'
 import { readPreview } from './app/preview'
+import { RenderApp } from './tour/RenderApp'
 
-const preview = import.meta.env.DEV ? await readPreview(window.location.search) : null
+const isTour = window.location.pathname === '/tour-render'
+const preview = !isTour && import.meta.env.DEV ? await readPreview(window.location.search) : null
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AppShell allowLocalDatabase={import.meta.env.DEV} {...preview} />
+    {isTour ? <RenderApp /> : <AppShell allowLocalDatabase={import.meta.env.DEV} {...preview} />}
   </StrictMode>,
 )

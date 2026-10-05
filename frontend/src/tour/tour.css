@@ -1,0 +1,18 @@
+.tour-screen { position: relative; width: 1920px; height: 1080px; background: var(--bg-canvas); color: var(--text-primary); overflow: hidden; font-family: var(--font-ui); }
+.tour-screen header { height: 80px; padding: 24px 32px; box-sizing: border-box; font-size: 24px; border-bottom: 1px solid var(--graph-region-stroke); }
+.tour-screen header span { float: right; font-size: 18px; color: var(--text-muted); }
+.tour-screen canvas { display: block; width: 1540px; height: 1000px; }
+.tour-screen aside { position: absolute; top: 112px; left: 1564px; width: 324px; padding: 20px; box-sizing: border-box; }
+.tour-screen h2 { font-size: 22px; overflow-wrap: anywhere; }
+.tour-screen p { color: var(--text-muted); font-size: 16px; }
+.tour-screen dl div { margin-top: 24px; }
+.tour-screen dt { font-size: 17px; color: var(--text-muted); }
+.tour-screen dd { margin: 6px 0 0; font-size: 26px; font-variant-numeric: tabular-nums; }
+.tour-screen nav { border-bottom: 1px solid var(--graph-region-stroke); padding-bottom: 16px; }
+.tour-screen nav ol { padding-left: 22px; font-size: 15px; }
+.tour-screen nav li { margin: 8px 0; overflow-wrap: anywhere; color: var(--text-muted); }
+.tour-screen nav li[aria-current] { color: var(--text-primary); font-weight: 700; }
+.tour-screen nav li.visited { opacity: 0.65; }
+.tour-screen dl div { margin-top: 14px; }
+.tour-caption { position: absolute; bottom: 28px; left: 5%; width: 90%; text-align: center; line-height: 1.5; color: #fff; pointer-events: none; }
+.tour-caption span { display: inline-block; max-width: 100%; padding: 4px 8px; border-radius: 3px; background: rgb(0 0 0 / 80%); white-space: pre-line; overflow-wrap: anywhere; }
