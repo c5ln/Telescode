@@ -81,7 +81,10 @@ export function tutorialRequest(dbPath: string): string {
   return `Using the Telescode MCP server, open_project("${dbPath}") and create an onboarding tour draft for this repository.`
 }
 
+/** Playback runs a little quicker than the tour's video timing: there, the viewer cannot pause. */
+export const PLAYBACK_SPEED = 1.25
+
 /** How long a step stays on screen during playback. */
 export function stepDurationMs(stop: Pick<TourStop, 'transitionMs' | 'holdMs'>): number {
-  return stop.transitionMs + stop.holdMs
+  return Math.round((stop.transitionMs + stop.holdMs) / PLAYBACK_SPEED)
 }

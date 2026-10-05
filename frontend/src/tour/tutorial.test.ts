@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { TourStop } from './model'
-import { pickTutorial, type SavedTour } from './tutorial'
+import { pickTutorial, stepDurationMs, type SavedTour } from './tutorial'
 
 const stop = (nodeId: string): TourStop => ({ nodeId, caption: nodeId, transitionMs: 1000, holdMs: 2000, title: nodeId, evidence: [] })
 
@@ -34,5 +34,11 @@ describe('pickTutorial', () => {
   it('skips malformed tours', () => {
     const broken = { ...tour('t', ['file:a.py']), plan: { stops: [{ nodeId: 'file:a.py' }] } } as unknown as SavedTour
     expect(pickTutorial([broken, tour('empty', [])], onMap, 'h')).toBeNull()
+  })
+})
+
+describe('stepDurationMs', () => {
+  it('plays a step a little quicker than the tour timing', () => {
+    expect(stepDurationMs({ transitionMs: 1000, holdMs: 4000 })).toBe(4000)
   })
 })
