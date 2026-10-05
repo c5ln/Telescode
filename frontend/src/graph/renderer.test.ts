@@ -146,6 +146,22 @@ describe('GraphRenderer', () => {
     expect(r.selected).toBe(dir)
   })
 
+  it('marks what the selection is connected to, on the boxes its arrows meet', () => {
+    const { model, r } = setup()
+    const selected = model.byId.get('file:tests/test_ux.py')!
+    r.select(selected)
+    const lit = r.relatedHighlights()
+    expect(lit.length).toBeGreaterThan(0)
+    const linked = model.edges.filter((e) => contains(selected, e.source) || contains(selected, e.target)).map((e) => (contains(selected, e.source) ? e.target : e.source))
+    for (const n of lit) {
+      expect(contains(n, selected) || contains(selected, n)).toBe(false)
+      // Each marked box is a related node or the region standing in for one.
+      expect(linked.some((l) => contains(n, l))).toBe(true)
+    }
+    r.select(null)
+    expect(r.relatedHighlights()).toEqual([])
+  })
+
   it('double-click selects and focuses', () => {
     const { model, r } = setup()
     const file = model.byId.get('file:sherlock_project/sites.py')!

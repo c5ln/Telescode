@@ -24,7 +24,7 @@ import {
 } from './camera'
 import { WORLD } from './layout'
 import { ancestors, contains, type GraphEdge, type GraphModel, type GraphNode } from './model'
-import { fullyOpenK, LodFrame, settle, smoothstep } from './semantic'
+import { fullyOpenK, LodFrame, settle, smoothstep, type StandIn } from './semantic'
 import { TextMeasurer } from './text'
 import type { GraphTheme } from './theme'
 
@@ -56,6 +56,8 @@ export const EDGE_BUDGET = 320
 export const HOVER_EDGE_CAP = 40
 /** Most emphasized relationships drawn for the selection (a deliberate choice, so more). */
 export const SELECTION_EDGE_CAP = 120
+/** Opacity of the outline on what the selection is connected to, relative to the selection's. */
+const RELATED_STRENGTH = 0.45
 /** Button zoom step. */
 const STEP = 1.6
 /** Zoom range, relative to the scale that fits the whole repository. */
@@ -927,16 +929,36 @@ export class GraphRenderer {
     return true
   }
 
+  /**
+   * The boxes to mark as connected to the selection, more quietly than the
+   * selection itself: for each related node, the box its arrow meets at this
+   * scale. Only while the selection's relationships are the ones shown.
+   */
+  relatedHighlights(): GraphNode[] {
+    const sel = this.selected
+    if (!sel || this.relationFocus !== sel) return []
+    this.lod.begin(this.camera.k)
+    const lit = new Set<GraphNode>()
+    for (const o of this.related) {
+      let best: StandIn | null = null
+      for (const s of this.lod.standIns(this.model.nodes[o])) if (!best || s.weight > best.weight) best = s
+      const n = best?.node
+      if (n && n.kind !== 'root' && !contains(n, sel) && !contains(sel, n)) lit.add(n)
+    }
+    return [...lit]
+  }
+
   private drawHighlights(ctx: CanvasRenderingContext2D) {
     const t = this.theme
-    const outline = (n: GraphNode, color: string, width: number) => {
+    const outline = (n: GraphNode, color: string, width: number, strength = 1) => {
       if (n.kind === 'member' || this.lod.vis(n) < 0.05) return
       const b = snap(this.screenBox(n))
       if (b.w < 2 || b.h < 2) return
-      ctx.globalAlpha = Math.min(1, this.lod.vis(n) * 1.5)
+      ctx.globalAlpha = Math.min(1, this.lod.vis(n) * 1.5) * strength
       ctx.lineWidth = width
       strokeRect(ctx, inset(b, -(width - 1) / 2), n.kind === 'file' ? 3 : 2, color)
     }
+    for (const n of this.relatedHighlights()) outline(n, t.selected, 1.5, RELATED_STRENGTH)
     if (this.hovered && this.hovered !== this.selected) outline(this.hovered, t.hover, 1)
     if (this.selected) outline(this.selected, t.selected, 2)
     ctx.globalAlpha = 1
