@@ -6,7 +6,7 @@ import type { GraphResponse } from '../bridge'
 import { toScreenX, toScreenY, toWorld } from './camera'
 import sherlock from './fixtures/sherlock.graph.json'
 import { layoutGraph } from './layout'
-import { buildGraphModel, type GraphNode } from './model'
+import { buildGraphModel, contains, type GraphNode } from './model'
 import { capEdgeGroups, EDGE_BUDGET, GraphRenderer, HOVER_EDGE_CAP, SELECTION_EDGE_CAP } from './renderer'
 import type { GraphTheme } from './theme'
 
@@ -92,6 +92,35 @@ describe('GraphRenderer', () => {
     expect(labels(r.contextPath())).toEqual(['tests', 'test_ux.py'])
     r.select(null)
     expect(onSelectionChange).toHaveBeenLastCalledWith(null)
+  })
+
+  it('hovering a dimmed node keeps the focus on the selection until it is selected', () => {
+    const { model, r } = setup()
+    const selected = model.byId.get('file:tests/test_ux.py')!
+    const linked = (n: GraphNode) =>
+      model.edges.some((e) => (contains(n, e.source) && contains(selected, e.target)) || (contains(n, e.target) && contains(selected, e.source)))
+    const files = model.nodes.filter((n) => n.kind === 'file' && n !== selected)
+    const unrelated = files.find((n) => !linked(n))!
+    const related = files.find(linked)!
+
+    r.select(selected)
+    r.pointerMove(...centre(r, unrelated))
+    expect(r.hovered).toBe(unrelated)
+    expect(r.relationFocus).toBe(selected)
+
+    // A node that is lit by the selection still shows its own relationships on hover.
+    r.pointerMove(...centre(r, related))
+    expect(r.relationFocus).toBe(related)
+
+    // Without a selection nothing is dimmed, so hover shows relationships as before.
+    r.select(null)
+    r.pointerMove(...centre(r, unrelated))
+    expect(r.relationFocus).toBe(unrelated)
+
+    // Selecting the dimmed node reveals its relationships.
+    r.select(selected)
+    r.click(...centre(r, unrelated))
+    expect(r.relationFocus).toBe(unrelated)
   })
 
   it('double-click selects and focuses', () => {

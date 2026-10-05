@@ -130,7 +130,11 @@ export class GraphRenderer {
   private flightAnim: FlightAnim | null = null
   private pointer: { x: number; y: number } | null = null
   private contextKey = ''
+  /** Nodes related to the focus (see `relationFocus`) and to the selection, by order. */
   private related = new Set<number>()
+  private selectionRelated = new Set<number>()
+  /** The hovered node is dimmed against the selection, so it does not take the focus. */
+  private hoverMuted = false
   private hasCamera = false
   private failed = false
   private readonly minRow: number
@@ -372,6 +376,8 @@ export class GraphRenderer {
     if (node === this.model.root) node = null
     if (node === this.selected) return
     this.selected = node
+    this.selectionRelated = relatedTo(this.model, node)
+    this.hoverMuted = this.dimmedBySelection(this.hovered)
     this.updateRelated()
     this.callbacks.onSelectionChange?.(node)
     this.emitContext()
@@ -382,6 +388,7 @@ export class GraphRenderer {
     if (node === this.model.root) node = null
     if (node === this.hovered) return
     this.hovered = node
+    this.hoverMuted = this.dimmedBySelection(node)
     this.updateRelated()
     this.invalidate()
   }
@@ -407,15 +414,27 @@ export class GraphRenderer {
     }
   }
 
-  /** Nodes connected by an edge to the hovered (or selected) node's subtree. */
+  /**
+   * What relationships are shown for: the hovered node, unless it is dimmed
+   * against the selection (its connections show only once it is selected),
+   * else the selection.
+   */
+  get relationFocus(): GraphNode | null {
+    return this.hovered && !this.hoverMuted ? this.hovered : this.selected
+  }
+
   private updateRelated() {
-    this.related = new Set()
-    const focus = this.hovered ?? this.selected
-    if (!focus) return
-    for (const e of this.model.edges) {
-      if (contains(focus, e.source)) this.related.add(e.target.order)
-      else if (contains(focus, e.target)) this.related.add(e.source.order)
-    }
+    const focus = this.relationFocus
+    this.related = focus === this.selected ? this.selectionRelated : relatedTo(this.model, focus)
+  }
+
+  /** Whether a node reads as dimmed while only the selection is in focus. */
+  private dimmedBySelection(n: GraphNode | null): boolean {
+    const s = this.selected
+    if (!n || !s || n === s) return false
+    // Directories are never faded themselves; one reads as dimmed when nothing in it is lit.
+    if (n.kind === 'dir') return dims(s) && !contains(n, s) && !someIn(this.selectionRelated, n)
+    return dimFor(n, s, this.selectionRelated) < 1
   }
 
   // ---- Navigation context ------------------------------------------------------
@@ -545,16 +564,8 @@ export class GraphRenderer {
     return { x: toScreenX(this.camera, this.viewport, n.x), y: toScreenY(this.camera, this.viewport, n.y), w: n.w * k, h: n.h * k }
   }
 
-  /** De-emphasis for files and symbols unrelated to what is hovered or selected. */
   private dim(n: GraphNode): number {
-    const focus = this.hovered ?? this.selected
-    if (!focus || focus.kind === 'root' || focus.kind === 'dir') return 1
-    if (n.kind === 'root' || n.kind === 'dir') return 1
-    const subject = n.kind === 'member' ? n.parent! : n
-    if (contains(focus, subject) || contains(subject, focus)) return 1
-    if (this.related.has(subject.order)) return 1
-    if (subject.kind === 'class' && subject.parent && this.related.has(subject.parent.order)) return 1
-    return 0.5
+    return dimFor(n, this.relationFocus, this.related)
   }
 
   private drawBox(ctx: CanvasRenderingContext2D, n: GraphNode) {
@@ -621,7 +632,7 @@ export class GraphRenderer {
    */
   private drawEdges(ctx: CanvasRenderingContext2D, visible: GraphNode[]) {
     const t = this.theme
-    const focus = this.hovered ?? this.selected
+    const focus = this.relationFocus
     const { width, height } = this.viewport
     const n = this.model.nodes.length
     const groups = new Map<number, EdgeGroup>()
@@ -733,7 +744,7 @@ export class GraphRenderer {
       candidates.push({ x0, y0, cx, cy, x1, y1, len, alpha: alpha * anchored, count: g.count, emphasized: g.emphasized, score: g.count * legible * anchored })
     }
 
-    const emphasisCap = this.hovered ? HOVER_EDGE_CAP : SELECTION_EDGE_CAP
+    const emphasisCap = focus === this.selected ? SELECTION_EDGE_CAP : HOVER_EDGE_CAP
     for (const c of capEdgeGroups(candidates, EDGE_BUDGET, emphasisCap)) {
       const alpha = c.alpha
       if (!c.emphasized) drawn++
@@ -746,7 +757,7 @@ export class GraphRenderer {
 
     // Fainter when crowded, and fainter still while something is in focus.
     const crowd = drawn > 200 ? 0.8 : 1
-    const selectedColor = this.selected && !this.hovered ? t.selected : t.edgeStrong
+    const selectedColor = focus === this.selected ? t.selected : t.edgeStrong
     for (const [key, p] of paths) {
       const emphasized = key >= 1000
       const level = Math.floor((key % 1000) / 2)
@@ -936,6 +947,41 @@ export function capEdgeGroups<T extends { emphasized: boolean; score: number }>(
     out.push(g)
   }
   return out
+}
+
+// ---- Focus helpers -------------------------------------------------------------
+
+/** Nodes connected by an edge to a node's subtree, by order. */
+function relatedTo(model: GraphModel, focus: GraphNode | null): Set<number> {
+  const related = new Set<number>()
+  if (!focus) return related
+  for (const e of model.edges) {
+    if (contains(focus, e.source)) related.add(e.target.order)
+    else if (contains(focus, e.target)) related.add(e.source.order)
+  }
+  return related
+}
+
+/** Whether focusing this node fades anything. */
+function dims(focus: GraphNode): boolean {
+  return focus.kind !== 'root' && focus.kind !== 'dir'
+}
+
+/** Whether any of these nodes (by order) lies in a node's subtree. */
+function someIn(orders: Set<number>, node: GraphNode): boolean {
+  for (const o of orders) if (o >= node.order && o < node.end) return true
+  return false
+}
+
+/** De-emphasis for files and symbols unrelated to the focus. */
+function dimFor(n: GraphNode, focus: GraphNode | null, related: Set<number>): number {
+  if (!focus || !dims(focus)) return 1
+  if (n.kind === 'root' || n.kind === 'dir') return 1
+  const subject = n.kind === 'member' ? n.parent! : n
+  if (contains(focus, subject) || contains(subject, focus)) return 1
+  if (related.has(subject.order)) return 1
+  if (subject.kind === 'class' && subject.parent && related.has(subject.parent.order)) return 1
+  return 0.5
 }
 
 // ---- Geometry helpers ----------------------------------------------------------
