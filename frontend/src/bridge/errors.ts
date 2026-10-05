@@ -13,6 +13,14 @@ export type NativeErrorCode =
   | 'output_not_utf8'
   | 'tours_unavailable'
   | 'tour_generation_failed'
+  | 'invalid_repository_url'
+  | 'repository_not_found'
+  | 'repository_unreachable'
+  | 'repository_too_large'
+  | 'repository_empty'
+  | 'repository_fetch_failed'
+  | 'folder_not_found'
+  | 'not_a_folder'
   | 'internal'
 
 /** Codes produced on the TypeScript side. */
@@ -59,6 +67,14 @@ const NATIVE_CODES: ReadonlySet<string> = new Set<NativeErrorCode>([
   'output_not_utf8',
   'tours_unavailable',
   'tour_generation_failed',
+  'invalid_repository_url',
+  'repository_not_found',
+  'repository_unreachable',
+  'repository_too_large',
+  'repository_empty',
+  'repository_fetch_failed',
+  'folder_not_found',
+  'not_a_folder',
   'internal',
 ])
 

@@ -6,9 +6,9 @@
 
 import type { RefObject } from 'react'
 
-import type { TelescodeErrorCode } from '../bridge'
+import type { RepositorySource, TelescodeErrorCode } from '../bridge'
 import type { Tutorial } from '../app/useTutorial'
-import { baseName, repositoryName, type WorkspaceState } from '../app/useWorkspace'
+import { baseName, sourceLabel, workspaceName, type WorkspaceState } from '../app/useWorkspace'
 import type { GraphHandle } from '../graph/GraphCanvas'
 import type { GraphNode } from '../graph/model'
 import { Button } from '../ui/Button'
@@ -22,13 +22,13 @@ import styles from './WorkspaceCanvas.module.css'
 
 interface WorkspaceCanvasProps {
   state: WorkspaceState
-  onOpen: (dbPath: string) => void
+  onOpen: (source: RepositorySource) => void
   onRetry: () => void
   onClose: () => void
-  /** Offer the development-only database path entry in the empty state. */
-  allowLocalDatabase: boolean
-  /** Database path to prefill when returning to the empty state. */
-  lastDbPath?: string
+  /** Offer the development-only folder entry in the empty state. */
+  allowLocalFolder: boolean
+  /** Repository to offer again when returning to the empty state. */
+  lastSource?: RepositorySource
   graphRef: RefObject<GraphHandle | null>
   onContextChange: (path: GraphNode[]) => void
   /** Shade files by complexity. */
@@ -45,6 +45,22 @@ const ERROR_TITLES: Partial<Record<TelescodeErrorCode, string>> = {
   sidecar_failed: 'Analysis failed',
   bridge_unavailable: 'Desktop app required',
   unsupported_schema_version: 'Unsupported database version',
+  invalid_repository_url: 'Not a GitHub repository URL',
+  repository_not_found: 'Repository not found',
+  repository_unreachable: 'GitHub could not be reached',
+  repository_too_large: 'Repository too large',
+  repository_empty: 'No supported source files',
+  repository_fetch_failed: 'Download failed',
+  folder_not_found: 'Folder not found',
+  not_a_folder: 'Not a folder',
+}
+
+/** What the loading state says is happening. */
+function loadingText(state: Extract<WorkspaceState, { status: 'loading' }>): string {
+  if (!state.source) return `Analyzing ${baseName(state.dbPath)}…`
+  const label = sourceLabel(state.source)
+  if (state.dbPath) return `Analyzing ${label}…`
+  return state.source.kind === 'github' ? `Downloading and scanning ${label}…` : `Scanning ${label}…`
 }
 
 export function WorkspaceCanvas({
@@ -52,8 +68,8 @@ export function WorkspaceCanvas({
   onOpen,
   onRetry,
   onClose,
-  allowLocalDatabase,
-  lastDbPath,
+  allowLocalFolder,
+  lastSource,
   graphRef,
   onContextChange,
   complexity,
@@ -65,7 +81,7 @@ export function WorkspaceCanvas({
         {state.status === 'ready' && (
           <CodeMap
             snapshot={state.snapshot}
-            repositoryName={repositoryName(state.dbPath)}
+            repositoryName={workspaceName(state)}
             onContextChange={onContextChange}
             onRetry={onRetry}
             graphRef={graphRef}
@@ -76,7 +92,7 @@ export function WorkspaceCanvas({
 
       {state.status === 'empty' && (
         <div className={styles.center}>
-          <EmptyWorkspace allowLocalDatabase={allowLocalDatabase} onOpenDatabase={onOpen} lastDbPath={lastDbPath} />
+          <EmptyWorkspace allowLocalFolder={allowLocalFolder} onOpen={onOpen} lastSource={lastSource} />
         </div>
       )}
 
@@ -84,7 +100,7 @@ export function WorkspaceCanvas({
         <div className={styles.center}>
           <p className={styles.loading} role="status">
             <Spinner />
-            Analyzing {baseName(state.dbPath)}…
+            {loadingText(state)}
           </p>
         </div>
       )}
@@ -92,7 +108,7 @@ export function WorkspaceCanvas({
       {state.status === 'error' && (
         <div className={styles.center}>
           <ErrorState
-            title={ERROR_TITLES[state.error.code] ?? 'Could not open the database'}
+            title={ERROR_TITLES[state.error.code] ?? (state.source ? 'Could not open the repository' : 'Could not open the database')}
             message={state.error.message}
             code={state.error.code}
           >
@@ -105,7 +121,7 @@ export function WorkspaceCanvas({
       )}
 
       {state.status === 'ready' && (
-        <TutorialPanel tutorial={tutorial} repositoryName={repositoryName(state.dbPath)} />
+        <TutorialPanel tutorial={tutorial} repositoryName={workspaceName(state)} />
       )}
 
       <CanvasControls

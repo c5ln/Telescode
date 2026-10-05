@@ -1,5 +1,5 @@
-export { telescode, createTelescodeApi, tauriRunner } from './api'
-export type { TelescodeApi, HeadlessRunner } from './api'
+export { telescode, createTelescodeApi, tauriRunner, tauriRepositoryOpener } from './api'
+export type { TelescodeApi, HeadlessRunner, RepositoryOpener, RepositorySource } from './api'
 export { TelescodeError } from './errors'
 export type { TelescodeErrorCode, TelescodeErrorDetails } from './errors'
 export type { Operation } from './parse'

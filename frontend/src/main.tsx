@@ -14,6 +14,6 @@ const preview = !isTour && import.meta.env.DEV ? await readPreview(window.locati
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    {isTour ? <RenderApp /> : <AppShell allowLocalDatabase={import.meta.env.DEV} {...preview} />}
+    {isTour ? <RenderApp /> : <AppShell allowLocalFolder={import.meta.env.DEV} {...preview} />}
   </StrictMode>,
 )

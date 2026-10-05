@@ -131,7 +131,7 @@ export function TutorialPanel({ tutorial, repositoryName }: TutorialPanelProps) 
       </div>
       <footer className={styles.footer}>
         <div className={styles.controls} role="toolbar" aria-label="Tutorial playback">
-          <IconButton label="Previous step" tooltip="top" disabled={state.index === 0} onClick={() => tutorial.goTo(state.index - 1)}>
+          <IconButton label="Previous step" tooltip="top" tooltipAlign="start" disabled={state.index === 0} onClick={() => tutorial.goTo(state.index - 1)}>
             <ChevronLeftIcon />
           </IconButton>
           <IconButton label={state.playing ? 'Pause' : 'Play'} tooltip="top" onClick={tutorial.togglePlaying}>

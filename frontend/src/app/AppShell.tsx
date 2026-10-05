@@ -3,7 +3,7 @@
 
 import { useCallback, useRef, useState } from 'react'
 
-import type { TelescodeApi } from '../bridge'
+import type { RepositoryOpener, RepositorySource, TelescodeApi } from '../bridge'
 import { TopBar } from '../components/TopBar'
 import { WorkspaceCanvas } from '../components/WorkspaceCanvas'
 import type { GraphHandle } from '../graph/GraphCanvas'
@@ -13,22 +13,30 @@ import type { DropdownItem } from '../ui/Dropdown'
 import { tauriTourLibrary, type TourLibrary } from '../tour/tutorial'
 import styles from './AppShell.module.css'
 import { useTutorial } from './useTutorial'
-import { repositoryName, useWorkspace, type WorkspaceState } from './useWorkspace'
+import { sourceLocation, useWorkspace, workspaceName, type WorkspaceState } from './useWorkspace'
 
 interface AppShellProps {
   api?: TelescodeApi
   initialState?: WorkspaceState
   /**
-   * Let the empty state open a Telescode database by path. Development only:
-   * users start from a repository URL and never see the database.
+   * Let the empty state open a repository folder on this computer.
+   * Development only: users start from a repository URL.
    */
-  allowLocalDatabase?: boolean
+  allowLocalFolder?: boolean
   /** Where saved code tours are read from, for tutorial mode. */
   tours?: TourLibrary
+  /** Scans a repository, from its URL or folder, into a database. */
+  repositories?: RepositoryOpener
 }
 
-export function AppShell({ api, initialState, allowLocalDatabase = false, tours = tauriTourLibrary }: AppShellProps) {
-  const workspace = useWorkspace(api, initialState)
+export function AppShell({
+  api,
+  initialState,
+  allowLocalFolder = false,
+  tours = tauriTourLibrary,
+  repositories,
+}: AppShellProps) {
+  const workspace = useWorkspace(api, initialState, repositories)
   const { state } = workspace
   const graphRef = useRef<GraphHandle | null>(null)
   const ready = state.status === 'ready' ? state : null
@@ -37,12 +45,13 @@ export function AppShell({ api, initialState, allowLocalDatabase = false, tours 
   const [trail, setTrail] = useState<Crumb[]>([])
   /** Complexity mode: on by default, kept across repositories. */
   const [complexity, setComplexity] = useState(true)
-  const [lastDbPath, setLastDbPath] = useState(state.status === 'empty' ? '' : state.dbPath)
+  /** Offered again when returning to the empty state. */
+  const [lastSource, setLastSource] = useState(state.status === 'empty' ? undefined : state.source)
 
-  const open = (dbPath: string) => {
-    setLastDbPath(dbPath)
+  const open = (source: RepositorySource) => {
+    setLastSource(source)
     setTrail([])
-    workspace.open(dbPath)
+    workspace.open(source)
   }
 
   const close = () => {
@@ -57,7 +66,7 @@ export function AppShell({ api, initialState, allowLocalDatabase = false, tours 
   const crumbs: Crumb[] =
     state.status === 'empty'
       ? [{ id: 'home', label: 'Telescode' }]
-      : [{ id: 'root', label: repositoryName(state.dbPath), title: state.dbPath }, ...(state.status === 'ready' ? trail : [])]
+      : [{ id: 'root', label: workspaceName(state), title: state.source ? sourceLocation(state.source) : state.dbPath }, ...(state.status === 'ready' ? trail : [])]
 
   const menuItems: DropdownItem[] = [
     { id: 'open', label: 'Open repository…', onSelect: close },
@@ -88,8 +97,8 @@ export function AppShell({ api, initialState, allowLocalDatabase = false, tours 
         onOpen={open}
         onRetry={workspace.reload}
         onClose={close}
-        allowLocalDatabase={allowLocalDatabase}
-        lastDbPath={lastDbPath}
+        allowLocalFolder={allowLocalFolder}
+        lastSource={lastSource}
         graphRef={graphRef}
         onContextChange={onContextChange}
         complexity={complexity}

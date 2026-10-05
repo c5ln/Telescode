@@ -1,18 +1,18 @@
-// Path entry for a database produced by `TelescodeHeadless scan`.
+// Path entry for a repository folder on this computer.
 
 import { useState, type FormEvent } from 'react'
 
 import { Button } from '../ui/Button'
 import styles from './InlineForm.module.css'
 
-interface OpenDatabaseFormProps {
+interface OpenFolderFormProps {
   initialPath?: string
-  onOpen: (dbPath: string) => void
+  onOpen: (path: string) => void
 }
 
-export function OpenDatabaseForm({ initialPath = '', onOpen }: OpenDatabaseFormProps) {
-  const [dbPath, setDbPath] = useState(initialPath)
-  const trimmed = dbPath.trim()
+export function OpenFolderForm({ initialPath = '', onOpen }: OpenFolderFormProps) {
+  const [path, setPath] = useState(initialPath)
+  const trimmed = path.trim()
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
@@ -23,10 +23,10 @@ export function OpenDatabaseForm({ initialPath = '', onOpen }: OpenDatabaseFormP
     <form className={styles.form} onSubmit={submit}>
       <input
         className={styles.input}
-        value={dbPath}
-        onChange={(e) => setDbPath(e.target.value)}
-        placeholder="C:\path\to\telescode.db"
-        aria-label="Database path"
+        value={path}
+        onChange={(e) => setPath(e.target.value)}
+        placeholder="/path/to/repository"
+        aria-label="Folder path"
         spellCheck={false}
         autoComplete="off"
         autoFocus

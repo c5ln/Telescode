@@ -11,7 +11,7 @@ interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 
   children: ReactNode
   /** Tooltip placement, or `false` to show none. */
   tooltip?: TooltipSide | false
-  tooltipAlign?: 'center' | 'end'
+  tooltipAlign?: 'center' | 'start' | 'end'
   shortcut?: string
   ref?: Ref<HTMLButtonElement>
 }

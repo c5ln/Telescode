@@ -15,8 +15,8 @@ interface TooltipProps {
   /** Optional shortcut shown after the label, e.g. "Ctrl K". */
   shortcut?: string
   side?: TooltipSide
-  /** For top/bottom tips: line up with the trigger's centre or end edge. */
-  align?: 'center' | 'end'
+  /** For top/bottom tips: line up with the trigger's centre, start or end edge. */
+  align?: 'center' | 'start' | 'end'
   children: ReactNode
 }
 

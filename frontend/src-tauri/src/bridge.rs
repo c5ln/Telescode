@@ -5,11 +5,13 @@
 //! printed it. Nothing here reads the database or interprets the analysis: the
 //! checks below only decide whether it is safe to hand a path to the core.
 //!
-//! The core is run read-only (`--algo` is never passed), so a request can never
-//! create or modify a database.
+//! `run_headless` runs the core read-only (`--algo` is never passed), so a
+//! request can never create or modify a database. The only databases the shell
+//! writes are its own, for repositories it downloads (`repository.rs`).
 
 use serde::Serialize;
 use std::fs::File;
+use std::ffi::OsStr;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -61,6 +63,14 @@ pub enum BridgeError {
     OutputNotUtf8 { message: String },
     ToursUnavailable { message: String },
     TourGenerationFailed { message: String },
+    InvalidRepositoryUrl { message: String },
+    RepositoryNotFound { message: String },
+    RepositoryUnreachable { message: String },
+    RepositoryTooLarge { message: String },
+    RepositoryEmpty { message: String },
+    RepositoryFetchFailed { message: String },
+    FolderNotFound { message: String, path: String },
+    NotAFolder { message: String, path: String },
     Internal { message: String },
 }
 
@@ -150,9 +160,14 @@ fn check_sidecar(path: PathBuf) -> Result<PathBuf, BridgeError> {
 /// Runs one operation to completion and returns the core's stdout.
 pub fn run(sidecar: &Path, op: Operation, db_path: &str) -> Result<String, BridgeError> {
     let db = validate_db_path(db_path)?;
+    run_sidecar(sidecar, &[op.subcommand().as_ref(), db.as_os_str()])
+}
 
+/// Runs TelescodeHeadless with `args` and returns its stdout. Any failure to
+/// start it, a non-zero exit or non-UTF-8 output is an error.
+pub fn run_sidecar(sidecar: &Path, args: &[&OsStr]) -> Result<String, BridgeError> {
     let mut cmd = Command::new(sidecar);
-    cmd.arg(op.subcommand()).arg(&db);
+    cmd.args(args);
     #[cfg(windows)]
     {
         // Keep a console window from flashing up for every request.

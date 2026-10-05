@@ -5,7 +5,7 @@ description = "Telescode desktop shell"
 license = ""
 repository = ""
 edition = "2021"
-rust-version = "1.79"
+rust-version = "1.85"
 
 [lib]
 name = "telescode_lib"
@@ -20,3 +20,6 @@ serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
 tauri = { version = "2.11.6", features = [] }
 tauri-plugin-log = "2"
+flate2 = { version = "1.1.10", features = ["rust_backend"] }
+ureq = "3"
+tar = { version = "0.4.46", default-features = false }
