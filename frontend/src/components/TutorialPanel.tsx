@@ -1,11 +1,11 @@
 // Tutorial mode's floating card over the map: the current step's explanation
-// and playback controls, or, before a tutorial exists, how to have one written.
+// and playback controls, or, before a tutorial exists, its generation.
 
-import { useState, type KeyboardEvent } from 'react'
+import type { KeyboardEvent } from 'react'
 
 import type { Tutorial } from '../app/useTutorial'
 import { formatEvidenceValue } from '../tour/model'
-import { stepDurationMs, tutorialRequest } from '../tour/tutorial'
+import { stepDurationMs } from '../tour/tutorial'
 import { Button } from '../ui/Button'
 import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, PauseIcon, PlayIcon } from '../ui/icons'
 import { IconButton } from '../ui/IconButton'
@@ -15,10 +15,9 @@ import styles from './TutorialPanel.module.css'
 interface TutorialPanelProps {
   tutorial: Tutorial
   repositoryName: string
-  dbPath: string
 }
 
-export function TutorialPanel({ tutorial, repositoryName, dbPath }: TutorialPanelProps) {
+export function TutorialPanel({ tutorial, repositoryName }: TutorialPanelProps) {
   const { state } = tutorial
   if (state.status === 'off') return null
 
@@ -70,16 +69,15 @@ export function TutorialPanel({ tutorial, repositoryName, dbPath }: TutorialPane
           </>
         ) : (
           <>
-            <h2 className={styles.title}>Create a tutorial for {repositoryName}</h2>
-            <p className={styles.text}>
-              Tutorials are written by your coding agent with the Telescode MCP server. Ask it to:
-            </p>
-            <CopyBlock text={tutorialRequest(dbPath)} />
-            <p className={styles.waiting} role="status">
-              <Spinner />
-              Waiting for the tutorial. It appears here as soon as the agent saves it.
-            </p>
-            {error && <p className={styles.error}>Cannot check for tutorials: {error}</p>}
+            <h2 className={styles.title}>Generating a tutorial for {repositoryName}</h2>
+            {error ? (
+              <p className={styles.error}>Cannot generate the tutorial: {error}</p>
+            ) : (
+              <p className={styles.waiting} role="status">
+                <Spinner />
+                Generating… It appears here as soon as it is ready.
+              </p>
+            )}
           </>
         )}
       </section>
@@ -143,21 +141,5 @@ export function TutorialPanel({ tutorial, repositoryName, dbPath }: TutorialPane
         </p>
       </footer>
     </section>
-  )
-}
-
-function CopyBlock({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false)
-  const copy = () => {
-    navigator.clipboard?.writeText(text).then(
-      () => setCopied(true),
-      () => setCopied(false),
-    )
-  }
-  return (
-    <div className={styles.request}>
-      <code>{text}</code>
-      <Button onClick={copy}>{copied ? 'Copied' : 'Copy'}</Button>
-    </div>
   )
 }

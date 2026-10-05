@@ -285,36 +285,66 @@ describe('AppShell', () => {
       expect(within(panel).getByText('1 / 3')).toBeTruthy()
     })
 
-    it('starts making a tutorial when there is none, and offers it once the agent saves it', async () => {
+    it('generates a tutorial when there is none, and offers it once it is saved', async () => {
+      let finish!: () => void
+      const tours = { ...library([], [sherlockTour(60_000)]), generate: vi.fn(() => new Promise<void>((r) => (finish = r))) }
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+      const panel = await screen.findByRole('region', { name: 'Tutorial' })
+      await within(panel).findByText('Generating a tutorial for project')
+      expect(within(panel).getByRole('status').textContent).toBe('Generating… It appears here as soon as it is ready.')
+      expect(tours.generate).toHaveBeenCalledWith('C:/x/project.db')
+
+      await act(async () => finish())
+      await within(panel).findByText('Tutorial ready')
+      expect(within(panel).getByText('Sherlock onboarding · 3 steps')).toBeTruthy()
+      await userEvent.click(within(panel).getByRole('button', { name: 'Start tutorial' }))
+      expect(within(panel).getByText('1 / 3')).toBeTruthy()
+    })
+
+    it('offers a tutorial saved while generation is still running', async () => {
       vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
       try {
-        const tours = library([], [], [sherlockTour(60_000)])
+        const tours = { ...library([], [], [sherlockTour(60_000)]), generate: vi.fn(() => new Promise<void>(() => {})) }
         render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
         await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
         const panel = await screen.findByRole('region', { name: 'Tutorial' })
-        await within(panel).findByText('Create a tutorial for project')
-        expect(within(panel).getByText(/open_project\("C:\/x\/project\.db"\)/)).toBeTruthy()
+        await within(panel).findByText('Generating a tutorial for project')
 
         await act(async () => vi.advanceTimersByTime(3000))
         expect(within(panel).queryByText('Tutorial ready')).toBeNull()
         await act(async () => vi.advanceTimersByTime(3000))
         await within(panel).findByText('Tutorial ready')
         expect(tours.list).toHaveBeenCalledTimes(3)
-
-        await userEvent.click(within(panel).getByRole('button', { name: 'Start tutorial' }))
-        expect(within(panel).getByText('1 / 3')).toBeTruthy()
       } finally {
         vi.useRealTimers()
       }
     })
 
-    it('reports when saved tours cannot be read, and still explains how to make one', async () => {
-      const tours: TourLibrary = { list: () => Promise.reject(new TelescodeError('tours_unavailable', 'No tour directory.')) }
+    it('reports a failed generation', async () => {
+      const failing = (e: Error) => ({ ...library([]), generate: () => Promise.reject(e) })
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={failing(new TelescodeError('tour_generation_failed', 'Claude Code was not found.'))} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+      const panel = await screen.findByRole('region', { name: 'Tutorial' })
+      expect(await within(panel).findByText('Cannot generate the tutorial: Claude Code was not found.')).toBeTruthy()
+      expect(within(panel).queryByRole('status')).toBeNull()
+    })
+
+    it('reports a generation that saved nothing', async () => {
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={{ ...library([]), generate: async () => {} }} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+      const panel = await screen.findByRole('region', { name: 'Tutorial' })
+      expect(await within(panel).findByText('Cannot generate the tutorial: Generation finished without saving a tutorial.')).toBeTruthy()
+    })
+
+    it('reports when saved tours cannot be read, without generating', async () => {
+      const generate = vi.fn(async () => {})
+      const tours: TourLibrary = { list: () => Promise.reject(new TelescodeError('tours_unavailable', 'No MCP server.')), generate }
       render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
       await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
       const panel = await screen.findByRole('region', { name: 'Tutorial' })
-      expect(await within(panel).findByText('Cannot check for tutorials: No tour directory.')).toBeTruthy()
-      expect(within(panel).getByText('Create a tutorial for project')).toBeTruthy()
+      expect(await within(panel).findByText('Cannot generate the tutorial: No MCP server.')).toBeTruthy()
+      expect(generate).not.toHaveBeenCalled()
     })
   })
 })

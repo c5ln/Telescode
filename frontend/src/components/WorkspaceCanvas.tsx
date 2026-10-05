@@ -105,7 +105,7 @@ export function WorkspaceCanvas({
       )}
 
       {state.status === 'ready' && (
-        <TutorialPanel tutorial={tutorial} repositoryName={repositoryName(state.dbPath)} dbPath={state.dbPath} />
+        <TutorialPanel tutorial={tutorial} repositoryName={repositoryName(state.dbPath)} />
       )}
 
       <CanvasControls

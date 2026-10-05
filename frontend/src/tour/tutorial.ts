@@ -2,8 +2,9 @@
 //
 // Tours are written by an agent through the Telescode MCP server (mcp/), which
 // saves each one beside the snapshot it was written against. The desktop shell
-// lists them (src-tauri/src/tours.rs); this module picks the one that belongs
-// to the open repository.
+// lists them and has new ones written through that server
+// (src-tauri/src/tours.rs); this module picks the one that belongs to the open
+// repository.
 
 import { invoke, isTauri } from '@tauri-apps/api/core'
 
@@ -21,19 +22,38 @@ export interface SavedTour {
 
 export interface TourLibrary {
   list(): Promise<SavedTour[]>
+  /** Have a tour written for the repository analyzed in `dbPath`; resolves once it is saved. */
+  generate?(dbPath: string): Promise<void>
 }
 
-/** The tours the MCP server saved, read through the `list_tours` Tauri command. */
+async function invokeTours<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+  if (!isTauri()) {
+    throw new TelescodeError('bridge_unavailable', 'Tutorials are only reachable from the desktop app.')
+  }
+  try {
+    return await invoke<T>(command, args)
+  } catch (e) {
+    throw fromNativeError(e)
+  }
+}
+
+/** Generations under way, by database: asking again joins the one already running. */
+const generating = new Map<string, Promise<void>>()
+
+/**
+ * Tours kept by the Telescode MCP server, through the desktop shell: it lists
+ * them with the server's tools, and has new ones written by Claude Code with
+ * the server attached.
+ */
 export const tauriTourLibrary: TourLibrary = {
-  async list() {
-    if (!isTauri()) {
-      throw new TelescodeError('bridge_unavailable', 'Saved tours are only reachable from the desktop app.')
+  list: () => invokeTours<SavedTour[]>('list_tours'),
+  generate(dbPath) {
+    let run = generating.get(dbPath)
+    if (!run) {
+      run = invokeTours<void>('generate_tour', { dbPath }).finally(() => generating.delete(dbPath))
+      generating.set(dbPath, run)
     }
-    try {
-      return await invoke<SavedTour[]>('list_tours')
-    } catch (e) {
-      throw fromNativeError(e)
-    }
+    return run
   },
 }
 
@@ -74,11 +94,6 @@ export async function snapshotHash(snapshot: AnalysisSnapshot): Promise<string |
   if (!globalThis.crypto?.subtle) return null
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(snapshot)))
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
-}
-
-/** What to ask the agent connected to the Telescode MCP server for. */
-export function tutorialRequest(dbPath: string): string {
-  return `Using the Telescode MCP server, open_project("${dbPath}") and create an onboarding tour draft for this repository.`
 }
 
 /** Playback runs a little quicker than the tour's video timing: there, the viewer cannot pause. */

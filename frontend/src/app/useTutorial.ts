@@ -1,6 +1,6 @@
 // Tutorial mode's lifecycle: find the saved tour for the open repository and
-// play it on the map, or, when there is none yet, wait for the agent to write
-// one. The map itself is only steered through the graph handle, so leaving the
+// play it on the map, or, when there is none yet, have one generated and
+// wait for it. The map itself is only steered through the graph handle, so leaving the
 // tutorial puts back the view the user had.
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
@@ -14,14 +14,14 @@ export type TutorialState =
   | { status: 'off' }
   /** Looking for a saved tour after the user asked for the tutorial. */
   | { status: 'searching' }
-  /** No tour yet: the agent is asked to write one; `ready` once it is saved. */
+  /** No tour yet: one is being generated; `ready` once it is saved, `error` if that failed. */
   | { status: 'setup'; ready: SavedTour | null; error: string | null }
   /** `finished` once playback has run through the last step. */
   | { status: 'playing'; tour: SavedTour; index: number; playing: boolean; finished: boolean }
 
 export interface Tutorial {
   state: TutorialState
-  /** Play the saved tour, or start the generation flow when there is none. */
+  /** Play the saved tour, or generate one when there is none. */
   start: () => void
   /** Play a tour found during the generation flow. */
   play: (tour: SavedTour) => void
@@ -31,7 +31,7 @@ export interface Tutorial {
   exit: () => void
 }
 
-/** How often the generation flow checks whether the agent has saved the tour. */
+/** How often the generation flow checks whether the tour has been saved. */
 export const POLL_MS = 3000
 
 const OFF: TutorialState = { status: 'off' }
@@ -39,6 +39,7 @@ const OFF: TutorialState = { status: 'off' }
 export function useTutorial(
   library: TourLibrary,
   snapshot: AnalysisSnapshot | null,
+  dbPath: string | null,
   graphRef: RefObject<GraphHandle | null>,
 ): Tutorial {
   // State belongs to one snapshot: opening or reloading a repository ends it.
@@ -80,18 +81,25 @@ export function useTutorial(
     if (!snapshot) return
     const id = ++searchId.current
     setState({ status: 'searching' })
-    find().then(
-      (tour) => {
-        if (id !== searchId.current) return
-        if (tour) play(tour)
-        else setState({ status: 'setup', ready: null, error: null })
-      },
-      (e: unknown) => {
-        if (id !== searchId.current) return
-        setState({ status: 'setup', ready: null, error: e instanceof Error ? e.message : String(e) })
-      },
-    )
-  }, [snapshot, find, play, setState])
+    const failed = (e: unknown) => {
+      if (id === searchId.current) setState({ status: 'setup', ready: null, error: message(e) })
+    }
+    find().then((tour) => {
+      if (id !== searchId.current) return
+      if (tour) return play(tour)
+      setState({ status: 'setup', ready: null, error: null })
+      if (!library.generate || !dbPath) return
+      // Once generation is done the tour is saved; offer it (polling may already have).
+      void library
+        .generate(dbPath)
+        .then(find)
+        .then((saved) => {
+          if (id !== searchId.current) return
+          if (saved) setState({ status: 'setup', ready: saved, error: null })
+          else failed(new Error('Generation finished without saving a tutorial.'))
+        }, failed)
+    }, failed)
+  }, [snapshot, dbPath, library, find, play, setState])
 
   const exit = useCallback(() => {
     searchId.current++
@@ -142,8 +150,8 @@ export function useTutorial(
     }
   }, [autoplay, step, index, goTo])
 
-  // The generation flow: check for the agent's tour until it appears.
-  const waiting = state.status === 'setup' && !state.ready
+  // The generation flow: check for the tour until it appears or generation fails.
+  const waiting = state.status === 'setup' && !state.ready && !state.error
   useEffect(() => {
     if (!waiting) return
     const id = searchId.current
@@ -153,8 +161,7 @@ export function useTutorial(
           if (id === searchId.current && tour) setState({ status: 'setup', ready: tour, error: null })
         },
         (e: unknown) => {
-          if (id === searchId.current)
-            setState({ status: 'setup', ready: null, error: e instanceof Error ? e.message : String(e) })
+          if (id === searchId.current) setState({ status: 'setup', ready: null, error: message(e) })
         },
       )
     }, POLL_MS)
@@ -163,3 +170,5 @@ export function useTutorial(
 
   return { state, start, play, goTo, togglePlaying, exit }
 }
+
+const message = (e: unknown) => (e instanceof Error ? e.message : String(e))

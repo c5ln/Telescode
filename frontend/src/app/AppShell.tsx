@@ -31,7 +31,8 @@ export function AppShell({ api, initialState, allowLocalDatabase = false, tours 
   const workspace = useWorkspace(api, initialState)
   const { state } = workspace
   const graphRef = useRef<GraphHandle | null>(null)
-  const tutorial = useTutorial(tours, state.status === 'ready' ? state.snapshot : null, graphRef)
+  const ready = state.status === 'ready' ? state : null
+  const tutorial = useTutorial(tours, ready?.snapshot ?? null, ready?.dbPath ?? null, graphRef)
   /** Where the user is in the map, below the repository. */
   const [trail, setTrail] = useState<Crumb[]>([])
   /** Complexity mode: on by default, kept across repositories. */
