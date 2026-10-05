@@ -1,0 +1,166 @@
+/* Floats over the bottom of the map, between the status line and the canvas
+   controls, so the map stays the main surface. */
+.panel {
+  position: absolute;
+  left: 50%;
+  bottom: var(--space-4);
+  z-index: var(--z-overlay);
+  width: min(520px, calc(100% - 2 * var(--space-4) - 2 * 48px));
+  max-height: calc(100% - 2 * var(--space-4));
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-4) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-menu);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  transform: translateX(-50%);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-2)) 0 0;
+}
+
+.eyebrow {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.title {
+  margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+}
+
+.caption,
+.text {
+  margin: var(--space-2) 0 0;
+  color: var(--text-primary);
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+  white-space: pre-line;
+}
+
+.text {
+  color: var(--text-secondary);
+}
+
+.evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: var(--space-2) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.evidence div {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.evidence dd {
+  margin: 0;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-3) calc(-1 * var(--space-2)) 0;
+}
+
+.controls {
+  display: flex;
+  gap: 2px;
+}
+
+/* One segment per step: the progress through the tour at a glance. */
+.track {
+  display: flex;
+  flex: 1;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.track li {
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+.track li[data-state='done'] {
+  background: var(--border-strong);
+}
+
+.track li[data-state='current'] {
+  background: var(--graph-selected);
+}
+
+.progress {
+  margin: 0 var(--space-2) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.request {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface-subtle);
+}
+
+.request code {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  user-select: all;
+}
+
+.waiting {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.panel > .waiting:first-child {
+  margin: 0;
+}
+
+.error {
+  margin: var(--space-2) 0 0;
+  color: var(--error);
+  font-size: var(--text-sm);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-3);
+}

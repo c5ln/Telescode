@@ -7,6 +7,7 @@
 import type { RefObject } from 'react'
 
 import type { TelescodeErrorCode } from '../bridge'
+import type { Tutorial } from '../app/useTutorial'
 import { baseName, repositoryName, type WorkspaceState } from '../app/useWorkspace'
 import type { GraphHandle } from '../graph/GraphCanvas'
 import type { GraphNode } from '../graph/model'
@@ -16,6 +17,7 @@ import { Spinner } from '../ui/Spinner'
 import { CanvasControls } from './CanvasControls'
 import { CodeMap } from './CodeMap'
 import { EmptyWorkspace } from './EmptyWorkspace'
+import { TutorialPanel } from './TutorialPanel'
 import styles from './WorkspaceCanvas.module.css'
 
 interface WorkspaceCanvasProps {
@@ -31,6 +33,7 @@ interface WorkspaceCanvasProps {
   onContextChange: (path: GraphNode[]) => void
   /** Shade files by complexity. */
   complexity: boolean
+  tutorial: Tutorial
 }
 
 const ERROR_TITLES: Partial<Record<TelescodeErrorCode, string>> = {
@@ -54,6 +57,7 @@ export function WorkspaceCanvas({
   graphRef,
   onContextChange,
   complexity,
+  tutorial,
 }: WorkspaceCanvasProps) {
   return (
     <main className={styles.canvas} aria-label="Workspace" aria-busy={state.status === 'loading'}>
@@ -98,6 +102,10 @@ export function WorkspaceCanvas({
             <Button onClick={onClose}>Back</Button>
           </ErrorState>
         </div>
+      )}
+
+      {state.status === 'ready' && (
+        <TutorialPanel tutorial={tutorial} repositoryName={repositoryName(state.dbPath)} dbPath={state.dbPath} />
       )}
 
       <CanvasControls

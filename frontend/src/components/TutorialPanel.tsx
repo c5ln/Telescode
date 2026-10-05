@@ -1,0 +1,153 @@
+// Tutorial mode's floating card over the map: the current step's explanation
+// and playback controls, or, before a tutorial exists, how to have one written.
+
+import { useState, type KeyboardEvent } from 'react'
+
+import type { Tutorial } from '../app/useTutorial'
+import { formatEvidenceValue } from '../tour/model'
+import { tutorialRequest } from '../tour/tutorial'
+import { Button } from '../ui/Button'
+import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, PauseIcon, PlayIcon } from '../ui/icons'
+import { IconButton } from '../ui/IconButton'
+import { Spinner } from '../ui/Spinner'
+import styles from './TutorialPanel.module.css'
+
+interface TutorialPanelProps {
+  tutorial: Tutorial
+  repositoryName: string
+  dbPath: string
+}
+
+export function TutorialPanel({ tutorial, repositoryName, dbPath }: TutorialPanelProps) {
+  const { state } = tutorial
+  if (state.status === 'off') return null
+
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') tutorial.exit()
+    else if (state.status !== 'playing') return
+    else if (e.key === 'ArrowLeft') tutorial.goTo(state.index - 1)
+    else if (e.key === 'ArrowRight') tutorial.goTo(state.index + 1)
+    else return
+    e.preventDefault()
+  }
+
+  const close = (
+    <IconButton label="Exit tutorial" tooltip="top" tooltipAlign="end" onClick={tutorial.exit}>
+      <CloseIcon />
+    </IconButton>
+  )
+
+  if (state.status === 'searching') {
+    return (
+      <section className={styles.panel} aria-label="Tutorial" onKeyDown={onKeyDown}>
+        <p className={styles.waiting} role="status">
+          <Spinner />
+          Looking for a tutorial…
+        </p>
+      </section>
+    )
+  }
+
+  if (state.status === 'setup') {
+    const { ready, error } = state
+    return (
+      <section className={styles.panel} aria-label="Tutorial" onKeyDown={onKeyDown}>
+        <header className={styles.header}>
+          <p className={styles.eyebrow}>Tutorial</p>
+          {close}
+        </header>
+        {ready ? (
+          <>
+            <h2 className={styles.title}>Tutorial ready</h2>
+            <p className={styles.text}>
+              {ready.plan.title} · {ready.plan.stops.length} steps
+            </p>
+            <div className={styles.actions}>
+              <Button variant="primary" onClick={() => tutorial.play(ready)}>
+                Start tutorial
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <h2 className={styles.title}>Create a tutorial for {repositoryName}</h2>
+            <p className={styles.text}>
+              Tutorials are written by your coding agent with the Telescode MCP server. Ask it to:
+            </p>
+            <CopyBlock text={tutorialRequest(dbPath)} />
+            <p className={styles.waiting} role="status">
+              <Spinner />
+              Waiting for the tutorial. It appears here as soon as the agent saves it.
+            </p>
+            {error && <p className={styles.error}>Cannot check for tutorials: {error}</p>}
+          </>
+        )}
+      </section>
+    )
+  }
+
+  const { plan } = state.tour
+  const stop = plan.stops[state.index]!
+  const last = plan.stops.length - 1
+  return (
+    <section className={styles.panel} aria-label="Tutorial" onKeyDown={onKeyDown}>
+      <header className={styles.header}>
+        <p className={styles.eyebrow} title={plan.title}>
+          Tutorial · {plan.title}
+        </p>
+        {close}
+      </header>
+      <div aria-live="polite">
+        <h2 className={styles.title}>{stop.title || stop.nodeId}</h2>
+        <p className={styles.caption}>{stop.caption}</p>
+        {stop.evidence?.length > 0 && (
+          <dl className={styles.evidence}>
+            {stop.evidence.map((e) => (
+              <div key={e.label}>
+                <dt>{e.label}</dt>
+                <dd>{formatEvidenceValue(e)}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+      </div>
+      <footer className={styles.footer}>
+        <div className={styles.controls} role="toolbar" aria-label="Tutorial playback">
+          <IconButton label="Previous step" tooltip="top" disabled={state.index === 0} onClick={() => tutorial.goTo(state.index - 1)}>
+            <ChevronLeftIcon />
+          </IconButton>
+          <IconButton label={state.playing ? 'Pause' : 'Play'} tooltip="top" onClick={tutorial.togglePlaying}>
+            {state.playing ? <PauseIcon /> : <PlayIcon />}
+          </IconButton>
+          <IconButton label="Next step" tooltip="top" disabled={state.index === last} onClick={() => tutorial.goTo(state.index + 1)}>
+            <ChevronRightIcon />
+          </IconButton>
+        </div>
+        <ol className={styles.track} aria-hidden="true">
+          {plan.stops.map((_, i) => (
+            <li key={i} data-state={i < state.index ? 'done' : i === state.index ? 'current' : undefined} />
+          ))}
+        </ol>
+        <p className={styles.progress} aria-label={`Step ${state.index + 1} of ${plan.stops.length}`}>
+          {state.index + 1} / {plan.stops.length}
+        </p>
+      </footer>
+    </section>
+  )
+}
+
+function CopyBlock({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+  const copy = () => {
+    navigator.clipboard?.writeText(text).then(
+      () => setCopied(true),
+      () => setCopied(false),
+    )
+  }
+  return (
+    <div className={styles.request}>
+      <code>{text}</code>
+      <Button onClick={copy}>{copied ? 'Copied' : 'Copy'}</Button>
+    </div>
+  )
+}

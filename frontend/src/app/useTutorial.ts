@@ -1,0 +1,153 @@
+// Tutorial mode's lifecycle: find the saved tour for the open repository and
+// play it on the map, or, when there is none yet, wait for the agent to write
+// one. The map itself is only steered through the graph handle, so leaving the
+// tutorial puts back the view the user had.
+
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
+
+import type { AnalysisSnapshot } from '../bridge'
+import type { GraphHandle, MapView } from '../graph/GraphCanvas'
+import { buildGraphModel } from '../graph/model'
+import { pickTutorial, snapshotHash, stepDurationMs, type SavedTour, type TourLibrary } from '../tour/tutorial'
+
+export type TutorialState =
+  | { status: 'off' }
+  /** Looking for a saved tour after the user asked for the tutorial. */
+  | { status: 'searching' }
+  /** No tour yet: the agent is asked to write one; `ready` once it is saved. */
+  | { status: 'setup'; ready: SavedTour | null; error: string | null }
+  | { status: 'playing'; tour: SavedTour; index: number; playing: boolean }
+
+export interface Tutorial {
+  state: TutorialState
+  /** Play the saved tour, or start the generation flow when there is none. */
+  start: () => void
+  /** Play a tour found during the generation flow. */
+  play: (tour: SavedTour) => void
+  goTo: (index: number) => void
+  togglePlaying: () => void
+  /** Leave the tutorial and return to the view from before it. */
+  exit: () => void
+}
+
+/** How often the generation flow checks whether the agent has saved the tour. */
+export const POLL_MS = 3000
+
+const OFF: TutorialState = { status: 'off' }
+
+export function useTutorial(
+  library: TourLibrary,
+  snapshot: AnalysisSnapshot | null,
+  graphRef: RefObject<GraphHandle | null>,
+): Tutorial {
+  // State belongs to one snapshot: opening or reloading a repository ends it.
+  const [owned, setOwned] = useState<{ snapshot: AnalysisSnapshot | null; state: TutorialState }>({
+    snapshot,
+    state: OFF,
+  })
+  const state = owned.snapshot === snapshot ? owned.state : OFF
+  const setState = useCallback((next: TutorialState) => setOwned({ snapshot, state: next }), [snapshot])
+
+  const savedView = useRef<MapView | null>(null)
+  // Answers to an earlier search are dropped once the tutorial moves on.
+  const searchId = useRef(0)
+
+  const find = useCallback(async (): Promise<SavedTour | null> => {
+    if (!snapshot) return null
+    const [tours, hash] = await Promise.all([library.list(), snapshotHash(snapshot)])
+    const model = buildGraphModel(snapshot, '')
+    const onMap = (id: string) => {
+      const kind = model.byId.get(id)?.kind
+      return kind !== undefined && kind !== 'member'
+    }
+    return pickTutorial(tours, onMap, hash)
+  }, [library, snapshot])
+
+  const play = useCallback(
+    (tour: SavedTour) => {
+      searchId.current++
+      savedView.current = graphRef.current?.saveView() ?? null
+      setState({ status: 'playing', tour, index: 0, playing: true })
+    },
+    [graphRef, setState],
+  )
+
+  const start = useCallback(() => {
+    if (!snapshot) return
+    const id = ++searchId.current
+    setState({ status: 'searching' })
+    find().then(
+      (tour) => {
+        if (id !== searchId.current) return
+        if (tour) play(tour)
+        else setState({ status: 'setup', ready: null, error: null })
+      },
+      (e: unknown) => {
+        if (id !== searchId.current) return
+        setState({ status: 'setup', ready: null, error: e instanceof Error ? e.message : String(e) })
+      },
+    )
+  }, [snapshot, find, play, setState])
+
+  const exit = useCallback(() => {
+    searchId.current++
+    if (state.status === 'playing' && savedView.current) graphRef.current?.restoreView(savedView.current)
+    savedView.current = null
+    setState(OFF)
+  }, [state.status, graphRef, setState])
+
+  const goTo = useCallback(
+    (index: number) => {
+      if (state.status !== 'playing') return
+      const last = state.tour.plan.stops.length - 1
+      const clamped = Math.max(0, Math.min(last, index))
+      // Playback stops at the end rather than looping.
+      setState({ ...state, index: clamped, playing: state.playing && clamped < last })
+    },
+    [state, setState],
+  )
+
+  const togglePlaying = useCallback(() => {
+    if (state.status !== 'playing') return
+    const atEnd = state.index === state.tour.plan.stops.length - 1
+    // Play from the end starts over.
+    if (!state.playing && atEnd) setState({ ...state, index: 0, playing: true })
+    else setState({ ...state, playing: !state.playing })
+  }, [state, setState])
+
+  // Move the map to the current step.
+  const index = state.status === 'playing' ? state.index : -1
+  const step = state.status === 'playing' ? state.tour.plan.stops[index] : undefined
+  useEffect(() => {
+    if (step) graphRef.current?.spotlight(step.nodeId)
+  }, [step, graphRef])
+
+  // Automatic playback advances after the step's time in the tour.
+  const autoplay = state.status === 'playing' && state.playing
+  useEffect(() => {
+    if (!autoplay || !step) return
+    const timer = setTimeout(() => goTo(index + 1), stepDurationMs(step))
+    return () => clearTimeout(timer)
+  }, [autoplay, step, index, goTo])
+
+  // The generation flow: check for the agent's tour until it appears.
+  const waiting = state.status === 'setup' && !state.ready
+  useEffect(() => {
+    if (!waiting) return
+    const id = searchId.current
+    const timer = setInterval(() => {
+      find().then(
+        (tour) => {
+          if (id === searchId.current && tour) setState({ status: 'setup', ready: tour, error: null })
+        },
+        (e: unknown) => {
+          if (id === searchId.current)
+            setState({ status: 'setup', ready: null, error: e instanceof Error ? e.message : String(e) })
+        },
+      )
+    }, POLL_MS)
+    return () => clearInterval(timer)
+  }, [waiting, find, setState])
+
+  return { state, start, play, goTo, togglePlaying, exit }
+}

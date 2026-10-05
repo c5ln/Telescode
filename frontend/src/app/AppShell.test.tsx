@@ -1,12 +1,14 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { TelescodeError, type AnalysisSnapshot, type GraphResponse, type TelescodeApi } from '../bridge'
 import sherlock from '../graph/fixtures/sherlock.graph.json'
 import type { GraphRenderer } from '../graph/renderer'
+import type { TourStop } from '../tour/model'
+import type { SavedTour, TourLibrary } from '../tour/tutorial'
 import { AppShell } from './AppShell'
 
 afterEach(cleanup)
@@ -32,18 +34,40 @@ async function openDatabase(path: string) {
   await userEvent.click(screen.getByRole('button', { name: 'Open' }))
 }
 
+/** A saved tour of the Sherlock sample, short enough to play through in a test. */
+function sherlockTour(holdMs: number): SavedTour {
+  const stop = (nodeId: string, caption: string): TourStop => ({ nodeId, caption, title: nodeId, evidence: [], transitionMs: 0, holdMs })
+  const stops = [
+    stop('root', 'Sherlock finds a username across sites.'),
+    stop('file:sherlock_project/result.py', 'result.py defines the shape of a result.'),
+    stop('class:sherlock_project/result.py::QueryStatus', 'QueryStatus is the verdict for one site.'),
+  ]
+  const plan = { schemaVersion: 1 as const, id: 't1', revision: 1, title: 'Sherlock onboarding', language: 'en' as const, snapshotHash: 'x', stops }
+  return { plan, snapshotHash: 'x', state: 'draft', updatedMs: 1 }
+}
+
+const library = (...lists: SavedTour[][]): TourLibrary => {
+  let call = 0
+  return { list: vi.fn(async () => lists[Math.min(call++, lists.length - 1)]!) }
+}
+
+const renderer = () => (window as { __telescode?: GraphRenderer }).__telescode!
+
 const canvasButtons = () =>
   within(screen.getByRole('toolbar', { name: 'Canvas' })).getAllByRole('button') as HTMLButtonElement[]
 
 describe('AppShell', () => {
-  it('has only breadcrumbs, search and an overflow menu in the top bar, and no sidebar', () => {
+  it('has only breadcrumbs, search, the tutorial button and an overflow menu in the top bar, and no sidebar', () => {
     render(<AppShell api={deferredApi().api} allowLocalDatabase />)
     const bar = screen.getByRole('banner')
 
     expect(within(bar).getByRole('navigation', { name: 'Breadcrumb' })).toBeTruthy()
     expect(within(bar).getByRole('search')).toBeTruthy()
     expect(within(bar).getByPlaceholderText('Search files, classes, functions…')).toBeTruthy()
-    expect(within(bar).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['More actions'])
+    expect(within(bar).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual([
+      'Tutorial',
+      'More actions',
+    ])
     expect(screen.queryByRole('complementary')).toBeNull()
   })
 
@@ -187,5 +211,95 @@ describe('AppShell', () => {
     expect(renderer.complexityLevel(hotspot)).toBe(3)
     expect(renderer.camera).toEqual(before.camera)
     expect([hotspot.x, hotspot.y, hotspot.w, hotspot.h]).toEqual(before.box)
+  })
+
+  describe('tutorial mode', () => {
+    const ready = { status: 'ready' as const, dbPath: 'C:/x/project.db', snapshot }
+
+    it('is only available once a repository is open', () => {
+      render(<AppShell api={deferredApi().api} tours={library([])} />)
+      expect((screen.getByRole('button', { name: 'Tutorial' }) as HTMLButtonElement).disabled).toBe(true)
+    })
+
+    it('plays the saved tour on the map, step by step, and puts the view back on exit', async () => {
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={library([sherlockTour(60_000)])} />)
+      const r = renderer()
+      r.resize(1200, 750)
+      const before = { ...r.camera }
+
+      await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+      const panel = await screen.findByRole('region', { name: 'Tutorial' })
+      expect(screen.getByRole('button', { name: 'Exit tutorial', pressed: true })).toBeTruthy()
+      expect(within(panel).getByText('Sherlock finds a username across sites.')).toBeTruthy()
+      expect(within(panel).getByText('1 / 3')).toBeTruthy()
+      expect(r.selected).toBeNull()
+
+      await userEvent.click(within(panel).getByRole('button', { name: 'Pause' }))
+      await userEvent.click(within(panel).getByRole('button', { name: 'Next step' }))
+      expect(within(panel).getByText('result.py defines the shape of a result.')).toBeTruthy()
+      expect(within(panel).getByText('2 / 3')).toBeTruthy()
+      expect(r.selected?.id).toBe('file:sherlock_project/result.py')
+      r.step(performance.now() + 10_000, 16)
+      expect(r.camera.k).toBeGreaterThan(before.k)
+
+      fireEvent.keyDown(panel, { key: 'ArrowRight' })
+      expect(r.selected?.id).toBe('class:sherlock_project/result.py::QueryStatus')
+      expect((within(panel).getByRole('button', { name: 'Next step' }) as HTMLButtonElement).disabled).toBe(true)
+      await userEvent.click(within(panel).getByRole('button', { name: 'Previous step' }))
+      expect(within(panel).getByText('2 / 3')).toBeTruthy()
+
+      await userEvent.click(within(panel).getByRole('button', { name: 'Exit tutorial' }))
+      expect(screen.queryByRole('region', { name: 'Tutorial' })).toBeNull()
+      expect(r.selected).toBeNull()
+      r.step(performance.now() + 20_000, 16)
+      expect(r.camera.x).toBeCloseTo(before.x)
+      expect(r.camera.k).toBeCloseTo(before.k)
+      expect(r.model.nodes.length).toBeGreaterThan(0)
+    })
+
+    it('advances on its own while playing and stops at the last step', async () => {
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={library([sherlockTour(30)])} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+      const panel = await screen.findByRole('region', { name: 'Tutorial' })
+      await within(panel).findByText('3 / 3')
+      expect(within(panel).getByRole('button', { name: 'Play' })).toBeTruthy()
+      expect(renderer().selected?.id).toBe('class:sherlock_project/result.py::QueryStatus')
+
+      // Play from the end starts over.
+      await userEvent.click(within(panel).getByRole('button', { name: 'Play' }))
+      expect(within(panel).getByText('1 / 3')).toBeTruthy()
+    })
+
+    it('starts making a tutorial when there is none, and offers it once the agent saves it', async () => {
+      vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+      try {
+        const tours = library([], [], [sherlockTour(60_000)])
+        render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
+        await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+        const panel = await screen.findByRole('region', { name: 'Tutorial' })
+        await within(panel).findByText('Create a tutorial for project')
+        expect(within(panel).getByText(/open_project\("C:\/x\/project\.db"\)/)).toBeTruthy()
+
+        await act(async () => vi.advanceTimersByTime(3000))
+        expect(within(panel).queryByText('Tutorial ready')).toBeNull()
+        await act(async () => vi.advanceTimersByTime(3000))
+        await within(panel).findByText('Tutorial ready')
+        expect(tours.list).toHaveBeenCalledTimes(3)
+
+        await userEvent.click(within(panel).getByRole('button', { name: 'Start tutorial' }))
+        expect(within(panel).getByText('1 / 3')).toBeTruthy()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('reports when saved tours cannot be read, and still explains how to make one', async () => {
+      const tours: TourLibrary = { list: () => Promise.reject(new TelescodeError('tours_unavailable', 'No tour directory.')) }
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
+      await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+      const panel = await screen.findByRole('region', { name: 'Tutorial' })
+      expect(await within(panel).findByText('Cannot check for tutorials: No tour directory.')).toBeTruthy()
+      expect(within(panel).getByText('Create a tutorial for project')).toBeTruthy()
+    })
   })
 })
