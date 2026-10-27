@@ -117,6 +117,14 @@ if(MSVC)
     target_compile_options(TelescodeHeadless PRIVATE /utf-8)
 endif()
 
+# ── lang static library ────────────────────────────────────────────────────────
+# Language plugins (ILanguage): module resolution and builtin scopes, one
+# implementation per source language. Pure C++, no database or parser.
+add_library(lang STATIC
+    src/lang/python/PythonLanguage.cpp
+)
+target_include_directories(lang PUBLIC src)
+
 # ── algo static library ────────────────────────────────────────────────────────
 add_library(algo STATIC
     src/algo/Graph.cpp
@@ -128,7 +136,7 @@ add_library(algo STATIC
     src/db/db.cpp
 )
 target_include_directories(algo PUBLIC src)
-target_link_libraries(algo PUBLIC sqlite3)
+target_link_libraries(algo PUBLIC lang sqlite3)
 
 
 # ── TelescodePPR executable ───────────────────────────────────────────────────
@@ -211,6 +219,15 @@ if(TS_ALGO_TEST_SRC)
     target_include_directories(AlgoTests PRIVATE src)
     target_link_libraries(AlgoTests PRIVATE algo GTest::gtest_main)
     add_test(NAME AlgoTests COMMAND AlgoTests)
+endif()
+
+ts_test_sources(TS_LANG_TEST_SRC
+    tests/lang/test_python_language.cpp
+)
+if(TS_LANG_TEST_SRC)
+    add_executable(LangTests ${TS_LANG_TEST_SRC})
+    target_link_libraries(LangTests PRIVATE lang GTest::gtest_main)
+    add_test(NAME LangTests COMMAND LangTests)
 endif()
 
 ts_test_sources(TS_LAYOUT_TEST_SRC
