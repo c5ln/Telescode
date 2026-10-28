@@ -1,0 +1,526 @@
+// tests/parser/test_python_extraction.cpp
+// What PythonParser extracts for name resolution: symbol, scope, binding and
+// ref rows, checked row for row on tests/fixtures/resolution after a real scan
+// (PythonParser::parseDirectory + DbInserter::insertAll), so the insert path
+// is covered too. Lines are 0-indexed, as everywhere else in the database.
+//
+// The fixture is the input the resolver is tested on as well; these tests pin
+// down what the resolver gets to see, not what it should conclude.
+
+#include "db/DbInserter.h"
+#include "db/DbUpdater.h"
+#include "db/db.h"
+#include "parser/PythonParser.h"
+
+#include <gtest/gtest.h>
+#include <sqlite3.h>
+
+#include <filesystem>
+#include <string>
+#include <vector>
+
+namespace fs = std::filesystem;
+
+#ifndef TS_RESOLUTION_FIXTURE
+#error "TS_RESOLUTION_FIXTURE must point at tests/fixtures/resolution"
+#endif
+
+namespace {
+
+using Rows = std::vector<std::string>;
+
+// A scanned copy of the fixture in a database that deletes itself.
+class ScannedDb {
+public:
+    explicit ScannedDb(const std::string& tag) {
+        path_ = (fs::temp_directory_path() / ("ts_parser_test_" + tag + ".db")).string();
+        remove();
+    }
+    ~ScannedDb() {
+        if (db_) sqlite3_close(db_);
+        remove();
+    }
+
+    // Scan the fixture and open the result for queries.
+    void scan() {
+        PythonParser parser;
+        const auto results = parser.parseDirectory(TS_RESOLUTION_FIXTURE, TS_RESOLUTION_FIXTURE);
+        ASSERT_EQ(DbInserter::insertAll(path_.c_str(), results), SQLITE_OK);
+        open();
+    }
+
+    void open() {
+        if (db_) sqlite3_close(db_);
+        ASSERT_EQ(sqlite3_open(path_.c_str(), &db_), SQLITE_OK);
+    }
+
+    // Each row as its columns joined by '|', NULL spelled out.
+    Rows rows(const std::string& sql, const std::string& param = "") const {
+        Rows out;
+        sqlite3_stmt* stmt = nullptr;
+        if (sqlite3_prepare_v2(db_, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+            ADD_FAILURE() << "bad query: " << sql << ": " << sqlite3_errmsg(db_);
+            return out;
+        }
+        if (!param.empty()) sqlite3_bind_text(stmt, 1, param.c_str(), -1, SQLITE_TRANSIENT);
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            std::string row;
+            for (int i = 0; i < sqlite3_column_count(stmt); ++i) {
+                if (i) row += '|';
+                const unsigned char* t = sqlite3_column_text(stmt, i);
+                row += t ? reinterpret_cast<const char*>(t) : "NULL";
+            }
+            out.push_back(row);
+        }
+        sqlite3_finalize(stmt);
+        return out;
+    }
+
+    int count(const std::string& sql, const std::string& param = "") const {
+        const Rows r = rows(sql, param);
+        return r.empty() ? -1 : std::stoi(r[0]);
+    }
+
+    const std::string& path() const { return path_; }
+
+private:
+    void remove() {
+        for (const char* suffix : {"", "-wal", "-shm"}) {
+            std::error_code ec;
+            fs::remove(path_ + suffix, ec);
+        }
+    }
+
+    std::string path_;
+    sqlite3* db_ = nullptr;
+};
+
+const char* kSymbols =
+    "SELECT symbol_id, parent_id, kind, name, is_exported, start_line, end_line"
+    "  FROM symbol WHERE file_id = ? ORDER BY symbol_id;";
+const char* kScopes =
+    "SELECT scope_id, parent_scope_id, kind, start_line, end_line"
+    "  FROM scope WHERE file_id = ? ORDER BY scope_id;";
+const char* kBindings =
+    "SELECT scope_id, local_name, kind, target_id, module_spec, imported_name, line"
+    "  FROM binding WHERE file_id = ? ORDER BY scope_id, local_name, line;";
+const char* kRefs =
+    "SELECT kind, source_id, scope_id, name_path, raw_text, line"
+    "  FROM ref WHERE file_id = ? ORDER BY line, kind, name_path;";
+
+class Extraction : public ::testing::Test {
+protected:
+    static void SetUpTestSuite() {
+        db_ = new ScannedDb("extraction");
+        db_->scan();
+    }
+    static void TearDownTestSuite() {
+        delete db_;
+        db_ = nullptr;
+    }
+    static ScannedDb* db_;
+};
+
+ScannedDb* Extraction::db_ = nullptr;
+
+}  // namespace
+
+// ── file ──────────────────────────────────────────────────────────────────────
+
+TEST_F(Extraction, FileLanguageAndModuleName)
+{
+    EXPECT_EQ(db_->rows("SELECT file_id, language, module_name FROM file ORDER BY file_id;"),
+              (Rows{
+                  "resapp/__init__.py|python|resapp",
+                  "resapp/compat.py|python|resapp.compat",
+                  "resapp/models.py|python|resapp.models",
+                  "resapp/sub/__init__.py|python|resapp.sub",
+                  "resapp/sub/helpers.py|python|resapp.sub.helpers",
+                  "resapp/sub/views.py|python|resapp.sub.views",
+                  "resapp/util.py|python|resapp.util",
+              }));
+}
+
+TEST_F(Extraction, SchemaVersion)
+{
+    EXPECT_EQ(db_->count("PRAGMA user_version;"), 2);
+}
+
+// ── resapp/__init__.py: re-exports ────────────────────────────────────────────
+
+TEST_F(Extraction, PackageInitReExports)
+{
+    const std::string f = "resapp/__init__.py";
+    // `__all__` lists PublicB and helper, so `__all__` itself is not exported.
+    EXPECT_EQ(db_->rows(kSymbols, f), (Rows{
+        "resapp/__init__.py::__all__|NULL|variable|__all__|0|4|4",
+    }));
+    EXPECT_EQ(db_->rows(kScopes, f), (Rows{
+        "resapp/__init__.py|NULL|file|0|4",
+    }));
+    // `from .models import B as PublicB`: bound under the alias, the original
+    // name kept in imported_name, the relative spec kept verbatim.
+    EXPECT_EQ(db_->rows(kBindings, f), (Rows{
+        "resapp/__init__.py|PublicB|import_symbol|NULL|.models|B|1",
+        "resapp/__init__.py|__all__|def|resapp/__init__.py::__all__|NULL|NULL|4",
+        "resapp/__init__.py|helper|import_symbol|NULL|.util|helper|2",
+    }));
+    EXPECT_EQ(db_->rows(kRefs, f), Rows{});
+}
+
+// ── resapp/models.py: class B with a method named `list` ──────────────────────
+
+TEST_F(Extraction, ModelsSymbolsAndScopes)
+{
+    const std::string f = "resapp/models.py";
+    EXPECT_EQ(db_->rows(kSymbols, f), (Rows{
+        "resapp/models.py::B|NULL|class|B|1|4|9",
+        "resapp/models.py::B::list|resapp/models.py::B|method|list|1|5|6",
+        "resapp/models.py::B::run|resapp/models.py::B|method|run|1|8|9",
+        "resapp/models.py::E|NULL|class|E|1|12|13",
+        "resapp/models.py::first|NULL|function|first|1|20|21",
+        "resapp/models.py::make|NULL|function|make|1|16|17",
+    }));
+    EXPECT_EQ(db_->rows(kScopes, f), (Rows{
+        "resapp/models.py|NULL|file|0|21",
+        "resapp/models.py::B|resapp/models.py|class|4|9",
+        "resapp/models.py::B::list|resapp/models.py::B|function|5|6",
+        "resapp/models.py::B::run|resapp/models.py::B|function|8|9",
+        "resapp/models.py::E|resapp/models.py|class|12|13",
+        "resapp/models.py::first|resapp/models.py|function|20|21",
+        "resapp/models.py::make|resapp/models.py|function|16|17",
+    }));
+}
+
+TEST_F(Extraction, ModelsBindings)
+{
+    // The method `list` binds in the class scope only; the module scope has no
+    // `list`, so a bare `list(...)` elsewhere in the file is still the builtin.
+    // `import os.path` binds the top-level package `os`.
+    EXPECT_EQ(db_->rows(kBindings, "resapp/models.py"), (Rows{
+        "resapp/models.py|B|def|resapp/models.py::B|NULL|NULL|4",
+        "resapp/models.py|E|def|resapp/models.py::E|NULL|NULL|12",
+        "resapp/models.py|OD|import_symbol|NULL|collections|OrderedDict|1",
+        "resapp/models.py|first|def|resapp/models.py::first|NULL|NULL|20",
+        "resapp/models.py|make|def|resapp/models.py::make|NULL|NULL|16",
+        "resapp/models.py|os|import_module|NULL|os.path|NULL|0",
+        "resapp/models.py::B|list|def|resapp/models.py::B::list|NULL|NULL|5",
+        "resapp/models.py::B|run|def|resapp/models.py::B::run|NULL|NULL|8",
+        "resapp/models.py::B::list|self|def|NULL|NULL|NULL|5",
+        "resapp/models.py::B::run|self|def|NULL|NULL|NULL|8",
+    }));
+}
+
+TEST_F(Extraction, ModelsRefs)
+{
+    // `class E(Exception)` -- an external base, looked up from the module scope.
+    // `make()[0].run()` in first() has no identifier chain and yields no ref,
+    // though it still has a raw CALLS link.
+    EXPECT_EQ(db_->rows(kRefs, "resapp/models.py"), (Rows{
+        "CALLS|resapp/models.py::B::run|resapp/models.py::B::run|self.list|self.list|9",
+        "INHERITS|resapp/models.py::E|resapp/models.py|Exception|Exception|12",
+        "CALLS|resapp/models.py::make|resapp/models.py::make|B|B|17",
+    }));
+}
+
+// ── resapp/util.py: builtin shadowing, global, __all__ ────────────────────────
+
+TEST_F(Extraction, UtilSymbols)
+{
+    // Module-level `list = [...]` is a variable symbol that shadows the builtin
+    // for the whole module. `_private` is not in the literal __all__.
+    EXPECT_EQ(db_->rows(kSymbols, "resapp/util.py"), (Rows{
+        "resapp/util.py::__all__|NULL|variable|__all__|0|23|23",
+        "resapp/util.py::_private|NULL|function|_private|0|19|20",
+        "resapp/util.py::bump|NULL|function|bump|1|8|11",
+        "resapp/util.py::counter|NULL|variable|counter|1|1|1",
+        "resapp/util.py::helper|NULL|function|helper|1|4|5",
+        "resapp/util.py::list|NULL|variable|list|1|0|0",
+        "resapp/util.py::local_len|NULL|function|local_len|1|14|16",
+    }));
+    EXPECT_EQ(db_->rows(kScopes, "resapp/util.py"), (Rows{
+        "resapp/util.py|NULL|file|0|23",
+        "resapp/util.py::_private|resapp/util.py|function|19|20",
+        "resapp/util.py::bump|resapp/util.py|function|8|11",
+        "resapp/util.py::helper|resapp/util.py|function|4|5",
+        "resapp/util.py::local_len|resapp/util.py|function|14|16",
+    }));
+}
+
+TEST_F(Extraction, UtilBindings)
+{
+    // bump() declares `global counter`, so its assignment binds nothing in
+    // bump's scope -- counter there is the module's. local_len() rebinds `len`
+    // locally (target NULL: a local has no symbol row), shadowing the builtin
+    // in that function only; the lambda's parameter `s` binds nothing.
+    EXPECT_EQ(db_->rows(kBindings, "resapp/util.py"), (Rows{
+        "resapp/util.py|__all__|def|resapp/util.py::__all__|NULL|NULL|23",
+        "resapp/util.py|_private|def|resapp/util.py::_private|NULL|NULL|19",
+        "resapp/util.py|bump|def|resapp/util.py::bump|NULL|NULL|8",
+        "resapp/util.py|counter|def|resapp/util.py::counter|NULL|NULL|1",
+        "resapp/util.py|helper|def|resapp/util.py::helper|NULL|NULL|4",
+        "resapp/util.py|list|def|resapp/util.py::list|NULL|NULL|0",
+        "resapp/util.py|local_len|def|resapp/util.py::local_len|NULL|NULL|14",
+        "resapp/util.py::helper|x|def|NULL|NULL|NULL|4",
+        "resapp/util.py::local_len|items|def|NULL|NULL|NULL|14",
+        "resapp/util.py::local_len|len|def|NULL|NULL|NULL|15",
+    }));
+    EXPECT_EQ(db_->count("SELECT COUNT(*) FROM binding WHERE scope_id = ?;",
+                         "resapp/util.py::bump"), 0);
+}
+
+TEST_F(Extraction, UtilRefs)
+{
+    // Both are `len`; only the scope tells the builtin (helper) from the local
+    // lambda (local_len).
+    EXPECT_EQ(db_->rows(kRefs, "resapp/util.py"), (Rows{
+        "CALLS|resapp/util.py::helper|resapp/util.py::helper|len|len|5",
+        "CALLS|resapp/util.py::local_len|resapp/util.py::local_len|len|len|16",
+    }));
+}
+
+// ── resapp/sub/helpers.py: a second, unrelated class B ────────────────────────
+
+TEST_F(Extraction, HelpersSymbolsAndScopes)
+{
+    const std::string f = "resapp/sub/helpers.py";
+    EXPECT_EQ(db_->rows(kSymbols, f), (Rows{
+        "resapp/sub/helpers.py::B|NULL|class|B|1|3|11",
+        "resapp/sub/helpers.py::B::build|resapp/sub/helpers.py::B|method|build|1|10|11",
+        "resapp/sub/helpers.py::B::list|resapp/sub/helpers.py::B|method|list|1|6|7",
+        "resapp/sub/helpers.py::cached|NULL|function|cached|1|15|16",
+    }));
+    EXPECT_EQ(db_->rows(kScopes, f), (Rows{
+        "resapp/sub/helpers.py|NULL|file|0|16",
+        "resapp/sub/helpers.py::B|resapp/sub/helpers.py|class|3|11",
+        "resapp/sub/helpers.py::B::build|resapp/sub/helpers.py::B|function|10|11",
+        "resapp/sub/helpers.py::B::list|resapp/sub/helpers.py::B|function|6|7",
+        "resapp/sub/helpers.py::cached|resapp/sub/helpers.py|function|15|16",
+    }));
+    EXPECT_EQ(db_->rows(kBindings, f), (Rows{
+        "resapp/sub/helpers.py|B|def|resapp/sub/helpers.py::B|NULL|NULL|3",
+        "resapp/sub/helpers.py|cached|def|resapp/sub/helpers.py::cached|NULL|NULL|15",
+        "resapp/sub/helpers.py|functools|import_module|NULL|functools|NULL|0",
+        "resapp/sub/helpers.py::B|build|def|resapp/sub/helpers.py::B::build|NULL|NULL|10",
+        "resapp/sub/helpers.py::B|list|def|resapp/sub/helpers.py::B::list|NULL|NULL|6",
+        "resapp/sub/helpers.py::B::list|self|def|NULL|NULL|NULL|6",
+    }));
+}
+
+TEST_F(Extraction, HelpersRefs)
+{
+    // `list(range(3))` inside the method B.list: scope is the method, whose
+    // parent class scope binds `list` -- the resolver must skip that class.
+    // Decorators are looked up in the scope around the decorated definition:
+    // the class body for @staticmethod, the module for @functools.lru_cache.
+    // `B().list()` in cached() is a call on a call result: no ref.
+    EXPECT_EQ(db_->rows(kRefs, "resapp/sub/helpers.py"), (Rows{
+        "CALLS|resapp/sub/helpers.py::B::list|resapp/sub/helpers.py::B::list|list|list|7",
+        "CALLS|resapp/sub/helpers.py::B::list|resapp/sub/helpers.py::B::list|range|range|7",
+        "DECORATES|resapp/sub/helpers.py::B::build|resapp/sub/helpers.py::B|staticmethod|staticmethod|9",
+        "CALLS|resapp/sub/helpers.py::B::build|resapp/sub/helpers.py::B::build|B|B|11",
+        "DECORATES|resapp/sub/helpers.py::cached|resapp/sub/helpers.py|functools.lru_cache|functools.lru_cache|14",
+    }));
+}
+
+// ── resapp/sub/views.py: every import form ────────────────────────────────────
+
+TEST_F(Extraction, ViewsSymbolsAndScopes)
+{
+    const std::string f = "resapp/sub/views.py";
+    EXPECT_EQ(db_->rows(kSymbols, f), (Rows{
+        "resapp/sub/views.py::View|NULL|class|View|1|21|27",
+        "resapp/sub/views.py::View::get|resapp/sub/views.py::View|method|get|1|22|24",
+        "resapp/sub/views.py::View::render|resapp/sub/views.py::View|method|render|1|26|27",
+        "resapp/sub/views.py::index|NULL|function|index|1|16|18",
+        "resapp/sub/views.py::make_public|NULL|function|make_public|1|30|31",
+        "resapp/sub/views.py::route|NULL|function|route|1|9|12",
+        "resapp/sub/views.py::route::wrap|resapp/sub/views.py::route|function|wrap|1|10|11",
+    }));
+    EXPECT_EQ(db_->rows(kScopes, f), (Rows{
+        "resapp/sub/views.py|NULL|file|0|31",
+        "resapp/sub/views.py::View|resapp/sub/views.py|class|21|27",
+        "resapp/sub/views.py::View::get|resapp/sub/views.py::View|function|22|24",
+        "resapp/sub/views.py::View::render|resapp/sub/views.py::View|function|26|27",
+        "resapp/sub/views.py::index|resapp/sub/views.py|function|16|18",
+        "resapp/sub/views.py::make_public|resapp/sub/views.py|function|30|31",
+        "resapp/sub/views.py::route|resapp/sub/views.py|function|9|12",
+        "resapp/sub/views.py::route::wrap|resapp/sub/views.py::route|function|10|11",
+    }));
+}
+
+TEST_F(Extraction, ViewsBindings)
+{
+    //   from .. import util            -> util,    import_symbol("..", "util")
+    //   from ..models import B as C    -> C,       import_symbol("..models", "B")
+    //   from . import helpers          -> helpers, import_symbol(".", "helpers")
+    //   from ..util import *           -> "*3",    import_all("..util")
+    //   import resapp.sub.helpers      -> resapp,  import_module("resapp.sub.helpers")
+    //   import resapp.models as m      -> m,       import_module("resapp.models")
+    //   from resapp import PublicB     -> PublicB, import_symbol("resapp", "PublicB")
+    // and `from json import dumps` inside index() binds in index's scope.
+    EXPECT_EQ(db_->rows(kBindings, "resapp/sub/views.py"), (Rows{
+        "resapp/sub/views.py|*3|import_all|NULL|..util|NULL|3",
+        "resapp/sub/views.py|C|import_symbol|NULL|..models|B|1",
+        "resapp/sub/views.py|PublicB|import_symbol|NULL|resapp|PublicB|6",
+        "resapp/sub/views.py|View|def|resapp/sub/views.py::View|NULL|NULL|21",
+        "resapp/sub/views.py|helpers|import_symbol|NULL|.|helpers|2",
+        "resapp/sub/views.py|index|def|resapp/sub/views.py::index|NULL|NULL|16",
+        "resapp/sub/views.py|m|import_module|NULL|resapp.models|NULL|5",
+        "resapp/sub/views.py|make_public|def|resapp/sub/views.py::make_public|NULL|NULL|30",
+        "resapp/sub/views.py|resapp|import_module|NULL|resapp.sub.helpers|NULL|4",
+        "resapp/sub/views.py|route|def|resapp/sub/views.py::route|NULL|NULL|9",
+        "resapp/sub/views.py|util|import_symbol|NULL|..|util|0",
+        "resapp/sub/views.py::View|get|def|resapp/sub/views.py::View::get|NULL|NULL|22",
+        "resapp/sub/views.py::View|render|def|resapp/sub/views.py::View::render|NULL|NULL|26",
+        "resapp/sub/views.py::View::get|self|def|NULL|NULL|NULL|22",
+        "resapp/sub/views.py::View::render|self|def|NULL|NULL|NULL|26",
+        "resapp/sub/views.py::index|dumps|import_symbol|NULL|json|dumps|17",
+        "resapp/sub/views.py::route|path|def|NULL|NULL|NULL|9",
+        "resapp/sub/views.py::route|wrap|def|resapp/sub/views.py::route::wrap|NULL|NULL|10",
+        "resapp/sub/views.py::route::wrap|fn|def|NULL|NULL|NULL|10",
+    }));
+}
+
+TEST_F(Extraction, ViewsRefs)
+{
+    // Bases resolve from the module scope; `metaclass=type` is not a base.
+    // `super().get()` yields no ref. DECORATES refs start at the decorated
+    // definition and name the decorator (the link runs the other way).
+    EXPECT_EQ(db_->rows(kRefs, "resapp/sub/views.py"), (Rows{
+        "DECORATES|resapp/sub/views.py::index|resapp/sub/views.py|route|route|15",
+        "CALLS|resapp/sub/views.py::index|resapp/sub/views.py::index|dumps|dumps|18",
+        "CALLS|resapp/sub/views.py::index|resapp/sub/views.py::index|helper|helper|18",
+        "INHERITS|resapp/sub/views.py::View|resapp/sub/views.py|C|C|21",
+        "INHERITS|resapp/sub/views.py::View|resapp/sub/views.py|m.E|m.E|21",
+        "CALLS|resapp/sub/views.py::View::get|resapp/sub/views.py::View::get|util.helper|util.helper|24",
+        "CALLS|resapp/sub/views.py::View::render|resapp/sub/views.py::View::render|resapp.sub.helpers.cached|resapp.sub.helpers.cached|27",
+        "CALLS|resapp/sub/views.py::make_public|resapp/sub/views.py::make_public|PublicB|PublicB|31",
+    }));
+}
+
+// ── resapp/compat.py: a name bound more than once in one scope ───────────────
+
+TEST_F(Extraction, CompatKeepsEveryBinding)
+{
+    const std::string f = "resapp/compat.py";
+    EXPECT_EQ(db_->rows(kSymbols, f), (Rows{
+        "resapp/compat.py::a|NULL|variable|a|1|9|9",
+        "resapp/compat.py::helper|NULL|variable|helper|1|4|4",
+        "resapp/compat.py::use|NULL|function|use|1|12|13",
+    }));
+    EXPECT_EQ(db_->rows(kScopes, f), (Rows{
+        "resapp/compat.py|NULL|file|0|13",
+        "resapp/compat.py::use|resapp/compat.py|function|12|13",
+    }));
+    // No winner is picked:
+    //   try: from .util import helper / except ImportError: helper = None
+    //     -> both rows; the resolver prefers the one reaching a project symbol.
+    //   import xml.dom / import xml.sax -> `xml` twice, one per module_spec.
+    //   a = a = 1 -> the same name twice on one line is one row.
+    EXPECT_EQ(db_->rows(kBindings, f), (Rows{
+        "resapp/compat.py|a|def|resapp/compat.py::a|NULL|NULL|9",
+        "resapp/compat.py|helper|import_symbol|NULL|.util|helper|2",
+        "resapp/compat.py|helper|def|resapp/compat.py::helper|NULL|NULL|4",
+        "resapp/compat.py|use|def|resapp/compat.py::use|NULL|NULL|12",
+        "resapp/compat.py|xml|import_module|NULL|xml.dom|NULL|6",
+        "resapp/compat.py|xml|import_module|NULL|xml.sax|NULL|7",
+    }));
+    EXPECT_EQ(db_->rows(kRefs, f), (Rows{
+        "CALLS|resapp/compat.py::use|resapp/compat.py::use|helper|helper|13",
+    }));
+}
+
+// ── whole-scan invariants ─────────────────────────────────────────────────────
+
+TEST_F(Extraction, EmptyPackageInitHasOnlyItsFileScope)
+{
+    const std::string f = "resapp/sub/__init__.py";
+    EXPECT_EQ(db_->rows(kScopes, f), (Rows{"resapp/sub/__init__.py|NULL|file|0|0"}));
+    EXPECT_EQ(db_->rows(kSymbols, f), Rows{});
+    EXPECT_EQ(db_->rows(kBindings, f), Rows{});
+}
+
+TEST_F(Extraction, RefsAreIdentifierChainsAndPending)
+{
+    // Raw CALLS targets include `make()[0].run`; refs never do.
+    EXPECT_EQ(db_->count("SELECT COUNT(*) FROM link WHERE link_type = 'CALLS'"
+                         "   AND target_id LIKE '%(%';"), 3);
+    EXPECT_EQ(db_->count("SELECT COUNT(*) FROM ref"
+                         " WHERE name_path GLOB '*[^A-Za-z0-9_.]*';"), 0);
+    EXPECT_EQ(db_->count("SELECT COUNT(*) FROM ref"
+                         " WHERE status <> 'pending' OR resolved_id IS NOT NULL;"), 0);
+}
+
+TEST_F(Extraction, EveryClassAndFunctionHasASymbol)
+{
+    EXPECT_EQ(db_->count("SELECT COUNT(*) FROM class"
+                         " WHERE class_id NOT IN (SELECT symbol_id FROM symbol WHERE kind = 'class');"), 0);
+    EXPECT_EQ(db_->count("SELECT COUNT(*) FROM function"
+                         " WHERE function_id NOT IN (SELECT symbol_id FROM symbol"
+                         "                           WHERE kind IN ('function', 'method'));"), 0);
+    EXPECT_EQ(db_->count("SELECT COUNT(*) FROM import_resolution;"), 0);
+}
+
+// ── DbUpdater ─────────────────────────────────────────────────────────────────
+// The per-file delete reaches the new tables through ON DELETE CASCADE on
+// file_id, and updateFile writes them back.
+
+TEST(ExtractionUpdate, DeleteAndUpdateFileRoundTrip)
+{
+    ScannedDb db("update");
+    db.scan();
+    const std::string f = "resapp/util.py";
+    const char* kCounts =
+        "SELECT (SELECT COUNT(*) FROM symbol  WHERE file_id = ?1)"
+        "  || ',' || (SELECT COUNT(*) FROM scope   WHERE file_id = ?1)"
+        "  || ',' || (SELECT COUNT(*) FROM binding WHERE file_id = ?1)"
+        "  || ',' || (SELECT COUNT(*) FROM ref     WHERE file_id = ?1);";
+    const Rows before = db.rows(kCounts, f);
+    ASSERT_EQ(before, (Rows{"7,5,10,2"}));
+
+    ASSERT_EQ(DbUpdater::deleteFile(db.path().c_str(), f), SQLITE_OK);
+    db.open();
+    EXPECT_EQ(db.rows(kCounts, f), (Rows{"0,0,0,0"}));
+    // Other files keep theirs.
+    EXPECT_EQ(db.count("SELECT COUNT(*) FROM symbol WHERE file_id = 'resapp/models.py';"), 6);
+
+    PythonParser parser;
+    const ParseResult r = parser.parseFile(
+        (fs::path(TS_RESOLUTION_FIXTURE) / f).string(), TS_RESOLUTION_FIXTURE);
+    ASSERT_EQ(DbUpdater::updateFile(db.path().c_str(), r), SQLITE_OK);
+    // updateFile on a file that is already there replaces rather than duplicates.
+    ASSERT_EQ(DbUpdater::updateFile(db.path().c_str(), r), SQLITE_OK);
+    db.open();
+    EXPECT_EQ(db.rows(kCounts, f), before);
+}
+
+// ── Schema upgrade ────────────────────────────────────────────────────────────
+
+TEST(ExtractionSchema, VersionOneDatabaseIsUpgradedInPlace)
+{
+    ScannedDb db("v1");
+    {
+        sqlite3* raw = nullptr;
+        ASSERT_EQ(sqlite3_open(db.path().c_str(), &raw), SQLITE_OK);
+        // The version-1 file table: no module_name, no language default.
+        ASSERT_EQ(sqlite3_exec(raw,
+            "CREATE TABLE file (file_id TEXT PRIMARY KEY, file_name TEXT NOT NULL,"
+            " language TEXT NOT NULL, raw_loc INTEGER NOT NULL);"
+            "INSERT INTO file(file_id, file_name, language, raw_loc) VALUES('a.py', 'a.py', 'python', 3);",
+            nullptr, nullptr, nullptr), SQLITE_OK);
+        sqlite3_close(raw);
+    }
+
+    sqlite3* conn = nullptr;
+    ASSERT_EQ(initDb(db.path().c_str(), &conn), SQLITE_OK);
+    sqlite3_close(conn);
+
+    db.open();
+    EXPECT_EQ(db.count("PRAGMA user_version;"), 2);
+    EXPECT_EQ(db.rows("SELECT file_id, module_name FROM file;"), (Rows{"a.py|NULL"}));
+    EXPECT_EQ(db.rows("SELECT name FROM sqlite_master WHERE type = 'table'"
+                      "   AND name IN ('symbol', 'scope', 'binding', 'import_resolution', 'ref')"
+                      " ORDER BY name;"),
+              (Rows{"binding", "import_resolution", "ref", "scope", "symbol"}));
+}

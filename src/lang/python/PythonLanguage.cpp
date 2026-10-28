@@ -182,3 +182,15 @@ bool PythonLanguage::isBuiltin(const std::string& name) const
     };
     return kBuiltins.count(name) != 0;
 }
+
+std::vector<std::string> PythonLanguage::parentScopes(
+    const std::vector<LexicalScope>& chain) const
+{
+    std::vector<std::string> out;
+    for (size_t i = 1; i < chain.size(); ++i) {
+        if (chain[i].kind == "class") continue;
+        out.push_back(chain[i].id);
+    }
+    out.push_back(kBuiltinScope);
+    return out;
+}

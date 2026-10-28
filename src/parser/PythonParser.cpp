@@ -57,8 +57,15 @@ struct TraversalContext {
     struct Frame {
         std::string id;   // class_id or function_id
         std::string kind; // "class" or "function"
+        // Names this scope declares `global` / `nonlocal`: assigning them binds
+        // in another scope, so they get no binding here.
+        std::set<std::string> declared;
     };
     std::vector<Frame> scopeStack;
+
+    // (scope_id, local_name, line) already bound -- binding's PK. A name bound
+    // twice on one line (`a = a = 1`) keeps its first row.
+    std::set<std::string> bindingKeys;
 
     int nestingDepth() const {
         return (int)scopeStack.size();
@@ -176,6 +183,159 @@ static void computeMaxBlockDepthClauses(TSNode node, int startDepth, int& maxDep
     }
 }
 
+// ── name-resolution extraction helpers ──────────────────────────────────────
+
+static int nodeLine(TSNode node) {
+    return (int)ts_node_start_point(node).row;
+}
+
+// `foo`, `a.b.c`, `self.run` -> the dotted chain; anything else (a call result,
+// a subscript, a parenthesised expression anywhere in the chain) -> false.
+// Built from the identifiers rather than the node text so that `a . b` and a
+// chain broken over lines still normalise to "a.b".
+static bool identifierChain(TSNode node, const std::string& src, std::string& out) {
+    std::string type = nodeType(node);
+    if (type == "identifier") {
+        out = nodeText(node, src);
+        return !out.empty();
+    }
+    if (type == "attribute") {
+        TSNode obj  = childByFieldName(node, "object");
+        TSNode attr = childByFieldName(node, "attribute");
+        if (nodeIsNull(obj) || nodeIsNull(attr)) return false;
+        std::string head;
+        if (!identifierChain(obj, src, head)) return false;
+        out = head + "." + nodeText(attr, src);
+        return true;
+    }
+    return false;
+}
+
+static void addRef(ParseResult& result, const std::string& fileId,
+                   const std::string& sourceId, const std::string& scopeId,
+                   const char* kind, TSNode exprNode, const std::string& src) {
+    std::string path;
+    if (!identifierChain(exprNode, src, path)) return;
+    RefEntity r;
+    r.file_id   = fileId;
+    r.source_id = sourceId;
+    r.scope_id  = scopeId;
+    r.kind      = kind;
+    r.name_path = path;
+    r.raw_text  = nodeText(exprNode, src);
+    r.line      = nodeLine(exprNode);
+    result.refs.push_back(std::move(r));
+}
+
+static void addSymbol(TraversalContext& ctx, const std::string& id,
+                      const char* kind, const std::string& name,
+                      int startLine, int endLine) {
+    SymbolEntity se;
+    se.symbol_id  = id;
+    se.file_id    = ctx.fileId;
+    se.parent_id  = ctx.scopeStack.empty() ? std::string() : ctx.scopeStack.back().id;
+    se.kind       = kind;
+    se.name       = name;
+    se.start_line = startLine;
+    se.end_line   = endLine;
+    ctx.result.symbols.push_back(std::move(se));
+}
+
+static void addScope(TraversalContext& ctx, const std::string& id, const char* kind,
+                     int startLine, int endLine) {
+    ScopeEntity sc;
+    sc.scope_id        = id;
+    sc.file_id         = ctx.fileId;
+    sc.parent_scope_id = ctx.parentId();  // called before the frame is pushed
+    sc.kind            = kind;
+    sc.owner_id        = id;
+    sc.start_line      = startLine;
+    sc.end_line        = endLine;
+    ctx.result.scopes.push_back(std::move(sc));
+}
+
+// Bind `name` in the current scope.
+// Every binding is kept, in source order: `try: from .util import helper /
+// except ImportError: helper = None` gives `helper` two rows, and so does
+// `import a.b` followed by `import a.c` for `a`. No winner is picked here -- the
+// resolver prefers the binding that resolves to a project symbol and marks
+// that choice confidence = 'heuristic'. Only a repeat on the same line (same
+// PK) is dropped, keeping the first.
+static void addBinding(TraversalContext& ctx, const std::string& name,
+                       const char* kind, const std::string& targetId, int line,
+                       const std::string& moduleSpec = "",
+                       const std::string& importedName = "") {
+    if (name.empty()) return;
+    if (!ctx.scopeStack.empty() && ctx.scopeStack.back().declared.count(name)) return;
+
+    BindingEntity b;
+    b.scope_id      = ctx.parentId();
+    b.local_name    = name;
+    b.kind          = kind;
+    b.file_id       = ctx.fileId;
+    b.target_id     = targetId;
+    b.module_spec   = moduleSpec;
+    b.imported_name = importedName;
+    b.line          = line;
+
+    std::string key = b.scope_id + '\n' + name + '\n' + std::to_string(line);
+    if (ctx.bindingKeys.insert(std::move(key)).second)
+        ctx.result.bindings.push_back(std::move(b));
+}
+
+// Bind every name an assignment target introduces: `x`, `a, (b, *c)`, `[d, e]`.
+// Attribute and subscript targets (`self.x`, `d[k]`) bind nothing. At module
+// level each name is also a `variable` symbol, which the binding points at; in
+// a function or class body it is a plain local with no symbol row.
+static void bindTargets(TSNode node, TraversalContext& ctx) {
+    if (nodeIsNull(node)) return;
+    std::string type = nodeType(node);
+    if (type == "identifier") {
+        std::string name = nodeText(node, ctx.src);
+        int line = nodeLine(node);
+        if (ctx.scopeStack.empty()) {
+            std::string id = ctx.fileId + "::" + name;
+            addSymbol(ctx, id, "variable", name, line, line);
+            addBinding(ctx, name, "def", id, line);
+        } else {
+            addBinding(ctx, name, "def", "", line);
+        }
+        return;
+    }
+    if (type == "pattern_list" || type == "tuple_pattern" || type == "list_pattern" ||
+        type == "tuple" || type == "list" || type == "expression_list" ||
+        type == "parenthesized_expression" || type == "list_splat_pattern" ||
+        type == "list_splat" || type == "as_pattern_target") {
+        uint32_t n = ts_node_child_count(node);
+        for (uint32_t i = 0; i < n; ++i) {
+            TSNode c = ts_node_child(node, i);
+            if (ts_node_is_named(c)) bindTargets(c, ctx);
+        }
+    }
+}
+
+// Names a function or class body declares global/nonlocal. Python applies the
+// declaration to the whole block wherever it appears, so it is collected
+// before the body is walked. Nested definitions have their own blocks.
+static void collectDeclared(TSNode node, const std::string& src,
+                            std::set<std::string>& out) {
+    if (nodeIsNull(node)) return;
+    std::string type = nodeType(node);
+    if (type == "function_definition" || type == "class_definition" || type == "lambda")
+        return;
+    if (type == "global_statement" || type == "nonlocal_statement") {
+        uint32_t n = ts_node_child_count(node);
+        for (uint32_t i = 0; i < n; ++i) {
+            TSNode c = ts_node_child(node, i);
+            if (nodeType(c) == "identifier") out.insert(nodeText(c, src));
+        }
+        return;
+    }
+    uint32_t n = ts_node_child_count(node);
+    for (uint32_t i = 0; i < n; ++i)
+        collectDeclared(ts_node_child(node, i), src, out);
+}
+
 // 전방 선언
 static void traverseNode(TSNode node, TraversalContext& ctx);
 static void handleClassDef(TSNode node, TraversalContext& ctx);
@@ -184,8 +344,10 @@ static void handleImport(TSNode node, TraversalContext& ctx);
 static void handleImportFrom(TSNode node, TraversalContext& ctx);
 static void handleDecoratedDef(TSNode node, TraversalContext& ctx);
 static void collectCalls(TSNode node, const std::string& funcId,
+                         const std::string& scopeId, const std::string& fileId,
                          const std::string& src, ParseResult& result);
 static void collectFields(TSNode node, const std::string& classId,
+                          const std::string& fileId,
                           const std::string& src, ParseResult& result);
 
 // traversal 
@@ -229,6 +391,25 @@ static void traverseNode(TSNode node, TraversalContext& ctx) {
         return; // decorated_definition recurses internally
     }
 
+    // Name bindings. Comprehension variables (for_in_clause) are local to the
+    // comprehension and bind nothing here; a walrus inside one binds in the
+    // enclosing scope, which is what visiting named_expression anywhere gives.
+    if (type == "lambda") {
+        return; // its own scope; holds no definitions or imports
+    }
+    if (type == "assignment" || type == "augmented_assignment" || type == "for_statement") {
+        bindTargets(childByFieldName(node, "left"), ctx);
+    } else if (type == "as_pattern") {
+        // with ... as x / except E as x / case ... as x
+        bindTargets(childByFieldName(node, "alias"), ctx);
+    } else if (type == "named_expression") {
+        bindTargets(childByFieldName(node, "name"), ctx);
+    } else if (type == "type_alias_statement") {
+        TSNode left = childByFieldName(node, "left");
+        if (!nodeIsNull(left) && ts_node_named_child_count(left) > 0)
+            bindTargets(ts_node_named_child(left, 0), ctx);
+    }
+
     // Default: recurse into children
     uint32_t count = ts_node_child_count(node);
     for (uint32_t i = 0; i < count; ++i) {
@@ -256,6 +437,12 @@ static void handleClassDef(TSNode node, TraversalContext& ctx) {
     ce.start_line = startLine;
     ce.end_line   = endLine;
     ctx.result.classes.push_back(ce);
+
+    addSymbol(ctx, classId, "class", className, startLine, endLine);
+    addBinding(ctx, className, "def", classId, startLine);
+    addScope(ctx, classId, "class", startLine, endLine);
+    // Bases are evaluated in the scope enclosing the class statement.
+    const std::string outerScope = ctx.parentId();
 
     // INHERITS link + base_class entities
     TSNode superclassesNode = childByFieldName(node, "superclasses");
@@ -291,12 +478,15 @@ static void handleClassDef(TSNode node, TraversalContext& ctx) {
             link.target_id  = baseText;
             link.link_type  = "INHERITS";
             ctx.result.links.push_back(link);
+
+            addRef(ctx.result, ctx.fileId, classId, outerScope, "INHERITS", arg, ctx.src);
         }
     }
 
     // Recurse into class body with class on scope stack
-    ctx.scopeStack.push_back({classId, "class"});
     TSNode bodyNode = childByFieldName(node, "body");
+    ctx.scopeStack.push_back({classId, "class", {}});
+    collectDeclared(bodyNode, ctx.src, ctx.scopeStack.back().declared);
     if (!nodeIsNull(bodyNode)) {
         uint32_t count = ts_node_child_count(bodyNode);
         for (uint32_t i = 0; i < count; ++i) {
@@ -343,6 +533,17 @@ static void handleFunctionDef(TSNode node, TraversalContext& ctx, bool isAsync) 
     else
         fe.file_id = ctx.fileId;
     ctx.result.functions.push_back(fe);
+
+    const bool isMethod = ctx.parentIsClass();
+    addSymbol(ctx, funcId, isMethod ? "method" : "function", funcName, startLine, endLine);
+    addBinding(ctx, funcName, "def", funcId, startLine);
+    addScope(ctx, funcId, "function", startLine, endLine);
+
+    // Parameters bind in the function's own scope; push it now so they land
+    // there. Declarations are collected first so they are known before any
+    // binding in the body.
+    ctx.scopeStack.push_back({funcId, "function", {}});
+    collectDeclared(bodyNode, ctx.src, ctx.scopeStack.back().declared);
 
     // Parameters
     TSNode paramsNode = childByFieldName(node, "parameters");
@@ -394,19 +595,20 @@ static void handleFunctionDef(TSNode node, TraversalContext& ctx, bool isAsync) 
             pe.param_name  = paramName;
             pe.ordinal     = ordinal++;
             ctx.result.params.push_back(pe);
+
+            addBinding(ctx, paramName, "def", "", nodeLine(param));
         }
     }
 
     // Collect CALLS from the function body (bodyNode already fetched above)
     if (!nodeIsNull(bodyNode)) {
-        collectCalls(bodyNode, funcId, ctx.src, ctx.result);
+        collectCalls(bodyNode, funcId, funcId, ctx.fileId, ctx.src, ctx.result);
         // Collect self.attr assignments — only meaningful inside methods
-        if (ctx.parentIsClass())
-            collectFields(bodyNode, ctx.parentId(), ctx.src, ctx.result);
+        if (isMethod)
+            collectFields(bodyNode, parentId, ctx.fileId, ctx.src, ctx.result);
     }
 
     // Recurse into function body for nested definitions
-    ctx.scopeStack.push_back({funcId, "function"});
     if (!nodeIsNull(bodyNode)) {
         uint32_t count = ts_node_child_count(bodyNode);
         for (uint32_t i = 0; i < count; ++i) {
@@ -426,11 +628,14 @@ static void handleImport(TSNode node, TraversalContext& ctx) {
         if (nodeIsNull(child)) continue;
         std::string ctype = nodeType(child);
         std::string modName;
+        std::string alias;
         if (ctype == "dotted_name") {
             modName = nodeText(child, ctx.src);
         } else if (ctype == "aliased_import") {
             TSNode nameNode = childByFieldName(child, "name");
             if (!nodeIsNull(nameNode)) modName = nodeText(nameNode, ctx.src);
+            TSNode aliasNode = childByFieldName(child, "alias");
+            if (!nodeIsNull(aliasNode)) alias = nodeText(aliasNode, ctx.src);
         }
         if (!modName.empty()) {
             LinkEntity link;
@@ -438,6 +643,11 @@ static void handleImport(TSNode node, TraversalContext& ctx) {
             link.target_id = modName;
             link.link_type = "IMPORTS";
             ctx.result.links.push_back(link);
+
+            // `import a.b.c` binds the top-level package `a`; `import a.b as x`
+            // binds `x` to a.b itself. module_spec is the full dotted name either way.
+            std::string local = alias.empty() ? modName.substr(0, modName.find('.')) : alias;
+            addBinding(ctx, local, "import_module", "", nodeLine(child), modName);
         }
     }
 }
@@ -455,6 +665,33 @@ static void handleImportFrom(TSNode node, TraversalContext& ctx) {
             link.target_id = modName;
             link.link_type = "IMPORTS";
             ctx.result.links.push_back(link);
+
+            // module_spec stays verbatim (".", "..pkg") for resolveModule.
+            uint32_t count = ts_node_child_count(node);
+            for (uint32_t i = 0; i < count; ++i) {
+                TSNode child = ts_node_child(node, i);
+                std::string ctype = nodeType(child);
+                if (ctype == "wildcard_import") {
+                    // One per statement, so the line keeps several apart in one scope.
+                    int line = nodeLine(child);
+                    addBinding(ctx, "*" + std::to_string(line), "import_all", "", line, modName);
+                    continue;
+                }
+                const char* field = ts_node_field_name_for_child(node, i);
+                if (!field || std::strcmp(field, "name") != 0) continue;
+                std::string name;
+                std::string local;
+                if (ctype == "dotted_name") {
+                    name = local = nodeText(child, ctx.src);
+                } else if (ctype == "aliased_import") {
+                    TSNode nameNode  = childByFieldName(child, "name");
+                    TSNode aliasNode = childByFieldName(child, "alias");
+                    if (nodeIsNull(nameNode) || nodeIsNull(aliasNode)) continue;
+                    name  = nodeText(nameNode, ctx.src);
+                    local = nodeText(aliasNode, ctx.src);
+                }
+                addBinding(ctx, local, "import_symbol", "", nodeLine(child), modName, name);
+            }
         }
     }
 }
@@ -464,6 +701,7 @@ static void handleImportFrom(TSNode node, TraversalContext& ctx) {
 static void handleDecoratedDef(TSNode node, TraversalContext& ctx) {
     // Collect decorator names first
     std::vector<std::string> decoratorNames;
+    std::vector<TSNode> decoratorExprs;  // callee chain of each decorator, for refs
     uint32_t count = ts_node_child_count(node);
     for (uint32_t i = 0; i < count; ++i) {
         TSNode child = ts_node_child(node, i);
@@ -479,17 +717,25 @@ static void handleDecoratedDef(TSNode node, TraversalContext& ctx) {
                 std::string dtype = nodeType(dc_node);
                 if (dtype == "identifier" || dtype == "dotted_name") {
                     decoratorNames.push_back(nodeText(dc_node, ctx.src));
+                    decoratorExprs.push_back(dc_node);
                     break;
                 } else if (dtype == "call") {
                     TSNode callFunc = childByFieldName(dc_node, "function");
                     if (!nodeIsNull(callFunc)) {
                         decoratorNames.push_back(nodeText(callFunc, ctx.src));
+                        decoratorExprs.push_back(callFunc);
                     }
+                    break;
+                } else if (dtype == "attribute") {
+                    // `@pkg.deco` -- no DECORATES link today, but still a ref.
+                    decoratorExprs.push_back(dc_node);
                     break;
                 }
             }
         }
     }
+    // Decorators are evaluated in the scope enclosing the definition.
+    const std::string outerScope = ctx.parentId();
 
     // Now process the inner definition (function or class) to get its ID
     // We process it normally first, then create DECORATES links
@@ -535,6 +781,11 @@ static void handleDecoratedDef(TSNode node, TraversalContext& ctx) {
             link.link_type = "DECORATES";
             ctx.result.links.push_back(link);
         }
+        // The DECORATES link runs decorator -> decorated, but a ref's source is
+        // where the name occurs, so here source_id is the decorated entity and
+        // name_path the decorator. The resolver writes the link reversed.
+        for (TSNode expr : decoratorExprs)
+            addRef(ctx.result, ctx.fileId, decoratedId, outerScope, "DECORATES", expr, ctx.src);
     }
 }
 
@@ -554,6 +805,7 @@ static char fieldAccess(const std::string& name)
 }
 
 static void collectFields(TSNode node, const std::string& classId,
+                          const std::string& fileId,
                           const std::string& src, ParseResult& result)
 {
     if (nodeIsNull(node)) return;
@@ -576,6 +828,15 @@ static void collectFields(TSNode node, const std::string& classId,
                     fe.field_name = fname;
                     fe.access    = access;
                     result.fields.push_back(std::move(fe));
+
+                    SymbolEntity se;
+                    se.symbol_id  = classId + "::" + fname;
+                    se.file_id    = fileId;
+                    se.parent_id  = classId;
+                    se.kind       = "field";
+                    se.name       = fname;
+                    se.start_line = se.end_line = nodeLine(left);
+                    result.symbols.push_back(std::move(se));
                 }
             }
         }
@@ -583,20 +844,39 @@ static void collectFields(TSNode node, const std::string& classId,
 
     uint32_t count = ts_node_child_count(node);
     for (uint32_t i = 0; i < count; ++i)
-        collectFields(ts_node_child(node, i), classId, src, result);
+        collectFields(ts_node_child(node, i), classId, fileId, src, result);
 }
 
 //  collectCalls 
 // Recursively traverse bodyNode looking for `call` nodes, but do NOT descend
 // into nested function_definition nodes (those calls belong to inner funcs).
 
+// scopeId is the innermost scope the call sits in: funcId itself, or a class
+// defined inside the function (whose body is its own scope, though its calls
+// still belong to funcId).
+
 static void collectCalls(TSNode node, const std::string& funcId,
+                         const std::string& scopeId, const std::string& fileId,
                          const std::string& src, ParseResult& result) {
     if (nodeIsNull(node)) return;
     std::string type = nodeType(node);
 
     // Don't descend into nested function definitions — their calls are theirs
     if (type == "function_definition") return;
+
+    if (type == "class_definition") {
+        TSNode nameNode = childByFieldName(node, "name");
+        const std::string classScope = nodeIsNull(nameNode)
+            ? scopeId : fileId + "::" + nodeText(nameNode, src);
+        uint32_t count = ts_node_child_count(node);
+        for (uint32_t i = 0; i < count; ++i) {
+            const char* field = ts_node_field_name_for_child(node, i);
+            const bool inBody = field && std::strcmp(field, "body") == 0;
+            collectCalls(ts_node_child(node, i), funcId, inBody ? classScope : scopeId,
+                         fileId, src, result);
+        }
+        return;
+    }
 
     if (type == "call") {
         TSNode funcNode = childByFieldName(node, "function");
@@ -614,19 +894,23 @@ static void collectCalls(TSNode node, const std::string& funcId,
                 link.target_id = calleeName;
                 link.link_type = "CALLS";
                 result.links.push_back(link);
+
+                // Only identifier chains become refs; `super().x`, `d[k].f`
+                // and the like have no name to look up.
+                addRef(result, fileId, funcId, scopeId, "CALLS", funcNode, src);
             }
         }
         // Still recurse into arguments (there may be nested calls)
         TSNode argsNode = childByFieldName(node, "arguments");
         if (!nodeIsNull(argsNode)) {
-            collectCalls(argsNode, funcId, src, result);
+            collectCalls(argsNode, funcId, scopeId, fileId, src, result);
         }
         return;
     }
 
     uint32_t count = ts_node_child_count(node);
     for (uint32_t i = 0; i < count; ++i) {
-        collectCalls(ts_node_child(node, i), funcId, src, result);
+        collectCalls(ts_node_child(node, i), funcId, scopeId, fileId, src, result);
     }
 }
 
@@ -733,6 +1017,114 @@ static void resolveCrossFileCallTargets(
     }
 }
 
+// ── per-file finishing for name resolution ───────────────────────────────────
+
+// "pkg/a/b.py" -> "pkg.a.b", "pkg/__init__.py" -> "pkg", "__init__.py" -> "".
+// Informational only: it ignores package roots (src/ layouts), which the parser
+// cannot see from one file; resolution goes through ILanguage::resolveModule.
+static std::string moduleNameOf(const std::string& fileId) {
+    std::string s = fileId;
+    if (s.size() > 3 && s.compare(s.size() - 3, 3, ".py") == 0) s.erase(s.size() - 3);
+    if (s == "__init__") return "";
+    const std::string initSuffix = "/__init__";
+    if (s.size() > initSuffix.size() &&
+        s.compare(s.size() - initSuffix.size(), initSuffix.size(), initSuffix) == 0)
+        s.erase(s.size() - initSuffix.size());
+    std::replace(s.begin(), s.end(), '/', '.');
+    return s;
+}
+
+// True if the module assigns `__all__` exactly once at top level, to a list or
+// tuple of plain string literals; `out` then holds the names. Anything else
+// (no __all__, `__all__ += ...`, a computed value) returns false, and every
+// symbol stays exported.
+static bool literalDunderAll(TSNode root, const std::string& src,
+                             std::set<std::string>& out) {
+    int assignments = 0;
+    bool literal = false;
+    uint32_t n = ts_node_child_count(root);
+    for (uint32_t i = 0; i < n; ++i) {
+        TSNode stmt = ts_node_child(root, i);
+        if (nodeType(stmt) != "expression_statement" || ts_node_named_child_count(stmt) == 0)
+            continue;
+        TSNode expr = ts_node_named_child(stmt, 0);
+        std::string etype = nodeType(expr);
+        if (etype != "assignment" && etype != "augmented_assignment") continue;
+        TSNode left = childByFieldName(expr, "left");
+        if (nodeType(left) != "identifier" || nodeText(left, src) != "__all__") continue;
+
+        ++assignments;
+        literal = false;
+        TSNode right = childByFieldName(expr, "right");
+        std::string rtype = nodeType(right);
+        if (etype != "assignment" || (rtype != "list" && rtype != "tuple")) continue;
+
+        literal = true;
+        out.clear();
+        uint32_t m = ts_node_named_child_count(right);
+        for (uint32_t j = 0; j < m && literal; ++j) {
+            TSNode str = ts_node_named_child(right, j);
+            if (nodeType(str) != "string") { literal = false; break; }
+            // string_start, string_content, string_end -- nothing else (no f-string
+            // interpolation, no implicit concatenation).
+            std::string content;
+            uint32_t k = ts_node_named_child_count(str);
+            for (uint32_t c = 0; c < k; ++c) {
+                TSNode part = ts_node_named_child(str, c);
+                std::string ptype = nodeType(part);
+                if (ptype == "string_content") content = nodeText(part, src);
+                else if (ptype != "string_start" && ptype != "string_end") literal = false;
+            }
+            if (literal) out.insert(content);
+        }
+    }
+    return assignments == 1 && literal;
+}
+
+// Give every symbol_id one row. Ids repeat when a name is defined twice (an
+// if/else pair of defs, a property getter and setter, `def f` followed by
+// `f = wrap(f)`, `self.x` assigned in several methods). A class/function/method
+// definition wins over a field or variable of the same id, and among
+// definitions the last one wins, as it does in the class and function tables
+// (INSERT OR REPLACE). Same for scopes. Then apply __all__ to module-level symbols.
+static void finalizeSymbols(ParseResult& result, const std::set<std::string>* exports) {
+    auto isDef = [](const std::string& kind) {
+        return kind == "class" || kind == "function" || kind == "method";
+    };
+
+    std::unordered_map<std::string, size_t> index;
+    std::vector<SymbolEntity> unique;
+    unique.reserve(result.symbols.size());
+    for (auto& sym : result.symbols) {
+        auto it = index.find(sym.symbol_id);
+        if (it == index.end()) {
+            index.emplace(sym.symbol_id, unique.size());
+            unique.push_back(std::move(sym));
+        } else if (isDef(sym.kind)) {
+            unique[it->second] = std::move(sym);
+        }
+    }
+    if (exports) {
+        for (auto& sym : unique)
+            if (sym.parent_id.empty() && !exports->count(sym.name)) sym.is_exported = 0;
+    }
+    result.symbols = std::move(unique);
+
+    std::unordered_map<std::string, size_t> scopeIndex;
+    std::vector<ScopeEntity> scopes;
+    scopes.reserve(result.scopes.size());
+    for (auto& sc : result.scopes) {
+        auto it = scopeIndex.find(sc.scope_id);
+        if (it == scopeIndex.end()) {
+            scopeIndex.emplace(sc.scope_id, scopes.size());
+            scopes.push_back(std::move(sc));
+        } else {
+            scopes[it->second] = std::move(sc);
+        }
+    }
+    result.scopes = std::move(scopes);
+}
+
 // ─── PythonParser ─────────────────────────────────────────────────────────────
 
 struct TsParserDeleter {
@@ -832,6 +1224,7 @@ ParseResult PythonParser::parseFile(const std::string& filePath,
     result.file.file_id     = fileId;
     result.file.file_name   = absPath.filename().string();
     result.file.language    = "python";
+    result.file.module_name = moduleNameOf(fileId);
     result.file.raw_loc     = loc;
     result.file.logical_loc = logical_loc;
     result.file.is_generated = is_generated;
@@ -850,12 +1243,30 @@ ParseResult PythonParser::parseFile(const std::string& filePath,
     // 결과를 누적할 result
     // 현재 스코프(class 안인지, function 안인지)를 추적할 상태(scopeStack) 
     TraversalContext ctx{src, fileId, result, {}};
+
+    // The file scope; its id is the file_id.
+    {
+        ScopeEntity sc;
+        sc.scope_id   = fileId;
+        sc.file_id    = fileId;
+        sc.kind       = "file";
+        sc.owner_id   = fileId;
+        sc.start_line = 0;
+        sc.end_line   = loc > 0 ? loc - 1 : 0;
+        result.scopes.push_back(std::move(sc));
+    }
+
     uint32_t count = ts_node_child_count(root);
     for (uint32_t i = 0; i < count; ++i) {
         traverseNode(ts_node_child(root, i), ctx);
     }
 
+    std::set<std::string> exports;
+    const bool hasAll = literalDunderAll(root, src, exports);
+
     ts_tree_delete(tree);
+
+    finalizeSymbols(result, hasAll ? &exports : nullptr);
 
     resolveCallTargets(result);
 

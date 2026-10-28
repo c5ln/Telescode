@@ -230,6 +230,21 @@ if(TS_LANG_TEST_SRC)
     add_test(NAME LangTests COMMAND LangTests)
 endif()
 
+ts_test_sources(TS_PARSER_TEST_SRC
+    tests/parser/test_python_extraction.cpp
+)
+if(TS_PARSER_TEST_SRC)
+    add_executable(ParserTests ${TS_PARSER_TEST_SRC})
+    target_link_libraries(ParserTests PRIVATE telescode_core GTest::gtest_main)
+    # Scanned as-is by the tests; also the resolver's fixture.
+    target_compile_definitions(ParserTests PRIVATE
+        TS_RESOLUTION_FIXTURE="${CMAKE_SOURCE_DIR}/tests/fixtures/resolution")
+    if(MSVC)
+        target_compile_options(ParserTests PRIVATE /utf-8)
+    endif()
+    add_test(NAME ParserTests COMMAND ParserTests)
+endif()
+
 ts_test_sources(TS_LAYOUT_TEST_SRC
     tests/ui/test_cd_layout.cpp
     src/core/diagram/cd_layout.cpp

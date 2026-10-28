@@ -13,6 +13,10 @@ DbInserter::DbInserter(sqlite3* db)
     , stmtParam_(nullptr)
     , stmtLink_(nullptr)
     , stmtField_(nullptr)
+    , stmtSymbol_(nullptr)
+    , stmtScope_(nullptr)
+    , stmtBinding_(nullptr)
+    , stmtRef_(nullptr)
 {}
 
 DbInserter::~DbInserter()
@@ -27,7 +31,7 @@ int DbInserter::prepareStatements()
     int rc;
 
     rc = sqlite3_prepare_v2(db_,
-        "INSERT OR REPLACE INTO file(file_id, file_name, language, raw_loc, logical_loc, is_generated, max_cyclomatic_complexity, avg_cyclomatic_complexity, max_block_depth, avg_block_depth, max_function_loc, avg_function_loc) VALUES(?,?,?,?,?,?,?,?,?,?,?,?);",
+        "INSERT OR REPLACE INTO file(file_id, file_name, language, raw_loc, logical_loc, is_generated, max_cyclomatic_complexity, avg_cyclomatic_complexity, max_block_depth, avg_block_depth, max_function_loc, avg_function_loc, module_name) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?);",
         -1, &stmtFile_, nullptr);
     if (rc != SQLITE_OK) return rc;
 
@@ -61,6 +65,27 @@ int DbInserter::prepareStatements()
         -1, &stmtField_, nullptr);
     if (rc != SQLITE_OK) return rc;
 
+    rc = sqlite3_prepare_v2(db_,
+        "INSERT OR REPLACE INTO symbol(symbol_id, file_id, parent_id, kind, name, namespace, is_exported, start_line, end_line) VALUES(?,?,?,?,?,?,?,?,?);",
+        -1, &stmtSymbol_, nullptr);
+    if (rc != SQLITE_OK) return rc;
+
+    rc = sqlite3_prepare_v2(db_,
+        "INSERT OR REPLACE INTO scope(scope_id, file_id, parent_scope_id, kind, owner_id, start_line, end_line) VALUES(?,?,?,?,?,?,?);",
+        -1, &stmtScope_, nullptr);
+    if (rc != SQLITE_OK) return rc;
+
+    rc = sqlite3_prepare_v2(db_,
+        "INSERT OR REPLACE INTO binding(scope_id, local_name, namespace, kind, file_id, target_id, module_spec, imported_name, line) VALUES(?,?,?,?,?,?,?,?,?);",
+        -1, &stmtBinding_, nullptr);
+    if (rc != SQLITE_OK) return rc;
+
+    // OR IGNORE: the same callee twice on one line is one ref (UNIQUE key).
+    rc = sqlite3_prepare_v2(db_,
+        "INSERT OR IGNORE INTO ref(file_id, source_id, scope_id, kind, namespace, name_path, raw_text, line) VALUES(?,?,?,?,?,?,?,?);",
+        -1, &stmtRef_, nullptr);
+    if (rc != SQLITE_OK) return rc;
+
     return SQLITE_OK;
 }
 
@@ -73,9 +98,22 @@ void DbInserter::finalizeStatements()
     sqlite3_finalize(stmtParam_);     stmtParam_     = nullptr;
     sqlite3_finalize(stmtLink_);      stmtLink_      = nullptr;
     sqlite3_finalize(stmtField_);     stmtField_     = nullptr;
+    sqlite3_finalize(stmtSymbol_);    stmtSymbol_    = nullptr;
+    sqlite3_finalize(stmtScope_);     stmtScope_     = nullptr;
+    sqlite3_finalize(stmtBinding_);   stmtBinding_   = nullptr;
+    sqlite3_finalize(stmtRef_);       stmtRef_       = nullptr;
 }
 
 // ── Insert helpers ────────────────────────────────────────────────────────────
+
+// Empty string -> SQL NULL, for optional TEXT columns.
+static void bindTextOrNull(sqlite3_stmt* stmt, int idx, const std::string& s)
+{
+    if (s.empty())
+        sqlite3_bind_null(stmt, idx);
+    else
+        sqlite3_bind_text(stmt, idx, s.c_str(), -1, SQLITE_STATIC);
+}
 
 int DbInserter::insertFile(const FileEntity& e)
 {
@@ -92,6 +130,7 @@ int DbInserter::insertFile(const FileEntity& e)
     sqlite3_bind_double(stmtFile_, 10, e.avg_block_depth);
     sqlite3_bind_int   (stmtFile_, 11, e.max_function_loc);
     sqlite3_bind_double(stmtFile_, 12, e.avg_function_loc);
+    bindTextOrNull     (stmtFile_, 13, e.module_name);
     int rc = sqlite3_step(stmtFile_);
     return (rc == SQLITE_DONE) ? SQLITE_OK : rc;
 }
@@ -173,6 +212,67 @@ int DbInserter::insertField(const FieldEntity& e)
     return (rc == SQLITE_DONE) ? SQLITE_OK : rc;
 }
 
+int DbInserter::insertSymbol(const SymbolEntity& e)
+{
+    sqlite3_reset(stmtSymbol_);
+    sqlite3_bind_text(stmtSymbol_, 1, e.symbol_id.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmtSymbol_, 2, e.file_id.c_str(),   -1, SQLITE_STATIC);
+    bindTextOrNull   (stmtSymbol_, 3, e.parent_id);
+    sqlite3_bind_text(stmtSymbol_, 4, e.kind.c_str(),      -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmtSymbol_, 5, e.name.c_str(),      -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmtSymbol_, 6, e.ns.c_str(),        -1, SQLITE_STATIC);
+    sqlite3_bind_int (stmtSymbol_, 7, e.is_exported);
+    sqlite3_bind_int (stmtSymbol_, 8, e.start_line);
+    sqlite3_bind_int (stmtSymbol_, 9, e.end_line);
+    int rc = sqlite3_step(stmtSymbol_);
+    return (rc == SQLITE_DONE) ? SQLITE_OK : rc;
+}
+
+int DbInserter::insertScope(const ScopeEntity& e)
+{
+    sqlite3_reset(stmtScope_);
+    sqlite3_bind_text(stmtScope_, 1, e.scope_id.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmtScope_, 2, e.file_id.c_str(),  -1, SQLITE_STATIC);
+    bindTextOrNull   (stmtScope_, 3, e.parent_scope_id);
+    sqlite3_bind_text(stmtScope_, 4, e.kind.c_str(),     -1, SQLITE_STATIC);
+    bindTextOrNull   (stmtScope_, 5, e.owner_id);
+    sqlite3_bind_int (stmtScope_, 6, e.start_line);
+    sqlite3_bind_int (stmtScope_, 7, e.end_line);
+    int rc = sqlite3_step(stmtScope_);
+    return (rc == SQLITE_DONE) ? SQLITE_OK : rc;
+}
+
+int DbInserter::insertBinding(const BindingEntity& e)
+{
+    sqlite3_reset(stmtBinding_);
+    sqlite3_bind_text(stmtBinding_, 1, e.scope_id.c_str(),   -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmtBinding_, 2, e.local_name.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmtBinding_, 3, e.ns.c_str(),         -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmtBinding_, 4, e.kind.c_str(),       -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmtBinding_, 5, e.file_id.c_str(),    -1, SQLITE_STATIC);
+    bindTextOrNull   (stmtBinding_, 6, e.target_id);
+    bindTextOrNull   (stmtBinding_, 7, e.module_spec);
+    bindTextOrNull   (stmtBinding_, 8, e.imported_name);
+    sqlite3_bind_int (stmtBinding_, 9, e.line);
+    int rc = sqlite3_step(stmtBinding_);
+    return (rc == SQLITE_DONE) ? SQLITE_OK : rc;
+}
+
+int DbInserter::insertRef(const RefEntity& e)
+{
+    sqlite3_reset(stmtRef_);
+    sqlite3_bind_text(stmtRef_, 1, e.file_id.c_str(),   -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmtRef_, 2, e.source_id.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmtRef_, 3, e.scope_id.c_str(),  -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmtRef_, 4, e.kind.c_str(),      -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmtRef_, 5, e.ns.c_str(),        -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmtRef_, 6, e.name_path.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmtRef_, 7, e.raw_text.c_str(),  -1, SQLITE_STATIC);
+    sqlite3_bind_int (stmtRef_, 8, e.line);
+    int rc = sqlite3_step(stmtRef_);
+    return (rc == SQLITE_DONE) ? SQLITE_OK : rc;
+}
+
 // ── insertResults ─────────────────────────────────────────────────────────────
 
 int DbInserter::insertResults(sqlite3* db,
@@ -214,6 +314,26 @@ int DbInserter::insertResults(sqlite3* db,
 
         for (const FieldEntity& f : r.fields) {
             rc = inserter.insertField(f);
+            if (rc != SQLITE_OK) return rc;
+        }
+
+        for (const SymbolEntity& s : r.symbols) {
+            rc = inserter.insertSymbol(s);
+            if (rc != SQLITE_OK) return rc;
+        }
+
+        for (const ScopeEntity& s : r.scopes) {
+            rc = inserter.insertScope(s);
+            if (rc != SQLITE_OK) return rc;
+        }
+
+        for (const BindingEntity& b : r.bindings) {
+            rc = inserter.insertBinding(b);
+            if (rc != SQLITE_OK) return rc;
+        }
+
+        for (const RefEntity& ref : r.refs) {
+            rc = inserter.insertRef(ref);
             if (rc != SQLITE_OK) return rc;
         }
     }

@@ -25,6 +25,16 @@ struct ProjectIndex {
     std::vector<std::string> package_roots;
 };
 
+// One rung of a lexical scope chain, as stored in the scope table.
+struct LexicalScope {
+    std::string id;
+    std::string kind; // scope.kind: "file", "namespace", "class", "function", "block"
+};
+
+// Stands for the language's builtin scope in a parentScopes() result. It has no
+// scope row; a name looked up there is answered by isBuiltin().
+inline constexpr const char* kBuiltinScope = "<builtins>";
+
 class ILanguage {
 public:
     virtual ~ILanguage() = default;
@@ -48,6 +58,12 @@ public:
     // the last rung of the scope ladder, consulted after every project scope.
     virtual bool isBuiltin(const std::string& name) const = 0;
 
-    // parentScopes() -- which enclosing scopes a lookup may climb through (e.g.
-    // Python skips class bodies) -- is added together with the scope table.
+    // The scopes a name lookup climbs through after the scope it starts in.
+    // `chain` is the lexical chain from that scope outwards: chain[0] is where
+    // the reference sits, each next entry its parent_scope_id, chain.back() the
+    // file scope. Returns the ids to search in order, innermost first, ending
+    // with kBuiltinScope. chain[0] itself is not included -- it is always
+    // searched first. Python, for instance, leaves out enclosing class bodies.
+    virtual std::vector<std::string> parentScopes(
+        const std::vector<LexicalScope>& chain) const = 0;
 };

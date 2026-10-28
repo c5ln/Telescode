@@ -9,11 +9,15 @@ static const char* kInitSQL =
     "PRAGMA journal_mode = WAL;"
     "PRAGMA foreign_keys = ON;"
     "PRAGMA synchronous = NORMAL;"
+    // 64 MiB page cache (per connection, not stored in the file). A scan writes
+    // one transaction of tens of MB; with the 2 MiB default the index pages
+    // spill mid-transaction and the symbol/binding/ref inserts run ~1.7x slower.
+    "PRAGMA cache_size = -65536;"
 
     "CREATE TABLE IF NOT EXISTS file ("
     "    file_id                   TEXT PRIMARY KEY,"
     "    file_name                 TEXT NOT NULL,"
-    "    language                  TEXT NOT NULL,"
+    "    language                  TEXT NOT NULL DEFAULT 'python',"
     "    raw_loc                   INTEGER NOT NULL,"
     "    logical_loc               INTEGER NOT NULL DEFAULT 0,"
     "    is_generated              INTEGER NOT NULL DEFAULT 0,"
@@ -23,7 +27,8 @@ static const char* kInitSQL =
     "    avg_block_depth           REAL    NOT NULL DEFAULT 0.0,"
     "    max_function_loc          INTEGER NOT NULL DEFAULT 0,"
     "    avg_function_loc          REAL    NOT NULL DEFAULT 0.0,"
-    "    complexity_score          REAL    NOT NULL DEFAULT 0.0"
+    "    complexity_score          REAL    NOT NULL DEFAULT 0.0,"
+    "    module_name               TEXT"
     ");"
 
     "CREATE TABLE IF NOT EXISTS class ("
@@ -104,7 +109,100 @@ static const char* kInitSQL =
     "CREATE TABLE IF NOT EXISTS reading_sequence_config ("
     "    config_key   TEXT PRIMARY KEY,"
     "    config_value TEXT NOT NULL"
-    ");";
+    ");"
+
+    // ── Name resolution (schema version 2) ───────────────────────────────────
+    // The parser fills symbol/scope/binding/ref per file; import_resolution and
+    // the resolved_id/status of each ref are written by the resolver. Every row
+    // carries its file_id so DbUpdater's per-file delete removes it by cascade.
+
+    // One row per named definition. class/function stay as the metric tables and
+    // share this PK 1:1. parent_id is the enclosing symbol, NULL at module level.
+    "CREATE TABLE IF NOT EXISTS symbol ("
+    "    symbol_id   TEXT PRIMARY KEY,"
+    "    file_id     TEXT NOT NULL REFERENCES file(file_id) ON DELETE CASCADE,"
+    "    parent_id   TEXT,"
+    "    kind        TEXT NOT NULL CHECK(kind IN ('class', 'interface', 'struct', 'trait', 'enum',"
+    "                                           'function', 'method', 'field', 'variable',"
+    "                                           'type_alias', 'namespace')),"
+    "    name        TEXT NOT NULL,"
+    "    namespace   TEXT NOT NULL DEFAULT 'value' CHECK(namespace IN ('value', 'type')),"
+    "    is_exported INTEGER NOT NULL DEFAULT 1,"
+    "    signature   TEXT,"
+    "    start_line  INTEGER NOT NULL,"
+    "    end_line    INTEGER NOT NULL"
+    ");"
+    "CREATE INDEX IF NOT EXISTS idx_symbol_file   ON symbol(file_id);"
+    "CREATE INDEX IF NOT EXISTS idx_symbol_parent ON symbol(parent_id, name);"
+
+    // Lexical scopes. The file scope's id is the file_id; a class or function
+    // scope's id is its symbol id, which is also owner_id.
+    "CREATE TABLE IF NOT EXISTS scope ("
+    "    scope_id        TEXT PRIMARY KEY,"
+    "    file_id         TEXT NOT NULL REFERENCES file(file_id) ON DELETE CASCADE,"
+    "    parent_scope_id TEXT,"
+    "    kind            TEXT NOT NULL CHECK(kind IN ('file', 'namespace', 'class', 'function', 'block')),"
+    "    owner_id        TEXT,"
+    "    start_line      INTEGER NOT NULL,"
+    "    end_line        INTEGER NOT NULL"
+    ");"
+    "CREATE INDEX IF NOT EXISTS idx_scope_file ON scope(file_id);"
+
+    // What a name means inside one scope. target_id is the defining symbol for
+    // `def`, NULL for a local with no symbol row (parameters, function locals).
+    // A name bound more than once in a scope has one row per line; choosing
+    // among them is the resolver's job.
+    "CREATE TABLE IF NOT EXISTS binding ("
+    "    scope_id      TEXT NOT NULL,"
+    "    local_name    TEXT NOT NULL,"
+    "    namespace     TEXT NOT NULL DEFAULT 'value' CHECK(namespace IN ('value', 'type')),"
+    "    kind          TEXT NOT NULL CHECK(kind IN ('def', 'import_module', 'import_symbol', 'import_all', 'reexport')),"
+    "    file_id       TEXT NOT NULL REFERENCES file(file_id) ON DELETE CASCADE,"
+    "    target_id     TEXT,"
+    "    module_spec   TEXT,"
+    "    imported_name TEXT,"
+    "    line          INTEGER NOT NULL,"
+    "    PRIMARY KEY (scope_id, namespace, local_name, line)"
+    ");"
+    "CREATE INDEX IF NOT EXISTS idx_binding_file ON binding(file_id);"
+
+    // module_spec as written in file_id -> the project file it names.
+    "CREATE TABLE IF NOT EXISTS import_resolution ("
+    "    file_id          TEXT NOT NULL REFERENCES file(file_id) ON DELETE CASCADE,"
+    "    module_spec      TEXT NOT NULL,"
+    "    resolved_file_id TEXT,"
+    "    status           TEXT NOT NULL,"
+    "    PRIMARY KEY (file_id, module_spec)"
+    ");"
+    "CREATE INDEX IF NOT EXISTS idx_import_resolution_target ON import_resolution(resolved_file_id);"
+
+    // An unresolved use of a name. resolved_id has no FK: it may point into a
+    // file that is re-scanned later, and the resolver re-checks it then.
+    "CREATE TABLE IF NOT EXISTS ref ("
+    "    ref_id      INTEGER PRIMARY KEY,"
+    "    file_id     TEXT NOT NULL REFERENCES file(file_id) ON DELETE CASCADE,"
+    "    source_id   TEXT NOT NULL,"
+    "    scope_id    TEXT NOT NULL,"
+    "    kind        TEXT NOT NULL CHECK(kind IN ('CALLS', 'INHERITS', 'IMPLEMENTS', 'DECORATES')),"
+    "    subkind     TEXT,"
+    "    namespace   TEXT NOT NULL DEFAULT 'value' CHECK(namespace IN ('value', 'type')),"
+    "    name_path   TEXT NOT NULL,"
+    "    raw_text    TEXT NOT NULL,"
+    "    line        INTEGER NOT NULL,"
+    "    resolved_id TEXT,"
+    "    status      TEXT NOT NULL DEFAULT 'pending'"
+    "                CHECK(status IN ('pending', 'resolved', 'builtin', 'external', 'unresolved')),"
+    "    confidence  TEXT CHECK(confidence IN ('exact', 'heuristic')),"
+    "    resolver    TEXT,"
+    "    UNIQUE(source_id, kind, name_path, line)"
+    ");"
+    "CREATE INDEX IF NOT EXISTS idx_ref_file     ON ref(file_id);"
+    "CREATE INDEX IF NOT EXISTS idx_ref_status   ON ref(status);"
+    "CREATE INDEX IF NOT EXISTS idx_ref_resolved ON ref(resolved_id);";
+
+// Bumped whenever kInitSQL/migrateSchema change what a database holds.
+//   2 -- symbol/scope/binding/import_resolution/ref, file.module_name
+static const int kSchemaVersion = 2;
 
 // SQLite has no "ADD COLUMN IF NOT EXISTS" — check via PRAGMA table_info first.
 static bool columnExists(sqlite3* db, const char* table, const char* column)
@@ -189,13 +287,19 @@ static int migrateSchema(sqlite3* db)
         { "function", "cyclomatic_complexity",     "INTEGER NOT NULL DEFAULT 1"   },
         { "function", "max_block_depth",           "INTEGER NOT NULL DEFAULT 0"   },
         { "function", "loc",                       "INTEGER NOT NULL DEFAULT 0"   },
+        { "file",     "module_name",               "TEXT"                         },
     };
 
     for (const ColumnDef& c : kColumns) {
         const int rc = addColumnIfMissing(db, c.table, c.column, c.decl);
         if (rc != SQLITE_OK) return rc;
     }
-    return SQLITE_OK;
+
+    // A version-1 database gets the version-2 tables from kInitSQL, but empty:
+    // symbol/scope/binding/ref are only written by a scan, so name resolution
+    // has nothing to work on until the repository is scanned again.
+    const std::string version = "PRAGMA user_version = " + std::to_string(kSchemaVersion) + ";";
+    return sqlite3_exec(db, version.c_str(), nullptr, nullptr, nullptr);
 }
 
 int initDb(const char* dbPath, sqlite3** db)

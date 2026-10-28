@@ -31,6 +31,12 @@ public:
 
     bool isBuiltin(const std::string& name) const override;
 
+    // Every enclosing scope except class bodies: a method cannot see its class's
+    // names unqualified, and neither can a class nested in another class. The
+    // starting scope may itself be a class body; it is searched as usual.
+    std::vector<std::string> parentScopes(
+        const std::vector<LexicalScope>& chain) const override;
+
     // Directory prefixes under which a top-level package may live, inferred
     // from where __init__.py files sit: if `D/P/__init__.py` exists and
     // `D/__init__.py` does not, then P is a top-level package and `D/` is a

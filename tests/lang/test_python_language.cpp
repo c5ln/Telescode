@@ -261,3 +261,56 @@ TEST(PythonLanguage, HandlesPythonFilesOnly)
     EXPECT_FALSE(python.handlesFile("README.md"));
     EXPECT_FALSE(python.handlesFile("pkg/core/dataset.pyc"));
 }
+
+// ── Scope ladder ──────────────────────────────────────────────────────────────
+// Class bodies are not visible from the scopes nested in them: inside a method,
+// `list` is the builtin even when the class defines a `list` method.
+
+namespace {
+
+std::vector<std::string> P(const std::vector<LexicalScope>& chain)
+{
+    const PythonLanguage python;
+    return python.parentScopes(chain);
+}
+
+}  // namespace
+
+TEST(PythonParentScopes, FileScopeClimbsToBuiltins)
+{
+    EXPECT_EQ(P({{"m.py", "file"}}),
+              (std::vector<std::string>{kBuiltinScope}));
+}
+
+TEST(PythonParentScopes, MethodSkipsItsClass)
+{
+    EXPECT_EQ(P({{"m.py::B::run", "function"}, {"m.py::B", "class"}, {"m.py", "file"}}),
+              (std::vector<std::string>{"m.py", kBuiltinScope}));
+}
+
+TEST(PythonParentScopes, ClassBodySeesEnclosingScope)
+{
+    // A class body is searched itself (it is chain[0]) and then its parents.
+    EXPECT_EQ(P({{"m.py::B", "class"}, {"m.py", "file"}}),
+              (std::vector<std::string>{"m.py", kBuiltinScope}));
+    // ...including an enclosing function, whose locals a class body can read.
+    EXPECT_EQ(P({{"m.py::Local", "class"}, {"m.py::f", "function"}, {"m.py", "file"}}),
+              (std::vector<std::string>{"m.py::f", "m.py", kBuiltinScope}));
+}
+
+TEST(PythonParentScopes, NestedFunctionSeesEnclosingFunction)
+{
+    EXPECT_EQ(P({{"m.py::f::g", "function"}, {"m.py::f", "function"}, {"m.py", "file"}}),
+              (std::vector<std::string>{"m.py::f", "m.py", kBuiltinScope}));
+}
+
+TEST(PythonParentScopes, EveryEnclosingClassIsSkipped)
+{
+    // Method of a class nested in a class, and a class nested in a class: the
+    // outer class body is invisible to both.
+    EXPECT_EQ(P({{"m.py::Inner::m", "function"}, {"m.py::Inner", "class"},
+                 {"m.py::Outer", "class"}, {"m.py", "file"}}),
+              (std::vector<std::string>{"m.py", kBuiltinScope}));
+    EXPECT_EQ(P({{"m.py::Inner", "class"}, {"m.py::Outer", "class"}, {"m.py", "file"}}),
+              (std::vector<std::string>{"m.py", kBuiltinScope}));
+}

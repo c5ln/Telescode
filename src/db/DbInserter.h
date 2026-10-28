@@ -32,6 +32,10 @@ private:
     int insertParam(const ParamEntity& e);
     int insertLink(const LinkEntity& e);
     int insertField(const FieldEntity& e);
+    int insertSymbol(const SymbolEntity& e);
+    int insertScope(const ScopeEntity& e);
+    int insertBinding(const BindingEntity& e);
+    int insertRef(const RefEntity& e);
 
     sqlite3*      db_;
     sqlite3_stmt* stmtFile_;
@@ -41,4 +45,8 @@ private:
     sqlite3_stmt* stmtParam_;
     sqlite3_stmt* stmtLink_;
     sqlite3_stmt* stmtField_;
+    sqlite3_stmt* stmtSymbol_;
+    sqlite3_stmt* stmtScope_;
+    sqlite3_stmt* stmtBinding_;
+    sqlite3_stmt* stmtRef_;
 };
