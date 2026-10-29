@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdio>
 #include <cstdint>
 #include <string>
 #include <unordered_map>
@@ -164,6 +165,9 @@ public:
     void resolve();
     int write(Resolver::Stats* stats);
 
+    int inheritsRounds() const { return inheritsRounds_; }
+    bool inheritsCapHit() const { return inheritsCapHit_; }
+
 private:
     // Name lookup
     Outcome resolveRef(const Ref& ref);
@@ -230,6 +234,8 @@ private:
                        std::vector<std::pair<std::string, const char*>>> bases_;
 
     std::vector<Outcome> outcomes_;   // parallel to refs_
+    int inheritsRounds_ = 0;
+    bool inheritsCapHit_ = false;
 };
 
 const ILanguage* Engine::languageOf(const std::string& fileId) const
@@ -729,7 +735,9 @@ void Engine::resolve()
     auto same = [](const Outcome& a, const Outcome& b) {
         return a.status == b.status && a.kind == b.kind && a.id == b.id && a.heuristic == b.heuristic;
     };
+    inheritsCapHit_ = true;
     for (int round = 0; round < kMaxInheritsRounds; ++round) {
+        inheritsRounds_ = round + 1;
         bool changed = false;
         std::unordered_map<std::string,
                            std::vector<std::pair<std::string, const char*>>> next;
@@ -749,7 +757,10 @@ void Engine::resolve()
             next[ref.source_id].emplace_back(std::move(base), r.status);
         }
         bases_ = std::move(next);
-        if (!changed) break;
+        if (!changed) {
+            inheritsCapHit_ = false;
+            break;
+        }
     }
 
     // 3. Everything else, against the final bases.
@@ -886,6 +897,15 @@ bool Resolver::needsRescan(sqlite3* db)
     return stale;
 }
 
+void Resolver::warnIfCapped(const Stats& stats, const char* who)
+{
+    if (!stats.inheritsCapHit) return;
+    std::fprintf(stderr,
+                 "[%s] warning: base classes did not settle within %d rounds;"
+                 " some INHERITS answers may depend on file order\n",
+                 who, stats.inheritsRounds);
+}
+
 int Resolver::resolveAll(sqlite3* db, Stats* stats, const LanguageRegistry& languages)
 {
     if (needsRescan(db)) return kNeedsRescan;
@@ -894,6 +914,10 @@ int Resolver::resolveAll(sqlite3* db, Stats* stats, const LanguageRegistry& lang
     int rc = engine.load();
     if (rc != SQLITE_OK) return rc;
     engine.resolve();
+    if (stats) {
+        stats->inheritsRounds = engine.inheritsRounds();
+        stats->inheritsCapHit = engine.inheritsCapHit();
+    }
     rc = engine.write(stats);
     if (stats)
         stats->ms = std::chrono::duration_cast<std::chrono::milliseconds>(

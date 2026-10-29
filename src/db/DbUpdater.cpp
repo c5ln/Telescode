@@ -68,6 +68,7 @@ static int checkScanned(const char* dbPath)
 int DbUpdater::updateFiles(const char* dbPath,
                             const std::vector<ParseResult>& results)
 {
+    Resolver::Stats stats;
     int rc = checkScanned(dbPath);
     if (rc != SQLITE_OK) return rc;
 
@@ -91,8 +92,9 @@ int DbUpdater::updateFiles(const char* dbPath,
     if (rc != SQLITE_OK) goto rollback;
 
     // Full re-resolution after every change, until it is made incremental.
-    rc = Resolver::resolveAll(db);
+    rc = Resolver::resolveAll(db, &stats);
     if (rc != SQLITE_OK) goto rollback;
+    Resolver::warnIfCapped(stats, "update");
 
     rc = sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);
     if (rc != SQLITE_OK) goto rollback;
@@ -116,6 +118,7 @@ int DbUpdater::updateFile(const char* dbPath, const ParseResult& result)
 int DbUpdater::deleteFiles(const char* dbPath,
                             const std::vector<std::string>& fileIds)
 {
+    Resolver::Stats stats;
     int rc = checkScanned(dbPath);
     if (rc != SQLITE_OK) return rc;
 
@@ -136,8 +139,9 @@ int DbUpdater::deleteFiles(const char* dbPath,
     }
 
     // Full re-resolution after every change, until it is made incremental.
-    rc = Resolver::resolveAll(db);
+    rc = Resolver::resolveAll(db, &stats);
     if (rc != SQLITE_OK) goto rollback;
+    Resolver::warnIfCapped(stats, "update");
 
     rc = sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);
     if (rc != SQLITE_OK) goto rollback;
@@ -162,6 +166,7 @@ int DbUpdater::renameFile(const char* dbPath,
                            const std::string& oldFileId,
                            const ParseResult& newResult)
 {
+    Resolver::Stats stats;
     int rc = checkScanned(dbPath);
     if (rc != SQLITE_OK) return rc;
 
@@ -183,8 +188,9 @@ int DbUpdater::renameFile(const char* dbPath,
     if (rc != SQLITE_OK) goto rollback;
 
     // Full re-resolution after every change, until it is made incremental.
-    rc = Resolver::resolveAll(db);
+    rc = Resolver::resolveAll(db, &stats);
     if (rc != SQLITE_OK) goto rollback;
+    Resolver::warnIfCapped(stats, "update");
 
     rc = sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);
     if (rc != SQLITE_OK) goto rollback;

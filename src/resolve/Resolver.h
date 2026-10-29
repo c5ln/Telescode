@@ -46,7 +46,13 @@ public:
         std::map<std::string, int> status;   // ref.status -> refs decided
         std::map<std::string, int> links;    // link_type  -> links written
         long long ms = 0;                    // wall time of the whole pass
+        int inheritsRounds = 0;              // rounds the INHERITS fixpoint took
+        bool inheritsCapHit = false;         // stopped at the round cap, not at a fixpoint
     };
+
+    // One line on stderr if stats say the INHERITS fixpoint was cut off, so its
+    // answers may still depend on ref order. `who` prefixes it ("scan").
+    static void warnIfCapped(const Stats& stats, const char* who);
 
     // Returned instead of an SQLite code when the database's files were written
     // by an older parser (see needsRescan): they lack rows the resolver works

@@ -142,6 +142,7 @@ TEST_F(Extraction, FileLanguageAndModuleName)
                   "resapp/fallback.py|python|resapp.fallback",
                   "resapp/missing.py|python|resapp.missing",
                   "resapp/models.py|python|resapp.models",
+                  "resapp/mro.py|python|resapp.mro",
                   "resapp/pkg2/__init__.py|python|resapp.pkg2",
                   "resapp/pkg2/mod.py|python|resapp.pkg2.mod",
                   "resapp/star.py|python|resapp.star",

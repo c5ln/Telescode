@@ -150,6 +150,7 @@ const Rows kFixtureLinks = {
     "CALLS|resapp/cycles.py::B::again|resapp/models.py::B::list",
     "CALLS|resapp/fallback.py::call|resapp/sub/helpers.py::cached",
     "CALLS|resapp/models.py::B::run|resapp/models.py::B::list",
+    "CALLS|resapp/mro.py::Both::use|resapp/mro.py::Left::get_axis_num",
     "CALLS|resapp/pkg2/__init__.py::run|resapp/pkg2/mod.py::f",
     "CALLS|resapp/sub/views.py::View::get|resapp/util.py::helper",
     "CALLS|resapp/sub/views.py::View::render|resapp/sub/helpers.py::cached",
@@ -166,6 +167,8 @@ const Rows kFixtureLinks = {
     "INHERITS|resapp/cycles.py::B|resapp/models.py::B",
     "INHERITS|resapp/cycles.py::P|resapp/cycles.py::Q",
     "INHERITS|resapp/cycles.py::Q|resapp/cycles.py::P",
+    "INHERITS|resapp/mro.py::Both|resapp/mro.py::Left",
+    "INHERITS|resapp/mro.py::Both|resapp/mro.py::Right",
     "INHERITS|resapp/sub/views.py::View|resapp/models.py::B",
     "INHERITS|resapp/sub/views.py::View|resapp/models.py::E",
 };
@@ -415,6 +418,15 @@ TEST_F(Resolution, BuiltinBaseHasNoLink)
                          "   AND l.target_id NOT IN (SELECT class_id FROM class);"), 0);
 }
 
+TEST_F(Resolution, LeftBaseWinsForAMemberBothDefine)
+{
+    // class Both(Left, Right), both bases define get_axis_num: the base
+    // search goes left to right, so it is Left's (xarray's
+    // Variable(NamedArray, AbstractArray) has this shape).
+    EXPECT_EQ(db_->ref("resapp/mro.py", 15, "self.get_axis_num"),
+              "resapp/mro.py::Left::get_axis_num|resolved|heuristic");
+}
+
 TEST_F(Resolution, GenericBaseIsItsClass)
 {
     // class Typed(Child[int]): the subscript is dropped, the base is Child, and
@@ -522,6 +534,13 @@ TEST_F(Resolution, Decorators)
 TEST_F(Resolution, EveryLink)
 {
     EXPECT_EQ(db_->links(), kFixtureLinks);
+}
+
+TEST_F(Resolution, InheritsFixpointSettles)
+{
+    // The fixture needs at least the first round, and settles well within the cap.
+    EXPECT_GE(db_->stats().inheritsRounds, 1);
+    EXPECT_FALSE(db_->stats().inheritsCapHit);
 }
 
 TEST_F(Resolution, EveryRefIsDecided)

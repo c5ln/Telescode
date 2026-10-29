@@ -72,6 +72,7 @@ int CmdScan(int argc, char* argv[]) {
                  count(stats.status, "external"), count(stats.status, "unresolved"),
                  count(stats.links, "CALLS"), count(stats.links, "INHERITS"),
                  count(stats.links, "DECORATES"));
+    Resolver::warnIfCapped(stats, "scan");
 
     auto ms = [](auto a, auto b) {
         return std::chrono::duration_cast<std::chrono::milliseconds>(b - a).count();
