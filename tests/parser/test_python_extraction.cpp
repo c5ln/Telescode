@@ -132,18 +132,33 @@ TEST_F(Extraction, FileLanguageAndModuleName)
     EXPECT_EQ(db_->rows("SELECT file_id, language, module_name FROM file ORDER BY file_id;"),
               (Rows{
                   "resapp/__init__.py|python|resapp",
+                  "resapp/allmod.py|python|resapp.allmod",
+                  "resapp/allstar.py|python|resapp.allstar",
+                  "resapp/cases.py|python|resapp.cases",
                   "resapp/compat.py|python|resapp.compat",
+                  "resapp/ctors.py|python|resapp.ctors",
+                  "resapp/ctoruse.py|python|resapp.ctoruse",
+                  "resapp/cycles.py|python|resapp.cycles",
+                  "resapp/fallback.py|python|resapp.fallback",
+                  "resapp/missing.py|python|resapp.missing",
                   "resapp/models.py|python|resapp.models",
+                  "resapp/pkg2/__init__.py|python|resapp.pkg2",
+                  "resapp/pkg2/mod.py|python|resapp.pkg2.mod",
+                  "resapp/star.py|python|resapp.star",
                   "resapp/sub/__init__.py|python|resapp.sub",
+                  "resapp/sub/deco.py|python|resapp.sub.deco",
                   "resapp/sub/helpers.py|python|resapp.sub.helpers",
                   "resapp/sub/views.py|python|resapp.sub.views",
+                  "resapp/under.py|python|resapp.under",
+                  "resapp/underexplicit.py|python|resapp.underexplicit",
+                  "resapp/understar.py|python|resapp.understar",
                   "resapp/util.py|python|resapp.util",
               }));
 }
 
 TEST_F(Extraction, SchemaVersion)
 {
-    EXPECT_EQ(db_->count("PRAGMA user_version;"), 2);
+    EXPECT_EQ(db_->count("PRAGMA user_version;"), 4);
 }
 
 // ── resapp/__init__.py: re-exports ────────────────────────────────────────────
@@ -214,8 +229,7 @@ TEST_F(Extraction, ModelsBindings)
 TEST_F(Extraction, ModelsRefs)
 {
     // `class E(Exception)` -- an external base, looked up from the module scope.
-    // `make()[0].run()` in first() has no identifier chain and yields no ref,
-    // though it still has a raw CALLS link.
+    // `make()[0].run()` in first() has no identifier chain and yields no ref.
     EXPECT_EQ(db_->rows(kRefs, "resapp/models.py"), (Rows{
         "CALLS|resapp/models.py::B::run|resapp/models.py::B::run|self.list|self.list|9",
         "INHERITS|resapp/models.py::E|resapp/models.py|Exception|Exception|12",
@@ -431,6 +445,50 @@ TEST_F(Extraction, CompatKeepsEveryBinding)
     }));
 }
 
+// ── __all__ and module-level bindings ─────────────────────────────────────────
+
+TEST_F(Extraction, AllMarksModuleLevelBindings)
+{
+    // allmod.py imports helper and bump but lists only helper in __all__, so a
+    // wildcard import of it must not see bump. Bindings below module level and
+    // modules without a literal __all__ keep the default.
+    const char* kExported =
+        "SELECT local_name, is_exported FROM binding"
+        " WHERE file_id = ?1 AND scope_id = ?1 ORDER BY local_name;";
+    EXPECT_EQ(db_->rows(kExported, "resapp/allmod.py"),
+              (Rows{"__all__|0", "bump|0", "helper|1"}));
+    EXPECT_EQ(db_->rows(kExported, "resapp/__init__.py"),
+              (Rows{"PublicB|1", "__all__|0", "helper|1"}));
+    EXPECT_EQ(db_->count("SELECT COUNT(*) FROM binding"
+                         " WHERE file_id = 'resapp/compat.py' AND is_exported = 0;"), 0);
+    EXPECT_EQ(db_->count("SELECT COUNT(*) FROM binding"
+                         " WHERE scope_id <> file_id AND is_exported = 0;"), 0);
+}
+
+TEST_F(Extraction, WithoutAllUnderscoreNamesAreNotExported)
+{
+    // under.py has no __all__: `import *` skips names starting with `_`, the
+    // module's symbols and its imports alike.
+    EXPECT_EQ(db_->rows("SELECT local_name, is_exported FROM binding"
+                        " WHERE file_id = ?1 AND scope_id = ?1 ORDER BY local_name;", "resapp/under.py"),
+              (Rows{"_os|0", "_priv|0", "pub|1"}));
+    EXPECT_EQ(db_->rows("SELECT name, is_exported FROM symbol WHERE file_id = ? ORDER BY name;",
+                        "resapp/under.py"),
+              (Rows{"_priv|0", "pub|1"}));
+}
+
+// ── resapp/cases.py: a generic base ───────────────────────────────────────────
+
+TEST_F(Extraction, SubscriptedBaseIsARef)
+{
+    // `class Typed(Child[int])`: the ref names the subscripted value, Child.
+    // There is no base_class row for it, as before refs existed.
+    EXPECT_EQ(db_->rows("SELECT kind, source_id, scope_id, name_path, raw_text, line FROM ref"
+                        " WHERE source_id = 'resapp/cases.py::Typed';"),
+              (Rows{"INHERITS|resapp/cases.py::Typed|resapp/cases.py|Child|Child|63"}));
+    EXPECT_EQ(db_->count("SELECT COUNT(*) FROM base_class WHERE class_id = 'resapp/cases.py::Typed';"), 0);
+}
+
 // ── whole-scan invariants ─────────────────────────────────────────────────────
 
 TEST_F(Extraction, EmptyPackageInitHasOnlyItsFileScope)
@@ -443,9 +501,10 @@ TEST_F(Extraction, EmptyPackageInitHasOnlyItsFileScope)
 
 TEST_F(Extraction, RefsAreIdentifierChainsAndPending)
 {
-    // Raw CALLS targets include `make()[0].run`; refs never do.
-    EXPECT_EQ(db_->count("SELECT COUNT(*) FROM link WHERE link_type = 'CALLS'"
-                         "   AND target_id LIKE '%(%';"), 3);
+    // The parser writes refs only; CALLS / INHERITS / DECORATES links are the
+    // resolver's, and this scan does not run it.
+    EXPECT_EQ(db_->count("SELECT COUNT(*) FROM link"
+                         " WHERE link_type IN ('CALLS', 'INHERITS', 'DECORATES');"), 0);
     EXPECT_EQ(db_->count("SELECT COUNT(*) FROM ref"
                          " WHERE name_path GLOB '*[^A-Za-z0-9_.]*';"), 0);
     EXPECT_EQ(db_->count("SELECT COUNT(*) FROM ref"
@@ -517,7 +576,7 @@ TEST(ExtractionSchema, VersionOneDatabaseIsUpgradedInPlace)
     sqlite3_close(conn);
 
     db.open();
-    EXPECT_EQ(db.count("PRAGMA user_version;"), 2);
+    EXPECT_EQ(db.count("PRAGMA user_version;"), 4);
     EXPECT_EQ(db.rows("SELECT file_id, module_name FROM file;"), (Rows{"a.py|NULL"}));
     EXPECT_EQ(db.rows("SELECT name FROM sqlite_master WHERE type = 'table'"
                       "   AND name IN ('symbol', 'scope', 'binding', 'import_resolution', 'ref')"

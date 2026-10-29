@@ -314,3 +314,61 @@ TEST(PythonParentScopes, EveryEnclosingClassIsSkipped)
     EXPECT_EQ(P({{"m.py::Inner", "class"}, {"m.py::Outer", "class"}, {"m.py", "file"}}),
               (std::vector<std::string>{"m.py", kBuiltinScope}));
 }
+
+// ── Module specs and classes, as the resolver uses them ───────────────────────
+
+TEST(PythonModuleSpecs, ProjectModulesAreRelativeOrUnderAProjectPackage)
+{
+    const PythonLanguage python;
+    const ProjectIndex index = python.buildIndex(kPkg);
+    // Relative specs, existing or not.
+    EXPECT_TRUE(python.isProjectModule(".", "pkg/utils.py", index));
+    EXPECT_TRUE(python.isProjectModule("..gone.mod", "pkg/core/dataset.py", index));
+    // Under a project package or module, existing or not.
+    EXPECT_TRUE(python.isProjectModule("pkg.core", "absmod.py", index));
+    EXPECT_TRUE(python.isProjectModule("pkg.gone", "absmod.py", index));
+    EXPECT_TRUE(python.isProjectModule("absmod.sub", "pkg/utils.py", index));
+    // Anything else is outside.
+    EXPECT_FALSE(python.isProjectModule("numpy", "pkg/utils.py", index));
+    EXPECT_FALSE(python.isProjectModule("numpy.linalg", "pkg/utils.py", index));
+    EXPECT_FALSE(python.isProjectModule("pkgx.core", "pkg/utils.py", index));
+    EXPECT_FALSE(python.isProjectModule("", "pkg/utils.py", index));
+}
+
+TEST(PythonModuleSpecs, ProjectModulesUnderASrcLayoutRoot)
+{
+    const PythonLanguage python;
+    const ProjectIndex index = python.buildIndex({"src/lib/__init__.py", "src/lib/a.py"});
+    EXPECT_TRUE(python.isProjectModule("lib.gone", "src/lib/a.py", index));
+    EXPECT_FALSE(python.isProjectModule("src2.lib", "src/lib/a.py", index));
+}
+
+TEST(PythonModuleSpecs, SubmoduleSpec)
+{
+    const PythonLanguage python;
+    EXPECT_EQ(python.submoduleSpec("pkg.core", "dataset"), "pkg.core.dataset");
+    EXPECT_EQ(python.submoduleSpec(".core", "dataset"), ".core.dataset");
+    // `from . import x` / `from .. import x`: no separator after bare dots.
+    EXPECT_EQ(python.submoduleSpec(".", "utils"), ".utils");
+    EXPECT_EQ(python.submoduleSpec("..", "utils"), "..utils");
+}
+
+TEST(PythonModuleSpecs, BoundModuleSpec)
+{
+    const PythonLanguage python;
+    // import pkg.core.dataset -> `pkg` is the package pkg.
+    EXPECT_EQ(python.boundModuleSpec("pkg", "pkg.core.dataset"), "pkg");
+    EXPECT_EQ(python.boundModuleSpec("pkg", "pkg"), "pkg");
+    // import pkg.core as core / import pkgx as pkg -> the whole spec.
+    EXPECT_EQ(python.boundModuleSpec("core", "pkg.core"), "pkg.core");
+    EXPECT_EQ(python.boundModuleSpec("pkg", "pkgx"), "pkgx");
+}
+
+TEST(PythonClasses, ReceiversAndConstructor)
+{
+    const PythonLanguage python;
+    EXPECT_TRUE(python.isReceiver("self"));
+    EXPECT_TRUE(python.isReceiver("cls"));
+    EXPECT_FALSE(python.isReceiver("this"));
+    EXPECT_EQ(python.constructorName("Dataset"), "__init__");
+}

@@ -66,4 +66,35 @@ public:
     // searched first. Python, for instance, leaves out enclosing class bodies.
     virtual std::vector<std::string> parentScopes(
         const std::vector<LexicalScope>& chain) const = 0;
+
+    // ── Module specs, as the resolver walks them ─────────────────────────────
+
+    // True if `spec` can only name a project module, whether or not that module
+    // exists: it is anchored on the importing file, or the package it starts
+    // from is a project one. When resolveModule() finds nothing for such a spec
+    // the import is broken ('unresolved'), not external.
+    virtual bool isProjectModule(const std::string& spec,
+                                 const std::string& from_file_id,
+                                 const ProjectIndex& index) const = 0;
+
+    // The spec of submodule `name` of module `spec`: what an attribute access on
+    // a module, or `from spec import name`, falls back to when the module itself
+    // binds no `name`.
+    virtual std::string submoduleSpec(const std::string& spec,
+                                      const std::string& name) const = 0;
+
+    // The module an import_module binding's local name stands for. Not always
+    // binding.module_spec: an import may bind only the outermost package of the
+    // module it loads.
+    virtual std::string boundModuleSpec(const std::string& local_name,
+                                        const std::string& module_spec) const = 0;
+
+    // ── Classes ──────────────────────────────────────────────────────────────
+
+    // True if `name`, inside a method, denotes the object the method was
+    // called on, so `name.x` is looked up on the method's class.
+    virtual bool isReceiver(const std::string& name) const = 0;
+
+    // Name of the method a call to the class itself runs.
+    virtual std::string constructorName(const std::string& class_name) const = 0;
 };

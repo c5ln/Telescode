@@ -194,3 +194,43 @@ std::vector<std::string> PythonLanguage::parentScopes(
     out.push_back(kBuiltinScope);
     return out;
 }
+
+bool PythonLanguage::isProjectModule(const std::string& spec,
+                                     const std::string& /*from_file_id*/,
+                                     const ProjectIndex& index) const
+{
+    if (spec.empty()) return false;
+    if (spec[0] == '.') return true;
+    const std::string top = spec.substr(0, spec.find('.'));
+    for (const std::string& root : index.package_roots) {
+        const std::string base = root.empty() ? std::string() : root.substr(0, root.size() - 1);
+        if (!file_for(join_module(base, top), index.file_ids).empty()) return true;
+    }
+    return false;
+}
+
+std::string PythonLanguage::submoduleSpec(const std::string& spec,
+                                          const std::string& name) const
+{
+    if (spec.find_first_not_of('.') == std::string::npos) return spec + name;
+    return spec + "." + name;
+}
+
+std::string PythonLanguage::boundModuleSpec(const std::string& local_name,
+                                            const std::string& module_spec) const
+{
+    if (module_spec.compare(0, local_name.size(), local_name) == 0 &&
+        (module_spec.size() == local_name.size() || module_spec[local_name.size()] == '.'))
+        return local_name;
+    return module_spec;
+}
+
+bool PythonLanguage::isReceiver(const std::string& name) const
+{
+    return name == "self" || name == "cls";
+}
+
+std::string PythonLanguage::constructorName(const std::string&) const
+{
+    return "__init__";
+}

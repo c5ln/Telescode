@@ -4,6 +4,7 @@
 #include "db/DbUpdater.h"
 #include "parser/ParserRegistry.h"
 #include "parser/PythonParser.h"
+#include "resolve/Resolver.h"
 #include <sqlite3.h>
 #include <cstdio>
 #include <cstring>
@@ -18,6 +19,18 @@ static ParserRegistry makeRegistry() {
 }
 
 namespace TS {
+
+// Reports a failed update; true if it failed.
+static bool failed(int rc, const char* op) {
+    if (rc == SQLITE_OK) return false;
+    if (rc == Resolver::kNeedsRescan)
+        std::fprintf(stderr,
+            "[error] This database was created by an older Telescode; rescan required"
+            " (Telescode scan <repo_path> <db_path>). Nothing was changed.\n");
+    else
+        std::fprintf(stderr, "[error] %s failed (code %d)\n", op, rc);
+    return true;
+}
 
 static void printUsage(const char* prog) {
     std::fprintf(stderr,
@@ -44,10 +57,7 @@ int CmdUpdate(int argc, char* argv[]) {
         auto registry = makeRegistry();
         ParseResult result = registry.parseFile(argv[4], argv[3]);
         int rc = DbUpdater::updateFile(dbPath, result);
-        if (rc != SQLITE_OK) {
-            std::fprintf(stderr, "[error] updateFile failed (code %d)\n", rc);
-            return 1;
-        }
+        if (failed(rc, "updateFile")) return 1;
         std::fprintf(stdout, "[update] %s\n", result.file.file_id.c_str());
 
     } else if (std::strcmp(cmd, "files") == 0) {
@@ -61,10 +71,7 @@ int CmdUpdate(int argc, char* argv[]) {
         for (int i = 4; i < argc; ++i)
             results.push_back(registry.parseFile(argv[i], repoRoot));
         int rc = DbUpdater::updateFiles(dbPath, results);
-        if (rc != SQLITE_OK) {
-            std::fprintf(stderr, "[error] updateFiles failed (code %d)\n", rc);
-            return 1;
-        }
+        if (failed(rc, "updateFiles")) return 1;
         std::fprintf(stdout, "[update] %zu files\n", results.size());
 
     } else if (std::strcmp(cmd, "delete") == 0) {
@@ -73,10 +80,7 @@ int CmdUpdate(int argc, char* argv[]) {
             return 1;
         }
         int rc = DbUpdater::deleteFile(dbPath, argv[3]);
-        if (rc != SQLITE_OK) {
-            std::fprintf(stderr, "[error] deleteFile failed (code %d)\n", rc);
-            return 1;
-        }
+        if (failed(rc, "deleteFile")) return 1;
         std::fprintf(stdout, "[delete] %s\n", argv[3]);
 
     } else if (std::strcmp(cmd, "rename") == 0) {
@@ -87,10 +91,7 @@ int CmdUpdate(int argc, char* argv[]) {
         auto registry = makeRegistry();
         ParseResult newResult = registry.parseFile(argv[5], argv[3]);
         int rc = DbUpdater::renameFile(dbPath, argv[4], newResult);
-        if (rc != SQLITE_OK) {
-            std::fprintf(stderr, "[error] renameFile failed (code %d)\n", rc);
-            return 1;
-        }
+        if (failed(rc, "renameFile")) return 1;
         std::fprintf(stdout, "[rename] %s -> %s\n", argv[4], newResult.file.file_id.c_str());
 
     } else if (std::strcmp(cmd, "dangling") == 0) {

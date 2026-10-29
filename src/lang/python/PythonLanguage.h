@@ -37,6 +37,32 @@ public:
     std::vector<std::string> parentScopes(
         const std::vector<LexicalScope>& chain) const override;
 
+    // Relative (leading dots), or absolute with a top-level package or module
+    // that is a project file under some layout root: `pkg.gone` when pkg/ is in
+    // the project, but not `numpy.linalg`. A project module that shadows an
+    // outside one by name (a root-level `json.py`) claims its submodules too.
+    bool isProjectModule(const std::string& spec,
+                         const std::string& from_file_id,
+                         const ProjectIndex& index) const override;
+
+    // "a.b" + "c" -> "a.b.c"; bare dots take no separator: "." + "c" -> ".c".
+    std::string submoduleSpec(const std::string& spec,
+                              const std::string& name) const override;
+
+    // `import a.b.c` binds `a` to the package a; `import a.b as x` binds `x` to
+    // a.b itself. The binding row does not record whether an alias was written,
+    // so a local name equal to the spec's first component is taken as the
+    // unaliased form (`import a.b as a` reads as `import a.b`).
+    std::string boundModuleSpec(const std::string& local_name,
+                                const std::string& module_spec) const override;
+
+    // `self` and `cls`, by convention: Python itself would take the first
+    // parameter, whatever its name.
+    bool isReceiver(const std::string& name) const override;
+
+    // "__init__".
+    std::string constructorName(const std::string& class_name) const override;
+
     // Directory prefixes under which a top-level package may live, inferred
     // from where __init__.py files sit: if `D/P/__init__.py` exists and
     // `D/__init__.py` does not, then P is a top-level package and `D/` is a

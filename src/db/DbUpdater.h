@@ -6,6 +6,8 @@
 
 struct sqlite3;
 
+// Every operation that changes the database returns Resolver::kNeedsRescan,
+// and leaves the file untouched, on a database an older Telescode scanned.
 class DbUpdater {
 public:
     static int updateFile(const char* dbPath, const ParseResult& result);

@@ -58,7 +58,7 @@ struct ParamEntity {
 struct LinkEntity {
     std::string source_id;
     std::string target_id;
-    std::string link_type; // CALLS, INHERITS, IMPORTS, DECORATES
+    std::string link_type; // IMPORTS; CALLS/INHERITS/DECORATES come from Resolver, not the parser
 };
 
 struct FieldEntity {
@@ -103,6 +103,9 @@ struct BindingEntity {
     std::string module_spec;   // imports: the module as written ("a.b", ".", "..pkg")
     std::string imported_name; // import_symbol: the name taken from module_spec
     int line;
+    // Module-level bindings only: 0 if the module's __all__ leaves the name out,
+    // so a wildcard import of the module does not see it. Like symbol.is_exported.
+    int is_exported = 1;
 };
 
 struct RefEntity {

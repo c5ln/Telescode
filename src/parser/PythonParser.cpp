@@ -444,7 +444,7 @@ static void handleClassDef(TSNode node, TraversalContext& ctx) {
     // Bases are evaluated in the scope enclosing the class statement.
     const std::string outerScope = ctx.parentId();
 
-    // INHERITS link + base_class entities
+    // base_class entities and INHERITS refs; the resolver writes the links
     TSNode superclassesNode = childByFieldName(node, "superclasses");
     if (!nodeIsNull(superclassesNode)) {
         int ordinal = 0;
@@ -461,6 +461,12 @@ static void handleClassDef(TSNode node, TraversalContext& ctx) {
                 baseText = nodeText(arg, ctx.src);
             } else if (argType == "attribute") {
                 baseText = nodeText(arg, ctx.src);
+            } else if (argType == "subscript") {
+                // `Base[T]`: a generic base. Still the class Base, so it gets a
+                // ref; no base_class row, as before.
+                addRef(ctx.result, ctx.fileId, classId, outerScope, "INHERITS",
+                       childByFieldName(arg, "value"), ctx.src);
+                continue;
             } else {
                 // keyword_argument or other — skip
                 continue;
@@ -472,12 +478,6 @@ static void handleClassDef(TSNode node, TraversalContext& ctx) {
             bce.base_class_name = baseText;
             bce.ordinal         = ordinal++;
             ctx.result.base_classes.push_back(bce);
-
-            LinkEntity link;
-            link.source_id  = classId;
-            link.target_id  = baseText;
-            link.link_type  = "INHERITS";
-            ctx.result.links.push_back(link);
 
             addRef(ctx.result, ctx.fileId, classId, outerScope, "INHERITS", arg, ctx.src);
         }
@@ -699,9 +699,8 @@ static void handleImportFrom(TSNode node, TraversalContext& ctx) {
 //  decorated_definition 
 
 static void handleDecoratedDef(TSNode node, TraversalContext& ctx) {
-    // Collect decorator names first
-    std::vector<std::string> decoratorNames;
-    std::vector<TSNode> decoratorExprs;  // callee chain of each decorator, for refs
+    // Collect the callee chain of each decorator first, for refs
+    std::vector<TSNode> decoratorExprs;
     uint32_t count = ts_node_child_count(node);
     for (uint32_t i = 0; i < count; ++i) {
         TSNode child = ts_node_child(node, i);
@@ -715,20 +714,12 @@ static void handleDecoratedDef(TSNode node, TraversalContext& ctx) {
                 TSNode dc_node = ts_node_child(child, j);
                 if (nodeIsNull(dc_node)) continue;
                 std::string dtype = nodeType(dc_node);
-                if (dtype == "identifier" || dtype == "dotted_name") {
-                    decoratorNames.push_back(nodeText(dc_node, ctx.src));
+                if (dtype == "identifier" || dtype == "dotted_name" || dtype == "attribute") {
                     decoratorExprs.push_back(dc_node);
                     break;
                 } else if (dtype == "call") {
                     TSNode callFunc = childByFieldName(dc_node, "function");
-                    if (!nodeIsNull(callFunc)) {
-                        decoratorNames.push_back(nodeText(callFunc, ctx.src));
-                        decoratorExprs.push_back(callFunc);
-                    }
-                    break;
-                } else if (dtype == "attribute") {
-                    // `@pkg.deco` -- no DECORATES link today, but still a ref.
-                    decoratorExprs.push_back(dc_node);
+                    if (!nodeIsNull(callFunc)) decoratorExprs.push_back(callFunc);
                     break;
                 }
             }
@@ -738,8 +729,8 @@ static void handleDecoratedDef(TSNode node, TraversalContext& ctx) {
     const std::string outerScope = ctx.parentId();
 
     // Now process the inner definition (function or class) to get its ID
-    // We process it normally first, then create DECORATES links
-    // We need to know the entity ID before creating the links.
+    // We process it normally first, then create DECORATES refs
+    // We need to know the entity ID before creating the refs.
     // Strategy: note current sizes, traverse, then check what was added.
     size_t prevFuncSize  = ctx.result.functions.size();
     size_t prevClassSize = ctx.result.classes.size();
@@ -774,13 +765,6 @@ static void handleDecoratedDef(TSNode node, TraversalContext& ctx) {
     }
 
     if (!decoratedId.empty()) {
-        for (const auto& decName : decoratorNames) {
-            LinkEntity link;
-            link.source_id = decName;
-            link.target_id = decoratedId;
-            link.link_type = "DECORATES";
-            ctx.result.links.push_back(link);
-        }
         // The DECORATES link runs decorator -> decorated, but a ref's source is
         // where the name occurs, so here source_id is the decorated entity and
         // name_path the decorator. The resolver writes the link reversed.
@@ -879,27 +863,11 @@ static void collectCalls(TSNode node, const std::string& funcId,
     }
 
     if (type == "call") {
+        // Only identifier chains become refs; `super().x`, `d[k].f` and the
+        // like have no name to look up. The resolver writes the CALLS links.
         TSNode funcNode = childByFieldName(node, "function");
-        if (!nodeIsNull(funcNode)) {
-            std::string fnType = nodeType(funcNode);
-            std::string calleeName;
-            if (fnType == "identifier") {
-                calleeName = nodeText(funcNode, src);
-            } else if (fnType == "attribute") {
-                calleeName = nodeText(funcNode, src);
-            }
-            if (!calleeName.empty()) {
-                LinkEntity link;
-                link.source_id = funcId;
-                link.target_id = calleeName;
-                link.link_type = "CALLS";
-                result.links.push_back(link);
-
-                // Only identifier chains become refs; `super().x`, `d[k].f`
-                // and the like have no name to look up.
-                addRef(result, fileId, funcId, scopeId, "CALLS", funcNode, src);
-            }
-        }
+        if (!nodeIsNull(funcNode))
+            addRef(result, fileId, funcId, scopeId, "CALLS", funcNode, src);
         // Still recurse into arguments (there may be nested calls)
         TSNode argsNode = childByFieldName(node, "arguments");
         if (!nodeIsNull(argsNode)) {
@@ -911,109 +879,6 @@ static void collectCalls(TSNode node, const std::string& funcId,
     uint32_t count = ts_node_child_count(node);
     for (uint32_t i = 0; i < count; ++i) {
         collectCalls(ts_node_child(node, i), funcId, scopeId, fileId, src, result);
-    }
-}
-
-//  resolveCallTargets 
-// Within-file pass: resolve raw callee names in CALLS links to function_ids.
-// Handles: plain identifiers, self.method and cls.method patterns.
-
-static void resolveCallTargets(ParseResult& result) {
-    // Build lookup: function_name -> list of function_ids
-    std::unordered_map<std::string, std::vector<std::string>> nameToIds;
-    for (const auto& fn : result.functions) {
-        nameToIds[fn.function_name].push_back(fn.function_id);
-    }
-
-    std::unordered_map<std::string, std::string> funcToParent;
-    std::unordered_map<std::string, bool> funcIsMethod;
-    for (const auto& fn : result.functions) {
-        bool isMethod = !fn.class_id.empty();
-        funcToParent[fn.function_id] = isMethod ? fn.class_id : fn.file_id;
-        funcIsMethod[fn.function_id] = isMethod;
-    }
-
-    for (auto& link : result.links) {
-        if (link.link_type != "CALLS") continue;
-
-        std::string raw = link.target_id;
-        bool resolved = false;
-
-        // Case 1: "self.method_name" or "cls.method_name" — resolve within caller's class
-        bool isSelf = (raw.rfind("self.", 0) == 0 && raw.size() > 5);
-        bool isCls  = (raw.rfind("cls.", 0) == 0 && raw.size() > 4);
-        if (isSelf || isCls) {
-            std::string methodName = isSelf ? raw.substr(5) : raw.substr(4);
-            auto pit = funcToParent.find(link.source_id);
-            if (pit != funcToParent.end() && funcIsMethod[link.source_id]) {
-                std::string expected = pit->second + "::" + methodName;
-                auto it = nameToIds.find(methodName);
-                if (it != nameToIds.end()) {
-                    for (const auto& fid : it->second) {
-                        if (fid == expected) {
-                            link.target_id = expected;
-                            resolved = true;
-                            break;
-                        }
-                    }
-                }
-            }
-            // Fallback: treat as plain name
-            if (!resolved) raw = methodName;
-        }
-
-        if (resolved) continue;
-
-        // Case 2: attribute call other than self/cls (e.g. "obj.method") — skip
-        if (raw.find('.') != std::string::npos) continue;
-
-        // Case 3: plain identifier
-        {
-            auto it = nameToIds.find(raw);
-            if (it != nameToIds.end()) {
-                if (it->second.size() == 1) {
-                    link.target_id = it->second[0];
-                } else {
-                    // Multiple matches: prefer same-parent scope
-                    auto pit = funcToParent.find(link.source_id);
-                    std::string callerParent = (pit != funcToParent.end()) ? pit->second : "";
-                    std::string best;
-                    for (const auto& fid : it->second) {
-                        auto fpit = funcToParent.find(fid);
-                        if (fpit != funcToParent.end() && fpit->second == callerParent) {
-                            best = fid;
-                            break;
-                        }
-                    }
-                    link.target_id = best.empty() ? it->second[0] : best;
-                }
-            }
-        }
-    }
-}
-
-// resolveCrossFileCallTargets
-// Cross-file pass: after all files are parsed, resolve remaining raw CALLS
-// targets using the global function_name -> function_id map.
-
-static void resolveCrossFileCallTargets(
-    std::vector<ParseResult>& results,
-    const std::unordered_map<std::string, std::vector<std::string>>& globalNameToIds)
-{
-    for (auto& pr : results) {
-        for (auto& link : pr.links) {
-            if (link.link_type != "CALLS") continue;
-            // Already resolved (full path contains "::")
-            if (link.target_id.find("::") != std::string::npos) continue;
-            // Attribute call — skip
-            if (link.target_id.find('.') != std::string::npos) continue;
-
-            auto it = globalNameToIds.find(link.target_id);
-            if (it != globalNameToIds.end() && it->second.size() == 1) {
-                link.target_id = it->second[0];
-            }
-            // Ambiguous (multiple files define same name) — leave as raw
-        }
     }
 }
 
@@ -1086,7 +951,10 @@ static bool literalDunderAll(TSNode root, const std::string& src,
 // `f = wrap(f)`, `self.x` assigned in several methods). A class/function/method
 // definition wins over a field or variable of the same id, and among
 // definitions the last one wins, as it does in the class and function tables
-// (INSERT OR REPLACE). Same for scopes. Then apply __all__ to module-level symbols.
+// (INSERT OR REPLACE). Same for scopes. Then mark which module-level symbols and
+// bindings `from m import *` takes: those __all__ lists when there is a literal
+// one (an imported name it leaves out is not re-exported either), else those
+// whose name does not start with an underscore.
 static void finalizeSymbols(ParseResult& result, const std::set<std::string>* exports) {
     auto isDef = [](const std::string& kind) {
         return kind == "class" || kind == "function" || kind == "method";
@@ -1104,10 +972,14 @@ static void finalizeSymbols(ParseResult& result, const std::set<std::string>* ex
             unique[it->second] = std::move(sym);
         }
     }
-    if (exports) {
-        for (auto& sym : unique)
-            if (sym.parent_id.empty() && !exports->count(sym.name)) sym.is_exported = 0;
-    }
+    auto exported = [exports](const std::string& name) {
+        return exports ? exports->count(name) != 0 : name.empty() || name[0] != '_';
+    };
+    for (auto& sym : unique)
+        if (sym.parent_id.empty() && !exported(sym.name)) sym.is_exported = 0;
+    for (auto& b : result.bindings)
+        if (b.scope_id == result.file.file_id && b.kind != "import_all" && !exported(b.local_name))
+            b.is_exported = 0;
     result.symbols = std::move(unique);
 
     std::unordered_map<std::string, size_t> scopeIndex;
@@ -1268,8 +1140,6 @@ ParseResult PythonParser::parseFile(const std::string& filePath,
 
     finalizeSymbols(result, hasAll ? &exports : nullptr);
 
-    resolveCallTargets(result);
-
     // Roll up per-function metrics to file level
     {
         int maxCC = 0, maxBD = 0, maxLOC = 0;
@@ -1292,9 +1162,8 @@ ParseResult PythonParser::parseFile(const std::string& filePath,
     }
 
     // Deduplicate links to satisfy PRIMARY KEY (source_id, target_id, link_type)
-    // Same (source, target, type) can be generated multiple times, e.g.:
-    //   - CALLS: same callee invoked N times in one function body
-    //   - IMPORTS: same module imported at top-level and inside a function
+    // The parser only writes IMPORTS links, and the same module can be
+    // imported at top level and again inside a function.
     {
         std::set<std::tuple<std::string, std::string, std::string>> seen;
         std::vector<LinkEntity> unique;
@@ -1398,16 +1267,9 @@ std::vector<ParseResult> PythonParser::parseDirectory(
             th.join();
     }
 
-    // cross-file CALLS resolve 
-    {
-        std::unordered_map<std::string, std::vector<std::string>> globalNameToIds;
-        for (const auto& pr : results) {
-            for (const auto& fn : pr.functions) {
-                globalNameToIds[fn.function_name].push_back(fn.function_id);
-            }
-        }
-        resolveCrossFileCallTargets(results, globalNameToIds);
-    }
+    // CALLS / INHERITS / DECORATES links are not resolved here: the parser
+    // only sees one file at a time, so Resolver does it on the database once
+    // every file is in.
 
     return results;
 }

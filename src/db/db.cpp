@@ -151,7 +151,8 @@ static const char* kInitSQL =
     // What a name means inside one scope. target_id is the defining symbol for
     // `def`, NULL for a local with no symbol row (parameters, function locals).
     // A name bound more than once in a scope has one row per line; choosing
-    // among them is the resolver's job.
+    // among them is the resolver's job. is_exported: as symbol.is_exported, for
+    // module-level bindings -- what a wildcard import of the module sees.
     "CREATE TABLE IF NOT EXISTS binding ("
     "    scope_id      TEXT NOT NULL,"
     "    local_name    TEXT NOT NULL,"
@@ -162,6 +163,7 @@ static const char* kInitSQL =
     "    module_spec   TEXT,"
     "    imported_name TEXT,"
     "    line          INTEGER NOT NULL,"
+    "    is_exported   INTEGER NOT NULL DEFAULT 1,"
     "    PRIMARY KEY (scope_id, namespace, local_name, line)"
     ");"
     "CREATE INDEX IF NOT EXISTS idx_binding_file ON binding(file_id);"
@@ -198,11 +200,19 @@ static const char* kInitSQL =
     ");"
     "CREATE INDEX IF NOT EXISTS idx_ref_file     ON ref(file_id);"
     "CREATE INDEX IF NOT EXISTS idx_ref_status   ON ref(status);"
-    "CREATE INDEX IF NOT EXISTS idx_ref_resolved ON ref(resolved_id);";
+    "CREATE INDEX IF NOT EXISTS idx_ref_resolved ON ref(resolved_id);"
+
+    // Facts about the database as a whole, e.g. the scan stamp (db.h).
+    "CREATE TABLE IF NOT EXISTS meta ("
+    "    key   TEXT PRIMARY KEY,"
+    "    value TEXT NOT NULL"
+    ");";
 
 // Bumped whenever kInitSQL/migrateSchema change what a database holds.
 //   2 -- symbol/scope/binding/import_resolution/ref, file.module_name
-static const int kSchemaVersion = 2;
+//   3 -- binding.is_exported
+//   4 -- meta (the scan stamp)
+static const int kSchemaVersion = 4;
 
 // SQLite has no "ADD COLUMN IF NOT EXISTS" — check via PRAGMA table_info first.
 static bool columnExists(sqlite3* db, const char* table, const char* column)
@@ -288,6 +298,7 @@ static int migrateSchema(sqlite3* db)
         { "function", "max_block_depth",           "INTEGER NOT NULL DEFAULT 0"   },
         { "function", "loc",                       "INTEGER NOT NULL DEFAULT 0"   },
         { "file",     "module_name",               "TEXT"                         },
+        { "binding",  "is_exported",               "INTEGER NOT NULL DEFAULT 1"   },
     };
 
     for (const ColumnDef& c : kColumns) {
@@ -297,9 +308,17 @@ static int migrateSchema(sqlite3* db)
 
     // A version-1 database gets the version-2 tables from kInitSQL, but empty:
     // symbol/scope/binding/ref are only written by a scan, so name resolution
-    // has nothing to work on until the repository is scanned again.
+    // has nothing to work on until the repository is scanned again. A version-2
+    // database's bindings read as all exported until then.
     const std::string version = "PRAGMA user_version = " + std::to_string(kSchemaVersion) + ";";
     return sqlite3_exec(db, version.c_str(), nullptr, nullptr, nullptr);
+}
+
+int stampScanFormat(sqlite3* db)
+{
+    const std::string sql = std::string("INSERT OR REPLACE INTO meta(key, value) VALUES('") +
+                            kScanFormatKey + "', '" + std::to_string(kScanFormat) + "');";
+    return sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr);
 }
 
 int initDb(const char* dbPath, sqlite3** db)

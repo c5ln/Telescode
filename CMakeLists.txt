@@ -85,6 +85,7 @@ target_include_directories(telescode_core PUBLIC
 )
 target_link_libraries(telescode_core PUBLIC
     algo
+    resolve
     tree-sitter
     tree-sitter-python
     sqlite3
@@ -121,9 +122,20 @@ endif()
 # Language plugins (ILanguage): module resolution and builtin scopes, one
 # implementation per source language. Pure C++, no database or parser.
 add_library(lang STATIC
+    src/lang/LanguageRegistry.cpp
     src/lang/python/PythonLanguage.cpp
 )
 target_include_directories(lang PUBLIC src)
+
+# ── resolve static library ─────────────────────────────────────────────────────
+# The language-neutral name resolver: reads symbol/scope/binding/ref from a
+# database, writes import_resolution, ref status and the CALLS / INHERITS /
+# DECORATES links. Language rules come only through `lang`.
+add_library(resolve STATIC
+    src/resolve/Resolver.cpp
+)
+target_include_directories(resolve PUBLIC src)
+target_link_libraries(resolve PUBLIC lang sqlite3)
 
 # ── algo static library ────────────────────────────────────────────────────────
 add_library(algo STATIC
@@ -179,6 +191,7 @@ endfunction()
 ts_test_sources(TS_CORE_TEST_SRC
     tests/core/test_json_writer.cpp
     tests/core/test_analysis_readonly.cpp
+    tests/core/test_cd_builder.cpp
 )
 if(TS_CORE_TEST_SRC)
     add_executable(CoreTests ${TS_CORE_TEST_SRC})
@@ -213,6 +226,7 @@ ts_test_sources(TS_ALGO_TEST_SRC
     tests/algo/test_personalized_pagerank.cpp
     tests/algo/test_seed_io.cpp
     tests/algo/test_module_resolution.cpp
+    tests/algo/test_isolated_entities.cpp
 )
 if(TS_ALGO_TEST_SRC)
     add_executable(AlgoTests ${TS_ALGO_TEST_SRC})
@@ -243,6 +257,20 @@ if(TS_PARSER_TEST_SRC)
         target_compile_options(ParserTests PRIVATE /utf-8)
     endif()
     add_test(NAME ParserTests COMMAND ParserTests)
+endif()
+
+ts_test_sources(TS_RESOLVE_TEST_SRC
+    tests/resolve/test_resolver.cpp
+)
+if(TS_RESOLVE_TEST_SRC)
+    add_executable(ResolverTests ${TS_RESOLVE_TEST_SRC})
+    target_link_libraries(ResolverTests PRIVATE telescode_core GTest::gtest_main)
+    target_compile_definitions(ResolverTests PRIVATE
+        TS_RESOLUTION_FIXTURE="${CMAKE_SOURCE_DIR}/tests/fixtures/resolution")
+    if(MSVC)
+        target_compile_options(ResolverTests PRIVATE /utf-8)
+    endif()
+    add_test(NAME ResolverTests COMMAND ResolverTests)
 endif()
 
 ts_test_sources(TS_LAYOUT_TEST_SRC

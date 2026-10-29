@@ -76,7 +76,7 @@ int DbInserter::prepareStatements()
     if (rc != SQLITE_OK) return rc;
 
     rc = sqlite3_prepare_v2(db_,
-        "INSERT OR REPLACE INTO binding(scope_id, local_name, namespace, kind, file_id, target_id, module_spec, imported_name, line) VALUES(?,?,?,?,?,?,?,?,?);",
+        "INSERT OR REPLACE INTO binding(scope_id, local_name, namespace, kind, file_id, target_id, module_spec, imported_name, line, is_exported) VALUES(?,?,?,?,?,?,?,?,?,?);",
         -1, &stmtBinding_, nullptr);
     if (rc != SQLITE_OK) return rc;
 
@@ -254,6 +254,7 @@ int DbInserter::insertBinding(const BindingEntity& e)
     bindTextOrNull   (stmtBinding_, 7, e.module_spec);
     bindTextOrNull   (stmtBinding_, 8, e.imported_name);
     sqlite3_bind_int (stmtBinding_, 9, e.line);
+    sqlite3_bind_int (stmtBinding_, 10, e.is_exported);
     int rc = sqlite3_step(stmtBinding_);
     return (rc == SQLITE_DONE) ? SQLITE_OK : rc;
 }
@@ -357,6 +358,10 @@ int DbInserter::insertAll(const char* dbPath,
     if (rc != SQLITE_OK) goto rollback;
 
     rc = insertResults(db, results);
+    if (rc != SQLITE_OK) goto rollback;
+
+    // Every file now comes from this parser, so the resolver may trust them.
+    rc = stampScanFormat(db);
     if (rc != SQLITE_OK) goto rollback;
 
     rc = sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);

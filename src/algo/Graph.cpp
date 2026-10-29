@@ -224,9 +224,27 @@ void GraphBuilder::build_file_graph(sqlite3* db, Graph& g, const AlgoConfig& cfg
 // Nodes: function_id, class_id. Edges: CALLS + INHERITS only.
 // No multiplicity here -- (source_id, target_id, link_type) is the `link` PK --
 // so the weight is purely the link-type weight.
+// Every function and class is pre-populated as a node, as files are in pass 1:
+// an entity with no resolved link (only unresolved calls, or none) would
+// otherwise be missing from the reading sequence altogether. Ordered by id so
+// node numbering, and with it every tie-break, does not depend on row order.
 void GraphBuilder::build_func_graph(sqlite3* db, Graph& g, const AlgoConfig& cfg)
 {
     sqlite3_stmt* stmt = nullptr;
+    sqlite3_prepare_v2(db,
+        "SELECT function_id FROM function"
+        " UNION SELECT class_id FROM class"
+        " ORDER BY 1;",
+        -1, &stmt, nullptr);
+    if (stmt) {
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            const char* id = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+            if (id) g.get_or_add(id);
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    stmt = nullptr;
     sqlite3_prepare_v2(db,
         "SELECT source_id, target_id, link_type FROM link"
         " WHERE link_type IN ('CALLS', 'INHERITS');",

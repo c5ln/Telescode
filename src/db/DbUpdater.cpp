@@ -1,10 +1,15 @@
 #include "DbUpdater.h"
 #include "DbInserter.h"
 #include "db.h"
+#include "resolve/Resolver.h"
 #include <sqlite3.h>
 #include <cstring>
 
 // ── deleteFileEntities ────────────────────────────────────────────────────────
+// Only the IMPORTS links this deletes matter now: every operation below ends
+// by re-running the resolver over the whole database, which rewrites all
+// CALLS / INHERITS / DECORATES links -- including the ones into this file that
+// the LIKE below removes and that a per-file re-parse could not restore.
 
 int DbUpdater::deleteFileEntities(sqlite3* db, const std::string& fileId)
 {
@@ -38,17 +43,44 @@ int DbUpdater::deleteFileEntities(sqlite3* db, const std::string& fileId)
     return (rc == SQLITE_DONE) ? SQLITE_OK : rc;
 }
 
+// ── checkScanned ──────────────────────────────────────────────────────────────
+// A database scanned by an older Telescode lacks rows the resolver needs (no
+// scopes or bindings at all before Stage 2, no subscripted-base refs or
+// binding.is_exported before Stage 3), so the resolver run at the end of each
+// operation would drop links. Its files carry no current scan stamp. Refuse
+// before opening it with initDb, which would already migrate it: the file is
+// left exactly as it was.
+
+static int checkScanned(const char* dbPath)
+{
+    sqlite3* db = nullptr;
+    if (sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READONLY, nullptr) != SQLITE_OK) {
+        sqlite3_close(db);
+        return SQLITE_OK;   // no database yet: nothing to protect
+    }
+    const bool stale = Resolver::needsRescan(db);
+    sqlite3_close(db);
+    return stale ? Resolver::kNeedsRescan : SQLITE_OK;
+}
+
 // ── updateFiles ───────────────────────────────────────────────────────────────
 
 int DbUpdater::updateFiles(const char* dbPath,
                             const std::vector<ParseResult>& results)
 {
+    int rc = checkScanned(dbPath);
+    if (rc != SQLITE_OK) return rc;
+
     sqlite3* db = nullptr;
-    int rc = initDb(dbPath, &db);
+    rc = initDb(dbPath, &db);
     if (rc != SQLITE_OK) return rc;
 
     rc = sqlite3_exec(db, "BEGIN;", nullptr, nullptr, nullptr);
     if (rc != SQLITE_OK) { sqlite3_close(db); return rc; }
+
+    // checkScanned passed: every file left is this parser's (or there are none).
+    rc = stampScanFormat(db);
+    if (rc != SQLITE_OK) goto rollback;
 
     for (const ParseResult& r : results) {
         rc = deleteFileEntities(db, r.file.file_id);
@@ -56,6 +88,10 @@ int DbUpdater::updateFiles(const char* dbPath,
     }
 
     rc = DbInserter::insertResults(db, results);
+    if (rc != SQLITE_OK) goto rollback;
+
+    // Full re-resolution after every change, until it is made incremental.
+    rc = Resolver::resolveAll(db);
     if (rc != SQLITE_OK) goto rollback;
 
     rc = sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);
@@ -80,17 +116,28 @@ int DbUpdater::updateFile(const char* dbPath, const ParseResult& result)
 int DbUpdater::deleteFiles(const char* dbPath,
                             const std::vector<std::string>& fileIds)
 {
+    int rc = checkScanned(dbPath);
+    if (rc != SQLITE_OK) return rc;
+
     sqlite3* db = nullptr;
-    int rc = initDb(dbPath, &db);
+    rc = initDb(dbPath, &db);
     if (rc != SQLITE_OK) return rc;
 
     rc = sqlite3_exec(db, "BEGIN;", nullptr, nullptr, nullptr);
     if (rc != SQLITE_OK) { sqlite3_close(db); return rc; }
 
+    // checkScanned passed: every file left is this parser's (or there are none).
+    rc = stampScanFormat(db);
+    if (rc != SQLITE_OK) goto rollback;
+
     for (const std::string& id : fileIds) {
         rc = deleteFileEntities(db, id);
         if (rc != SQLITE_OK) goto rollback;
     }
+
+    // Full re-resolution after every change, until it is made incremental.
+    rc = Resolver::resolveAll(db);
+    if (rc != SQLITE_OK) goto rollback;
 
     rc = sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);
     if (rc != SQLITE_OK) goto rollback;
@@ -115,17 +162,28 @@ int DbUpdater::renameFile(const char* dbPath,
                            const std::string& oldFileId,
                            const ParseResult& newResult)
 {
+    int rc = checkScanned(dbPath);
+    if (rc != SQLITE_OK) return rc;
+
     sqlite3* db = nullptr;
-    int rc = initDb(dbPath, &db);
+    rc = initDb(dbPath, &db);
     if (rc != SQLITE_OK) return rc;
 
     rc = sqlite3_exec(db, "BEGIN;", nullptr, nullptr, nullptr);
     if (rc != SQLITE_OK) { sqlite3_close(db); return rc; }
 
+    // checkScanned passed: every file left is this parser's (or there are none).
+    rc = stampScanFormat(db);
+    if (rc != SQLITE_OK) goto rollback;
+
     rc = deleteFileEntities(db, oldFileId);
     if (rc != SQLITE_OK) goto rollback;
 
     rc = DbInserter::insertResults(db, {newResult});
+    if (rc != SQLITE_OK) goto rollback;
+
+    // Full re-resolution after every change, until it is made incremental.
+    rc = Resolver::resolveAll(db);
     if (rc != SQLITE_OK) goto rollback;
 
     rc = sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);
