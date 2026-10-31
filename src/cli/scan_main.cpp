@@ -35,31 +35,22 @@ int CmdScan(int argc, char* argv[]) {
 
     std::fprintf(stdout, "[scan] Parsed %zu files.\n", results.size());
 
-    int rc = DbInserter::insertAll(dbPath, results);
+    // Insert and resolve in one transaction: nothing half-built is left behind.
+    Resolver::Stats stats;
+    int rc = DbInserter::insertAll(dbPath, results, &stats);
     auto t2 = std::chrono::steady_clock::now();
+    if (rc == kNotADatabase) {
+        std::fprintf(stderr, "[error] %s is not a Telescode database; refusing to overwrite it\n",
+                     dbPath);
+        return 1;
+    }
     if (rc != SQLITE_OK) {
-        std::fprintf(stderr, "[error] DB insert failed (code %d): %s\n",
-                     rc, sqlite3_errstr(rc));
+        std::fprintf(stderr, "[error] DB insert failed (code %d): %s; nothing from this scan"
+                     " was kept\n", rc, sqlite3_errstr(rc));
         return 1;
     }
 
     std::fprintf(stdout, "[scan] Inserted results into %s\n", dbPath);
-
-    // Names across files can only be resolved once every file is in.
-    Resolver::Stats stats;
-    sqlite3* db = nullptr;
-    rc = initDb(dbPath, &db);
-    if (rc == SQLITE_OK) rc = Resolver::run(db, &stats);
-    sqlite3_close(db);
-    auto t3 = std::chrono::steady_clock::now();
-    if (rc != SQLITE_OK) {
-        // insertAll has just stamped the database, so kNeedsRescan means the
-        // stamp did not stick; any other code is SQLite's.
-        std::fprintf(stderr, "[error] name resolution failed (code %d): %s\n", rc,
-                     rc == Resolver::kNeedsRescan ? "the database has no current scan stamp"
-                                                  : sqlite3_errstr(rc));
-        return 1;
-    }
 
     auto count = [](const std::map<std::string, int>& m, const char* k) {
         auto it = m.find(k);
@@ -78,7 +69,7 @@ int CmdScan(int argc, char* argv[]) {
         return std::chrono::duration_cast<std::chrono::milliseconds>(b - a).count();
     };
     std::fprintf(stdout, "[scan] Timing: parse %lld ms, db-insert %lld ms, resolve %lld ms\n",
-                 (long long)ms(t0, t1), (long long)ms(t1, t2), (long long)ms(t2, t3));
+                 (long long)ms(t0, t1), (long long)ms(t1, t2) - stats.ms, stats.ms);
     return 0;
 }
 

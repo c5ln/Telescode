@@ -1,0 +1,620 @@
+{
+ "label": "xarray",
+ "db": "xarray.db",
+ "scanned_path": "bench/repos/xarray",
+ "scanned_commit": "b1c1dc549b62bdfc8de0bdded24f56464cf0db1a",
+ "binary": {
+  "path": "build/TelescodeHeadless",
+  "md5": "5345172478aba57b62069f6870e13153"
+ },
+ "counts": {
+  "files": 241,
+  "classes": 687,
+  "functions": 8354,
+  "methods": 5525
+ },
+ "projects": {
+  ".github": 1,
+  "asv_bench": 22,
+  "ci": 3,
+  "conftest.py": 1,
+  "doc": 7,
+  "properties": 8,
+  "xarray": 199
+ },
+ "links": {
+  "CALLS": {
+   "total": 34975,
+   "target_is_id": 6534,
+   "target_is_raw_name": 28441,
+   "raw_name_dotted": 18497,
+   "raw_name_bare": 9944,
+   "raw_name_containing_double_colon": 2
+  },
+  "INHERITS": {
+   "total": 369,
+   "target_is_id": 0,
+   "target_is_raw_name": 369,
+   "raw_name_dotted": 35,
+   "raw_name_bare": 334,
+   "raw_name_containing_double_colon": 0
+  }
+ },
+ "cross_project_links": {
+  "CALLS": {
+   "count": 20,
+   "cross_file": 2687,
+   "by_project_pair": [
+    {
+     "source": "properties",
+     "target": "xarray",
+     "count": 16
+    },
+    {
+     "source": "ci",
+     "target": "xarray",
+     "count": 2
+    },
+    {
+     "source": "asv_bench",
+     "target": "xarray",
+     "count": 1
+    },
+    {
+     "source": "doc",
+     "target": "xarray",
+     "count": 1
+    }
+   ],
+   "examples": [
+    {
+     "source_id": "asv_bench/benchmarks/dataset_io.py::IOMultipleNetCDF::make_ds",
+     "target_id": "xarray/core/accessor_str.py::StringAccessor::len",
+     "source_project": "asv_bench",
+     "target_project": "xarray"
+    },
+    {
+     "source_id": "ci/numpydoc-public-api.py::walk_module",
+     "target_id": "xarray/tests/conftest.py::type",
+     "source_project": "ci",
+     "target_project": "xarray"
+    },
+    {
+     "source_id": "ci/release_contributors.py::main",
+     "target_id": "xarray/core/accessor_str.py::StringAccessor::len",
+     "source_project": "ci",
+     "target_project": "xarray"
+    },
+    {
+     "source_id": "doc/conf.py::linkcode_resolve",
+     "target_id": "xarray/core/accessor_str.py::StringAccessor::len",
+     "source_project": "doc",
+     "target_project": "xarray"
+    },
+    {
+     "source_id": "properties/test_coordinate_transform.py::create_pandas_da",
+     "target_id": "xarray/core/indexing.py::ExplicitIndexer::tuple",
+     "source_project": "properties",
+     "target_project": "xarray"
+    },
+    {
+     "source_id": "properties/test_coordinate_transform.py::create_transform_da",
+     "target_id": "xarray/core/indexing.py::ExplicitIndexer::tuple",
+     "source_project": "properties",
+     "target_project": "xarray"
+    },
+    {
+     "source_id": "properties/test_encode_decode.py::test_iso8601_decode",
+     "target_id": "xarray/coding/times.py::_parse_iso8601",
+     "source_project": "properties",
+     "target_project": "xarray"
+    },
+    {
+     "source_id": "properties/test_encode_decode.py::test_iso8601_decode",
+     "target_id": "xarray/tests/conftest.py::type",
+     "source_project": "properties",
+     "target_project": "xarray"
+    },
+    {
+     "source_id": "properties/test_index_manipulation.py::DatasetStateMachine::assert_invariants",
+     "target_id": "xarray/testing/assertions.py::_assert_internal_invariants",
+     "source_project": "properties",
+     "target_project": "xarray"
+    },
+    {
+     "source_id": "properties/test_index_manipulation.py::DatasetStateMachine::swap_dims",
+     "target_id": "xarray/core/indexing.py::ExplicitIndexer::tuple",
+     "source_project": "properties",
+     "target_project": "xarray"
+    }
+   ]
+  },
+  "INHERITS": {
+   "count": 0,
+   "cross_file": 0,
+   "by_project_pair": [],
+   "examples": []
+  }
+ },
+ "calls_to_method_from_bare_name": {
+  "note": "APPROXIMATION: the DB does not keep the raw call text, so 'bare name call resolved to a method' is estimated by two separate signals: the target method's name is a Python builtin (dir(builtins)), or the target method lives in a different file than the caller.",
+  "python": "3.11.2",
+  "n_builtin_names": 157,
+  "builtin_name": {
+   "count": 768,
+   "cross_project": 14,
+   "top_target_names": [
+    [
+     "len",
+     486
+    ],
+    [
+     "tuple",
+     235
+    ],
+    [
+     "open",
+     24
+    ],
+    [
+     "map",
+     17
+    ],
+    [
+     "slice",
+     4
+    ],
+    [
+     "filter",
+     2
+    ]
+   ],
+   "examples": [
+    {
+     "source_id": "asv_bench/benchmarks/dataset_io.py::IOMultipleNetCDF::make_ds",
+     "target_id": "xarray/core/accessor_str.py::StringAccessor::len",
+     "target_name": "len"
+    },
+    {
+     "source_id": "ci/release_contributors.py::main",
+     "target_id": "xarray/core/accessor_str.py::StringAccessor::len",
+     "target_name": "len"
+    },
+    {
+     "source_id": "doc/conf.py::linkcode_resolve",
+     "target_id": "xarray/core/accessor_str.py::StringAccessor::len",
+     "target_name": "len"
+    },
+    {
+     "source_id": "properties/test_coordinate_transform.py::create_pandas_da",
+     "target_id": "xarray/core/indexing.py::ExplicitIndexer::tuple",
+     "target_name": "tuple"
+    },
+    {
+     "source_id": "properties/test_coordinate_transform.py::create_transform_da",
+     "target_id": "xarray/core/indexing.py::ExplicitIndexer::tuple",
+     "target_name": "tuple"
+    },
+    {
+     "source_id": "properties/test_index_manipulation.py::DatasetStateMachine::swap_dims",
+     "target_id": "xarray/core/indexing.py::ExplicitIndexer::tuple",
+     "target_name": "tuple"
+    },
+    {
+     "source_id": "properties/test_indexing.py::_slice_size",
+     "target_id": "xarray/core/accessor_str.py::StringAccessor::len",
+     "target_name": "len"
+    },
+    {
+     "source_id": "properties/test_indexing.py::test_basic_indexing",
+     "target_id": "xarray/core/indexing.py::ExplicitIndexer::tuple",
+     "target_name": "tuple"
+    },
+    {
+     "source_id": "properties/test_indexing.py::test_outer_indexing",
+     "target_id": "xarray/core/accessor_str.py::StringAccessor::len",
+     "target_name": "len"
+    },
+    {
+     "source_id": "properties/test_indexing.py::test_outer_indexing",
+     "target_id": "xarray/core/indexing.py::ExplicitIndexer::tuple",
+     "target_name": "tuple"
+    }
+   ]
+  },
+  "other_file": {
+   "count": 698,
+   "cross_project": 14,
+   "top_target_names": [
+    [
+     "len",
+     479
+    ],
+    [
+     "tuple",
+     216
+    ],
+    [
+     "date",
+     1
+    ],
+    [
+     "get_index",
+     1
+    ],
+    [
+     "_mean",
+     1
+    ]
+   ],
+   "examples": [
+    {
+     "source_id": "asv_bench/benchmarks/dataset_io.py::IOMultipleNetCDF::make_ds",
+     "target_id": "xarray/core/accessor_str.py::StringAccessor::len",
+     "target_name": "len"
+    },
+    {
+     "source_id": "ci/release_contributors.py::main",
+     "target_id": "xarray/core/accessor_str.py::StringAccessor::len",
+     "target_name": "len"
+    },
+    {
+     "source_id": "doc/conf.py::linkcode_resolve",
+     "target_id": "xarray/core/accessor_str.py::StringAccessor::len",
+     "target_name": "len"
+    },
+    {
+     "source_id": "properties/test_coordinate_transform.py::create_pandas_da",
+     "target_id": "xarray/core/indexing.py::ExplicitIndexer::tuple",
+     "target_name": "tuple"
+    },
+    {
+     "source_id": "properties/test_coordinate_transform.py::create_transform_da",
+     "target_id": "xarray/core/indexing.py::ExplicitIndexer::tuple",
+     "target_name": "tuple"
+    },
+    {
+     "source_id": "properties/test_index_manipulation.py::DatasetStateMachine::swap_dims",
+     "target_id": "xarray/core/indexing.py::ExplicitIndexer::tuple",
+     "target_name": "tuple"
+    },
+    {
+     "source_id": "properties/test_indexing.py::_slice_size",
+     "target_id": "xarray/core/accessor_str.py::StringAccessor::len",
+     "target_name": "len"
+    },
+    {
+     "source_id": "properties/test_indexing.py::test_basic_indexing",
+     "target_id": "xarray/core/indexing.py::ExplicitIndexer::tuple",
+     "target_name": "tuple"
+    },
+    {
+     "source_id": "properties/test_indexing.py::test_outer_indexing",
+     "target_id": "xarray/core/accessor_str.py::StringAccessor::len",
+     "target_name": "len"
+    },
+    {
+     "source_id": "properties/test_indexing.py::test_outer_indexing",
+     "target_id": "xarray/core/indexing.py::ExplicitIndexer::tuple",
+     "target_name": "tuple"
+    }
+   ]
+  },
+  "either": 771,
+  "calls_id_target_not_in_function_table": 0
+ },
+ "class_diagram_inherits": {
+  "inherits_links": 369,
+  "links_matching_any_class": 296,
+  "edges": 310,
+  "edges_to_different_file": 126,
+  "edges_to_different_project": 7,
+  "children_with_multiple_parents": 38,
+  "base_names_matching_multiple_classes": 10,
+  "examples_different_file": [
+   {
+    "child": "asv_bench/benchmarks/groupby.py::GroupByDask",
+    "base_name": "GroupBy",
+    "joined_class": "xarray/core/groupby.py::GroupBy"
+   },
+   {
+    "child": "asv_bench/benchmarks/groupby.py::GroupByDaskDataFrame",
+    "base_name": "GroupBy",
+    "joined_class": "xarray/core/groupby.py::GroupBy"
+   },
+   {
+    "child": "asv_bench/benchmarks/groupby.py::GroupByPandasDataFrame",
+    "base_name": "GroupBy",
+    "joined_class": "xarray/core/groupby.py::GroupBy"
+   },
+   {
+    "child": "asv_bench/benchmarks/groupby.py::ResampleCFTime",
+    "base_name": "Resample",
+    "joined_class": "xarray/core/resample.py::Resample"
+   },
+   {
+    "child": "asv_bench/benchmarks/groupby.py::ResampleDask",
+    "base_name": "Resample",
+    "joined_class": "xarray/core/resample.py::Resample"
+   },
+   {
+    "child": "asv_bench/benchmarks/rolling.py::RollingDask",
+    "base_name": "Rolling",
+    "joined_class": "xarray/computation/rolling.py::Rolling"
+   },
+   {
+    "child": "properties/test_coordinate_transform.py::IdentityTransform",
+    "base_name": "CoordinateTransform",
+    "joined_class": "xarray/core/coordinate_transform.py::CoordinateTransform"
+   },
+   {
+    "child": "xarray/backends/common.py::BackendArray",
+    "base_name": "NdimSizeLenMixin",
+    "joined_class": "xarray/core/utils.py::NdimSizeLenMixin"
+   },
+   {
+    "child": "xarray/backends/h5netcdf_.py::H5NetCDFArrayWrapper",
+    "base_name": "BaseNetCDF4Array",
+    "joined_class": "xarray/backends/netCDF4_.py::BaseNetCDF4Array"
+   },
+   {
+    "child": "xarray/backends/h5netcdf_.py::H5NetCDFStore",
+    "base_name": "WritableCFDataStore",
+    "joined_class": "xarray/backends/common.py::WritableCFDataStore"
+   }
+  ],
+  "examples_multiple_parents": [
+   {
+    "child": "xarray/tests/test_formatting.py::IndexWithInlineRepr",
+    "parents": [
+     "xarray/tests/test_assertions.py::CustomIndex",
+     "xarray/tests/test_dataarray.py::CustomIndex",
+     "xarray/tests/test_dataset.py::CustomIndex",
+     "xarray/tests/test_formatting.py::CustomIndex",
+     "xarray/tests/test_indexes.py::CustomIndex"
+    ],
+    "n_parents": 5
+   },
+   {
+    "child": "xarray/computation/arithmetic.py::DataArrayArithmetic",
+    "parents": [
+     "xarray/computation/arithmetic.py::SupportsArithmetic",
+     "xarray/computation/ops.py::IncludeNumpySameMethods",
+     "xarray/core/_typed_ops.py::DataArrayOpsMixin",
+     "xarray/core/common.py::ImplementsArrayReduce"
+    ],
+    "n_parents": 4
+   },
+   {
+    "child": "xarray/computation/arithmetic.py::VariableArithmetic",
+    "parents": [
+     "xarray/computation/arithmetic.py::SupportsArithmetic",
+     "xarray/computation/ops.py::IncludeNumpySameMethods",
+     "xarray/core/_typed_ops.py::VariableOpsMixin",
+     "xarray/core/common.py::ImplementsArrayReduce"
+    ],
+    "n_parents": 4
+   },
+   {
+    "child": "xarray/core/dataarray.py::DataArray",
+    "parents": [
+     "xarray/computation/arithmetic.py::DataArrayArithmetic",
+     "xarray/core/_aggregations.py::DataArrayAggregations",
+     "xarray/core/common.py::AbstractArray",
+     "xarray/core/common.py::DataWithCoords"
+    ],
+    "n_parents": 4
+   },
+   {
+    "child": "xarray/core/datatree.py::DataTree",
+    "parents": [
+     "xarray/core/_aggregations.py::DataTreeAggregations",
+     "xarray/core/_typed_ops.py::DataTreeOpsMixin",
+     "xarray/core/common.py::TreeAttrAccessMixin",
+     "xarray/core/treenode.py::NamedNode"
+    ],
+    "n_parents": 4
+   },
+   {
+    "child": "xarray/computation/arithmetic.py::DatasetArithmetic",
+    "parents": [
+     "xarray/computation/arithmetic.py::SupportsArithmetic",
+     "xarray/core/_typed_ops.py::DatasetOpsMixin",
+     "xarray/core/common.py::ImplementsDatasetReduce"
+    ],
+    "n_parents": 3
+   },
+   {
+    "child": "xarray/core/dataset.py::Dataset",
+    "parents": [
+     "xarray/computation/arithmetic.py::DatasetArithmetic",
+     "xarray/core/_aggregations.py::DatasetAggregations",
+     "xarray/core/common.py::DataWithCoords"
+    ],
+    "n_parents": 3
+   },
+   {
+    "child": "xarray/core/groupby.py::DataArrayGroupBy",
+    "parents": [
+     "xarray/core/_aggregations.py::DataArrayGroupByAggregations",
+     "xarray/core/common.py::ImplementsArrayReduce",
+     "xarray/core/groupby.py::DataArrayGroupByBase"
+    ],
+    "n_parents": 3
+   },
+   {
+    "child": "xarray/core/groupby.py::DatasetGroupBy",
+    "parents": [
+     "xarray/core/_aggregations.py::DatasetGroupByAggregations",
+     "xarray/core/common.py::ImplementsDatasetReduce",
+     "xarray/core/groupby.py::DatasetGroupByBase"
+    ],
+    "n_parents": 3
+   },
+   {
+    "child": "xarray/core/variable.py::Variable",
+    "parents": [
+     "xarray/computation/arithmetic.py::VariableArithmetic",
+     "xarray/core/common.py::AbstractArray",
+     "xarray/namedarray/core.py::NamedArray"
+    ],
+    "n_parents": 3
+   }
+  ],
+  "examples_ambiguous_base_name": [
+   {
+    "child": "xarray/tests/test_formatting.py::IndexWithInlineRepr",
+    "base_name": "CustomIndex",
+    "n_classes": 5,
+    "joined_classes": [
+     "xarray/tests/test_assertions.py::CustomIndex",
+     "xarray/tests/test_dataarray.py::CustomIndex",
+     "xarray/tests/test_dataset.py::CustomIndex",
+     "xarray/tests/test_formatting.py::CustomIndex",
+     "xarray/tests/test_indexes.py::CustomIndex"
+    ]
+   },
+   {
+    "child": "xarray/tests/test_variable.py::CustomIndexable",
+    "base_name": "CustomArray",
+    "n_classes": 3,
+    "joined_classes": [
+     "xarray/tests/test_formatting.py::CustomArray",
+     "xarray/tests/test_namedarray.py::CustomArray",
+     "xarray/tests/test_variable.py::CustomArray"
+    ]
+   },
+   {
+    "child": "asv_bench/benchmarks/groupby.py::GroupByDask",
+    "base_name": "GroupBy",
+    "n_classes": 2,
+    "joined_classes": [
+     "asv_bench/benchmarks/groupby.py::GroupBy",
+     "xarray/core/groupby.py::GroupBy"
+    ]
+   },
+   {
+    "child": "asv_bench/benchmarks/groupby.py::GroupByDaskDataFrame",
+    "base_name": "GroupBy",
+    "n_classes": 2,
+    "joined_classes": [
+     "asv_bench/benchmarks/groupby.py::GroupBy",
+     "xarray/core/groupby.py::GroupBy"
+    ]
+   },
+   {
+    "child": "asv_bench/benchmarks/groupby.py::GroupByPandasDataFrame",
+    "base_name": "GroupBy",
+    "n_classes": 2,
+    "joined_classes": [
+     "asv_bench/benchmarks/groupby.py::GroupBy",
+     "xarray/core/groupby.py::GroupBy"
+    ]
+   },
+   {
+    "child": "asv_bench/benchmarks/groupby.py::ResampleCFTime",
+    "base_name": "Resample",
+    "n_classes": 2,
+    "joined_classes": [
+     "asv_bench/benchmarks/groupby.py::Resample",
+     "xarray/core/resample.py::Resample"
+    ]
+   },
+   {
+    "child": "asv_bench/benchmarks/groupby.py::ResampleDask",
+    "base_name": "Resample",
+    "n_classes": 2,
+    "joined_classes": [
+     "asv_bench/benchmarks/groupby.py::Resample",
+     "xarray/core/resample.py::Resample"
+    ]
+   },
+   {
+    "child": "asv_bench/benchmarks/rolling.py::RollingDask",
+    "base_name": "Rolling",
+    "n_classes": 2,
+    "joined_classes": [
+     "asv_bench/benchmarks/rolling.py::Rolling",
+     "xarray/computation/rolling.py::Rolling"
+    ]
+   },
+   {
+    "child": "xarray/core/variable.py::IndexVariable",
+    "base_name": "Variable",
+    "n_classes": 2,
+    "joined_classes": [
+     "xarray/core/variable.py::Variable",
+     "xarray/tests/test_namedarray.py::Variable"
+    ]
+   },
+   {
+    "child": "xarray/tests/test_duck_array_ops.py::TestDaskOps",
+    "base_name": "TestOps",
+    "n_classes": 2,
+    "joined_classes": [
+     "xarray/tests/test_datatree.py::TestOps",
+     "xarray/tests/test_duck_array_ops.py::TestOps"
+    ]
+   }
+  ]
+ },
+ "file_graph": {
+  "CALLS": {
+   "edges": 808,
+   "links_behind_edges": 6534,
+   "self_loops": 143
+  },
+  "INHERITS": {
+   "edges": 0,
+   "links_behind_edges": 0,
+   "self_loops": 0
+  },
+  "CALLS+INHERITS": {
+   "distinct_pairs_excl_self": 665,
+   "cross_project_pairs": 14,
+   "cross_project_ratio": 0.0211,
+   "examples_cross_project": [
+    {
+     "src": "asv_bench/benchmarks/dataset_io.py",
+     "tgt": "xarray/core/accessor_str.py"
+    },
+    {
+     "src": "ci/numpydoc-public-api.py",
+     "tgt": "xarray/tests/conftest.py"
+    },
+    {
+     "src": "ci/release_contributors.py",
+     "tgt": "xarray/core/accessor_str.py"
+    },
+    {
+     "src": "doc/conf.py",
+     "tgt": "xarray/core/accessor_str.py"
+    },
+    {
+     "src": "properties/test_coordinate_transform.py",
+     "tgt": "xarray/core/indexing.py"
+    },
+    {
+     "src": "properties/test_encode_decode.py",
+     "tgt": "xarray/coding/times.py"
+    },
+    {
+     "src": "properties/test_encode_decode.py",
+     "tgt": "xarray/tests/conftest.py"
+    },
+    {
+     "src": "properties/test_index_manipulation.py",
+     "tgt": "xarray/core/indexing.py"
+    },
+    {
+     "src": "properties/test_index_manipulation.py",
+     "tgt": "xarray/testing/assertions.py"
+    },
+    {
+     "src": "properties/test_indexing.py",
+     "tgt": "xarray/core/accessor_str.py"
+    }
+   ]
+  }
+ }
+}

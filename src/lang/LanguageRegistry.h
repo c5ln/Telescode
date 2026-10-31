@@ -9,7 +9,7 @@
 // ── Language registry ───────────────────────────────────────────────────────
 // file.language -> the ILanguage that resolves that file's names. The resolver
 // looks every file up here and leaves the refs of a language it does not find
-// untouched ('pending').
+// 'pending' (setting them back if an earlier run decided them).
 class LanguageRegistry {
 public:
     void add(std::unique_ptr<ILanguage> language);

@@ -1,0 +1,550 @@
+{
+  "tests": {
+    "wsum(bm25, B2 = 0.6·PR + 0.4·BC) - bm25 [all]": {
+      "diff": 0.013688755320907145,
+      "ci_lo": 0.0020767574992597657,
+      "ci_hi": 0.026557584168793547,
+      "p_two_sided": 0.028,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "wsum(bm25, B2 = 0.6·PR + 0.4·BC) - B2 = 0.6·PR + 0.4·BC [all]": {
+      "diff": 0.3456562985950766,
+      "ci_lo": 0.2923790710574167,
+      "ci_hi": 0.4020364293924118,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "wsum(bm25, B2 = 0.6·PR + 0.4·BC) - LTR base (무료 피처) [all]": {
+      "diff": -0.12082300517605536,
+      "ci_lo": -0.15755381264385399,
+      "ci_hi": -0.08158603712670144,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "wsum(bm25, B2 = 0.6·PR + 0.4·BC) - LTR +코드 어휘 피처 [all]": {
+      "diff": -0.17561867191073874,
+      "ci_lo": -0.22157635013570295,
+      "ci_hi": -0.13040728318851322,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "wsum(bm25, B2 = 0.6·PR + 0.4·BC) - bm25 [overlap]": {
+      "diff": 0.015229140848647476,
+      "ci_lo": 0.0021786049696613328,
+      "ci_hi": 0.029469237780618964,
+      "p_two_sided": 0.018,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "wsum(bm25, B2 = 0.6·PR + 0.4·BC) - B2 = 0.6·PR + 0.4·BC [overlap]": {
+      "diff": 0.36512291371646866,
+      "ci_lo": 0.3087269505815229,
+      "ci_hi": 0.4197554250599368,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "wsum(bm25, B2 = 0.6·PR + 0.4·BC) - LTR base (무료 피처) [overlap]": {
+      "diff": -0.12212761391926356,
+      "ci_lo": -0.16302638459816549,
+      "ci_hi": -0.08170467006832124,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "wsum(bm25, B2 = 0.6·PR + 0.4·BC) - LTR +코드 어휘 피처 [overlap]": {
+      "diff": -0.18881252883911667,
+      "ci_lo": -0.2360368919564979,
+      "ci_hi": -0.14231148271870184,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "wsum(bm25, B2 = 0.6·PR + 0.4·BC) - bm25 [non_overlap]": {
+      "diff": 0.003233517337941412,
+      "ci_lo": -0.005190535735512831,
+      "ci_hi": 0.014237304415340912,
+      "p_two_sided": 0.537,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "wsum(bm25, B2 = 0.6·PR + 0.4·BC) - B2 = 0.6·PR + 0.4·BC [non_overlap]": {
+      "diff": 0.02104011912704514,
+      "ci_lo": -0.05986917531293443,
+      "ci_hi": 0.11204059010974768,
+      "p_two_sided": 0.682,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "wsum(bm25, B2 = 0.6·PR + 0.4·BC) - LTR base (무료 피처) [non_overlap]": {
+      "diff": -0.061885911945175696,
+      "ci_lo": -0.1238293378390853,
+      "ci_hi": 0.003264966847517315,
+      "p_two_sided": 0.064,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "wsum(bm25, B2 = 0.6·PR + 0.4·BC) - LTR +코드 어휘 피처 [non_overlap]": {
+      "diff": -0.005346065825540569,
+      "ci_lo": -0.05477179266696307,
+      "ci_hi": 0.0551097809305909,
+      "p_two_sided": 0.816,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "wsum(bm25, combined (제품 현재 설정)) - bm25 [all]": {
+      "diff": 0.04247583767739224,
+      "ci_lo": 0.01664231588220122,
+      "ci_hi": 0.06736578690399718,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "wsum(bm25, combined (제품 현재 설정)) - combined (제품 현재 설정) [all]": {
+      "diff": 0.4036074730708734,
+      "ci_lo": 0.3491453404546766,
+      "ci_hi": 0.4589534659684814,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "wsum(bm25, combined (제품 현재 설정)) - LTR base (무료 피처) [all]": {
+      "diff": -0.09203592281957025,
+      "ci_lo": -0.12860329009536414,
+      "ci_hi": -0.05638908551036753,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "wsum(bm25, combined (제품 현재 설정)) - LTR +코드 어휘 피처 [all]": {
+      "diff": -0.14683158955425363,
+      "ci_lo": -0.1919009096403434,
+      "ci_hi": -0.10340973717379742,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "wsum(bm25, combined (제품 현재 설정)) - bm25 [overlap]": {
+      "diff": 0.03970993237591141,
+      "ci_lo": 0.012459540786970641,
+      "ci_hi": 0.0677088225627454,
+      "p_two_sided": 0.006,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "wsum(bm25, combined (제품 현재 설정)) - combined (제품 현재 설정) [overlap]": {
+      "diff": 0.43358051000062026,
+      "ci_lo": 0.3809377286086904,
+      "ci_hi": 0.4896956349462119,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "wsum(bm25, combined (제품 현재 설정)) - LTR base (무료 피처) [overlap]": {
+      "diff": -0.09764682239199961,
+      "ci_lo": -0.13519085695816424,
+      "ci_hi": -0.05890723791368702,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "wsum(bm25, combined (제품 현재 설정)) - LTR +코드 어휘 피처 [overlap]": {
+      "diff": -0.16433173731185272,
+      "ci_lo": -0.2120138961323297,
+      "ci_hi": -0.11904503484225734,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "wsum(bm25, combined (제품 현재 설정)) - bm25 [non_overlap]": {
+      "diff": 0.04886830051579311,
+      "ci_lo": 0.013023999524520293,
+      "ci_hi": 0.08850848201236446,
+      "p_two_sided": 0.003,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "wsum(bm25, combined (제품 현재 설정)) - combined (제품 현재 설정) [non_overlap]": {
+      "diff": 0.01074230242232067,
+      "ci_lo": -0.1094551645948545,
+      "ci_hi": 0.12971498728060638,
+      "p_two_sided": 0.866,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "wsum(bm25, combined (제품 현재 설정)) - LTR base (무료 피처) [non_overlap]": {
+      "diff": -0.016251128767324003,
+      "ci_lo": -0.067830394674695,
+      "ci_hi": 0.043720940453606603,
+      "p_two_sided": 0.498,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "wsum(bm25, combined (제품 현재 설정)) - LTR +코드 어휘 피처 [non_overlap]": {
+      "diff": 0.040288717352311126,
+      "ci_lo": -0.0029195346251669123,
+      "ci_hi": 0.10199789088633349,
+      "p_two_sided": 0.077,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "wsum(bm25, pagerank) - bm25 [all]": {
+      "diff": 0.013422940408140618,
+      "ci_lo": 0.004060885323433787,
+      "ci_hi": 0.024733133130975207,
+      "p_two_sided": 0.003,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "wsum(bm25, pagerank) - pagerank [all]": {
+      "diff": 0.35728577722868765,
+      "ci_lo": 0.30158072308704165,
+      "ci_hi": 0.41366459998747196,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "wsum(bm25, pagerank) - LTR base (무료 피처) [all]": {
+      "diff": -0.1210888200888219,
+      "ci_lo": -0.15747413048402642,
+      "ci_hi": -0.08131080958692265,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "wsum(bm25, pagerank) - LTR +코드 어휘 피처 [all]": {
+      "diff": -0.17588448682350524,
+      "ci_lo": -0.22133502895203644,
+      "ci_hi": -0.13056749034199716,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "wsum(bm25, pagerank) - bm25 [overlap]": {
+      "diff": 0.014472706891635932,
+      "ci_lo": 0.003868007307855257,
+      "ci_hi": 0.026885758885056853,
+      "p_two_sided": 0.005,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "wsum(bm25, pagerank) - pagerank [overlap]": {
+      "diff": 0.3752119040289948,
+      "ci_lo": 0.3158478379981811,
+      "ci_hi": 0.4305969639711375,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "wsum(bm25, pagerank) - LTR base (무료 피처) [overlap]": {
+      "diff": -0.12288404787627508,
+      "ci_lo": -0.16372734675979506,
+      "ci_hi": -0.08335993925707666,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "wsum(bm25, pagerank) - LTR +코드 어휘 피처 [overlap]": {
+      "diff": -0.1895689627961282,
+      "ci_lo": -0.2359600220590088,
+      "ci_hi": -0.14283996980526278,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "wsum(bm25, pagerank) - bm25 [non_overlap]": {
+      "diff": 0.0014442333008668276,
+      "ci_lo": -0.010062778536466388,
+      "ci_hi": 0.013467541063724078,
+      "p_two_sided": 0.75,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "wsum(bm25, pagerank) - pagerank [non_overlap]": {
+      "diff": 0.03289014975046946,
+      "ci_lo": -0.04296708582137146,
+      "ci_hi": 0.116805735183877,
+      "p_two_sided": 0.436,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "wsum(bm25, pagerank) - LTR base (무료 피처) [non_overlap]": {
+      "diff": -0.06367519598225028,
+      "ci_lo": -0.12958182233216206,
+      "ci_hi": 0.004173760884687227,
+      "p_two_sided": 0.066,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "wsum(bm25, pagerank) - LTR +코드 어휘 피처 [non_overlap]": {
+      "diff": -0.007135349862615154,
+      "ci_lo": -0.056832891551347235,
+      "ci_hi": 0.0551266761223457,
+      "p_two_sided": 0.764,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "wsum(bm25, bc) - bm25 [all]": {
+      "diff": -0.00436420576724554,
+      "ci_lo": -0.017180620345853444,
+      "ci_hi": 0.008763000003681902,
+      "p_two_sided": 0.523,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "wsum(bm25, bc) - bc [all]": {
+      "diff": 0.29690060676277064,
+      "ci_lo": 0.24816511648701836,
+      "ci_hi": 0.35107911520489926,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "wsum(bm25, bc) - LTR base (무료 피처) [all]": {
+      "diff": -0.13887596626420806,
+      "ci_lo": -0.17504183930537554,
+      "ci_hi": -0.09995316119907308,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "wsum(bm25, bc) - LTR +코드 어휘 피처 [all]": {
+      "diff": -0.1936716329988914,
+      "ci_lo": -0.23811660724547998,
+      "ci_hi": -0.14927069680767685,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "wsum(bm25, bc) - bm25 [overlap]": {
+      "diff": -0.005089876338885218,
+      "ci_lo": -0.01844292014786592,
+      "ci_hi": 0.008812913354942399,
+      "p_two_sided": 0.486,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "wsum(bm25, bc) - bc [overlap]": {
+      "diff": 0.32282331906003314,
+      "ci_lo": 0.2708959732022547,
+      "ci_hi": 0.3743546274043848,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "wsum(bm25, bc) - LTR base (무료 피처) [overlap]": {
+      "diff": -0.14244663110679623,
+      "ci_lo": -0.18358676421885065,
+      "ci_hi": -0.10321106926301361,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "wsum(bm25, bc) - LTR +코드 어휘 피처 [overlap]": {
+      "diff": -0.20913154602664932,
+      "ci_lo": -0.2563178008307744,
+      "ci_hi": -0.1627079603657693,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "wsum(bm25, bc) - bm25 [non_overlap]": {
+      "diff": 0.0011833929419905749,
+      "ci_lo": -0.007767580777901451,
+      "ci_hi": 0.012711337163366242,
+      "p_two_sided": 0.89,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "wsum(bm25, bc) - bc [non_overlap]": {
+      "diff": -0.042007099897735885,
+      "ci_lo": -0.16452585026284944,
+      "ci_hi": 0.07858855148089391,
+      "p_two_sided": 0.528,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "wsum(bm25, bc) - LTR base (무료 피처) [non_overlap]": {
+      "diff": -0.06393603634112653,
+      "ci_lo": -0.12632945261328418,
+      "ci_hi": 0.0015693554836322173,
+      "p_two_sided": 0.054,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "wsum(bm25, bc) - LTR +코드 어휘 피처 [non_overlap]": {
+      "diff": -0.007396190221491408,
+      "ci_lo": -0.057582866088740164,
+      "ci_hi": 0.053180501665068096,
+      "p_two_sided": 0.754,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "wsum(bm25, ppr) - bm25 [all]": {
+      "diff": 0.002709056755713137,
+      "ci_lo": -0.002131873131363457,
+      "ci_hi": 0.007686795677478574,
+      "p_two_sided": 0.28,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "wsum(bm25, ppr) - ppr [all]": {
+      "diff": 0.08746958193927275,
+      "ci_lo": 0.06506179512203757,
+      "ci_hi": 0.10944173695122192,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "wsum(bm25, ppr) - LTR base (무료 피처) [all]": {
+      "diff": -0.13180270374124936,
+      "ci_lo": -0.16882647314522595,
+      "ci_hi": -0.0941511783455339,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "wsum(bm25, ppr) - LTR +코드 어휘 피처 [all]": {
+      "diff": -0.18659837047593272,
+      "ci_lo": -0.23160074732765631,
+      "ci_hi": -0.14279563502083517,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "wsum(bm25, ppr) - bm25 [overlap]": {
+      "diff": 0.0018439804100524656,
+      "ci_lo": -0.003333206497906328,
+      "ci_hi": 0.007030227097691398,
+      "p_two_sided": 0.478,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "wsum(bm25, ppr) - ppr [overlap]": {
+      "diff": 0.09061208911956652,
+      "ci_lo": 0.06808292956918603,
+      "ci_hi": 0.11550534911633371,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "wsum(bm25, ppr) - LTR base (무료 피처) [overlap]": {
+      "diff": -0.13551277435785858,
+      "ci_lo": -0.17491873794631266,
+      "ci_hi": -0.09707347698472663,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "wsum(bm25, ppr) - LTR +코드 어휘 피처 [overlap]": {
+      "diff": -0.20219768927771167,
+      "ci_lo": -0.2503069760928087,
+      "ci_hi": -0.1566058919936683,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "wsum(bm25, ppr) - bm25 [non_overlap]": {
+      "diff": 0.00861545779494117,
+      "ci_lo": -0.0005175024966922198,
+      "ci_hi": 0.021124221750401333,
+      "p_two_sided": 0.075,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "wsum(bm25, ppr) - ppr [non_overlap]": {
+      "diff": 0.02290919592596661,
+      "ci_lo": -0.02245226967328204,
+      "ci_hi": 0.06932514193367258,
+      "p_two_sided": 0.299,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "wsum(bm25, ppr) - LTR base (무료 피처) [non_overlap]": {
+      "diff": -0.056503971488175944,
+      "ci_lo": -0.11940418854031692,
+      "ci_hi": 0.010895420836159946,
+      "p_two_sided": 0.101,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "wsum(bm25, ppr) - LTR +코드 어휘 피처 [non_overlap]": {
+      "diff": 3.587463145919012e-05,
+      "ci_lo": -0.050534742712338446,
+      "ci_hi": 0.06361152630174222,
+      "p_two_sided": 0.967,
+      "n_paired": 40,
+      "underpowered": false
+    }
+  },
+  "chosen_alpha": {
+    "B2 = 0.6·PR + 0.4·BC": [
+      0.9,
+      0.9,
+      0.9,
+      0.9,
+      0.9
+    ],
+    "combined (제품 현재 설정)": [
+      0.7,
+      0.7,
+      0.7,
+      0.6,
+      0.7
+    ],
+    "pagerank": [
+      0.9,
+      0.9,
+      0.9,
+      0.9,
+      0.9
+    ],
+    "bc": [
+      0.85,
+      0.8,
+      0.95,
+      0.9,
+      0.95
+    ],
+    "ppr": [
+      0.8,
+      0.75,
+      0.8,
+      0.8,
+      0.8
+    ]
+  },
+  "alphas": [
+    0.0,
+    0.05,
+    0.1,
+    0.15,
+    0.2,
+    0.25,
+    0.3,
+    0.35,
+    0.4,
+    0.45,
+    0.5,
+    0.55,
+    0.6,
+    0.65,
+    0.7,
+    0.75,
+    0.8,
+    0.85,
+    0.9,
+    0.95,
+    1.0
+  ],
+  "notes": [
+    "embed seed 없음 — 임베딩 없이 진행",
+    "rerank seed 없음 — 리랭킹 없이 진행",
+    "extra 조인 43688/43688 (1.0000): def_match, str_match, nbr_bm25_max, nbr_bm25_mean",
+    "gold 437개 중 스캔에 있는 것 423개 (차이 14개가 Recall 상한을 깎는다)"
+  ]
+}

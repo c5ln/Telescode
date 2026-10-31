@@ -11,12 +11,12 @@ DbInserter::DbInserter(sqlite3* db)
     , stmtBaseClass_(nullptr)
     , stmtFunction_(nullptr)
     , stmtParam_(nullptr)
-    , stmtLink_(nullptr)
     , stmtField_(nullptr)
     , stmtSymbol_(nullptr)
     , stmtScope_(nullptr)
     , stmtBinding_(nullptr)
     , stmtRef_(nullptr)
+    , stmtImport_(nullptr)
 {}
 
 DbInserter::~DbInserter()
@@ -56,11 +56,6 @@ int DbInserter::prepareStatements()
     if (rc != SQLITE_OK) return rc;
 
     rc = sqlite3_prepare_v2(db_,
-        "INSERT OR REPLACE INTO link(source_id, target_id, link_type) VALUES(?,?,?);",
-        -1, &stmtLink_, nullptr);
-    if (rc != SQLITE_OK) return rc;
-
-    rc = sqlite3_prepare_v2(db_,
         "INSERT OR REPLACE INTO field(class_id, field_name, access) VALUES(?,?,?);",
         -1, &stmtField_, nullptr);
     if (rc != SQLITE_OK) return rc;
@@ -86,6 +81,11 @@ int DbInserter::prepareStatements()
         -1, &stmtRef_, nullptr);
     if (rc != SQLITE_OK) return rc;
 
+    rc = sqlite3_prepare_v2(db_,
+        "INSERT OR IGNORE INTO import_resolution(file_id, module_spec) VALUES(?,?);",
+        -1, &stmtImport_, nullptr);
+    if (rc != SQLITE_OK) return rc;
+
     return SQLITE_OK;
 }
 
@@ -96,12 +96,12 @@ void DbInserter::finalizeStatements()
     sqlite3_finalize(stmtBaseClass_); stmtBaseClass_ = nullptr;
     sqlite3_finalize(stmtFunction_);  stmtFunction_  = nullptr;
     sqlite3_finalize(stmtParam_);     stmtParam_     = nullptr;
-    sqlite3_finalize(stmtLink_);      stmtLink_      = nullptr;
     sqlite3_finalize(stmtField_);     stmtField_     = nullptr;
     sqlite3_finalize(stmtSymbol_);    stmtSymbol_    = nullptr;
     sqlite3_finalize(stmtScope_);     stmtScope_     = nullptr;
     sqlite3_finalize(stmtBinding_);   stmtBinding_   = nullptr;
     sqlite3_finalize(stmtRef_);       stmtRef_       = nullptr;
+    sqlite3_finalize(stmtImport_);    stmtImport_    = nullptr;
 }
 
 // ── Insert helpers ────────────────────────────────────────────────────────────
@@ -191,16 +191,6 @@ int DbInserter::insertParam(const ParamEntity& e)
     return (rc == SQLITE_DONE) ? SQLITE_OK : rc;
 }
 
-int DbInserter::insertLink(const LinkEntity& e)
-{
-    sqlite3_reset(stmtLink_);
-    sqlite3_bind_text(stmtLink_, 1, e.source_id.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmtLink_, 2, e.target_id.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmtLink_, 3, e.link_type.c_str(), -1, SQLITE_STATIC);
-    int rc = sqlite3_step(stmtLink_);
-    return (rc == SQLITE_DONE) ? SQLITE_OK : rc;
-}
-
 int DbInserter::insertField(const FieldEntity& e)
 {
     const char access_str[2] = { e.access, '\0' };
@@ -274,6 +264,16 @@ int DbInserter::insertRef(const RefEntity& e)
     return (rc == SQLITE_DONE) ? SQLITE_OK : rc;
 }
 
+// A 'pending' import_resolution row; the resolver says what the spec names.
+int DbInserter::insertImportSpec(const std::string& fileId, const std::string& spec)
+{
+    sqlite3_reset(stmtImport_);
+    sqlite3_bind_text(stmtImport_, 1, fileId.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmtImport_, 2, spec.c_str(),   -1, SQLITE_STATIC);
+    int rc = sqlite3_step(stmtImport_);
+    return (rc == SQLITE_DONE) ? SQLITE_OK : rc;
+}
+
 // ── insertResults ─────────────────────────────────────────────────────────────
 
 int DbInserter::insertResults(sqlite3* db,
@@ -308,11 +308,6 @@ int DbInserter::insertResults(sqlite3* db,
             if (rc != SQLITE_OK) return rc;
         }
 
-        for (const LinkEntity& l : r.links) {
-            rc = inserter.insertLink(l);
-            if (rc != SQLITE_OK) return rc;
-        }
-
         for (const FieldEntity& f : r.fields) {
             rc = inserter.insertField(f);
             if (rc != SQLITE_OK) return rc;
@@ -337,6 +332,11 @@ int DbInserter::insertResults(sqlite3* db,
             rc = inserter.insertRef(ref);
             if (rc != SQLITE_OK) return rc;
         }
+
+        for (const std::string& spec : r.import_specs) {
+            rc = inserter.insertImportSpec(r.file.file_id, spec);
+            if (rc != SQLITE_OK) return rc;
+        }
     }
 
     return SQLITE_OK;
@@ -345,14 +345,24 @@ int DbInserter::insertResults(sqlite3* db,
 // ── insertAll ─────────────────────────────────────────────────────────────────
 
 int DbInserter::insertAll(const char* dbPath,
-                          const std::vector<ParseResult>& results)
+                          const std::vector<ParseResult>& results,
+                          Resolver::Stats* stats,
+                          const LanguageRegistry& languages)
 {
     sqlite3* db = nullptr;
-    int rc = initDb(dbPath, &db);
+    bool empty = false;
+    int rc = openDbForScan(dbPath, &db, &empty);
     if (rc != SQLITE_OK) return rc;
 
     rc = sqlite3_exec(db, "BEGIN;", nullptr, nullptr, nullptr);
     if (rc != SQLITE_OK) { sqlite3_close(db); return rc; }
+
+    // In this transaction: a new database gets its version only together
+    // with everything below.
+    if (empty) {
+        rc = createSchema(db);
+        if (rc != SQLITE_OK) goto rollback;
+    }
 
     rc = sqlite3_exec(db, "DELETE FROM file;", nullptr, nullptr, nullptr);
     if (rc != SQLITE_OK) goto rollback;
@@ -360,8 +370,8 @@ int DbInserter::insertAll(const char* dbPath,
     rc = insertResults(db, results);
     if (rc != SQLITE_OK) goto rollback;
 
-    // Every file now comes from this parser, so the resolver may trust them.
-    rc = stampScanFormat(db);
+    // Names across files can only be resolved once every file is in.
+    rc = Resolver::resolveAll(db, stats, languages);
     if (rc != SQLITE_OK) goto rollback;
 
     rc = sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);

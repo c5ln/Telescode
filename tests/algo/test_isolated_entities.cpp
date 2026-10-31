@@ -5,6 +5,7 @@
 
 #include "algo/AlgoRunner.h"
 #include "db/db.h"
+#include "../link_rows.h"
 
 #include <gtest/gtest.h>
 #include <sqlite3.h>
@@ -38,9 +39,10 @@ public:
             " ('a.py::g', 'a.py', NULL, 'g', 3, 5),"
             " ('a.py::lonely', 'a.py', NULL, 'lonely', 6, 8),"
             " ('a.py::C::m', NULL, 'a.py::C', 'm', 11, 14),"
-            " ('b.py::solo', 'b.py', NULL, 'solo', 0, 2);"
-            "INSERT INTO link(source_id, target_id, link_type) VALUES ('a.py::f', 'a.py::g', 'CALLS');",
+            " ('b.py::solo', 'b.py', NULL, 'solo', 0, 2);",
             nullptr, nullptr, nullptr), SQLITE_OK);
+        EXPECT_EQ(sqlite3_exec(db, test_links::linkRowsSql({{"a.py::f", "a.py::g", "CALLS"}}).c_str(),
+                               nullptr, nullptr, nullptr), SQLITE_OK);
         sqlite3_close(db);
     }
     ~IsolatedDb() { remove(); }

@@ -1,0 +1,632 @@
+{
+ "label": "pytest",
+ "db": "pytest.db",
+ "scanned_path": "bench/repos/pytest",
+ "scanned_commit": "c99f595a896eb84c1dda4f4b85a0929c52011e27",
+ "binary": {
+  "path": "build/TelescodeHeadless",
+  "md5": "5345172478aba57b62069f6870e13153"
+ },
+ "counts": {
+  "files": 271,
+  "classes": 733,
+  "functions": 6290,
+  "methods": 3960
+ },
+ "projects": {
+  "bench": 7,
+  "doc": 23,
+  "extra": 1,
+  "scripts": 4,
+  "src": 80,
+  "testing": 156
+ },
+ "links": {
+  "CALLS": {
+   "total": 19948,
+   "target_is_id": 3064,
+   "target_is_raw_name": 16884,
+   "raw_name_dotted": 13592,
+   "raw_name_bare": 3292,
+   "raw_name_containing_double_colon": 6
+  },
+  "INHERITS": {
+   "total": 209,
+   "target_is_id": 0,
+   "target_is_raw_name": 209,
+   "raw_name_dotted": 67,
+   "raw_name_bare": 142,
+   "raw_name_containing_double_colon": 0
+  }
+ },
+ "cross_project_links": {
+  "CALLS": {
+   "count": 856,
+   "cross_file": 1278,
+   "by_project_pair": [
+    {
+     "source": "testing",
+     "target": "src",
+     "count": 804
+    },
+    {
+     "source": "src",
+     "target": "testing",
+     "count": 37
+    },
+    {
+     "source": "scripts",
+     "target": "testing",
+     "count": 6
+    },
+    {
+     "source": "scripts",
+     "target": "src",
+     "count": 5
+    },
+    {
+     "source": "doc",
+     "target": "src",
+     "count": 4
+    }
+   ],
+   "examples": [
+    {
+     "source_id": "doc/en/example/assertion/failure_demo.py::test_dynamic_compile_shows_nicely",
+     "target_id": "src/_pytest/mark/expression.py::Expression::compile",
+     "source_project": "doc",
+     "target_project": "src"
+    },
+    {
+     "source_id": "doc/en/example/assertion/test_setup_flow_example.py::TestStateFullThing::setup_method",
+     "target_id": "src/_pytest/_code/code.py::Frame::eval",
+     "source_project": "doc",
+     "target_project": "src"
+    },
+    {
+     "source_id": "doc/en/example/multipython.py::Python::dumps",
+     "target_id": "src/_pytest/pytester.py::LineMatcher::str",
+     "source_project": "doc",
+     "target_project": "src"
+    },
+    {
+     "source_id": "doc/en/example/multipython.py::Python::load_and_is_true",
+     "target_id": "src/_pytest/pytester.py::LineMatcher::str",
+     "source_project": "doc",
+     "target_project": "src"
+    },
+    {
+     "source_id": "scripts/prepare-release-pr.py::find_next_version",
+     "target_id": "src/_pytest/doctest.py::LiteralsOutputChecker::check_output",
+     "source_project": "scripts",
+     "target_project": "src"
+    },
+    {
+     "source_id": "scripts/prepare-release-pr.py::prepare_release_pr",
+     "target_id": "src/_pytest/recwarn.py::WarningsRecorder::list",
+     "source_project": "scripts",
+     "target_project": "src"
+    },
+    {
+     "source_id": "scripts/prepare-release-pr.py::prepare_release_pr",
+     "target_id": "testing/test_unittest.py::test_trace::check_call",
+     "source_project": "scripts",
+     "target_project": "testing"
+    },
+    {
+     "source_id": "scripts/release.py::announce",
+     "target_id": "src/_pytest/doctest.py::LiteralsOutputChecker::check_output",
+     "source_project": "scripts",
+     "target_project": "src"
+    },
+    {
+     "source_id": "scripts/release.py::announce",
+     "target_id": "src/_pytest/pytester.py::LineMatcher::str",
+     "source_project": "scripts",
+     "target_project": "src"
+    },
+    {
+     "source_id": "scripts/release.py::announce",
+     "target_id": "testing/test_unittest.py::test_trace::check_call",
+     "source_project": "scripts",
+     "target_project": "testing"
+    }
+   ]
+  },
+  "INHERITS": {
+   "count": 0,
+   "cross_file": 0,
+   "by_project_pair": [],
+   "examples": []
+  }
+ },
+ "calls_to_method_from_bare_name": {
+  "note": "APPROXIMATION: the DB does not keep the raw call text, so 'bare name call resolved to a method' is estimated by two separate signals: the target method's name is a Python builtin (dir(builtins)), or the target method lives in a different file than the caller.",
+  "python": "3.11.2",
+  "n_builtin_names": 157,
+  "builtin_name": {
+   "count": 669,
+   "cross_project": 426,
+   "top_target_names": [
+    [
+     "str",
+     436
+    ],
+    [
+     "list",
+     96
+    ],
+    [
+     "set",
+     40
+    ],
+    [
+     "open",
+     39
+    ],
+    [
+     "compile",
+     18
+    ],
+    [
+     "id",
+     14
+    ],
+    [
+     "eval",
+     8
+    ],
+    [
+     "repr",
+     6
+    ],
+    [
+     "type",
+     4
+    ],
+    [
+     "delattr",
+     4
+    ]
+   ],
+   "examples": [
+    {
+     "source_id": "doc/en/example/assertion/failure_demo.py::test_dynamic_compile_shows_nicely",
+     "target_id": "src/_pytest/mark/expression.py::Expression::compile",
+     "target_name": "compile"
+    },
+    {
+     "source_id": "doc/en/example/assertion/test_setup_flow_example.py::TestStateFullThing::setup_method",
+     "target_id": "src/_pytest/_code/code.py::Frame::eval",
+     "target_name": "eval"
+    },
+    {
+     "source_id": "doc/en/example/multipython.py::Python::dumps",
+     "target_id": "src/_pytest/pytester.py::LineMatcher::str",
+     "target_name": "str"
+    },
+    {
+     "source_id": "doc/en/example/multipython.py::Python::load_and_is_true",
+     "target_id": "src/_pytest/pytester.py::LineMatcher::str",
+     "target_name": "str"
+    },
+    {
+     "source_id": "scripts/prepare-release-pr.py::prepare_release_pr",
+     "target_id": "src/_pytest/recwarn.py::WarningsRecorder::list",
+     "target_name": "list"
+    },
+    {
+     "source_id": "scripts/release.py::announce",
+     "target_id": "src/_pytest/pytester.py::LineMatcher::str",
+     "target_name": "str"
+    },
+    {
+     "source_id": "src/_pytest/_code/code.py::Code::getargs",
+     "target_id": "src/_pytest/recwarn.py::WarningsRecorder::list",
+     "target_name": "list"
+    },
+    {
+     "source_id": "src/_pytest/_code/code.py::ExceptionInfo::exconly",
+     "target_id": "src/_pytest/_code/code.py::ExceptionInfo::type",
+     "target_name": "type"
+    },
+    {
+     "source_id": "src/_pytest/_code/code.py::ExceptionInfo::from_exception",
+     "target_id": "src/_pytest/_code/code.py::ExceptionInfo::type",
+     "target_name": "type"
+    },
+    {
+     "source_id": "src/_pytest/_code/code.py::ExceptionInfoFormatter::_getindent",
+     "target_id": "src/_pytest/pytester.py::LineMatcher::str",
+     "target_name": "str"
+    }
+   ]
+  },
+  "other_file": {
+   "count": 644,
+   "cross_project": 435,
+   "top_target_names": [
+    [
+     "str",
+     424
+    ],
+    [
+     "list",
+     96
+    ],
+    [
+     "set",
+     38
+    ],
+    [
+     "open",
+     28
+    ],
+    [
+     "compile",
+     17
+    ],
+    [
+     "id",
+     14
+    ],
+    [
+     "eval",
+     7
+    ],
+    [
+     "indent",
+     3
+    ],
+    [
+     "append",
+     3
+    ],
+    [
+     "check_output",
+     2
+    ]
+   ],
+   "examples": [
+    {
+     "source_id": "doc/en/example/assertion/failure_demo.py::test_dynamic_compile_shows_nicely",
+     "target_id": "src/_pytest/mark/expression.py::Expression::compile",
+     "target_name": "compile"
+    },
+    {
+     "source_id": "doc/en/example/assertion/test_setup_flow_example.py::TestStateFullThing::setup_method",
+     "target_id": "src/_pytest/_code/code.py::Frame::eval",
+     "target_name": "eval"
+    },
+    {
+     "source_id": "doc/en/example/multipython.py::Python::dumps",
+     "target_id": "src/_pytest/pytester.py::LineMatcher::str",
+     "target_name": "str"
+    },
+    {
+     "source_id": "doc/en/example/multipython.py::Python::load_and_is_true",
+     "target_id": "src/_pytest/pytester.py::LineMatcher::str",
+     "target_name": "str"
+    },
+    {
+     "source_id": "scripts/prepare-release-pr.py::find_next_version",
+     "target_id": "src/_pytest/doctest.py::LiteralsOutputChecker::check_output",
+     "target_name": "check_output"
+    },
+    {
+     "source_id": "scripts/prepare-release-pr.py::prepare_release_pr",
+     "target_id": "src/_pytest/recwarn.py::WarningsRecorder::list",
+     "target_name": "list"
+    },
+    {
+     "source_id": "scripts/release.py::announce",
+     "target_id": "src/_pytest/doctest.py::LiteralsOutputChecker::check_output",
+     "target_name": "check_output"
+    },
+    {
+     "source_id": "scripts/release.py::announce",
+     "target_id": "src/_pytest/pytester.py::LineMatcher::str",
+     "target_name": "str"
+    },
+    {
+     "source_id": "scripts/update-plugin-list.py::main",
+     "target_id": "src/_pytest/_code/source.py::Source::indent",
+     "target_name": "indent"
+    },
+    {
+     "source_id": "src/_pytest/_code/code.py::Code::getargs",
+     "target_id": "src/_pytest/recwarn.py::WarningsRecorder::list",
+     "target_name": "list"
+    }
+   ]
+  },
+  "either": 686,
+  "calls_id_target_not_in_function_table": 0
+ },
+ "class_diagram_inherits": {
+  "inherits_links": 209,
+  "links_matching_any_class": 77,
+  "edges": 111,
+  "edges_to_different_file": 47,
+  "edges_to_different_project": 9,
+  "children_with_multiple_parents": 8,
+  "base_names_matching_multiple_classes": 9,
+  "examples_different_file": [
+   {
+    "child": "src/_pytest/config/__init__.py::PytestPluginManager",
+    "base_name": "PluginManager",
+    "joined_class": "testing/test_assertion.py::PluginManager"
+   },
+   {
+    "child": "src/_pytest/doctest.py::DoctestItem",
+    "base_name": "Item",
+    "joined_class": "src/_pytest/nodes.py::Item"
+   },
+   {
+    "child": "src/_pytest/doctest.py::DoctestModule",
+    "base_name": "Module",
+    "joined_class": "src/_pytest/python.py::Module"
+   },
+   {
+    "child": "src/_pytest/doctest.py::DoctestTextfile",
+    "base_name": "Module",
+    "joined_class": "src/_pytest/python.py::Module"
+   },
+   {
+    "child": "src/_pytest/doctest.py::ReprFailDoctest",
+    "base_name": "TerminalRepr",
+    "joined_class": "src/_pytest/_code/code.py::TerminalRepr"
+   },
+   {
+    "child": "src/_pytest/fixtures.py::FixtureLookupErrorRepr",
+    "base_name": "TerminalRepr",
+    "joined_class": "src/_pytest/_code/code.py::TerminalRepr"
+   },
+   {
+    "child": "src/_pytest/outcomes.py::XFailed",
+    "base_name": "Failed",
+    "joined_class": "src/_pytest/main.py::Failed"
+   },
+   {
+    "child": "src/_pytest/python.py::FunctionDefinition",
+    "base_name": "Function",
+    "joined_class": "testing/io/test_saferepr.py::Function"
+   },
+   {
+    "child": "src/_pytest/reports.py::CollectErrorRepr",
+    "base_name": "TerminalRepr",
+    "joined_class": "src/_pytest/_code/code.py::TerminalRepr"
+   },
+   {
+    "child": "src/_pytest/subtests.py::SubtestReport",
+    "base_name": "TestReport",
+    "joined_class": "src/_pytest/reports.py::TestReport"
+   }
+  ],
+  "examples_multiple_parents": [
+   {
+    "child": "testing/test_mark.py::C",
+    "parents": [
+     "doc/en/example/assertion/failure_demo.py::A",
+     "testing/code/test_code.py::A",
+     "testing/code/test_source.py::A",
+     "testing/code/test_source.py::B",
+     "testing/io/test_saferepr.py::A"
+    ],
+    "n_parents": 16
+   },
+   {
+    "child": "testing/python/fixtures.py::B",
+    "parents": [
+     "doc/en/example/assertion/failure_demo.py::A",
+     "testing/code/test_code.py::A",
+     "testing/code/test_source.py::A",
+     "testing/io/test_saferepr.py::A",
+     "testing/python/fixtures.py::A"
+    ],
+    "n_parents": 13
+   },
+   {
+    "child": "testing/example_scripts/unittest/test_setup_skip.py::Test",
+    "parents": [
+     "testing/example_scripts/unittest/test_setup_skip.py::Base",
+     "testing/example_scripts/unittest/test_setup_skip_class.py::Base",
+     "testing/example_scripts/unittest/test_setup_skip_module.py::Base"
+    ],
+    "n_parents": 3
+   },
+   {
+    "child": "testing/example_scripts/unittest/test_setup_skip_class.py::Test",
+    "parents": [
+     "testing/example_scripts/unittest/test_setup_skip.py::Base",
+     "testing/example_scripts/unittest/test_setup_skip_class.py::Base",
+     "testing/example_scripts/unittest/test_setup_skip_module.py::Base"
+    ],
+    "n_parents": 3
+   },
+   {
+    "child": "src/_pytest/outcomes.py::XFailed",
+    "parents": [
+     "src/_pytest/main.py::Failed",
+     "src/_pytest/outcomes.py::Failed"
+    ],
+    "n_parents": 2
+   },
+   {
+    "child": "src/_pytest/python.py::FunctionDefinition",
+    "parents": [
+     "src/_pytest/python.py::Function",
+     "testing/io/test_saferepr.py::Function"
+    ],
+    "n_parents": 2
+   },
+   {
+    "child": "src/_pytest/unittest.py::TestCaseFunction",
+    "parents": [
+     "src/_pytest/python.py::Function",
+     "testing/io/test_saferepr.py::Function"
+    ],
+    "n_parents": 2
+   },
+   {
+    "child": "src/_pytest/unittest.py::UnitTestCase",
+    "parents": [
+     "src/_pytest/python.py::Class",
+     "testing/test_compat.py::Class"
+    ],
+    "n_parents": 2
+   }
+  ],
+  "examples_ambiguous_base_name": [
+   {
+    "child": "testing/python/fixtures.py::B",
+    "base_name": "A",
+    "n_classes": 13,
+    "joined_classes": [
+     "doc/en/example/assertion/failure_demo.py::A",
+     "testing/code/test_code.py::A",
+     "testing/code/test_source.py::A",
+     "testing/io/test_saferepr.py::A",
+     "testing/python/fixtures.py::A"
+    ]
+   },
+   {
+    "child": "testing/test_mark.py::C",
+    "base_name": "A",
+    "n_classes": 13,
+    "joined_classes": [
+     "doc/en/example/assertion/failure_demo.py::A",
+     "testing/code/test_code.py::A",
+     "testing/code/test_source.py::A",
+     "testing/io/test_saferepr.py::A",
+     "testing/python/fixtures.py::A"
+    ]
+   },
+   {
+    "child": "testing/example_scripts/unittest/test_setup_skip.py::Test",
+    "base_name": "Base",
+    "n_classes": 3,
+    "joined_classes": [
+     "testing/example_scripts/unittest/test_setup_skip.py::Base",
+     "testing/example_scripts/unittest/test_setup_skip_class.py::Base",
+     "testing/example_scripts/unittest/test_setup_skip_module.py::Base"
+    ]
+   },
+   {
+    "child": "testing/example_scripts/unittest/test_setup_skip_class.py::Test",
+    "base_name": "Base",
+    "n_classes": 3,
+    "joined_classes": [
+     "testing/example_scripts/unittest/test_setup_skip.py::Base",
+     "testing/example_scripts/unittest/test_setup_skip_class.py::Base",
+     "testing/example_scripts/unittest/test_setup_skip_module.py::Base"
+    ]
+   },
+   {
+    "child": "testing/test_mark.py::C",
+    "base_name": "B",
+    "n_classes": 3,
+    "joined_classes": [
+     "testing/code/test_source.py::B",
+     "testing/python/fixtures.py::B",
+     "testing/test_mark.py::B"
+    ]
+   },
+   {
+    "child": "src/_pytest/outcomes.py::XFailed",
+    "base_name": "Failed",
+    "n_classes": 2,
+    "joined_classes": [
+     "src/_pytest/main.py::Failed",
+     "src/_pytest/outcomes.py::Failed"
+    ]
+   },
+   {
+    "child": "src/_pytest/python.py::FunctionDefinition",
+    "base_name": "Function",
+    "n_classes": 2,
+    "joined_classes": [
+     "src/_pytest/python.py::Function",
+     "testing/io/test_saferepr.py::Function"
+    ]
+   },
+   {
+    "child": "src/_pytest/unittest.py::TestCaseFunction",
+    "base_name": "Function",
+    "n_classes": 2,
+    "joined_classes": [
+     "src/_pytest/python.py::Function",
+     "testing/io/test_saferepr.py::Function"
+    ]
+   },
+   {
+    "child": "src/_pytest/unittest.py::UnitTestCase",
+    "base_name": "Class",
+    "n_classes": 2,
+    "joined_classes": [
+     "src/_pytest/python.py::Class",
+     "testing/test_compat.py::Class"
+    ]
+   }
+  ]
+ },
+ "file_graph": {
+  "CALLS": {
+   "edges": 462,
+   "links_behind_edges": 3064,
+   "self_loops": 111
+  },
+  "INHERITS": {
+   "edges": 0,
+   "links_behind_edges": 0,
+   "self_loops": 0
+  },
+  "CALLS+INHERITS": {
+   "distinct_pairs_excl_self": 351,
+   "cross_project_pairs": 172,
+   "cross_project_ratio": 0.49,
+   "examples_cross_project": [
+    {
+     "src": "doc/en/example/assertion/failure_demo.py",
+     "tgt": "src/_pytest/mark/expression.py"
+    },
+    {
+     "src": "doc/en/example/assertion/test_setup_flow_example.py",
+     "tgt": "src/_pytest/_code/code.py"
+    },
+    {
+     "src": "doc/en/example/multipython.py",
+     "tgt": "src/_pytest/pytester.py"
+    },
+    {
+     "src": "scripts/prepare-release-pr.py",
+     "tgt": "src/_pytest/doctest.py"
+    },
+    {
+     "src": "scripts/prepare-release-pr.py",
+     "tgt": "src/_pytest/recwarn.py"
+    },
+    {
+     "src": "scripts/prepare-release-pr.py",
+     "tgt": "testing/test_unittest.py"
+    },
+    {
+     "src": "scripts/release.py",
+     "tgt": "src/_pytest/doctest.py"
+    },
+    {
+     "src": "scripts/release.py",
+     "tgt": "src/_pytest/pytester.py"
+    },
+    {
+     "src": "scripts/release.py",
+     "tgt": "testing/test_unittest.py"
+    },
+    {
+     "src": "scripts/update-plugin-list.py",
+     "tgt": "src/_pytest/_code/source.py"
+    }
+   ]
+  }
+ }
+}

@@ -1,6 +1,5 @@
 #include "Graph.h"
 
-#include "lang/python/PythonLanguage.h"
 
 #include <sqlite3.h>
 #include <algorithm>
@@ -126,7 +125,7 @@ static double link_type_weight(const char* type, const AlgoConfig& cfg)
     return cfg.edge_w_imports;
 }
 
-// `link` has PRIMARY KEY(source_id, target_id, link_type), so multiplicity only
+// `link` has one row per (source_id, target_id, link_type), so multiplicity only
 // appears once entity ids are collapsed to file ids: `cnt` is the number of
 // distinct entity pairs connecting the two files. Linear scaling lets one hot
 // pair (hundreds of call sites) dominate the whole graph, so log is the default.
@@ -142,31 +141,26 @@ static double count_factor(int cnt, const AlgoConfig& cfg)
 
 // Pass 1: file-level graph
 // CALLS/INHERITS edges: both endpoints are file paths with '::' suffix stripped.
-// IMPORTS edges: target is a Python module name; resolved to file path if possible.
-// External module names that can't be resolved to a project file are excluded.
+// IMPORTS edges: file id -> file id, as the resolver found them; an import of
+// anything that is not a project file adds no edge.
 // All project files are pre-populated as nodes so isolated files appear in the graph.
 // Edge weight = link_type_weight * count_factor(#entity pairs), summed over types.
 void GraphBuilder::build_file_graph(sqlite3* db, Graph& g, const AlgoConfig& cfg)
 {
-    // Load all project file_ids for node pre-population and module resolution.
-    std::unordered_set<std::string> ids;
+    // Load all project file_ids for node pre-population.
+    std::unordered_set<std::string> file_ids;
     sqlite3_stmt* file_stmt = nullptr;
     sqlite3_prepare_v2(db, "SELECT file_id FROM file;", -1, &file_stmt, nullptr);
     if (file_stmt) {
         while (sqlite3_step(file_stmt) == SQLITE_ROW) {
             const char* fid = reinterpret_cast<const char*>(sqlite3_column_text(file_stmt, 0));
             if (fid) {
-                ids.insert(fid);
+                file_ids.insert(fid);
                 g.get_or_add(fid);
             }
         }
         sqlite3_finalize(file_stmt);
     }
-
-    // Every file is treated as Python until file.language is consulted here.
-    const PythonLanguage python;
-    const ProjectIndex   index = python.buildIndex(std::move(ids));
-    const std::unordered_set<std::string>& file_ids = index.file_ids;
 
     // CALLS and INHERITS: both source and target use file-path-based IDs.
     // GROUP BY (not DISTINCT) so `cnt` survives as edge weight.
@@ -193,28 +187,28 @@ void GraphBuilder::build_file_graph(sqlite3* db, Graph& g, const AlgoConfig& cfg
         sqlite3_finalize(stmt);
     }
 
-    // IMPORTS: source is a file path; target is a Python module name, absolute
-    // or relative. Relative targets need the source file, so it is passed in.
-    // Unresolvable (external) modules are skipped.
+    // IMPORTS: file id -> file id, one unit of weight per pair however many
+    // specs name it. Read from import_resolution, the view's own source,
+    // because the order matters and only it has the specs: add_edge appends
+    // each new edge to the adjacency lists, Brandes and PageRank sum in that
+    // order, and the link table this view replaced added a file's imports in
+    // module-spec order. Ordering each pair by its first spec keeps that
+    // order, and every score bit for bit; ordering by target id instead flips
+    // betweenness ties at the last bit. After CALLS/INHERITS, as before.
     stmt = nullptr;
     sqlite3_prepare_v2(db,
-        "SELECT"
-        "    substr(source_id, 1, instr(source_id||'::', '::')-1) AS src,"
-        "    target_id AS module_name, COUNT(*) AS cnt"
-        " FROM link"
-        " WHERE link_type = 'IMPORTS'"
-        " GROUP BY src, module_name;",
+        "SELECT file_id, resolved_file_id FROM import_resolution"
+        " WHERE status = 'resolved'"
+        " GROUP BY file_id, resolved_file_id"
+        " ORDER BY file_id, MIN(module_spec);",
         -1, &stmt, nullptr);
     if (stmt) {
         while (sqlite3_step(stmt) == SQLITE_ROW) {
             const char* src = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
-            const char* mod = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
-            const int   cnt = sqlite3_column_int(stmt, 2);
-            if (!src || !mod) continue;
-            if (!file_ids.count(src)) continue;
-            std::string tgt = python.resolveModule(mod, src, index);
-            if (!tgt.empty())
-                add_edge(g, src, tgt, cfg.edge_w_imports * count_factor(cnt, cfg));
+            const char* tgt = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+            if (!src || !tgt) continue;
+            if (file_ids.count(src) && file_ids.count(tgt))
+                add_edge(g, src, tgt, cfg.edge_w_imports);
         }
         sqlite3_finalize(stmt);
     }
@@ -222,7 +216,7 @@ void GraphBuilder::build_file_graph(sqlite3* db, Graph& g, const AlgoConfig& cfg
 
 // Pass 2: function/class-level graph
 // Nodes: function_id, class_id. Edges: CALLS + INHERITS only.
-// No multiplicity here -- (source_id, target_id, link_type) is the `link` PK --
+// No multiplicity here -- `link` has one row per (source_id, target_id, link_type) --
 // so the weight is purely the link-type weight.
 // Every function and class is pre-populated as a node, as files are in pass 1:
 // an entity with no resolved link (only unresolved calls, or none) would
@@ -244,10 +238,14 @@ void GraphBuilder::build_func_graph(sqlite3* db, Graph& g, const AlgoConfig& cfg
         sqlite3_finalize(stmt);
     }
 
+    // The view's CALLS / INHERITS rows, read off ref so that they can be
+    // ordered by ref_id: edges go in in that order, which the scores depend
+    // on (see IMPORTS above). idx_ref_link has them in exactly this order.
     stmt = nullptr;
     sqlite3_prepare_v2(db,
-        "SELECT source_id, target_id, link_type FROM link"
-        " WHERE link_type IN ('CALLS', 'INHERITS');",
+        "SELECT source_id, resolved_id, kind FROM ref"
+        " WHERE emits_link = 1 AND kind IN ('CALLS', 'INHERITS')"
+        " ORDER BY kind, ref_id;",
         -1, &stmt, nullptr);
     if (!stmt) return;
 

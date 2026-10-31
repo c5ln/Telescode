@@ -1,7 +1,5 @@
 #include "Resolver.h"
 
-#include "db/db.h"
-
 #include <sqlite3.h>
 
 #include <algorithm>
@@ -211,7 +209,7 @@ private:
     std::vector<Ref> refs_;
 
     std::unordered_map<std::string, Import> imports_;      // key(from, spec)
-    std::vector<std::pair<std::string, std::string>> bindingSpecs_;  // (file, spec), for import_resolution
+    std::vector<std::pair<std::string, std::string>> importSpecs_;   // import_resolution keys (file, spec)
     std::unordered_map<std::string, std::vector<std::string>> chains_;
     std::unordered_set<std::string> exporting_;            // re-export cycle guard
     // exportOf answers, keyed like exporting_, with the number of hops the
@@ -289,11 +287,14 @@ int Engine::load()
               b.line          = sqlite3_column_int(s, 8);
               b.exported      = sqlite3_column_int(s, 9) != 0;
               const std::string scope = columnText(s, 0);
-              if (!b.module_spec.empty()) e.bindingSpecs_.emplace_back(b.file_id, b.module_spec);
               if (b.kind == "import_all")
                   e.stars_[scope].push_back(std::move(b));
               else
                   e.bindings_[scope][key(columnText(s, 2), b.local_name)].push_back(std::move(b));
+          } },
+        { "SELECT file_id, module_spec FROM import_resolution;",
+          [](Engine& e, sqlite3_stmt* s) {
+              e.importSpecs_.emplace_back(columnText(s, 0), columnText(s, 1));
           } },
         { "SELECT ref_id, file_id, source_id, scope_id, kind, namespace, name_path, line"
           "  FROM ref ORDER BY ref_id;",
@@ -711,8 +712,8 @@ Outcome Engine::resolveRef(const Ref& ref)
 
 void Engine::resolve()
 {
-    // 1. Imports: every module spec a binding names.
-    for (const auto& [file, spec] : bindingSpecs_) module(spec, file);
+    // 1. Imports: every module spec in import_resolution.
+    for (const auto& [file, spec] : importSpecs_) module(spec, file);
     outcomes_.resize(refs_.size());
 
     // 2. INHERITS, to a fixpoint. A base may itself depend on bases -- in
@@ -781,7 +782,6 @@ int Engine::write(Resolver::Stats* stats)
         sqlite3_stmt* s = nullptr;
         ~Stmt() { sqlite3_finalize(s); }
     };
-    auto exec = [&](const char* sql) { return sqlite3_exec(db_, sql, nullptr, nullptr, nullptr); };
     auto done = [](int rc) { return rc == SQLITE_DONE ? SQLITE_OK : rc; };
     // SQLITE_STATIC: v must outlive the statement's next step.
     auto text = [](sqlite3_stmt* s, int i, const std::string& v) {
@@ -789,48 +789,73 @@ int Engine::write(Resolver::Stats* stats)
         else sqlite3_bind_text(s, i, v.c_str(), -1, SQLITE_STATIC);
     };
 
-    int rc = exec("DELETE FROM import_resolution;");
-    if (rc != SQLITE_OK) return rc;
+    int rc = SQLITE_OK;
     {
-        Stmt ins;
+        // The parser wrote each spec; only the answer is the resolver's.
+        Stmt upd;
         rc = sqlite3_prepare_v2(db_,
-            "INSERT OR IGNORE INTO import_resolution(file_id, module_spec, resolved_file_id, status)"
-            " VALUES(?,?,?,?);", -1, &ins.s, nullptr);
+            "UPDATE import_resolution SET resolved_file_id = ?, status = ?"
+            " WHERE file_id = ? AND module_spec = ?;", -1, &upd.s, nullptr);
         if (rc != SQLITE_OK) return rc;
-        for (const auto& [file, spec] : bindingSpecs_) {
-            const Import& imp = module(spec, file);
-            if (!languageOf(file)) continue;
-            sqlite3_reset(ins.s);
-            text(ins.s, 1, file);
-            text(ins.s, 2, spec);
-            text(ins.s, 3, imp.file_id);
-            sqlite3_bind_text(ins.s, 4, imp.status, -1, SQLITE_STATIC);
-            rc = done(sqlite3_step(ins.s));
+        for (const auto& [file, spec] : importSpecs_) {
+            sqlite3_reset(upd.s);
+            text(upd.s, 3, file);
+            text(upd.s, 4, spec);
+            if (languageOf(file)) {
+                const Import& imp = module(spec, file);
+                text(upd.s, 1, imp.file_id);
+                sqlite3_bind_text(upd.s, 2, imp.status, -1, SQLITE_STATIC);
+                if (stats) ++stats->imports;
+            } else {
+                // No language plugin: pending, as its refs are.
+                sqlite3_bind_null(upd.s, 1);
+                sqlite3_bind_text(upd.s, 2, "pending", -1, SQLITE_STATIC);
+            }
+            rc = done(sqlite3_step(upd.s));
             if (rc != SQLITE_OK) return rc;
-            if (stats && sqlite3_changes(db_) > 0) ++stats->imports;
         }
     }
 
-    rc = exec("DELETE FROM link WHERE link_type IN ('CALLS', 'INHERITS', 'DECORATES');");
-    if (rc != SQLITE_OK) return rc;
-
-    Stmt upd, link;
+    Stmt upd;
     rc = sqlite3_prepare_v2(db_,
-        "UPDATE ref SET resolved_id = ?, status = ?, confidence = ?, resolver = ?"
+        "UPDATE ref SET resolved_id = ?, status = ?, confidence = ?, resolver = ?, emits_link = ?"
         " WHERE ref_id = ?;", -1, &upd.s, nullptr);
     if (rc != SQLITE_OK) return rc;
-    rc = sqlite3_prepare_v2(db_,
-        "INSERT OR IGNORE INTO link(source_id, target_id, link_type) VALUES(?,?,?);",
-        -1, &link.s, nullptr);
-    if (rc != SQLITE_OK) return rc;
 
+    // Each link once, on its first ref: refs_ is in ref_id order.
+    std::unordered_set<std::string> linked;
     for (std::size_t i = 0; i < refs_.size(); ++i) {
         const Ref& ref = refs_[i];
         const Outcome& o = outcomes_[i];
-        if (!o.found()) continue;   // no language plugin: left pending
-
-        const bool resolved = o.resolved();
         sqlite3_reset(upd.s);
+        sqlite3_bind_int64(upd.s, 6, ref.id);
+        if (!o.found()) {
+            // No language plugin: pending, whatever an earlier run decided, so
+            // that `link` holds nothing for it.
+            for (int col = 1; col <= 4; ++col) sqlite3_bind_null(upd.s, col);
+            sqlite3_bind_text(upd.s, 2, "pending", -1, SQLITE_STATIC);
+            sqlite3_bind_int(upd.s, 5, 0);
+            rc = done(sqlite3_step(upd.s));
+            if (rc != SQLITE_OK) return rc;
+            continue;
+        }
+
+        // Links only between project symbols, and only of the kind each link
+        // type means: CALLS to a function or method, INHERITS to a class. Any
+        // kind of decorator symbol is linked, a variable included, on purpose.
+        const bool resolved = o.resolved();
+        bool emits = false;
+        if (resolved && o.kind == Outcome::Symbol) {
+            auto sym = symbols_.find(o.id);
+            if (sym != symbols_.end()) {
+                const std::string& kind = sym->second.kind;
+                emits = ref.kind == "CALLS"     ? isCallableKind(kind)
+                      : ref.kind == "INHERITS"  ? isClassKind(kind)
+                      : ref.kind == "DECORATES";
+            }
+        }
+        if (emits) emits = linked.insert(key(ref.kind, key(ref.source_id, o.id))).second;
+
         if (resolved) text(upd.s, 1, o.id);
         else sqlite3_bind_null(upd.s, 1);
         sqlite3_bind_text(upd.s, 2, o.status, -1, SQLITE_STATIC);
@@ -839,63 +864,28 @@ int Engine::write(Resolver::Stats* stats)
         else
             sqlite3_bind_text(upd.s, 3, o.heuristic ? "heuristic" : "exact", -1, SQLITE_STATIC);
         sqlite3_bind_text(upd.s, 4, Resolver::kName, -1, SQLITE_STATIC);
-        sqlite3_bind_int64(upd.s, 5, ref.id);
+        sqlite3_bind_int(upd.s, 5, emits ? 1 : 0);
         rc = done(sqlite3_step(upd.s));
         if (rc != SQLITE_OK) return rc;
         if (stats) ++stats->status[o.status];
+    }
 
-        // Links only between project symbols, and only of the kind each link
-        // type means: CALLS to a function or method, INHERITS to a class.
-        if (!resolved || o.kind != Outcome::Symbol) continue;
-        auto sym = symbols_.find(o.id);
-        if (sym == symbols_.end()) continue;
-        const std::string& kind = sym->second.kind;
-        const std::string* source = &ref.source_id;
-        const std::string* target = &o.id;
-        if (ref.kind == "CALLS") {
-            if (!isCallableKind(kind)) continue;
-        } else if (ref.kind == "INHERITS") {
-            if (!isClassKind(kind)) continue;
-        } else if (ref.kind == "DECORATES") {
-            // The ref runs decorated -> decorator; the link decorator -> decorated.
-            // Any kind of decorator symbol is linked, a variable included, on purpose.
-            std::swap(source, target);
-        } else {
-            continue;
-        }
-        sqlite3_reset(link.s);
-        text(link.s, 1, *source);
-        text(link.s, 2, *target);
-        text(link.s, 3, ref.kind);
-        rc = done(sqlite3_step(link.s));
+    // The links follow from the refs just written (the `link` view, db.cpp).
+    if (stats) {
+        Stmt count;
+        rc = sqlite3_prepare_v2(db_,
+            "SELECT link_type, COUNT(*) FROM link"
+            " WHERE link_type IN ('CALLS', 'INHERITS', 'DECORATES') GROUP BY link_type;",
+            -1, &count.s, nullptr);
         if (rc != SQLITE_OK) return rc;
-        if (stats && sqlite3_changes(db_) > 0) ++stats->links[ref.kind];
+        while ((rc = sqlite3_step(count.s)) == SQLITE_ROW)
+            stats->links[columnText(count.s, 0)] = sqlite3_column_int(count.s, 1);
+        if (rc != SQLITE_DONE) return rc;
     }
     return SQLITE_OK;
 }
 
 }  // namespace
-
-bool Resolver::needsRescan(sqlite3* db)
-{
-    // Files without a current scan stamp (db.h): written by a Telescode whose
-    // parser did not yet emit everything the resolver relies on. An empty
-    // database has nothing to lose. No meta table at all means no stamp; no
-    // file table means an empty database.
-    const std::string sql =
-        std::string("SELECT EXISTS(SELECT 1 FROM file) AND"
-                    " COALESCE((SELECT CAST(value AS INTEGER) FROM meta WHERE key = '") +
-        kScanFormatKey + "'), 0) < " + std::to_string(kScanFormat) + ";";
-    sqlite3_stmt* stmt = nullptr;
-    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-        stmt = nullptr;
-        if (sqlite3_prepare_v2(db, "SELECT EXISTS(SELECT 1 FROM file);", -1, &stmt, nullptr) != SQLITE_OK)
-            return false;
-    }
-    const bool stale = sqlite3_step(stmt) == SQLITE_ROW && sqlite3_column_int(stmt, 0) != 0;
-    sqlite3_finalize(stmt);
-    return stale;
-}
 
 void Resolver::warnIfCapped(const Stats& stats, const char* who)
 {
@@ -908,7 +898,6 @@ void Resolver::warnIfCapped(const Stats& stats, const char* who)
 
 int Resolver::resolveAll(sqlite3* db, Stats* stats, const LanguageRegistry& languages)
 {
-    if (needsRescan(db)) return kNeedsRescan;
     const auto t0 = std::chrono::steady_clock::now();
     Engine engine(db, languages);
     int rc = engine.load();
@@ -922,15 +911,5 @@ int Resolver::resolveAll(sqlite3* db, Stats* stats, const LanguageRegistry& lang
     if (stats)
         stats->ms = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now() - t0).count();
-    return rc;
-}
-
-int Resolver::run(sqlite3* db, Stats* stats, const LanguageRegistry& languages)
-{
-    int rc = sqlite3_exec(db, "BEGIN;", nullptr, nullptr, nullptr);
-    if (rc != SQLITE_OK) return rc;
-    rc = resolveAll(db, stats, languages);
-    if (rc == SQLITE_OK) rc = sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);
-    if (rc != SQLITE_OK) sqlite3_exec(db, "ROLLBACK;", nullptr, nullptr, nullptr);
     return rc;
 }

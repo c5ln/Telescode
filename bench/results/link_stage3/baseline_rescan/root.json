@@ -1,0 +1,945 @@
+{
+ "label": "root",
+ "db": "root-base.db",
+ "scanned_path": ".",
+ "scanned_commit": "e55c4eafd0111503801b8cc948bd07d0c4bab79a",
+ "binary": {
+  "path": "/tmp/claude-1000/-home-cheonsh-Telescode/7f54ce26-45e3-42c7-b4f6-27eab223d029/scratchpad/stage3-verify/build-base/TelescodeHeadless",
+  "md5": "d4f8983eef9a57b43b064949c5df0873"
+ },
+ "counts": {
+  "files": 4650,
+  "classes": 19035,
+  "functions": 71021,
+  "methods": 54002
+ },
+ "projects": {
+  "bench": 66,
+  "bench/.venv/lib/python3.11/site-packages/_distutils_hack": 2,
+  "bench/.venv/lib/python3.11/site-packages/_multiprocess": 1,
+  "bench/.venv/lib/python3.11/site-packages/_pytest": 78,
+  "bench/.venv/lib/python3.11/site-packages/aiohappyeyeballs": 5,
+  "bench/.venv/lib/python3.11/site-packages/aiohttp": 55,
+  "bench/.venv/lib/python3.11/site-packages/aiosignal": 1,
+  "bench/.venv/lib/python3.11/site-packages/click": 17,
+  "bench/.venv/lib/python3.11/site-packages/datasets": 138,
+  "bench/.venv/lib/python3.11/site-packages/dill": 46,
+  "bench/.venv/lib/python3.11/site-packages/frozenlist": 1,
+  "bench/.venv/lib/python3.11/site-packages/hf_xet": 1,
+  "bench/.venv/lib/python3.11/site-packages/huggingface_hub": 183,
+  "bench/.venv/lib/python3.11/site-packages/iniconfig": 4,
+  "bench/.venv/lib/python3.11/site-packages/lightgbm": 9,
+  "bench/.venv/lib/python3.11/site-packages/multidict": 4,
+  "bench/.venv/lib/python3.11/site-packages/multiprocess": 44,
+  "bench/.venv/lib/python3.11/site-packages/pip": 491,
+  "bench/.venv/lib/python3.11/site-packages/pkg_resources": 51,
+  "bench/.venv/lib/python3.11/site-packages/pluggy": 8,
+  "bench/.venv/lib/python3.11/site-packages/propcache": 4,
+  "bench/.venv/lib/python3.11/site-packages/py.py": 1,
+  "bench/.venv/lib/python3.11/site-packages/pytest": 2,
+  "bench/.venv/lib/python3.11/site-packages/regex": 4,
+  "bench/.venv/lib/python3.11/site-packages/safetensors": 7,
+  "bench/.venv/lib/python3.11/site-packages/setuptools": 179,
+  "bench/.venv/lib/python3.11/site-packages/tokenizers": 16,
+  "bench/.venv/lib/python3.11/site-packages/transformers": 2590,
+  "bench/.venv/lib/python3.11/site-packages/xxhash": 2,
+  "bench/.venv/lib/python3.11/site-packages/yarl": 8,
+  "bench/repos/pytest": 271,
+  "bench/repos/xarray": 241,
+  "build": 70,
+  "ltr": 7,
+  "repos/sherlock": 16,
+  "tests": 27
+ },
+ "links": {
+  "CALLS": {
+   "total": 296559,
+   "target_is_id": 34464,
+   "target_is_raw_name": 262095,
+   "raw_name_dotted": 184374,
+   "raw_name_bare": 77721,
+   "raw_name_containing_double_colon": 135
+  },
+  "INHERITS": {
+   "total": 17591,
+   "target_is_id": 0,
+   "target_is_raw_name": 17591,
+   "raw_name_dotted": 5070,
+   "raw_name_bare": 12521,
+   "raw_name_containing_double_colon": 0
+  },
+  "DECORATES": {
+   "total": 22849,
+   "target_is_id": 22849,
+   "target_is_raw_name": 0,
+   "raw_name_dotted": 0,
+   "raw_name_bare": 0,
+   "raw_name_containing_double_colon": 0
+  }
+ },
+ "cross_project_links": {
+  "CALLS": {
+   "count": 1598,
+   "cross_file": 9735,
+   "by_project_pair": [
+    {
+     "source": "bench/repos/xarray",
+     "target": "bench/.venv/lib/python3.11/site-packages/huggingface_hub",
+     "count": 296
+    },
+    {
+     "source": "bench/.venv/lib/python3.11/site-packages/transformers",
+     "target": "bench/.venv/lib/python3.11/site-packages/pip",
+     "count": 159
+    },
+    {
+     "source": "bench/.venv/lib/python3.11/site-packages/transformers",
+     "target": "bench/.venv/lib/python3.11/site-packages/huggingface_hub",
+     "count": 136
+    },
+    {
+     "source": "bench/.venv/lib/python3.11/site-packages/setuptools",
+     "target": "bench/.venv/lib/python3.11/site-packages/pip",
+     "count": 64
+    },
+    {
+     "source": "bench/.venv/lib/python3.11/site-packages/huggingface_hub",
+     "target": "bench/.venv/lib/python3.11/site-packages/pip",
+     "count": 63
+    },
+    {
+     "source": "bench/repos/xarray",
+     "target": "bench/.venv/lib/python3.11/site-packages/pip",
+     "count": 44
+    },
+    {
+     "source": "bench/repos/pytest",
+     "target": "bench/.venv/lib/python3.11/site-packages/pip",
+     "count": 44
+    },
+    {
+     "source": "bench",
+     "target": "bench/.venv/lib/python3.11/site-packages/pip",
+     "count": 41
+    },
+    {
+     "source": "bench/.venv/lib/python3.11/site-packages/pip",
+     "target": "bench/.venv/lib/python3.11/site-packages/huggingface_hub",
+     "count": 38
+    },
+    {
+     "source": "bench/repos/pytest",
+     "target": "bench/.venv/lib/python3.11/site-packages/huggingface_hub",
+     "count": 37
+    }
+   ],
+   "examples": [
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_argcomplete.py::FastFilesCompleter::__call__",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/pip/_vendor/distlib/manifest.py::Manifest::sorted",
+     "source_project": "bench/.venv/lib/python3.11/site-packages/_pytest",
+     "target_project": "bench/.venv/lib/python3.11/site-packages/pip"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::Traceback::recursionindex",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/huggingface_hub/cli/_output.py::Output::dict",
+     "source_project": "bench/.venv/lib/python3.11/site-packages/_pytest",
+     "target_project": "bench/.venv/lib/python3.11/site-packages/huggingface_hub"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_io/pprint.py::PrettyPrinter::_format",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/pip/_vendor/colorama/tests/ansitowin32_test.py::AnsiToWin32Test::test_native_windows_ansi::p",
+     "source_project": "bench/.venv/lib/python3.11/site-packages/_pytest",
+     "target_project": "bench/.venv/lib/python3.11/site-packages/pip"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_io/pprint.py::PrettyPrinter::_pprint_set",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/pip/_vendor/distlib/manifest.py::Manifest::sorted",
+     "source_project": "bench/.venv/lib/python3.11/site-packages/_pytest",
+     "target_project": "bench/.venv/lib/python3.11/site-packages/pip"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/cacheprovider.py::LFPluginCollWrapper::pytest_make_collect_report",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/pip/_vendor/distlib/manifest.py::Manifest::sorted",
+     "source_project": "bench/.venv/lib/python3.11/site-packages/_pytest",
+     "target_project": "bench/.venv/lib/python3.11/site-packages/pip"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/cacheprovider.py::NFPlugin::_get_increasing_order",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/pip/_vendor/distlib/manifest.py::Manifest::sorted",
+     "source_project": "bench/.venv/lib/python3.11/site-packages/_pytest",
+     "target_project": "bench/.venv/lib/python3.11/site-packages/pip"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/cacheprovider.py::NFPlugin::pytest_sessionfinish",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/pip/_vendor/distlib/manifest.py::Manifest::sorted",
+     "source_project": "bench/.venv/lib/python3.11/site-packages/_pytest",
+     "target_project": "bench/.venv/lib/python3.11/site-packages/pip"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/cacheprovider.py::cacheshow",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/pip/_vendor/distlib/manifest.py::Manifest::sorted",
+     "source_project": "bench/.venv/lib/python3.11/site-packages/_pytest",
+     "target_project": "bench/.venv/lib/python3.11/site-packages/pip"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/capture.py::capteesys",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/huggingface_hub/cli/_output.py::Output::dict",
+     "source_project": "bench/.venv/lib/python3.11/site-packages/_pytest",
+     "target_project": "bench/.venv/lib/python3.11/site-packages/huggingface_hub"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/config/__init__.py::Config::__init__",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/huggingface_hub/cli/_output.py::Output::dict",
+     "source_project": "bench/.venv/lib/python3.11/site-packages/_pytest",
+     "target_project": "bench/.venv/lib/python3.11/site-packages/huggingface_hub"
+    }
+   ]
+  },
+  "INHERITS": {
+   "count": 0,
+   "cross_file": 0,
+   "by_project_pair": [],
+   "examples": []
+  },
+  "DECORATES": {
+   "count": 22849,
+   "cross_file": 22849,
+   "by_project_pair": [
+    {
+     "source": "auto_docstring",
+     "target": "bench/.venv/lib/python3.11/site-packages/transformers",
+     "count": 6718
+    },
+    {
+     "source": "can_return_tuple",
+     "target": "bench/.venv/lib/python3.11/site-packages/transformers",
+     "count": 1271
+    },
+    {
+     "source": "strict",
+     "target": "bench/.venv/lib/python3.11/site-packages/transformers",
+     "count": 1009
+    },
+    {
+     "source": "pytest.mark.parametrize",
+     "target": "bench/repos/xarray",
+     "count": 843
+    },
+    {
+     "source": "dataclass",
+     "target": "bench/.venv/lib/python3.11/site-packages/transformers",
+     "count": 823
+    },
+    {
+     "source": "torch.no_grad",
+     "target": "bench/.venv/lib/python3.11/site-packages/transformers",
+     "count": 792
+    },
+    {
+     "source": "merge_with_config_defaults",
+     "target": "bench/.venv/lib/python3.11/site-packages/transformers",
+     "count": 646
+    },
+    {
+     "source": "property",
+     "target": "bench/.venv/lib/python3.11/site-packages/transformers",
+     "count": 624
+    },
+    {
+     "source": "capture_outputs",
+     "target": "bench/.venv/lib/python3.11/site-packages/transformers",
+     "count": 591
+    },
+    {
+     "source": "staticmethod",
+     "target": "bench/.venv/lib/python3.11/site-packages/transformers",
+     "count": 577
+    }
+   ],
+   "examples": [
+    {
+     "source_id": "NonDataProperty",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/setuptools/command/test.py::test::test_args",
+     "source_project": "NonDataProperty",
+     "target_project": "bench/.venv/lib/python3.11/site-packages/setuptools"
+    },
+    {
+     "source_id": "_ExtensionsSpecialForm",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/pip/_vendor/typing_extensions.py::NotRequired",
+     "source_project": "_ExtensionsSpecialForm",
+     "target_project": "bench/.venv/lib/python3.11/site-packages/pip"
+    },
+    {
+     "source_id": "_ExtensionsSpecialForm",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/pip/_vendor/typing_extensions.py::Required",
+     "source_project": "_ExtensionsSpecialForm",
+     "target_project": "bench/.venv/lib/python3.11/site-packages/pip"
+    },
+    {
+     "source_id": "_ExtensionsSpecialForm",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/pkg_resources/_vendor/typing_extensions.py::NotRequired",
+     "source_project": "_ExtensionsSpecialForm",
+     "target_project": "bench/.venv/lib/python3.11/site-packages/pkg_resources"
+    },
+    {
+     "source_id": "_ExtensionsSpecialForm",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/pkg_resources/_vendor/typing_extensions.py::Required",
+     "source_project": "_ExtensionsSpecialForm",
+     "target_project": "bench/.venv/lib/python3.11/site-packages/pkg_resources"
+    },
+    {
+     "source_id": "_ExtensionsSpecialForm",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/setuptools/_vendor/typing_extensions.py::NotRequired",
+     "source_project": "_ExtensionsSpecialForm",
+     "target_project": "bench/.venv/lib/python3.11/site-packages/setuptools"
+    },
+    {
+     "source_id": "_ExtensionsSpecialForm",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/setuptools/_vendor/typing_extensions.py::Required",
+     "source_project": "_ExtensionsSpecialForm",
+     "target_project": "bench/.venv/lib/python3.11/site-packages/setuptools"
+    },
+    {
+     "source_id": "_SpecialForm",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/pip/_vendor/typing_extensions.py::LiteralString",
+     "source_project": "_SpecialForm",
+     "target_project": "bench/.venv/lib/python3.11/site-packages/pip"
+    },
+    {
+     "source_id": "_SpecialForm",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/pip/_vendor/typing_extensions.py::Never",
+     "source_project": "_SpecialForm",
+     "target_project": "bench/.venv/lib/python3.11/site-packages/pip"
+    },
+    {
+     "source_id": "_SpecialForm",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/pip/_vendor/typing_extensions.py::Self",
+     "source_project": "_SpecialForm",
+     "target_project": "bench/.venv/lib/python3.11/site-packages/pip"
+    }
+   ]
+  }
+ },
+ "calls_to_method_from_bare_name": {
+  "note": "APPROXIMATION: the DB does not keep the raw call text, so 'bare name call resolved to a method' is estimated by two separate signals: the target method's name is a Python builtin (dir(builtins)), or the target method lives in a different file than the caller.",
+  "python": "3.11.2",
+  "n_builtin_names": 157,
+  "builtin_name": {
+   "count": 1784,
+   "cross_project": 1163,
+   "top_target_names": [
+    [
+     "dict",
+     607
+    ],
+    [
+     "sorted",
+     540
+    ],
+    [
+     "float",
+     370
+    ],
+    [
+     "open",
+     61
+    ],
+    [
+     "map",
+     26
+    ],
+    [
+     "str",
+     24
+    ],
+    [
+     "tuple",
+     20
+    ],
+    [
+     "set",
+     18
+    ],
+    [
+     "iter",
+     18
+    ],
+    [
+     "type",
+     17
+    ]
+   ],
+   "examples": [
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_argcomplete.py::FastFilesCompleter::__call__",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/pip/_vendor/distlib/manifest.py::Manifest::sorted",
+     "target_name": "sorted"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::ExceptionInfo::exconly",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::ExceptionInfo::type",
+     "target_name": "type"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::ExceptionInfo::from_exception",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::ExceptionInfo::type",
+     "target_name": "type"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::ExceptionInfoFormatter::_truncate_recursive_traceback",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::ExceptionInfo::type",
+     "target_name": "type"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::ExceptionInfoFormatter::repr_excinfo",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::ExceptionInfo::type",
+     "target_name": "type"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::Frame::eval",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::Frame::eval",
+     "target_name": "eval"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::Traceback::filter",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::Traceback::filter",
+     "target_name": "filter"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::Traceback::recursionindex",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/huggingface_hub/cli/_output.py::Output::dict",
+     "target_name": "dict"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_io/pprint.py::PrettyPrinter::_pprint_set",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/pip/_vendor/distlib/manifest.py::Manifest::sorted",
+     "target_name": "sorted"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_io/saferepr.py::SafeRepr::repr_instance",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_io/saferepr.py::SafeRepr::repr",
+     "target_name": "repr"
+    }
+   ]
+  },
+  "other_file": {
+   "count": 1775,
+   "cross_project": 1370,
+   "top_target_names": [
+    [
+     "dict",
+     607
+    ],
+    [
+     "sorted",
+     539
+    ],
+    [
+     "float",
+     370
+    ],
+    [
+     "dedent",
+     59
+    ],
+    [
+     "chain",
+     38
+    ],
+    [
+     "original",
+     26
+    ],
+    [
+     "starmap",
+     19
+    ],
+    [
+     "fields",
+     16
+    ],
+    [
+     "exit",
+     8
+    ],
+    [
+     "Queue",
+     8
+    ]
+   ],
+   "examples": [
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_argcomplete.py::FastFilesCompleter::__call__",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/pip/_vendor/distlib/manifest.py::Manifest::sorted",
+     "target_name": "sorted"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::Traceback::recursionindex",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/huggingface_hub/cli/_output.py::Output::dict",
+     "target_name": "dict"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_io/pprint.py::PrettyPrinter::_pprint_set",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/pip/_vendor/distlib/manifest.py::Manifest::sorted",
+     "target_name": "sorted"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/cacheprovider.py::LFPluginCollWrapper::pytest_make_collect_report",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/pip/_vendor/distlib/manifest.py::Manifest::sorted",
+     "target_name": "sorted"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/cacheprovider.py::NFPlugin::_get_increasing_order",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/pip/_vendor/distlib/manifest.py::Manifest::sorted",
+     "target_name": "sorted"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/cacheprovider.py::NFPlugin::pytest_sessionfinish",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/pip/_vendor/distlib/manifest.py::Manifest::sorted",
+     "target_name": "sorted"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/cacheprovider.py::cacheshow",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/pip/_vendor/distlib/manifest.py::Manifest::sorted",
+     "target_name": "sorted"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/capture.py::capteesys",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/huggingface_hub/cli/_output.py::Output::dict",
+     "target_name": "dict"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/config/__init__.py::Config::__init__",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/huggingface_hub/cli/_output.py::Output::dict",
+     "target_name": "dict"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/config/__init__.py::Config::_decide_args",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/pip/_vendor/distlib/manifest.py::Manifest::sorted",
+     "target_name": "sorted"
+    }
+   ]
+  },
+  "either": 2032,
+  "calls_id_target_not_in_function_table": 0
+ },
+ "class_diagram_inherits": {
+  "join": "class_name",
+  "inherits_links": 17591,
+  "links_matching_any_class": 11472,
+  "edges": 17572,
+  "edges_to_different_file": 13680,
+  "edges_to_different_project": 1628,
+  "children_with_multiple_parents": 4809,
+  "base_names_matching_multiple_classes": 4998,
+  "examples_different_file": [
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::ExceptionChainRepr",
+    "base_name": "ExceptionRepr",
+    "joined_class": "bench/repos/pytest/src/_pytest/_code/code.py::ExceptionRepr"
+   },
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::ExceptionRepr",
+    "base_name": "TerminalRepr",
+    "joined_class": "bench/repos/pytest/src/_pytest/_code/code.py::TerminalRepr"
+   },
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::ReprEntry",
+    "base_name": "TerminalRepr",
+    "joined_class": "bench/repos/pytest/src/_pytest/_code/code.py::TerminalRepr"
+   },
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::ReprEntryNative",
+    "base_name": "TerminalRepr",
+    "joined_class": "bench/repos/pytest/src/_pytest/_code/code.py::TerminalRepr"
+   },
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::ReprExceptionInfo",
+    "base_name": "ExceptionRepr",
+    "joined_class": "bench/repos/pytest/src/_pytest/_code/code.py::ExceptionRepr"
+   },
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::ReprFileLocation",
+    "base_name": "TerminalRepr",
+    "joined_class": "bench/repos/pytest/src/_pytest/_code/code.py::TerminalRepr"
+   },
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::ReprFuncArgs",
+    "base_name": "TerminalRepr",
+    "joined_class": "bench/repos/pytest/src/_pytest/_code/code.py::TerminalRepr"
+   },
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::ReprLocals",
+    "base_name": "TerminalRepr",
+    "joined_class": "bench/repos/pytest/src/_pytest/_code/code.py::TerminalRepr"
+   },
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::ReprTraceback",
+    "base_name": "TerminalRepr",
+    "joined_class": "bench/repos/pytest/src/_pytest/_code/code.py::TerminalRepr"
+   },
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::ReprTracebackNative",
+    "base_name": "ReprTraceback",
+    "joined_class": "bench/repos/pytest/src/_pytest/_code/code.py::ReprTraceback"
+   }
+  ],
+  "examples_multiple_parents": [
+   {
+    "child": "bench/repos/pytest/testing/test_mark.py::C",
+    "parents": [
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_classdef.py::A",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_classdef.py::B",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_dataclasses.py::A",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_dataclasses.py::B",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_diff.py::A"
+    ],
+    "n_parents": 30
+   },
+   {
+    "child": "build/_deps/tree-sitter-python-src/examples/python2-grammar-crlf.py::D",
+    "parents": [
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_classdef.py::B",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_dataclasses.py::B",
+     "bench/repos/pytest/testing/code/test_source.py::B",
+     "bench/repos/pytest/testing/example_scripts/dataclasses/test_compare_recursive_dataclasses.py::C2",
+     "bench/repos/pytest/testing/python/fixtures.py::B"
+    ],
+    "n_parents": 24
+   },
+   {
+    "child": "build/_deps/tree-sitter-python-src/examples/python2-grammar.py::D",
+    "parents": [
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_classdef.py::B",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_dataclasses.py::B",
+     "bench/repos/pytest/testing/code/test_source.py::B",
+     "bench/repos/pytest/testing/example_scripts/dataclasses/test_compare_recursive_dataclasses.py::C2",
+     "bench/repos/pytest/testing/python/fixtures.py::B"
+    ],
+    "n_parents": 24
+   },
+   {
+    "child": "build/_deps/tree-sitter-python-src/examples/python3-grammar-crlf.py::D",
+    "parents": [
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_classdef.py::B",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_dataclasses.py::B",
+     "bench/repos/pytest/testing/code/test_source.py::B",
+     "bench/repos/pytest/testing/example_scripts/dataclasses/test_compare_recursive_dataclasses.py::C2",
+     "bench/repos/pytest/testing/python/fixtures.py::B"
+    ],
+    "n_parents": 24
+   },
+   {
+    "child": "build/_deps/tree-sitter-python-src/examples/python3-grammar.py::D",
+    "parents": [
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_classdef.py::B",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_dataclasses.py::B",
+     "bench/repos/pytest/testing/code/test_source.py::B",
+     "bench/repos/pytest/testing/example_scripts/dataclasses/test_compare_recursive_dataclasses.py::C2",
+     "bench/repos/pytest/testing/python/fixtures.py::B"
+    ],
+    "n_parents": 24
+   },
+   {
+    "child": "build/_deps/tree-sitter-python-src/examples/python3.8_grammar.py::D",
+    "parents": [
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_classdef.py::B",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_dataclasses.py::B",
+     "bench/repos/pytest/testing/code/test_source.py::B",
+     "bench/repos/pytest/testing/example_scripts/dataclasses/test_compare_recursive_dataclasses.py::C2",
+     "bench/repos/pytest/testing/python/fixtures.py::B"
+    ],
+    "n_parents": 24
+   },
+   {
+    "child": "bench/repos/pytest/testing/python/fixtures.py::B",
+    "parents": [
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_classdef.py::A",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_dataclasses.py::A",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_diff.py::A",
+     "bench/.venv/lib/python3.11/site-packages/multiprocess/tests/__init__.py::A",
+     "bench/repos/pytest/doc/en/example/assertion/failure_demo.py::A"
+    ],
+    "n_parents": 17
+   },
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/dill/tests/test_classdef.py::Bar",
+    "parents": [
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_classdef.py::Foo",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_detect.py::Foo",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_functions.py::Foo",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_properties.py::Foo",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_source.py::Foo"
+    ],
+    "n_parents": 16
+   },
+   {
+    "child": "build/_deps/tree-sitter-python-src/examples/python2-grammar-crlf.py::C1",
+    "parents": [
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_classdef.py::B",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_dataclasses.py::B",
+     "bench/repos/pytest/testing/code/test_source.py::B",
+     "bench/repos/pytest/testing/python/fixtures.py::B",
+     "bench/repos/pytest/testing/test_mark.py::B"
+    ],
+    "n_parents": 13
+   },
+   {
+    "child": "build/_deps/tree-sitter-python-src/examples/python2-grammar-crlf.py::C2",
+    "parents": [
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_classdef.py::B",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_dataclasses.py::B",
+     "bench/repos/pytest/testing/code/test_source.py::B",
+     "bench/repos/pytest/testing/python/fixtures.py::B",
+     "bench/repos/pytest/testing/test_mark.py::B"
+    ],
+    "n_parents": 13
+   }
+  ],
+  "examples_ambiguous_base_name": [
+   {
+    "child": "bench/repos/pytest/testing/python/fixtures.py::B",
+    "base_name": "A",
+    "n_classes": 17,
+    "joined_classes": [
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_classdef.py::A",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_dataclasses.py::A",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_diff.py::A",
+     "bench/.venv/lib/python3.11/site-packages/multiprocess/tests/__init__.py::A",
+     "bench/repos/pytest/doc/en/example/assertion/failure_demo.py::A"
+    ]
+   },
+   {
+    "child": "bench/repos/pytest/testing/test_mark.py::C",
+    "base_name": "A",
+    "n_classes": 17,
+    "joined_classes": [
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_classdef.py::A",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_dataclasses.py::A",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_diff.py::A",
+     "bench/.venv/lib/python3.11/site-packages/multiprocess/tests/__init__.py::A",
+     "bench/repos/pytest/doc/en/example/assertion/failure_demo.py::A"
+    ]
+   },
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/dill/tests/test_classdef.py::Bar",
+    "base_name": "Foo",
+    "n_classes": 16,
+    "joined_classes": [
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_classdef.py::Foo",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_detect.py::Foo",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_functions.py::Foo",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_properties.py::Foo",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_source.py::Foo"
+    ]
+   },
+   {
+    "child": "bench/repos/pytest/testing/test_mark.py::C",
+    "base_name": "B",
+    "n_classes": 13,
+    "joined_classes": [
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_classdef.py::B",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_dataclasses.py::B",
+     "bench/repos/pytest/testing/code/test_source.py::B",
+     "bench/repos/pytest/testing/python/fixtures.py::B",
+     "bench/repos/pytest/testing/test_mark.py::B"
+    ]
+   },
+   {
+    "child": "build/_deps/tree-sitter-python-src/examples/python2-grammar-crlf.py::C1",
+    "base_name": "B",
+    "n_classes": 13,
+    "joined_classes": [
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_classdef.py::B",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_dataclasses.py::B",
+     "bench/repos/pytest/testing/code/test_source.py::B",
+     "bench/repos/pytest/testing/python/fixtures.py::B",
+     "bench/repos/pytest/testing/test_mark.py::B"
+    ]
+   },
+   {
+    "child": "build/_deps/tree-sitter-python-src/examples/python2-grammar-crlf.py::C2",
+    "base_name": "B",
+    "n_classes": 13,
+    "joined_classes": [
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_classdef.py::B",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_dataclasses.py::B",
+     "bench/repos/pytest/testing/code/test_source.py::B",
+     "bench/repos/pytest/testing/python/fixtures.py::B",
+     "bench/repos/pytest/testing/test_mark.py::B"
+    ]
+   },
+   {
+    "child": "build/_deps/tree-sitter-python-src/examples/python2-grammar-crlf.py::D",
+    "base_name": "B",
+    "n_classes": 13,
+    "joined_classes": [
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_classdef.py::B",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_dataclasses.py::B",
+     "bench/repos/pytest/testing/code/test_source.py::B",
+     "bench/repos/pytest/testing/python/fixtures.py::B",
+     "bench/repos/pytest/testing/test_mark.py::B"
+    ]
+   },
+   {
+    "child": "build/_deps/tree-sitter-python-src/examples/python2-grammar.py::C1",
+    "base_name": "B",
+    "n_classes": 13,
+    "joined_classes": [
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_classdef.py::B",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_dataclasses.py::B",
+     "bench/repos/pytest/testing/code/test_source.py::B",
+     "bench/repos/pytest/testing/python/fixtures.py::B",
+     "bench/repos/pytest/testing/test_mark.py::B"
+    ]
+   },
+   {
+    "child": "build/_deps/tree-sitter-python-src/examples/python2-grammar.py::C2",
+    "base_name": "B",
+    "n_classes": 13,
+    "joined_classes": [
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_classdef.py::B",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_dataclasses.py::B",
+     "bench/repos/pytest/testing/code/test_source.py::B",
+     "bench/repos/pytest/testing/python/fixtures.py::B",
+     "bench/repos/pytest/testing/test_mark.py::B"
+    ]
+   },
+   {
+    "child": "build/_deps/tree-sitter-python-src/examples/python2-grammar.py::D",
+    "base_name": "B",
+    "n_classes": 13,
+    "joined_classes": [
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_classdef.py::B",
+     "bench/.venv/lib/python3.11/site-packages/dill/tests/test_dataclasses.py::B",
+     "bench/repos/pytest/testing/code/test_source.py::B",
+     "bench/repos/pytest/testing/python/fixtures.py::B",
+     "bench/repos/pytest/testing/test_mark.py::B"
+    ]
+   }
+  ],
+  "by_join": {
+   "class_name": {
+    "links_matching_any_class": 11472,
+    "edges": 17572,
+    "edges_to_different_file": 13680,
+    "edges_to_different_project": 1628,
+    "children_with_multiple_parents": 4809,
+    "base_names_matching_multiple_classes": 4998
+   },
+   "class_id": {
+    "links_matching_any_class": 0,
+    "edges": 0,
+    "edges_to_different_file": 0,
+    "edges_to_different_project": 0,
+    "children_with_multiple_parents": 0,
+    "base_names_matching_multiple_classes": 0
+   }
+  }
+ },
+ "file_graph": {
+  "CALLS": {
+   "edges": 6799,
+   "links_behind_edges": 34464,
+   "self_loops": 2288
+  },
+  "INHERITS": {
+   "edges": 0,
+   "links_behind_edges": 0,
+   "self_loops": 0
+  },
+  "CALLS+INHERITS": {
+   "distinct_pairs_excl_self": 4511,
+   "cross_project_pairs": 938,
+   "cross_project_ratio": 0.2079,
+   "examples_cross_project": [
+    {
+     "src": "bench/.venv/lib/python3.11/site-packages/_pytest/_argcomplete.py",
+     "tgt": "bench/.venv/lib/python3.11/site-packages/pip/_vendor/distlib/manifest.py"
+    },
+    {
+     "src": "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py",
+     "tgt": "bench/.venv/lib/python3.11/site-packages/huggingface_hub/cli/_output.py"
+    },
+    {
+     "src": "bench/.venv/lib/python3.11/site-packages/_pytest/_io/pprint.py",
+     "tgt": "bench/.venv/lib/python3.11/site-packages/pip/_vendor/colorama/tests/ansitowin32_test.py"
+    },
+    {
+     "src": "bench/.venv/lib/python3.11/site-packages/_pytest/_io/pprint.py",
+     "tgt": "bench/.venv/lib/python3.11/site-packages/pip/_vendor/distlib/manifest.py"
+    },
+    {
+     "src": "bench/.venv/lib/python3.11/site-packages/_pytest/cacheprovider.py",
+     "tgt": "bench/.venv/lib/python3.11/site-packages/pip/_vendor/distlib/manifest.py"
+    },
+    {
+     "src": "bench/.venv/lib/python3.11/site-packages/_pytest/capture.py",
+     "tgt": "bench/.venv/lib/python3.11/site-packages/huggingface_hub/cli/_output.py"
+    },
+    {
+     "src": "bench/.venv/lib/python3.11/site-packages/_pytest/config/__init__.py",
+     "tgt": "bench/.venv/lib/python3.11/site-packages/click/formatting.py"
+    },
+    {
+     "src": "bench/.venv/lib/python3.11/site-packages/_pytest/config/__init__.py",
+     "tgt": "bench/.venv/lib/python3.11/site-packages/huggingface_hub/cli/_output.py"
+    },
+    {
+     "src": "bench/.venv/lib/python3.11/site-packages/_pytest/config/__init__.py",
+     "tgt": "bench/.venv/lib/python3.11/site-packages/pip/_vendor/distlib/manifest.py"
+    },
+    {
+     "src": "bench/.venv/lib/python3.11/site-packages/_pytest/config/__init__.py",
+     "tgt": "bench/.venv/lib/python3.11/site-packages/transformers/modeling_utils.py"
+    }
+   ]
+  },
+  "IMPORTS": null,
+  "all_types": null
+ },
+ "reading_sequence": {
+  "file": {
+   "in_db": 4650,
+   "in_reading_sequence": 4650,
+   "coverage": 1.0,
+   "examples_missing": []
+  },
+  "class": {
+   "in_db": 19035,
+   "in_reading_sequence": 16689,
+   "coverage": 0.8768,
+   "examples_missing": [
+    "bench/.venv/lib/python3.11/site-packages/_distutils_hack/__init__.py::DistutilsMetaFinder",
+    "bench/.venv/lib/python3.11/site-packages/_distutils_hack/__init__.py::_TrivialRe",
+    "bench/.venv/lib/python3.11/site-packages/_distutils_hack/__init__.py::shim",
+    "bench/.venv/lib/python3.11/site-packages/_pytest/_argcomplete.py::FastFilesCompleter",
+    "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::Code",
+    "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::ExceptionInfo",
+    "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::ExceptionInfoFormatter",
+    "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::Frame",
+    "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::TerminalRepr",
+    "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::Traceback"
+   ]
+  },
+  "function": {
+   "in_db": 71021,
+   "in_reading_sequence": 64485,
+   "coverage": 0.908,
+   "examples_missing": [
+    "bench/.venv/lib/python3.11/site-packages/_distutils_hack/__init__.py::DistutilsLoader::create_module",
+    "bench/.venv/lib/python3.11/site-packages/_distutils_hack/__init__.py::DistutilsLoader::exec_module",
+    "bench/.venv/lib/python3.11/site-packages/_distutils_hack/__init__.py::_TrivialRe::__init__",
+    "bench/.venv/lib/python3.11/site-packages/_pytest/_argcomplete.py::FastFilesCompleter::__init__",
+    "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::Code::__eq__",
+    "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::Code::__init__",
+    "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::Code::firstlineno",
+    "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::Code::name",
+    "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::ExceptionInfo::fill_unfilled",
+    "bench/.venv/lib/python3.11/site-packages/_pytest/_code/code.py::ExceptionInfo::tb"
+   ]
+  }
+ },
+ "refs": null
+}

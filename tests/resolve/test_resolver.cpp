@@ -2,7 +2,7 @@
 // What Resolver concludes from tests/fixtures/resolution: import_resolution,
 // the resolved_id/status/confidence of each interesting ref, and the CALLS /
 // INHERITS / DECORATES links written from them. The fixture is scanned for real
-// (PythonParser::parseDirectory + DbInserter::insertAll + Resolver::run), the
+// (PythonParser::parseDirectory + DbInserter::insertAll, which resolves), the
 // same path `scan` takes. Lines are 0-indexed.
 //
 // tests/parser/test_python_extraction.cpp pins down the rows the resolver
@@ -11,6 +11,7 @@
 #include "db/DbInserter.h"
 #include "db/DbUpdater.h"
 #include "db/db.h"
+#include "lang/python/PythonLanguage.h"
 #include "parser/PythonParser.h"
 #include "resolve/Resolver.h"
 
@@ -18,9 +19,12 @@
 #include <sqlite3.h>
 
 #include <algorithm>
+#include <csignal>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -50,9 +54,9 @@ public:
     void scan(const std::string& root = TS_RESOLUTION_FIXTURE) {
         PythonParser parser;
         const auto results = parser.parseDirectory(root, root);
-        ASSERT_EQ(DbInserter::insertAll(path_.c_str(), results), SQLITE_OK);
+        close();
+        ASSERT_EQ(DbInserter::insertAll(path_.c_str(), results, &stats_), SQLITE_OK);
         open();
-        ASSERT_EQ(Resolver::run(db_, &stats_), SQLITE_OK);
     }
 
     void open() {
@@ -126,6 +130,16 @@ private:
     Resolver::Stats stats_;
 };
 
+// Resolver::resolveAll on an open database, in a transaction of its own.
+int resolveAgain(sqlite3* db, const LanguageRegistry& languages = LanguageRegistry::builtin())
+{
+    int rc = sqlite3_exec(db, "BEGIN;", nullptr, nullptr, nullptr);
+    if (rc != SQLITE_OK) return rc;
+    rc = Resolver::resolveAll(db, nullptr, languages);
+    sqlite3_exec(db, rc == SQLITE_OK ? "COMMIT;" : "ROLLBACK;", nullptr, nullptr, nullptr);
+    return rc;
+}
+
 // Every link the fixture should produce, and no other.
 const Rows kFixtureLinks = {
     "CALLS|resapp/allstar.py::use|resapp/util.py::helper",
@@ -194,7 +208,7 @@ ResolvedDb* Resolution::db_ = nullptr;
 
 TEST_F(Resolution, ImportResolution)
 {
-    // One row per distinct (file, module_spec) a binding names. Relative specs
+    // One row per distinct (file, module_spec) an import names. Relative specs
     // anchor on the importing file; `.` and `..` are the package inits.
     EXPECT_EQ(db_->rows("SELECT file_id, module_spec, resolved_file_id, status"
                         "  FROM import_resolution ORDER BY file_id, module_spec;"),
@@ -555,24 +569,56 @@ TEST_F(Resolution, EveryRefIsDecided)
               db_->count("SELECT COUNT(*) FROM ref;"));
 }
 
-TEST_F(Resolution, ImportLinksAreStillTheParsers)
+TEST_F(Resolution, ImportLinksAreResolvedFiles)
 {
-    // Raw module names, as before; the resolver leaves them alone.
+    // views.py imports through eight specs; `json` is external, and `..` and
+    // `resapp`, `..models` and `resapp.models` each name one file: five links.
     EXPECT_EQ(db_->rows("SELECT target_id FROM link WHERE link_type = 'IMPORTS'"
                         "   AND source_id = 'resapp/sub/views.py' ORDER BY target_id;"),
-              (Rows{".", "..", "..models", "..util", "json", "resapp", "resapp.models",
-                    "resapp.sub.helpers"}));
+              (Rows{"resapp/__init__.py", "resapp/models.py", "resapp/sub/__init__.py",
+                    "resapp/sub/helpers.py", "resapp/util.py"}));
+}
+
+TEST_F(Resolution, LinkRowsAreDistinct)
+{
+    // One ref per link carries emits_link, so the view needs no DISTINCT.
+    EXPECT_EQ(db_->count("SELECT COUNT(*) FROM link;"),
+              db_->count("SELECT COUNT(*) FROM (SELECT DISTINCT * FROM link);"));
+    // Some symbol in the fixture uses the same target on more than one line:
+    // more refs than links.
+    EXPECT_GT(db_->count("SELECT COUNT(*) FROM ref WHERE status = 'resolved'"
+                         "   AND kind IN ('CALLS', 'INHERITS', 'DECORATES');"),
+              db_->count("SELECT COUNT(*) FROM link WHERE link_type <> 'IMPORTS';"));
+    EXPECT_EQ(db_->stats().links.at("CALLS") + db_->stats().links.at("INHERITS") +
+              db_->stats().links.at("DECORATES"),
+              static_cast<int>(kFixtureLinks.size()));
+}
+
+TEST_F(Resolution, EachLinkIsMarkedOnItsFirstRef)
+{
+    // Of the refs behind one link, the lowest ref_id carries the mark: the
+    // order the old table's rows were inserted in, which Graph relies on.
+    EXPECT_EQ(db_->count("SELECT COUNT(*) FROM ref r WHERE r.emits_link = 1 AND EXISTS ("
+                         "  SELECT 1 FROM ref o WHERE o.ref_id < r.ref_id AND o.status = 'resolved'"
+                         "     AND o.source_id = r.source_id AND o.resolved_id = r.resolved_id"
+                         "     AND o.kind = r.kind);"), 0);
+    // And the fixture has links with more than one ref, so the rule is tested.
+    EXPECT_GT(db_->count("SELECT COUNT(*) FROM (SELECT 1 FROM ref WHERE status = 'resolved'"
+                         "   AND kind IN ('CALLS', 'INHERITS', 'DECORATES')"
+                         " GROUP BY source_id, resolved_id, kind HAVING COUNT(*) > 1 AND MAX(emits_link) = 1);"), 0);
 }
 
 TEST(ResolverRerun, ReplacesStaleLinksAndIsIdempotent)
 {
     ResolvedDb db("rerun");
     db.scan();
-    // A link no ref supports, as an older scan reusing the file might leave.
-    ASSERT_EQ(sqlite3_exec(db.db(),
-        "INSERT INTO link VALUES('resapp/util.py::helper', 'resapp/models.py::B::list', 'CALLS');",
-        nullptr, nullptr, nullptr), SQLITE_OK);
-    ASSERT_EQ(Resolver::run(db.db()), SQLITE_OK);
+    // Every ref marked as a link, as no resolver run would leave them.
+    ASSERT_EQ(sqlite3_exec(db.db(), "UPDATE ref SET emits_link = 1;", nullptr, nullptr, nullptr),
+              SQLITE_OK);
+    ASSERT_NE(db.links(), kFixtureLinks);
+    ASSERT_EQ(resolveAgain(db.db()), SQLITE_OK);
+    EXPECT_EQ(db.links(), kFixtureLinks);
+    ASSERT_EQ(resolveAgain(db.db()), SQLITE_OK);
     EXPECT_EQ(db.links(), kFixtureLinks);
 }
 
@@ -840,111 +886,10 @@ TEST(ResolverOrder, FixtureDoesNotDependOnRefOrder)
     expectOrderIndependent(tree, db);
 }
 
-// ── Databases from before the name-resolution tables ─────────────────────────
-// Such a database has files and links but no scopes, bindings or refs. Updating
-// it would let the resolver drop nearly every link, so DbUpdater refuses and
-// leaves the file as it was; a scan rebuilds it.
-
-namespace {
-
-// Everything an old database holds that an update could change, read over a
-// plain connection: ResolvedDb::open goes through initDb, which migrates.
-Rows snapshot(const std::string& path)
+TEST(ResolverAfterUpdate, UnreadableFileScansAndUpdatesLater)
 {
-    Rows out;
-    sqlite3* db = nullptr;
-    EXPECT_EQ(sqlite3_open_v2(path.c_str(), &db, SQLITE_OPEN_READONLY, nullptr), SQLITE_OK);
-    for (const char* sql : {
-             "SELECT link_type || '|' || source_id || '|' || target_id FROM link ORDER BY 1;",
-             "SELECT 'files ' || COUNT(*) FROM file;",
-             "SELECT 'symbols ' || COUNT(*) FROM symbol;",
-             "SELECT 'version ' || user_version FROM pragma_user_version;",
-             "SELECT 'binding columns ' || COUNT(*) FROM pragma_table_info('binding');"}) {
-        sqlite3_stmt* stmt = nullptr;
-        EXPECT_EQ(sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr), SQLITE_OK) << sql;
-        while (sqlite3_step(stmt) == SQLITE_ROW)
-            out.emplace_back(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
-        sqlite3_finalize(stmt);
-    }
-    sqlite3_close(db);
-    return out;
-}
-
-// Turn a scanned database into what an older Telescode left: no scan stamp
-// (not even the table), the version-2 tables empty, the version-1 schema
-// stamp, and a raw-name link of the kind the parser used to write.
-void makeOld(sqlite3* db)
-{
-    ASSERT_EQ(sqlite3_exec(db,
-        "DROP TABLE meta;"
-        "DELETE FROM ref; DELETE FROM binding; DELETE FROM scope; DELETE FROM symbol;"
-        "DELETE FROM import_resolution;"
-        "ALTER TABLE binding DROP COLUMN is_exported;"
-        "INSERT INTO link VALUES('resapp/util.py::helper', 'len', 'CALLS');"
-        "PRAGMA user_version = 1;",
-        nullptr, nullptr, nullptr), SQLITE_OK);
-}
-
-}  // namespace
-
-TEST(ResolverOldDatabase, UpdatesAreRefusedAndChangeNothing)
-{
-    FixtureCopy tree("olddb");
-    ResolvedDb db("olddb");
-    db.scan(tree.root());
-    makeOld(db.db());
-    db.close();
-    const Rows before = snapshot(db.path());
-    ASSERT_NE(std::find(before.begin(), before.end(), "version 1"), before.end());
-
-    PythonParser parser;
-    const ParseResult util = parser.parseFile(tree.file("resapp/util.py"), tree.root());
-    const char* path = db.path().c_str();
-    EXPECT_EQ(DbUpdater::updateFile(path, util), Resolver::kNeedsRescan);
-    EXPECT_EQ(DbUpdater::updateFiles(path, {util}), Resolver::kNeedsRescan);
-    EXPECT_EQ(DbUpdater::deleteFile(path, "resapp/util.py"), Resolver::kNeedsRescan);
-    EXPECT_EQ(DbUpdater::renameFile(path, "resapp/util.py", util), Resolver::kNeedsRescan);
-    EXPECT_EQ(snapshot(db.path()), before);
-}
-
-TEST(ResolverOldDatabase, ScanOverItRebuildsEverything)
-{
-    FixtureCopy tree("olddb_scan");
-    ResolvedDb db("olddb_scan");
-    db.scan(tree.root());
-    makeOld(db.db());
-    EXPECT_TRUE(Resolver::needsRescan(db.db()));
-    EXPECT_EQ(Resolver::run(db.db()), Resolver::kNeedsRescan);
-    db.close();
-
-    db.scan(tree.root());
-    EXPECT_FALSE(Resolver::needsRescan(db.db()));
-    EXPECT_EQ(db.links(), kFixtureLinks);
-}
-
-TEST(ResolverOldDatabase, StageTwoDatabaseWithoutStampIsRefused)
-{
-    // A Stage-2 scan has every name-resolution table filled, but not the refs
-    // and export flags the resolver now relies on -- and no stamp.
-    FixtureCopy tree("stage2db");
-    ResolvedDb db("stage2db");
-    db.scan(tree.root());
-    ASSERT_EQ(sqlite3_exec(db.db(), "DELETE FROM meta;", nullptr, nullptr, nullptr), SQLITE_OK);
-    EXPECT_TRUE(Resolver::needsRescan(db.db()));
-    db.close();
-    const Rows before = snapshot(db.path());
-
-    PythonParser parser;
-    EXPECT_EQ(DbUpdater::updateFile(db.path().c_str(),
-                                    parser.parseFile(tree.file("resapp/util.py"), tree.root())),
-              Resolver::kNeedsRescan);
-    EXPECT_EQ(snapshot(db.path()), before);
-}
-
-TEST(ResolverOldDatabase, UnreadableFilesDoNotLookOld)
-{
-    // A repo whose only file cannot be read scans to a file row with no scope.
-    // That is a current database, and updating it later works.
+    // A repo whose only file cannot be read scans to a file row with no scope;
+    // updating it once the file can be read gives its links.
     FixtureCopy tree("unreadable", {{"a.py", "def f():\n    return 0\n\n\ndef g():\n    return f()\n"}});
     fs::permissions(tree.file("a.py"), fs::perms::none);
     if (std::ifstream(tree.file("a.py")).is_open()) {
@@ -952,8 +897,7 @@ TEST(ResolverOldDatabase, UnreadableFilesDoNotLookOld)
         GTEST_SKIP() << "running with permission to read any file";
     }
     ResolvedDb db("unreadable");
-    db.scan(tree.root());   // asserts Resolver::run succeeds
-    EXPECT_FALSE(Resolver::needsRescan(db.db()));
+    db.scan(tree.root());   // asserts the scan succeeds
     db.close();
 
     fs::permissions(tree.file("a.py"), fs::perms::owner_read | fs::perms::owner_write);
@@ -962,4 +906,385 @@ TEST(ResolverOldDatabase, UnreadableFilesDoNotLookOld)
               SQLITE_OK);
     db.open();
     EXPECT_EQ(db.links(), (Rows{"CALLS|a.py::g|a.py::f"}));
+}
+
+TEST(ResolverLanguages, FilesWithoutAPluginGoBackToPending)
+{
+    // Resolved once with Python, then with no language at all: nothing the
+    // first run decided may linger as a link.
+    ResolvedDb db("noplugin");
+    db.scan();
+    ASSERT_FALSE(db.links().empty());
+    const LanguageRegistry none;
+    ASSERT_EQ(resolveAgain(db.db(), none), SQLITE_OK);
+    EXPECT_EQ(db.count("SELECT COUNT(*) FROM ref WHERE status <> 'pending' OR resolved_id IS NOT NULL"
+                       "    OR confidence IS NOT NULL OR resolver IS NOT NULL OR emits_link <> 0;"), 0);
+    EXPECT_EQ(db.count("SELECT COUNT(*) FROM import_resolution"
+                       " WHERE status <> 'pending' OR resolved_file_id IS NOT NULL;"), 0);
+    EXPECT_EQ(db.rows("SELECT * FROM link;"), Rows{});
+}
+
+// ── Format version ────────────────────────────────────────────────────────────
+// A database of another version (user_version) is never read or changed: scan
+// replaces it, everything else refuses it. There is no migration.
+
+namespace {
+
+std::string fileBytes(const std::string& path)
+{
+    std::ifstream in(path, std::ios::binary);
+    return std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+}
+
+// Every DbUpdater operation, on a database it must refuse with `refusal`.
+void expectUpdatesRefused(const FixtureCopy& tree, const std::string& path,
+                          int refusal = kWrongDbVersion)
+{
+    PythonParser parser;
+    const ParseResult util = parser.parseFile(tree.file("resapp/util.py"), tree.root());
+    const char* p = path.c_str();
+    EXPECT_EQ(DbUpdater::updateFile(p, util), refusal);
+    EXPECT_EQ(DbUpdater::updateFiles(p, {util}), refusal);
+    EXPECT_EQ(DbUpdater::deleteFile(p, "resapp/util.py"), refusal);
+    EXPECT_EQ(DbUpdater::deleteFiles(p, {"resapp/util.py"}), refusal);
+    EXPECT_EQ(DbUpdater::renameFile(p, "resapp/util.py", util), refusal);
+    std::vector<std::string> importers{"stale"};
+    EXPECT_EQ(DbUpdater::findImportingFiles(p, "resapp/models.py", importers), refusal);
+    EXPECT_TRUE(importers.empty());
+}
+
+}  // namespace
+
+TEST(DbVersion, NewDatabaseHasTheCurrentSchema)
+{
+    ResolvedDb db("version_new");
+    db.open();
+    EXPECT_EQ(db.count("PRAGMA user_version;"), kDbVersion);
+    EXPECT_EQ(db.rows("SELECT type FROM sqlite_master WHERE name = 'link';"), (Rows{"view"}));
+    bool empty = true;
+    EXPECT_EQ(checkDbVersion(db.path().c_str(), &empty), SQLITE_OK);
+    EXPECT_FALSE(empty);
+}
+
+TEST(DbVersion, OtherVersionIsRefusedAndLeftAlone)
+{
+    FixtureCopy tree("version_other");
+    ResolvedDb db("version_other");
+    db.scan(tree.root());
+    ASSERT_EQ(sqlite3_exec(db.db(), ("PRAGMA user_version = " + std::to_string(kDbVersion - 1) + ";").c_str(),
+                           nullptr, nullptr, nullptr), SQLITE_OK);
+    db.close();
+    const std::string before = fileBytes(db.path());
+    ASSERT_FALSE(before.empty());
+
+    sqlite3* conn = nullptr;
+    EXPECT_EQ(initDb(db.path().c_str(), &conn), kWrongDbVersion);
+    EXPECT_EQ(conn, nullptr);
+    expectUpdatesRefused(tree, db.path());
+    EXPECT_EQ(fileBytes(db.path()), before);
+}
+
+TEST(DbVersion, FileThatIsNotADatabaseIsRefused)
+{
+    FixtureCopy tree("version_garbage");
+    ResolvedDb db("version_garbage");
+    std::ofstream(db.path(), std::ios::binary) << std::string(4096, 'x');
+    const std::string before = fileBytes(db.path());
+
+    sqlite3* conn = nullptr;
+    EXPECT_EQ(initDb(db.path().c_str(), &conn), kNotADatabase);
+    expectUpdatesRefused(tree, db.path(), kNotADatabase);
+    EXPECT_EQ(fileBytes(db.path()), before);
+}
+
+TEST(DbVersion, ScanReplacesAnotherVersion)
+{
+    FixtureCopy tree("version_rescan");
+    ResolvedDb db("version_rescan");
+    db.scan(tree.root());
+    ASSERT_EQ(sqlite3_exec(db.db(),
+        ("CREATE TABLE leftover(x); PRAGMA user_version = " + std::to_string(kDbVersion + 1) + ";").c_str(),
+        nullptr, nullptr, nullptr), SQLITE_OK);
+    db.close();
+
+    db.scan(tree.root());
+    EXPECT_EQ(db.count("PRAGMA user_version;"), kDbVersion);
+    EXPECT_EQ(db.count("SELECT COUNT(*) FROM sqlite_master WHERE name = 'leftover';"), 0);
+    EXPECT_EQ(db.links(), kFixtureLinks);
+}
+
+TEST(DbVersion, ScanLeavesAFileThatIsNotADatabaseAlone)
+{
+    // Only an SQLite database is ever deleted: anything else at the path may
+    // be a file the path was mistyped for.
+    FixtureCopy tree("version_rescan_garbage");
+    PythonParser parser;
+    const auto results = parser.parseDirectory(tree.root(), tree.root());
+    for (const std::string& text : {std::string(4096, 'x'),
+                                    std::string("import os\n\n\ndef main():\n    return os.getcwd()\n"),
+                                    std::string("SQLite")}) {
+        ResolvedDb db("version_rescan_garbage");
+        std::ofstream(db.path(), std::ios::binary) << text;
+        EXPECT_EQ(DbInserter::insertAll(db.path().c_str(), results), kNotADatabase) << text;
+        EXPECT_EQ(fileBytes(db.path()), text);
+        EXPECT_FALSE(fs::exists(db.path() + "-wal"));
+    }
+}
+
+namespace {
+
+// An SQLite file at path with the given SQL run in it, closed cleanly.
+void makeSqliteFile(const std::string& path, const std::string& sql)
+{
+    sqlite3* raw = nullptr;
+    ASSERT_EQ(sqlite3_open(path.c_str(), &raw), SQLITE_OK);
+    ASSERT_EQ(sqlite3_exec(raw, sql.c_str(), nullptr, nullptr, nullptr), SQLITE_OK);
+    sqlite3_close(raw);
+}
+
+}  // namespace
+
+TEST(DbVersion, ScanLeavesSomeoneElsesSqliteFileAlone)
+{
+    // SQLite, but not Telescode's: no `file` and `link`. Whatever its version.
+    FixtureCopy tree("version_foreign");
+    PythonParser parser;
+    const auto results = parser.parseDirectory(tree.root(), tree.root());
+    for (int version : {0, 7}) {
+        ResolvedDb db("version_foreign");
+        makeSqliteFile(db.path(),
+            "CREATE TABLE important(x); INSERT INTO important VALUES('precious');"
+            "CREATE TABLE file(y); PRAGMA user_version = " + std::to_string(version) + ";");
+        const std::string before = fileBytes(db.path());
+        EXPECT_EQ(DbInserter::insertAll(db.path().c_str(), results), kNotADatabase) << version;
+        EXPECT_EQ(fileBytes(db.path()), before) << version;
+        EXPECT_FALSE(fs::exists(db.path() + "-wal")) << version;
+    }
+}
+
+TEST(DbVersion, ScanReplacesATelescodeDatabaseFromBeforeTheVersion)
+{
+    // What 5e1638d wrote: file and link tables, user_version 0.
+    FixtureCopy tree("version_unversioned");
+    ResolvedDb db("version_unversioned");
+    makeSqliteFile(db.path(),
+        "CREATE TABLE file(file_id TEXT PRIMARY KEY, loc INTEGER);"
+        "CREATE TABLE link(source_id TEXT, target_id TEXT, link_type TEXT);"
+        "INSERT INTO link VALUES('a.py', 'b', 'IMPORTS');");
+    expectUpdatesRefused(tree, db.path());
+
+    db.scan(tree.root());
+    EXPECT_EQ(db.count("PRAGMA user_version;"), kDbVersion);
+    EXPECT_EQ(db.links(), kFixtureLinks);
+}
+
+TEST(DbVersion, ScanFillsAnEmptyFile)
+{
+    FixtureCopy tree("version_empty_file");
+    ResolvedDb db("version_empty_file");
+    std::ofstream(db.path(), std::ios::binary).close();
+    ASSERT_TRUE(fs::exists(db.path()));
+
+    db.scan(tree.root());
+    EXPECT_EQ(db.count("PRAGMA user_version;"), kDbVersion);
+    EXPECT_EQ(db.links(), kFixtureLinks);
+}
+
+TEST(DbVersion, ScanOfACurrentDatabaseKeepsWhatIsNotParserOutput)
+{
+    // Same version: rescanned in place, so the stored algo config stays.
+    FixtureCopy tree("version_keep");
+    ResolvedDb db("version_keep");
+    db.scan(tree.root());
+    ASSERT_EQ(sqlite3_exec(db.db(),
+        "INSERT INTO reading_sequence_config(config_key, config_value) VALUES('alpha', '0.25');",
+        nullptr, nullptr, nullptr), SQLITE_OK);
+    db.scan(tree.root());
+    EXPECT_EQ(db.rows("SELECT config_value FROM reading_sequence_config WHERE config_key = 'alpha';"),
+              (Rows{"0.25"}));
+    EXPECT_EQ(db.links(), kFixtureLinks);
+}
+
+// ── A scan that does not finish ───────────────────────────────────────────────
+// Parse rows, resolution and (for a new file) the schema and its version are
+// one transaction: a scan that fails or is killed part way leaves the
+// database it started from, or an empty file -- never files with no links.
+
+namespace {
+
+// Python, except that the process dies the moment the resolver asks it
+// anything about modules -- after every parse row is in, before any answer is.
+class DyingPython : public PythonLanguage {
+public:
+    std::string resolveModule(const std::string&, const std::string&,
+                              const ProjectIndex&) const override {
+        std::raise(SIGKILL);
+        return "";
+    }
+};
+
+const LanguageRegistry& dyingRegistry()
+{
+    static const LanguageRegistry reg = [] {
+        LanguageRegistry r;
+        r.add(std::make_unique<DyingPython>());
+        return r;
+    }();
+    return reg;
+}
+
+}  // namespace
+
+TEST(ScanAtomic, FailedResolveLeavesThePreviousDatabase)
+{
+    FixtureCopy tree("atomic_fail");
+    ResolvedDb db("atomic_fail");
+    db.scan(tree.root());
+    const Rows files = db.rows("SELECT file_id FROM file ORDER BY 1;");
+    // Any write to a ref's answer now fails, as a full disk would.
+    ASSERT_EQ(sqlite3_exec(db.db(),
+        "CREATE TRIGGER no_answers BEFORE UPDATE ON ref BEGIN SELECT RAISE(ABORT, 'no'); END;",
+        nullptr, nullptr, nullptr), SQLITE_OK);
+    db.close();
+
+    fs::remove(tree.file("resapp/util.py"));
+    PythonParser parser;
+    EXPECT_NE(DbInserter::insertAll(db.path().c_str(), parser.parseDirectory(tree.root(), tree.root())),
+              SQLITE_OK);
+
+    db.open();
+    EXPECT_EQ(db.rows("SELECT file_id FROM file ORDER BY 1;"), files);
+    EXPECT_EQ(db.links(), kFixtureLinks);
+    EXPECT_EQ(db.count("SELECT COUNT(*) FROM ref WHERE status = 'pending';"), 0);
+}
+
+#if GTEST_HAS_DEATH_TEST && !defined(_WIN32)
+
+TEST(ScanAtomic, KilledFirstScanLeavesAnEmptyFile)
+{
+    FixtureCopy tree("atomic_kill_new");
+    ResolvedDb db("atomic_kill_new");
+    PythonParser parser;
+    const auto results = parser.parseDirectory(tree.root(), tree.root());
+    EXPECT_EXIT(DbInserter::insertAll(db.path().c_str(), results, nullptr, dyingRegistry()),
+                ::testing::KilledBySignal(SIGKILL), "");
+
+    // No version, no tables: nothing for `algo` to take for a scanned project.
+    bool empty = false;
+    EXPECT_EQ(checkDbVersion(db.path().c_str(), &empty), SQLITE_OK);
+    EXPECT_TRUE(empty);
+}
+
+TEST(ScanAtomic, KilledRescanLeavesThePreviousDatabase)
+{
+    FixtureCopy tree("atomic_kill_rescan");
+    ResolvedDb db("atomic_kill_rescan");
+    db.scan(tree.root());
+    const Rows files = db.rows("SELECT file_id FROM file ORDER BY 1;");
+    db.close();
+
+    fs::remove(tree.file("resapp/util.py"));
+    PythonParser parser;
+    const auto results = parser.parseDirectory(tree.root(), tree.root());
+    EXPECT_EXIT(DbInserter::insertAll(db.path().c_str(), results, nullptr, dyingRegistry()),
+                ::testing::KilledBySignal(SIGKILL), "");
+
+    db.open();
+    EXPECT_EQ(db.count("PRAGMA user_version;"), kDbVersion);
+    EXPECT_EQ(db.rows("SELECT file_id FROM file ORDER BY 1;"), files);
+    EXPECT_EQ(db.links(), kFixtureLinks);
+    EXPECT_EQ(db.count("SELECT COUNT(*) FROM ref WHERE status = 'pending';"), 0);
+}
+
+#endif
+
+// ── update dangling ───────────────────────────────────────────────────────────
+
+TEST(ResolverDangling, ImportersByEveryKindOfSpec)
+{
+    FixtureCopy tree("dangling", {
+        {"pkg/__init__.py", "from . import mod\n"},
+        {"pkg/mod.py", "def f():\n    return 0\n"},
+        {"pkg/rel.py", "from .mod import f\n"},
+        {"pkg/up/__init__.py", ""},
+        {"pkg/up/deep.py", "from ..mod import f\n"},
+        {"absolute.py", "import pkg.mod\n"},
+        {"aliased.py", "import pkg.mod as m\n"},
+        {"fromsym.py", "from pkg.mod import f\n"},
+        {"frompkg.py", "from pkg import mod\n\n\ndef p():\n    return mod.f()\n"},
+        {"twice.py", "import pkg.mod\nfrom pkg.mod import f\n"},
+        {"other.py", "import os\n"},
+    });
+    ResolvedDb db("dangling");
+    db.scan(tree.root());
+    db.close();
+
+    std::vector<std::string> importers;
+    ASSERT_EQ(DbUpdater::findImportingFiles(db.path().c_str(), "pkg/mod.py", importers), SQLITE_OK);
+    // `from pkg import mod` names the package, whose __init__ is what it
+    // imports; the submodule is found only through the binding, which
+    // import_resolution does not record.
+    EXPECT_EQ(importers, (std::vector<std::string>{
+        "absolute.py", "aliased.py", "fromsym.py", "pkg/rel.py", "pkg/up/deep.py", "twice.py"}));
+
+    // A spec names one file: `import pkg.mod` is pkg/mod.py's, not the
+    // package's. `from . import mod` in the package itself imports
+    // pkg/__init__.py from pkg/__init__.py, which does not dangle when it goes.
+    ASSERT_EQ(DbUpdater::findImportingFiles(db.path().c_str(), "pkg/__init__.py", importers), SQLITE_OK);
+    EXPECT_EQ(importers, (std::vector<std::string>{"frompkg.py"}));
+
+    ASSERT_EQ(DbUpdater::findImportingFiles(db.path().c_str(), "other.py", importers), SQLITE_OK);
+    EXPECT_TRUE(importers.empty());
+}
+
+TEST(ResolverDangling, ImportsOfGlobalNamesCount)
+{
+    // An import under `global` binds the module's name: its spec is resolved
+    // like any other, so the file imports pkg/mod.py and dangles without it.
+    FixtureCopy tree("dangling_global", {
+        {"pkg/__init__.py", ""},
+        {"pkg/mod.py", "def x(): pass\n"},
+        {"pkg/user.py", "y = None\ndef hook():\n    global y\n    from .mod import x as y\n"},
+        {"pkg/user2.py", "def hook():\n    global mod\n    import pkg.mod as mod\n"},
+    });
+    ResolvedDb db("dangling_global");
+    db.scan(tree.root());
+    EXPECT_EQ(db.rows("SELECT source_id || ' -> ' || target_id FROM link"
+                      " WHERE link_type = 'IMPORTS' ORDER BY 1;"),
+              (Rows{"pkg/user.py -> pkg/mod.py", "pkg/user2.py -> pkg/mod.py"}));
+    db.close();
+
+    std::vector<std::string> importers;
+    ASSERT_EQ(DbUpdater::findImportingFiles(db.path().c_str(), "pkg/mod.py", importers), SQLITE_OK);
+    EXPECT_EQ(importers, (std::vector<std::string>{"pkg/user.py", "pkg/user2.py"}));
+}
+
+TEST(ResolverDangling, EveryImportOnALineCounts)
+{
+    // Both statements bind `pkg` once on their line, but import two modules
+    // each: every spec gets its import_resolution row, so its IMPORTS link.
+    FixtureCopy tree("dangling_sameline", {
+        {"pkg/__init__.py", ""},
+        {"pkg/h.py", ""},
+        {"pkg/i.py", ""},
+        {"pkg/j.py", ""},
+        {"pkg/k.py", ""},
+        {"main.py", "import pkg.h, pkg.i\n"},
+        {"main2.py", "import pkg.j; import pkg.k\n"},
+    });
+    ResolvedDb db("dangling_sameline");
+    db.scan(tree.root());
+    EXPECT_EQ(db.rows("SELECT source_id || ' -> ' || target_id FROM link"
+                      " WHERE link_type = 'IMPORTS' ORDER BY 1;"),
+              (Rows{"main.py -> pkg/h.py", "main.py -> pkg/i.py",
+                    "main2.py -> pkg/j.py", "main2.py -> pkg/k.py"}));
+    db.close();
+
+    std::vector<std::string> importers;
+    for (const auto& [file, importer] : std::vector<std::pair<std::string, std::string>>{
+             {"pkg/h.py", "main.py"}, {"pkg/i.py", "main.py"},
+             {"pkg/j.py", "main2.py"}, {"pkg/k.py", "main2.py"}}) {
+        ASSERT_EQ(DbUpdater::findImportingFiles(db.path().c_str(), file, importers), SQLITE_OK);
+        EXPECT_EQ(importers, (std::vector<std::string>{importer})) << file;
+    }
 }

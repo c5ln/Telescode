@@ -129,8 +129,8 @@ target_include_directories(lang PUBLIC src)
 
 # ── resolve static library ─────────────────────────────────────────────────────
 # The language-neutral name resolver: reads symbol/scope/binding/ref from a
-# database, writes import_resolution, ref status and the CALLS / INHERITS /
-# DECORATES links. Language rules come only through `lang`.
+# database, writes import_resolution and each ref's answer, from which the
+# `link` view derives every link. Language rules come only through `lang`.
 add_library(resolve STATIC
     src/resolve/Resolver.cpp
 )
@@ -148,7 +148,7 @@ add_library(algo STATIC
     src/db/db.cpp
 )
 target_include_directories(algo PUBLIC src)
-target_link_libraries(algo PUBLIC lang sqlite3)
+target_link_libraries(algo PUBLIC sqlite3)
 
 
 # ── TelescodePPR executable ───────────────────────────────────────────────────

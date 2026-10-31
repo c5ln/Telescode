@@ -6,6 +6,7 @@
 #include "algo/AlgoRunner.h"
 #include "algo/Graph.h"
 #include "core/diagram/cd_builder.h"
+#include "db/db.h"
 
 #include <sqlite3.h>
 #include <stdexcept>
@@ -62,6 +63,13 @@ AnalysisSnapshot AnalysisService::Load(const std::string& dbPath,
     if (opts.run_algo)
         AlgoRunner::run(dbPath.c_str(), cfg);
 
+    // Before opening: even a read-only handle would create -wal / -shm files
+    // next to a database of another version. Whatever stops the check stops
+    // the read too. An empty file reads as an empty project.
+    const int rc = checkDbVersion(dbPath.c_str());
+    if (rc != SQLITE_OK)
+        throw std::runtime_error("AnalysisService: " + dbOpenError(dbPath, rc));
+
     sqlite3* db = nullptr;
     if (sqlite3_open_v2(dbPath.c_str(), &db, SQLITE_OPEN_READONLY, nullptr) != SQLITE_OK) {
         const std::string msg = db ? sqlite3_errmsg(db) : "cannot open database";
@@ -99,9 +107,9 @@ AnalysisSnapshot AnalysisService::Load(const std::string& dbPath,
     // above consults cfg solely to run the algo pass.
     //
     // This is not a micro-optimisation. AlgoDbWriter::loadConfig goes through
-    // initDb, which opens the database read-write and will create missing
-    // tables, apply schema migrations, switch journal_mode to WAL, and create
-    // the file outright if the path does not exist. Fetching a config that is
+    // initDb, which opens the database read-write and will create the schema
+    // in an empty file, switch journal_mode to WAL, and create the file
+    // outright if the path does not exist. Fetching a config that is
     // then discarded would let `graph`, `sequence` and `analyze` rewrite the
     // database they were asked only to report on -- and turn a mistyped path
     // into a new empty database plus a successful-looking empty result.

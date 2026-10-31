@@ -1,0 +1,646 @@
+{
+ "label": "root",
+ "db": "root.db",
+ "scanned_path": ".",
+ "scanned_commit": "6553e6ff1ec8b45439ac775c0a0666f2d7fa4d8b",
+ "binary": {
+  "path": "/tmp/claude-1000/-home-cheonsh-Telescode/7f54ce26-45e3-42c7-b4f6-27eab223d029/scratchpad/stage4-verify/build-new/TelescodeHeadless",
+  "md5": "c81c5e2161bdedcbd222ec3c975adf7d"
+ },
+ "counts": {
+  "files": 4650,
+  "classes": 19035,
+  "functions": 71037,
+  "methods": 54002
+ },
+ "projects": {
+  "bench": 66,
+  "bench/.venv/lib/python3.11/site-packages/_distutils_hack": 2,
+  "bench/.venv/lib/python3.11/site-packages/_multiprocess": 1,
+  "bench/.venv/lib/python3.11/site-packages/_pytest": 78,
+  "bench/.venv/lib/python3.11/site-packages/aiohappyeyeballs": 5,
+  "bench/.venv/lib/python3.11/site-packages/aiohttp": 55,
+  "bench/.venv/lib/python3.11/site-packages/aiosignal": 1,
+  "bench/.venv/lib/python3.11/site-packages/click": 17,
+  "bench/.venv/lib/python3.11/site-packages/datasets": 138,
+  "bench/.venv/lib/python3.11/site-packages/dill": 46,
+  "bench/.venv/lib/python3.11/site-packages/frozenlist": 1,
+  "bench/.venv/lib/python3.11/site-packages/hf_xet": 1,
+  "bench/.venv/lib/python3.11/site-packages/huggingface_hub": 183,
+  "bench/.venv/lib/python3.11/site-packages/iniconfig": 4,
+  "bench/.venv/lib/python3.11/site-packages/lightgbm": 9,
+  "bench/.venv/lib/python3.11/site-packages/multidict": 4,
+  "bench/.venv/lib/python3.11/site-packages/multiprocess": 44,
+  "bench/.venv/lib/python3.11/site-packages/pip": 491,
+  "bench/.venv/lib/python3.11/site-packages/pkg_resources": 51,
+  "bench/.venv/lib/python3.11/site-packages/pluggy": 8,
+  "bench/.venv/lib/python3.11/site-packages/propcache": 4,
+  "bench/.venv/lib/python3.11/site-packages/py.py": 1,
+  "bench/.venv/lib/python3.11/site-packages/pytest": 2,
+  "bench/.venv/lib/python3.11/site-packages/regex": 4,
+  "bench/.venv/lib/python3.11/site-packages/safetensors": 7,
+  "bench/.venv/lib/python3.11/site-packages/setuptools": 179,
+  "bench/.venv/lib/python3.11/site-packages/tokenizers": 16,
+  "bench/.venv/lib/python3.11/site-packages/transformers": 2590,
+  "bench/.venv/lib/python3.11/site-packages/xxhash": 2,
+  "bench/.venv/lib/python3.11/site-packages/yarl": 8,
+  "bench/repos/pytest": 271,
+  "bench/repos/xarray": 241,
+  "build": 70,
+  "ltr": 7,
+  "repos/sherlock": 16,
+  "tests": 27
+ },
+ "links": {
+  "CALLS": {
+   "total": 51853,
+   "target_is_id": 51853,
+   "target_is_raw_name": 0,
+   "raw_name_dotted": 0,
+   "raw_name_bare": 0,
+   "raw_name_containing_double_colon": 0
+  },
+  "INHERITS": {
+   "total": 11206,
+   "target_is_id": 11206,
+   "target_is_raw_name": 0,
+   "raw_name_dotted": 0,
+   "raw_name_bare": 0,
+   "raw_name_containing_double_colon": 0
+  },
+  "DECORATES": {
+   "total": 11603,
+   "target_is_id": 11603,
+   "target_is_raw_name": 0,
+   "raw_name_dotted": 0,
+   "raw_name_bare": 0,
+   "raw_name_containing_double_colon": 0
+  }
+ },
+ "cross_project_links": {
+  "CALLS": {
+   "count": 2,
+   "cross_file": 18134,
+   "by_project_pair": [
+    {
+     "source": "bench",
+     "target": "ltr",
+     "count": 2
+    }
+   ],
+   "examples": [
+    {
+     "source_id": "bench/ltr/cv.py::_fit",
+     "target_id": "ltr/model.py::fit_ranker",
+     "source_project": "bench",
+     "target_project": "ltr"
+    },
+    {
+     "source_id": "bench/ltr/data.py::per_instance_minmax",
+     "target_id": "ltr/preprocessing.py::per_query_minmax",
+     "source_project": "bench",
+     "target_project": "ltr"
+    }
+   ]
+  },
+  "INHERITS": {
+   "count": 0,
+   "cross_file": 7214,
+   "by_project_pair": [],
+   "examples": []
+  },
+  "DECORATES": {
+   "count": 0,
+   "cross_file": 11128,
+   "by_project_pair": [],
+   "examples": []
+  }
+ },
+ "calls_to_method_from_bare_name": {
+  "note": "APPROXIMATION: the DB does not keep the raw call text, so 'bare name call resolved to a method' is estimated by two separate signals: the target method's name is a Python builtin (dir(builtins)), or the target method lives in a different file than the caller.",
+  "python": "3.11.2",
+  "n_builtin_names": 157,
+  "builtin_name": {
+   "count": 124,
+   "cross_project": 0,
+   "top_target_names": [
+    [
+     "open",
+     56
+    ],
+    [
+     "map",
+     22
+    ],
+    [
+     "set",
+     6
+    ],
+    [
+     "print",
+     6
+    ],
+    [
+     "eval",
+     6
+    ],
+    [
+     "hash",
+     5
+    ],
+    [
+     "next",
+     4
+    ],
+    [
+     "list",
+     3
+    ],
+    [
+     "filter",
+     3
+    ],
+    [
+     "compile",
+     3
+    ]
+   ],
+   "examples": [
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_py/path.py::LocalPath::computehash",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_py/path.py::LocalPath::open",
+     "target_name": "open"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_py/path.py::LocalPath::dump",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_py/path.py::LocalPath::open",
+     "target_name": "open"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_py/path.py::LocalPath::load",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_py/path.py::LocalPath::open",
+     "target_name": "open"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_py/path.py::LocalPath::read",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_py/path.py::LocalPath::open",
+     "target_name": "open"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_py/path.py::LocalPath::read_binary",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_py/path.py::LocalPath::open",
+     "target_name": "open"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_py/path.py::LocalPath::read_text",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_py/path.py::LocalPath::open",
+     "target_name": "open"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_py/path.py::LocalPath::readlines",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_py/path.py::LocalPath::open",
+     "target_name": "open"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_py/path.py::LocalPath::write",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_py/path.py::LocalPath::open",
+     "target_name": "open"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_py/path.py::LocalPath::write_binary",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_py/path.py::LocalPath::open",
+     "target_name": "open"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_py/path.py::LocalPath::write_text",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/_pytest/_py/path.py::LocalPath::open",
+     "target_name": "open"
+    }
+   ]
+  },
+  "other_file": {
+   "count": 10038,
+   "cross_project": 0,
+   "top_target_names": [
+    [
+     "__init__",
+     5184
+    ],
+    [
+     "post_init",
+     2009
+    ],
+    [
+     "loss_function",
+     426
+    ],
+    [
+     "from_config",
+     161
+    ],
+    [
+     "resize",
+     129
+    ],
+    [
+     "rescale_and_normalize",
+     125
+    ],
+    [
+     "_init_weights",
+     96
+    ],
+    [
+     "_from_config",
+     95
+    ],
+    [
+     "rescale",
+     92
+    ],
+    [
+     "normalize",
+     86
+    ]
+   ],
+   "examples": [
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/cacheprovider.py::LFPluginCollSkipfiles::pytest_make_collect_report",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/_pytest/reports.py::CollectReport::__init__",
+     "target_name": "__init__"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/mark/__init__.py::_parse_expression",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/_pytest/mark/expression.py::Expression::compile",
+     "target_name": "compile"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/mark/__init__.py::param",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/_pytest/mark/structures.py::ParameterSet::param",
+     "target_name": "param"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/runner.py::pytest_make_collect_report",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/_pytest/reports.py::CollectErrorRepr::__init__",
+     "target_name": "__init__"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/runner.py::pytest_make_collect_report",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/_pytest/reports.py::CollectReport::__init__",
+     "target_name": "__init__"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/_pytest/runner.py::pytest_runtest_makereport",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/_pytest/reports.py::TestReport::from_item_and_call",
+     "target_name": "from_item_and_call"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/aiohttp/_websocket/reader_c.py::WebSocketReader::_feed_data",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/aiohttp/_websocket/models.py::WebSocketError::__init__",
+     "target_name": "__init__"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/aiohttp/_websocket/reader_c.py::WebSocketReader::_handle_frame",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/aiohttp/_websocket/models.py::WebSocketError::__init__",
+     "target_name": "__init__"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/aiohttp/_websocket/reader_c.py::WebSocketReader::_handle_frame",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/aiohttp/compression_utils.py::ZLibDecompressor::__init__",
+     "target_name": "__init__"
+    },
+    {
+     "source_id": "bench/.venv/lib/python3.11/site-packages/aiohttp/_websocket/reader_py.py::WebSocketReader::_feed_data",
+     "target_id": "bench/.venv/lib/python3.11/site-packages/aiohttp/_websocket/models.py::WebSocketError::__init__",
+     "target_name": "__init__"
+    }
+   ]
+  },
+  "either": 10148,
+  "calls_id_target_not_in_function_table": 0
+ },
+ "class_diagram_inherits": {
+  "join": "class_id",
+  "inherits_links": 11206,
+  "links_matching_any_class": 11206,
+  "edges": 11206,
+  "edges_to_different_file": 7214,
+  "edges_to_different_project": 0,
+  "children_with_multiple_parents": 698,
+  "base_names_matching_multiple_classes": 0,
+  "examples_different_file": [
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/aiohttp/client_proto.py::ResponseHandler",
+    "base_name": "bench/.venv/lib/python3.11/site-packages/aiohttp/base_protocol.py::BaseProtocol",
+    "joined_class": "bench/.venv/lib/python3.11/site-packages/aiohttp/base_protocol.py::BaseProtocol"
+   },
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/aiohttp/client_proto.py::ResponseHandler",
+    "base_name": "bench/.venv/lib/python3.11/site-packages/aiohttp/streams.py::DataQueue",
+    "joined_class": "bench/.venv/lib/python3.11/site-packages/aiohttp/streams.py::DataQueue"
+   },
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/aiohttp/client_reqrep.py::ClientResponse",
+    "base_name": "bench/.venv/lib/python3.11/site-packages/aiohttp/helpers.py::HeadersMixin",
+    "joined_class": "bench/.venv/lib/python3.11/site-packages/aiohttp/helpers.py::HeadersMixin"
+   },
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/aiohttp/cookiejar.py::CookieJar",
+    "base_name": "bench/.venv/lib/python3.11/site-packages/aiohttp/abc.py::AbstractCookieJar",
+    "joined_class": "bench/.venv/lib/python3.11/site-packages/aiohttp/abc.py::AbstractCookieJar"
+   },
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/aiohttp/cookiejar.py::DummyCookieJar",
+    "base_name": "bench/.venv/lib/python3.11/site-packages/aiohttp/abc.py::AbstractCookieJar",
+    "joined_class": "bench/.venv/lib/python3.11/site-packages/aiohttp/abc.py::AbstractCookieJar"
+   },
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/aiohttp/http_writer.py::StreamWriter",
+    "base_name": "bench/.venv/lib/python3.11/site-packages/aiohttp/abc.py::AbstractStreamWriter",
+    "joined_class": "bench/.venv/lib/python3.11/site-packages/aiohttp/abc.py::AbstractStreamWriter"
+   },
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/aiohttp/multipart.py::BodyPartReaderPayload",
+    "base_name": "bench/.venv/lib/python3.11/site-packages/aiohttp/payload.py::Payload",
+    "joined_class": "bench/.venv/lib/python3.11/site-packages/aiohttp/payload.py::Payload"
+   },
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/aiohttp/multipart.py::MultipartWriter",
+    "base_name": "bench/.venv/lib/python3.11/site-packages/aiohttp/payload.py::Payload",
+    "joined_class": "bench/.venv/lib/python3.11/site-packages/aiohttp/payload.py::Payload"
+   },
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/aiohttp/payload_streamer.py::StreamWrapperPayload",
+    "base_name": "bench/.venv/lib/python3.11/site-packages/aiohttp/payload.py::Payload",
+    "joined_class": "bench/.venv/lib/python3.11/site-packages/aiohttp/payload.py::Payload"
+   },
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/aiohttp/resolver.py::AsyncResolver",
+    "base_name": "bench/.venv/lib/python3.11/site-packages/aiohttp/abc.py::AbstractResolver",
+    "joined_class": "bench/.venv/lib/python3.11/site-packages/aiohttp/abc.py::AbstractResolver"
+   }
+  ],
+  "examples_multiple_parents": [
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/pip/_vendor/pyparsing/exceptions.py::ExceptionWordUnicode",
+    "parents": [
+     "bench/.venv/lib/python3.11/site-packages/pip/_vendor/pyparsing/unicode.py::Cyrillic",
+     "bench/.venv/lib/python3.11/site-packages/pip/_vendor/pyparsing/unicode.py::Greek",
+     "bench/.venv/lib/python3.11/site-packages/pip/_vendor/pyparsing/unicode.py::Latin1",
+     "bench/.venv/lib/python3.11/site-packages/pip/_vendor/pyparsing/unicode.py::LatinA",
+     "bench/.venv/lib/python3.11/site-packages/pip/_vendor/pyparsing/unicode.py::LatinB"
+    ],
+    "n_parents": 5
+   },
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/pkg_resources/_vendor/pyparsing/exceptions.py::ExceptionWordUnicode",
+    "parents": [
+     "bench/.venv/lib/python3.11/site-packages/pkg_resources/_vendor/pyparsing/unicode.py::Cyrillic",
+     "bench/.venv/lib/python3.11/site-packages/pkg_resources/_vendor/pyparsing/unicode.py::Greek",
+     "bench/.venv/lib/python3.11/site-packages/pkg_resources/_vendor/pyparsing/unicode.py::Latin1",
+     "bench/.venv/lib/python3.11/site-packages/pkg_resources/_vendor/pyparsing/unicode.py::LatinA",
+     "bench/.venv/lib/python3.11/site-packages/pkg_resources/_vendor/pyparsing/unicode.py::LatinB"
+    ],
+    "n_parents": 5
+   },
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/setuptools/_vendor/pyparsing/exceptions.py::ExceptionWordUnicode",
+    "parents": [
+     "bench/.venv/lib/python3.11/site-packages/setuptools/_vendor/pyparsing/unicode.py::Cyrillic",
+     "bench/.venv/lib/python3.11/site-packages/setuptools/_vendor/pyparsing/unicode.py::Greek",
+     "bench/.venv/lib/python3.11/site-packages/setuptools/_vendor/pyparsing/unicode.py::Latin1",
+     "bench/.venv/lib/python3.11/site-packages/setuptools/_vendor/pyparsing/unicode.py::LatinA",
+     "bench/.venv/lib/python3.11/site-packages/setuptools/_vendor/pyparsing/unicode.py::LatinB"
+    ],
+    "n_parents": 5
+   },
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/transformers/modeling_utils.py::PreTrainedModel",
+    "parents": [
+     "bench/.venv/lib/python3.11/site-packages/transformers/distributed/mixin.py::DistributedMixin",
+     "bench/.venv/lib/python3.11/site-packages/transformers/integrations/peft.py::PeftAdapterMixin",
+     "bench/.venv/lib/python3.11/site-packages/transformers/modeling_utils.py::EmbeddingAccessMixin",
+     "bench/.venv/lib/python3.11/site-packages/transformers/modeling_utils.py::ModuleUtilsMixin",
+     "bench/.venv/lib/python3.11/site-packages/transformers/utils/hub.py::PushToHubMixin"
+    ],
+    "n_parents": 5
+   },
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/datasets/arrow_dataset.py::Dataset",
+    "parents": [
+     "bench/.venv/lib/python3.11/site-packages/datasets/arrow_dataset.py::DatasetInfoMixin",
+     "bench/.venv/lib/python3.11/site-packages/datasets/arrow_dataset.py::TensorflowDatasetMixin",
+     "bench/.venv/lib/python3.11/site-packages/datasets/search.py::IndexableMixin"
+    ],
+    "n_parents": 3
+   },
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/pip/_vendor/pyparsing/unicode.py::CJK",
+    "parents": [
+     "bench/.venv/lib/python3.11/site-packages/pip/_vendor/pyparsing/unicode.py::Chinese",
+     "bench/.venv/lib/python3.11/site-packages/pip/_vendor/pyparsing/unicode.py::Hangul",
+     "bench/.venv/lib/python3.11/site-packages/pip/_vendor/pyparsing/unicode.py::Japanese"
+    ],
+    "n_parents": 3
+   },
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/pkg_resources/_vendor/pyparsing/unicode.py::CJK",
+    "parents": [
+     "bench/.venv/lib/python3.11/site-packages/pkg_resources/_vendor/pyparsing/unicode.py::Chinese",
+     "bench/.venv/lib/python3.11/site-packages/pkg_resources/_vendor/pyparsing/unicode.py::Hangul",
+     "bench/.venv/lib/python3.11/site-packages/pkg_resources/_vendor/pyparsing/unicode.py::Japanese"
+    ],
+    "n_parents": 3
+   },
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/setuptools/_vendor/pyparsing/unicode.py::CJK",
+    "parents": [
+     "bench/.venv/lib/python3.11/site-packages/setuptools/_vendor/pyparsing/unicode.py::Chinese",
+     "bench/.venv/lib/python3.11/site-packages/setuptools/_vendor/pyparsing/unicode.py::Hangul",
+     "bench/.venv/lib/python3.11/site-packages/setuptools/_vendor/pyparsing/unicode.py::Japanese"
+    ],
+    "n_parents": 3
+   },
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/transformers/configuration_utils.py::PreTrainedConfig",
+    "parents": [
+     "bench/.venv/lib/python3.11/site-packages/transformers/integrations/heterogeneity/configuration_utils.py::HeterogeneousConfigMixin",
+     "bench/.venv/lib/python3.11/site-packages/transformers/modeling_rope_utils.py::RotaryEmbeddingConfigMixin",
+     "bench/.venv/lib/python3.11/site-packages/transformers/utils/hub.py::PushToHubMixin"
+    ],
+    "n_parents": 3
+   },
+   {
+    "child": "bench/.venv/lib/python3.11/site-packages/transformers/models/afmoe/modular_afmoe.py::AfmoeForCausalLM",
+    "parents": [
+     "bench/.venv/lib/python3.11/site-packages/transformers/generation/utils.py::GenerationMixin",
+     "bench/.venv/lib/python3.11/site-packages/transformers/models/afmoe/modular_afmoe.py::AfmoePreTrainedModel",
+     "bench/.venv/lib/python3.11/site-packages/transformers/models/llama/modeling_llama.py::LlamaForCausalLM"
+    ],
+    "n_parents": 3
+   }
+  ],
+  "examples_ambiguous_base_name": [],
+  "by_join": {
+   "class_name": {
+    "links_matching_any_class": 0,
+    "edges": 0,
+    "edges_to_different_file": 0,
+    "edges_to_different_project": 0,
+    "children_with_multiple_parents": 0,
+    "base_names_matching_multiple_classes": 0
+   },
+   "class_id": {
+    "links_matching_any_class": 11206,
+    "edges": 11206,
+    "edges_to_different_file": 7214,
+    "edges_to_different_project": 0,
+    "children_with_multiple_parents": 698,
+    "base_names_matching_multiple_classes": 0
+   }
+  }
+ },
+ "file_graph": {
+  "CALLS": {
+   "edges": 9469,
+   "links_behind_edges": 51853,
+   "self_loops": 2430
+  },
+  "INHERITS": {
+   "edges": 5188,
+   "links_behind_edges": 11206,
+   "self_loops": 949
+  },
+  "CALLS+INHERITS": {
+   "distinct_pairs_excl_self": 9522,
+   "cross_project_pairs": 2,
+   "cross_project_ratio": 0.0002,
+   "examples_cross_project": [
+    {
+     "src": "bench/ltr/cv.py",
+     "tgt": "ltr/model.py"
+    },
+    {
+     "src": "bench/ltr/data.py",
+     "tgt": "ltr/preprocessing.py"
+    }
+   ]
+  },
+  "IMPORTS": {
+   "distinct_pairs_excl_self": 20083,
+   "source": "link_view"
+  },
+  "all_types": {
+   "distinct_pairs_excl_self": 22313,
+   "cross_project_pairs": 2
+  }
+ },
+ "reading_sequence": {
+  "file": {
+   "in_db": 4650,
+   "in_reading_sequence": 4650,
+   "coverage": 1.0,
+   "examples_missing": []
+  },
+  "class": {
+   "in_db": 19035,
+   "in_reading_sequence": 19035,
+   "coverage": 1.0,
+   "examples_missing": []
+  },
+  "function": {
+   "in_db": 71037,
+   "in_reading_sequence": 71037,
+   "coverage": 1.0,
+   "examples_missing": []
+  }
+ },
+ "refs": {
+  "by_kind": {
+   "CALLS": {
+    "builtin": 67391,
+    "external": 91468,
+    "heuristic": 11574,
+    "resolved": 87233,
+    "unresolved": 94934
+   },
+   "DECORATES": {
+    "builtin": 4206,
+    "external": 8545,
+    "heuristic": 25,
+    "resolved": 11629,
+    "unresolved": 370
+   },
+   "INHERITS": {
+    "builtin": 617,
+    "external": 6011,
+    "heuristic": 31,
+    "resolved": 11270,
+    "unresolved": 15
+   }
+  },
+  "note": "'heuristic' is a subset of 'resolved'",
+  "top_unresolved_heads": [
+   [
+    "self",
+    11166
+   ],
+   [
+    "pytester",
+    4403
+   ],
+   [
+    "logger",
+    2623
+   ],
+   [
+    "kwargs",
+    2138
+   ],
+   [
+    "result",
+    1952
+   ],
+   [
+    "hidden_states",
+    1734
+   ],
+   [
+    "ds",
+    1045
+   ],
+   [
+    "loss_fct",
+    792
+   ],
+   [
+    "past_key_values",
+    750
+   ],
+   [
+    "data",
+    730
+   ],
+   [
+    "config",
+    719
+   ],
+   [
+    "out",
+    709
+   ],
+   [
+    "labels",
+    664
+   ],
+   [
+    "x",
+    648
+   ],
+   [
+    "da",
+    621
+   ]
+  ]
+ }
+}

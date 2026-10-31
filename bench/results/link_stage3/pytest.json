@@ -1,0 +1,767 @@
+{
+ "label": "pytest",
+ "db": "pytest-new.db",
+ "scanned_path": "bench/repos/pytest",
+ "scanned_commit": "c99f595a896eb84c1dda4f4b85a0929c52011e27",
+ "binary": {
+  "path": "/tmp/claude-1000/-home-cheonsh-Telescode/7f54ce26-45e3-42c7-b4f6-27eab223d029/scratchpad/stage3-verify/build-new/TelescodeHeadless",
+  "md5": "2f86e339be49844fff72c934b7ffeb6d"
+ },
+ "counts": {
+  "files": 271,
+  "classes": 733,
+  "functions": 6290,
+  "methods": 3960
+ },
+ "projects": {
+  "bench": 7,
+  "doc": 23,
+  "extra": 1,
+  "scripts": 4,
+  "src": 80,
+  "testing": 156
+ },
+ "links": {
+  "CALLS": {
+   "total": 3526,
+   "target_is_id": 3526,
+   "target_is_raw_name": 0,
+   "raw_name_dotted": 0,
+   "raw_name_bare": 0,
+   "raw_name_containing_double_colon": 0
+  },
+  "INHERITS": {
+   "total": 113,
+   "target_is_id": 113,
+   "target_is_raw_name": 0,
+   "raw_name_dotted": 0,
+   "raw_name_bare": 0,
+   "raw_name_containing_double_colon": 0
+  },
+  "DECORATES": {
+   "total": 315,
+   "target_is_id": 315,
+   "target_is_raw_name": 0,
+   "raw_name_dotted": 0,
+   "raw_name_bare": 0,
+   "raw_name_containing_double_colon": 0
+  }
+ },
+ "cross_project_links": {
+  "CALLS": {
+   "count": 1335,
+   "cross_file": 1665,
+   "by_project_pair": [
+    {
+     "source": "testing",
+     "target": "src",
+     "count": 1330
+    },
+    {
+     "source": "doc",
+     "target": "src",
+     "count": 5
+    }
+   ],
+   "examples": [
+    {
+     "source_id": "doc/en/example/assertion/failure_demo.py::TestRaises::test_raises",
+     "target_id": "src/_pytest/raises.py::raises",
+     "source_project": "doc",
+     "target_project": "src"
+    },
+    {
+     "source_id": "doc/en/example/assertion/failure_demo.py::TestRaises::test_raises_doesnt",
+     "target_id": "src/_pytest/raises.py::raises",
+     "source_project": "doc",
+     "target_project": "src"
+    },
+    {
+     "source_id": "doc/en/example/customdirectory/conftest.py::pytest_collect_directory",
+     "target_id": "src/_pytest/nodes.py::FSCollector::from_parent",
+     "source_project": "doc",
+     "target_project": "src"
+    },
+    {
+     "source_id": "doc/en/example/nonpython/conftest.py::YamlFile::collect",
+     "target_id": "src/_pytest/nodes.py::Node::from_parent",
+     "source_project": "doc",
+     "target_project": "src"
+    },
+    {
+     "source_id": "doc/en/example/nonpython/conftest.py::pytest_collect_file",
+     "target_id": "src/_pytest/nodes.py::FSCollector::from_parent",
+     "source_project": "doc",
+     "target_project": "src"
+    },
+    {
+     "source_id": "testing/_py/test_local.py::CommonFSTests::test_listdir",
+     "target_id": "src/_pytest/raises.py::raises",
+     "source_project": "testing",
+     "target_project": "src"
+    },
+    {
+     "source_id": "testing/_py/test_local.py::CommonFSTests::test_mkdir_and_remove",
+     "target_id": "src/_pytest/raises.py::raises",
+     "source_project": "testing",
+     "target_project": "src"
+    },
+    {
+     "source_id": "testing/_py/test_local.py::CommonFSTests::test_relto_wrong_type",
+     "target_id": "src/_pytest/raises.py::raises",
+     "source_project": "testing",
+     "target_project": "src"
+    },
+    {
+     "source_id": "testing/_py/test_local.py::TestExecution::test_error_preservation",
+     "target_id": "src/_pytest/raises.py::raises",
+     "source_project": "testing",
+     "target_project": "src"
+    },
+    {
+     "source_id": "testing/_py/test_local.py::TestExecution::test_sysexec_failing",
+     "target_id": "src/_pytest/raises.py::raises",
+     "source_project": "testing",
+     "target_project": "src"
+    }
+   ]
+  },
+  "INHERITS": {
+   "count": 16,
+   "cross_file": 33,
+   "by_project_pair": [
+    {
+     "source": "testing",
+     "target": "src",
+     "count": 13
+    },
+    {
+     "source": "doc",
+     "target": "src",
+     "count": 3
+    }
+   ],
+   "examples": [
+    {
+     "source_id": "doc/en/example/customdirectory/conftest.py::ManifestDirectory",
+     "target_id": "src/_pytest/nodes.py::Directory",
+     "source_project": "doc",
+     "target_project": "src"
+    },
+    {
+     "source_id": "doc/en/example/nonpython/conftest.py::YamlFile",
+     "target_id": "src/_pytest/nodes.py::File",
+     "source_project": "doc",
+     "target_project": "src"
+    },
+    {
+     "source_id": "doc/en/example/nonpython/conftest.py::YamlItem",
+     "target_id": "src/_pytest/nodes.py::Item",
+     "source_project": "doc",
+     "target_project": "src"
+    },
+    {
+     "source_id": "testing/code/test_excinfo.py::MyRepr",
+     "target_id": "src/_pytest/_code/code.py::TerminalRepr",
+     "source_project": "testing",
+     "target_project": "src"
+    },
+    {
+     "source_id": "testing/example_scripts/customdirectory/conftest.py::ManifestDirectory",
+     "target_id": "src/_pytest/nodes.py::Directory",
+     "source_project": "testing",
+     "target_project": "src"
+    },
+    {
+     "source_id": "testing/example_scripts/fixtures/custom_item/conftest.py::CustomFile",
+     "target_id": "src/_pytest/nodes.py::File",
+     "source_project": "testing",
+     "target_project": "src"
+    },
+    {
+     "source_id": "testing/example_scripts/fixtures/custom_item/conftest.py::CustomItem",
+     "target_id": "src/_pytest/nodes.py::Item",
+     "source_project": "testing",
+     "target_project": "src"
+    },
+    {
+     "source_id": "testing/example_scripts/issue88_initial_file_multinodes/conftest.py::MyFile",
+     "target_id": "src/_pytest/nodes.py::File",
+     "source_project": "testing",
+     "target_project": "src"
+    },
+    {
+     "source_id": "testing/example_scripts/issue88_initial_file_multinodes/conftest.py::MyItem",
+     "target_id": "src/_pytest/nodes.py::Item",
+     "source_project": "testing",
+     "target_project": "src"
+    },
+    {
+     "source_id": "testing/python/metafunc.py::DefinitionMock",
+     "target_id": "src/_pytest/python.py::FunctionDefinition",
+     "source_project": "testing",
+     "target_project": "src"
+    }
+   ]
+  },
+  "DECORATES": {
+   "count": 148,
+   "cross_file": 249,
+   "by_project_pair": [
+    {
+     "source": "src",
+     "target": "testing",
+     "count": 110
+    },
+    {
+     "source": "src",
+     "target": "doc",
+     "count": 37
+    },
+    {
+     "source": "src",
+     "target": "bench",
+     "count": 1
+    }
+   ],
+   "examples": [
+    {
+     "source_id": "src/_pytest/compat.py::deprecated",
+     "target_id": "testing/test_compat.py::test_deprecated::old_way",
+     "source_project": "src",
+     "target_project": "testing"
+    },
+    {
+     "source_id": "src/_pytest/config/__init__.py::hookimpl",
+     "target_id": "doc/en/example/customdirectory/conftest.py::pytest_collect_directory",
+     "source_project": "src",
+     "target_project": "doc"
+    },
+    {
+     "source_id": "src/_pytest/config/__init__.py::hookimpl",
+     "target_id": "testing/conftest.py::pytest_collection_modifyitems",
+     "source_project": "src",
+     "target_project": "testing"
+    },
+    {
+     "source_id": "src/_pytest/config/__init__.py::hookimpl",
+     "target_id": "testing/example_scripts/customdirectory/conftest.py::pytest_collect_directory",
+     "source_project": "src",
+     "target_project": "testing"
+    },
+    {
+     "source_id": "src/_pytest/config/__init__.py::hookimpl",
+     "target_id": "testing/test_python_path.py::Plugin::pytest_unconfigure",
+     "source_project": "src",
+     "target_project": "testing"
+    },
+    {
+     "source_id": "src/_pytest/fixtures.py::fixture",
+     "target_id": "bench/manyparam.py::foo",
+     "source_project": "src",
+     "target_project": "bench"
+    },
+    {
+     "source_id": "src/_pytest/fixtures.py::fixture",
+     "target_id": "doc/en/example/fixtures/test_fixtures_order_autouse.py::a",
+     "source_project": "src",
+     "target_project": "doc"
+    },
+    {
+     "source_id": "src/_pytest/fixtures.py::fixture",
+     "target_id": "doc/en/example/fixtures/test_fixtures_order_autouse.py::b",
+     "source_project": "src",
+     "target_project": "doc"
+    },
+    {
+     "source_id": "src/_pytest/fixtures.py::fixture",
+     "target_id": "doc/en/example/fixtures/test_fixtures_order_autouse.py::c",
+     "source_project": "src",
+     "target_project": "doc"
+    },
+    {
+     "source_id": "src/_pytest/fixtures.py::fixture",
+     "target_id": "doc/en/example/fixtures/test_fixtures_order_autouse.py::d",
+     "source_project": "src",
+     "target_project": "doc"
+    }
+   ]
+  }
+ },
+ "calls_to_method_from_bare_name": {
+  "note": "APPROXIMATION: the DB does not keep the raw call text, so 'bare name call resolved to a method' is estimated by two separate signals: the target method's name is a Python builtin (dir(builtins)), or the target method lives in a different file than the caller.",
+  "python": "3.11.2",
+  "n_builtin_names": 157,
+  "builtin_name": {
+   "count": 15,
+   "cross_project": 4,
+   "top_target_names": [
+    [
+     "open",
+     10
+    ],
+    [
+     "compile",
+     5
+    ]
+   ],
+   "examples": [
+    {
+     "source_id": "src/_pytest/_py/path.py::LocalPath::computehash",
+     "target_id": "src/_pytest/_py/path.py::LocalPath::open",
+     "target_name": "open"
+    },
+    {
+     "source_id": "src/_pytest/_py/path.py::LocalPath::dump",
+     "target_id": "src/_pytest/_py/path.py::LocalPath::open",
+     "target_name": "open"
+    },
+    {
+     "source_id": "src/_pytest/_py/path.py::LocalPath::load",
+     "target_id": "src/_pytest/_py/path.py::LocalPath::open",
+     "target_name": "open"
+    },
+    {
+     "source_id": "src/_pytest/_py/path.py::LocalPath::read",
+     "target_id": "src/_pytest/_py/path.py::LocalPath::open",
+     "target_name": "open"
+    },
+    {
+     "source_id": "src/_pytest/_py/path.py::LocalPath::read_binary",
+     "target_id": "src/_pytest/_py/path.py::LocalPath::open",
+     "target_name": "open"
+    },
+    {
+     "source_id": "src/_pytest/_py/path.py::LocalPath::read_text",
+     "target_id": "src/_pytest/_py/path.py::LocalPath::open",
+     "target_name": "open"
+    },
+    {
+     "source_id": "src/_pytest/_py/path.py::LocalPath::readlines",
+     "target_id": "src/_pytest/_py/path.py::LocalPath::open",
+     "target_name": "open"
+    },
+    {
+     "source_id": "src/_pytest/_py/path.py::LocalPath::write",
+     "target_id": "src/_pytest/_py/path.py::LocalPath::open",
+     "target_name": "open"
+    },
+    {
+     "source_id": "src/_pytest/_py/path.py::LocalPath::write_binary",
+     "target_id": "src/_pytest/_py/path.py::LocalPath::open",
+     "target_name": "open"
+    },
+    {
+     "source_id": "src/_pytest/_py/path.py::LocalPath::write_text",
+     "target_id": "src/_pytest/_py/path.py::LocalPath::open",
+     "target_name": "open"
+    }
+   ]
+  },
+  "other_file": {
+   "count": 444,
+   "cross_project": 369,
+   "top_target_names": [
+    [
+     "__init__",
+     318
+    ],
+    [
+     "from_current",
+     30
+    ],
+    [
+     "from_parent",
+     17
+    ],
+    [
+     "_from_json",
+     10
+    ],
+    [
+     "from_function",
+     9
+    ],
+    [
+     "from_config",
+     7
+    ],
+    [
+     "compile",
+     5
+    ],
+    [
+     "context",
+     5
+    ],
+    [
+     "from_exception",
+     5
+    ],
+    [
+     "for_config",
+     4
+    ]
+   ],
+   "examples": [
+    {
+     "source_id": "doc/en/example/customdirectory/conftest.py::pytest_collect_directory",
+     "target_id": "src/_pytest/nodes.py::FSCollector::from_parent",
+     "target_name": "from_parent"
+    },
+    {
+     "source_id": "doc/en/example/nonpython/conftest.py::YamlFile::collect",
+     "target_id": "src/_pytest/nodes.py::Node::from_parent",
+     "target_name": "from_parent"
+    },
+    {
+     "source_id": "doc/en/example/nonpython/conftest.py::pytest_collect_file",
+     "target_id": "src/_pytest/nodes.py::FSCollector::from_parent",
+     "target_name": "from_parent"
+    },
+    {
+     "source_id": "src/_pytest/_code/code.py::Code::source",
+     "target_id": "src/_pytest/_code/source.py::Source::__init__",
+     "target_name": "__init__"
+    },
+    {
+     "source_id": "src/_pytest/_code/code.py::ExceptionInfoFormatter::get_source",
+     "target_id": "src/_pytest/_code/source.py::Source::__init__",
+     "target_name": "__init__"
+    },
+    {
+     "source_id": "src/_pytest/_code/code.py::ExceptionInfoFormatter::repr_traceback_entry",
+     "target_id": "src/_pytest/_code/source.py::Source::__init__",
+     "target_name": "__init__"
+    },
+    {
+     "source_id": "src/_pytest/_code/code.py::Frame::statement",
+     "target_id": "src/_pytest/_code/source.py::Source::__init__",
+     "target_name": "__init__"
+    },
+    {
+     "source_id": "src/_pytest/_code/code.py::TerminalRepr::__str__",
+     "target_id": "src/_pytest/_io/terminalwriter.py::TerminalWriter::__init__",
+     "target_name": "__init__"
+    },
+    {
+     "source_id": "src/_pytest/assertion/__init__.py::install_importhook",
+     "target_id": "src/_pytest/assertion/rewrite.py::AssertionRewritingHook::__init__",
+     "target_name": "__init__"
+    },
+    {
+     "source_id": "src/_pytest/assertion/__init__.py::pytest_addoption",
+     "target_id": "src/_pytest/config/__init__.py::Config::_add_verbosity_ini",
+     "target_name": "_add_verbosity_ini"
+    }
+   ]
+  },
+  "either": 454,
+  "calls_id_target_not_in_function_table": 0
+ },
+ "class_diagram_inherits": {
+  "join": "class_id",
+  "inherits_links": 113,
+  "links_matching_any_class": 113,
+  "edges": 113,
+  "edges_to_different_file": 33,
+  "edges_to_different_project": 16,
+  "children_with_multiple_parents": 6,
+  "base_names_matching_multiple_classes": 0,
+  "examples_different_file": [
+   {
+    "child": "doc/en/example/customdirectory/conftest.py::ManifestDirectory",
+    "base_name": "src/_pytest/nodes.py::Directory",
+    "joined_class": "src/_pytest/nodes.py::Directory"
+   },
+   {
+    "child": "doc/en/example/nonpython/conftest.py::YamlFile",
+    "base_name": "src/_pytest/nodes.py::File",
+    "joined_class": "src/_pytest/nodes.py::File"
+   },
+   {
+    "child": "doc/en/example/nonpython/conftest.py::YamlItem",
+    "base_name": "src/_pytest/nodes.py::Item",
+    "joined_class": "src/_pytest/nodes.py::Item"
+   },
+   {
+    "child": "src/_pytest/doctest.py::DoctestItem",
+    "base_name": "src/_pytest/nodes.py::Item",
+    "joined_class": "src/_pytest/nodes.py::Item"
+   },
+   {
+    "child": "src/_pytest/doctest.py::DoctestModule",
+    "base_name": "src/_pytest/python.py::Module",
+    "joined_class": "src/_pytest/python.py::Module"
+   },
+   {
+    "child": "src/_pytest/doctest.py::DoctestTextfile",
+    "base_name": "src/_pytest/python.py::Module",
+    "joined_class": "src/_pytest/python.py::Module"
+   },
+   {
+    "child": "src/_pytest/doctest.py::ReprFailDoctest",
+    "base_name": "src/_pytest/_code/code.py::TerminalRepr",
+    "joined_class": "src/_pytest/_code/code.py::TerminalRepr"
+   },
+   {
+    "child": "src/_pytest/fixtures.py::FixtureLookupErrorRepr",
+    "base_name": "src/_pytest/_code/code.py::TerminalRepr",
+    "joined_class": "src/_pytest/_code/code.py::TerminalRepr"
+   },
+   {
+    "child": "src/_pytest/main.py::Dir",
+    "base_name": "src/_pytest/nodes.py::Directory",
+    "joined_class": "src/_pytest/nodes.py::Directory"
+   },
+   {
+    "child": "src/_pytest/main.py::Session",
+    "base_name": "src/_pytest/nodes.py::Collector",
+    "joined_class": "src/_pytest/nodes.py::Collector"
+   }
+  ],
+  "examples_multiple_parents": [
+   {
+    "child": "src/_pytest/python.py::Function",
+    "parents": [
+     "src/_pytest/nodes.py::Item",
+     "src/_pytest/python.py::PyobjMixin"
+    ],
+    "n_parents": 2
+   },
+   {
+    "child": "src/_pytest/python.py::Module",
+    "parents": [
+     "src/_pytest/nodes.py::File",
+     "src/_pytest/python.py::PyCollector"
+    ],
+    "n_parents": 2
+   },
+   {
+    "child": "src/_pytest/python.py::PyCollector",
+    "parents": [
+     "src/_pytest/nodes.py::Collector",
+     "src/_pytest/python.py::PyobjMixin"
+    ],
+    "n_parents": 2
+   },
+   {
+    "child": "testing/test_collection.py::MyCollector",
+    "parents": [
+     "src/_pytest/nodes.py::File",
+     "src/_pytest/python.py::Class"
+    ],
+    "n_parents": 2
+   },
+   {
+    "child": "testing/test_mark.py::C",
+    "parents": [
+     "testing/test_mark.py::A",
+     "testing/test_mark.py::B"
+    ],
+    "n_parents": 2
+   },
+   {
+    "child": "testing/test_nodes.py::SoWrong",
+    "parents": [
+     "src/_pytest/nodes.py::File",
+     "src/_pytest/nodes.py::Item"
+    ],
+    "n_parents": 2
+   }
+  ],
+  "examples_ambiguous_base_name": [],
+  "by_join": {
+   "class_name": {
+    "links_matching_any_class": 0,
+    "edges": 0,
+    "edges_to_different_file": 0,
+    "edges_to_different_project": 0,
+    "children_with_multiple_parents": 0,
+    "base_names_matching_multiple_classes": 0
+   },
+   "class_id": {
+    "links_matching_any_class": 113,
+    "edges": 113,
+    "edges_to_different_file": 33,
+    "edges_to_different_project": 16,
+    "children_with_multiple_parents": 6,
+    "base_names_matching_multiple_classes": 0
+   }
+  }
+ },
+ "file_graph": {
+  "CALLS": {
+   "edges": 450,
+   "links_behind_edges": 3526,
+   "self_loops": 115
+  },
+  "INHERITS": {
+   "edges": 46,
+   "links_behind_edges": 113,
+   "self_loops": 24
+  },
+  "CALLS+INHERITS": {
+   "distinct_pairs_excl_self": 340,
+   "cross_project_pairs": 192,
+   "cross_project_ratio": 0.5647,
+   "examples_cross_project": [
+    {
+     "src": "doc/en/example/assertion/failure_demo.py",
+     "tgt": "src/_pytest/raises.py"
+    },
+    {
+     "src": "doc/en/example/customdirectory/conftest.py",
+     "tgt": "src/_pytest/nodes.py"
+    },
+    {
+     "src": "doc/en/example/nonpython/conftest.py",
+     "tgt": "src/_pytest/nodes.py"
+    },
+    {
+     "src": "testing/_py/test_local.py",
+     "tgt": "src/_pytest/raises.py"
+    },
+    {
+     "src": "testing/acceptance_test.py",
+     "tgt": "src/_pytest/config/__init__.py"
+    },
+    {
+     "src": "testing/acceptance_test.py",
+     "tgt": "src/_pytest/outcomes.py"
+    },
+    {
+     "src": "testing/acceptance_test.py",
+     "tgt": "src/_pytest/pathlib.py"
+    },
+    {
+     "src": "testing/acceptance_test.py",
+     "tgt": "src/_pytest/raises.py"
+    },
+    {
+     "src": "testing/code/test_code.py",
+     "tgt": "src/_pytest/_code/code.py"
+    },
+    {
+     "src": "testing/code/test_code.py",
+     "tgt": "src/_pytest/_code/source.py"
+    }
+   ]
+  },
+  "IMPORTS": {
+   "distinct_pairs_excl_self": 822,
+   "source": "import_resolution"
+  },
+  "all_types": {
+   "distinct_pairs_excl_self": 934,
+   "cross_project_pairs": 476
+  }
+ },
+ "reading_sequence": {
+  "file": {
+   "in_db": 271,
+   "in_reading_sequence": 271,
+   "coverage": 1.0,
+   "examples_missing": []
+  },
+  "class": {
+   "in_db": 733,
+   "in_reading_sequence": 733,
+   "coverage": 1.0,
+   "examples_missing": []
+  },
+  "function": {
+   "in_db": 6290,
+   "in_reading_sequence": 6290,
+   "coverage": 1.0,
+   "examples_missing": []
+  }
+ },
+ "refs": {
+  "by_kind": {
+   "CALLS": {
+    "builtin": 3572,
+    "external": 2106,
+    "heuristic": 118,
+    "resolved": 5361,
+    "unresolved": 12593
+   },
+   "DECORATES": {
+    "builtin": 225,
+    "external": 251,
+    "heuristic": 4,
+    "resolved": 317,
+    "unresolved": 501
+   },
+   "INHERITS": {
+    "builtin": 43,
+    "external": 90,
+    "resolved": 117,
+    "unresolved": 1
+   }
+  },
+  "note": "'heuristic' is a subset of 'resolved'",
+  "top_unresolved_heads": [
+   [
+    "pytester",
+    4403
+   ],
+   [
+    "result",
+    1590
+   ],
+   [
+    "self",
+    562
+   ],
+   [
+    "pytest",
+    498
+   ],
+   [
+    "monkeypatch",
+    383
+   ],
+   [
+    "config",
+    345
+   ],
+   [
+    "reprec",
+    270
+   ],
+   [
+    "child",
+    211
+   ],
+   [
+    "parser",
+    151
+   ],
+   [
+    "path1",
+    146
+   ],
+   [
+    "tw",
+    134
+   ],
+   [
+    "p",
+    126
+   ],
+   [
+    "node",
+    98
+   ],
+   [
+    "group",
+    95
+   ],
+   [
+    "tmpdir",
+    90
+   ]
+  ]
+ }
+}

@@ -26,11 +26,24 @@ DB는 읽기 전용으로 연다.
      파일을 넘는 CALLS는 `resolveCrossFileCallTargets`(점 없는 이름만 처리)에서만
      나오므로 이 범주는 사실상 "bare 이름 → 다른 파일 메서드"다. 그래도 원문을 본 것이
      아니므로 근사로 표시한다.
-4. 클래스 다이어그램 INHERITS — `cd_builder.cpp` Step 6의 조인
-   (`class_name = target_id`)을 그대로 재현. 다른 파일 부모, 부모 >1인 자식,
+   e55c4ea(3단계)부터는 `resolveCrossFileCallTargets`가 없고 다른 파일 메서드
+   CALLS는 import/receiver 해석에서 나온다. 그래서 3단계 DB의 `other_file`은
+   "bare 이름 → 메서드" 신호가 아니라 그냥 다른 파일 메서드 호출 수다.
+4. 클래스 다이어그램 INHERITS — `cd_builder.cpp` Step 6의 조인을 재현.
+   5e1638d까지는 `class_name = target_id`, e55c4ea부터는 `class_id = target_id`.
+   INHERITS target의 과반이 id면 `class_id` 조인을 쓰고(`join` 키), 두 조인의
+   숫자는 `by_join`에 모두 남긴다. 다른 파일 부모, 부모 >1인 자식,
    한 부모 이름이 클래스 >1개로 퍼지는 (자식, 이름) 쌍.
 5. 파일 그래프 — `Graph.cpp build_file_graph`의 substr/file_ids 필터를 재현.
    개편 전 INHERITS는 target이 이름이라 전부 탈락한다 (기대값 0).
+   IMPORTS 패스는 `link`가 VIEW인 DB(4단계부터)에서는 VIEW의 IMPORTS 행
+   (target이 file_id)을 그대로 쓰고, `link`가 TABLE이면 `import_resolution`이
+   있는 DB에서만 센다 (근사, 코드 주석 참고).
+6. reading_sequence 범위 — entity_type별 행 수와 DB의 파일·클래스·함수 수.
+7. ref 상태 분포 — kind별 resolved/builtin/external/unresolved(+heuristic),
+   unresolved name_path의 첫 세그먼트 상위 15개. `ref` 테이블이 없으면 None.
+
+`DECORATES`는 1·2번에만 추가로 센다 (기준선 JSON에는 없는 키).
 
 예시는 범주마다 최대 `--examples`개(기본 10), 정렬해서 결정적으로 뽑는다.
 
@@ -139,6 +152,59 @@ def _ratio(a: int, b: int) -> float | None:
     return round(a / b, 4) if b else None
 
 
+def _class_diagram(conn, classes, join_col, n_examples):
+    """cd_builder Step 6을 `c2.<join_col> = l.target_id` 조인으로 재현한다.
+    cd_builder는 두 끝점이 class 테이블에 있는 쌍만 그린다 (classToNodeId)."""
+    assert join_col in ("class_name", "class_id")
+    cd_rows = conn.execute(
+        "SELECT DISTINCT l.source_id, l.target_id, c2.class_id, c2.file_id"
+        "  FROM link l"
+        f"  JOIN class c2 ON c2.{join_col} = l.target_id"
+        " WHERE l.link_type = 'INHERITS'"
+        "   AND l.source_id != c2.class_id;").fetchall()
+    cd_rows = [r for r in cd_rows if r[0] in classes]
+    edges = {(s, c) for s, _, c, _ in cd_rows}
+    parents = defaultdict(set)
+    per_name = defaultdict(set)
+    for s, base, c, _ in cd_rows:
+        parents[s].add(c)
+        per_name[(s, base)].add(c)
+    diff_file = [{"child": s, "base_name": b, "joined_class": c}
+                 for s, b, c, f in cd_rows if f != classes[s][1]]
+    multi = [{"child": s, "parents": sorted(ps)[:5], "n_parents": len(ps)}
+             for s, ps in parents.items() if len(ps) > 1]
+    ambiguous = [{"child": s, "base_name": b, "n_classes": len(cs),
+                  "joined_classes": sorted(cs)[:5]}
+                 for (s, b), cs in per_name.items() if len(cs) > 1]
+    matched = {(s, b) for s, b, _, _ in cd_rows}
+    return {
+        "links_matching_any_class": len(matched),
+        "edges": len(edges),
+        "edges_to_different_file": len(diff_file),
+        "edges_to_different_project": sum(
+            1 for d in diff_file
+            if project_of(file_of(d["child"])) != project_of(file_of(d["joined_class"]))),
+        "children_with_multiple_parents": len(multi),
+        "base_names_matching_multiple_classes": len(ambiguous),
+        "examples_different_file": _cap(diff_file, n_examples),
+        "examples_multiple_parents": sorted(
+            multi, key=lambda r: (-r["n_parents"], r["child"]))[:n_examples],
+        "examples_ambiguous_base_name": sorted(
+            ambiguous, key=lambda r: (-r["n_classes"], r["child"], r["base_name"]))[:n_examples],
+    }
+
+
+def _has_table(conn, name):
+    return conn.execute("SELECT 1 FROM sqlite_master WHERE type IN ('table', 'view')"
+                        " AND name = ?", (name,)).fetchone() is not None
+
+
+def _is_view(conn, name):
+    """`link`가 VIEW면 4단계 이후 형식 (IMPORTS target이 file_id)."""
+    row = conn.execute("SELECT type FROM sqlite_master WHERE name = ?", (name,)).fetchone()
+    return row is not None and row[0] == "view"
+
+
 def measure(conn: sqlite3.Connection, n_examples: int = 10) -> dict:
     builtin_names = set(dir(builtins))
 
@@ -159,10 +225,11 @@ def measure(conn: sqlite3.Connection, n_examples: int = 10) -> dict:
     }
 
     # ── 1. 링크 총계 ────────────────────────────────────────────────────────
-    links = {"CALLS": [], "INHERITS": []}
+    # DECORATES는 기준선 JSON에 없던 키다 (추가만 했다). 파일 그래프에는 안 들어간다.
+    links = {"CALLS": [], "INHERITS": [], "DECORATES": []}
     for src, tgt, typ in conn.execute(
             "SELECT source_id, target_id, link_type FROM link"
-            " WHERE link_type IN ('CALLS', 'INHERITS')"):
+            " WHERE link_type IN ('CALLS', 'INHERITS', 'DECORATES')"):
         links[typ].append((src, tgt))
 
     # id = `::` 앞이 스캔된 파일. `::`만 보면 `a[::2]()` 같은 호출 원문도 id로 센다.
@@ -241,45 +308,21 @@ def measure(conn: sqlite3.Connection, n_examples: int = 10) -> dict:
     }
 
     # ── 4. 클래스 다이어그램 INHERITS (cd_builder.cpp Step 6) ───────────────
-    # cd_builder는 두 끝점이 class 테이블에 있는 쌍만 그린다 (classToNodeId).
-    cd_rows = conn.execute(
-        "SELECT DISTINCT l.source_id, l.target_id, c2.class_id, c2.file_id"
-        "  FROM link l"
-        "  JOIN class c2 ON c2.class_name = l.target_id"
-        " WHERE l.link_type = 'INHERITS'"
-        "   AND l.source_id != c2.class_id;").fetchall()
-    cd_rows = [r for r in cd_rows if r[0] in classes]
-    edges = {(s, c) for s, _, c, _ in cd_rows}
-    parents = defaultdict(set)
-    per_name = defaultdict(set)
-    for s, base, c, _ in cd_rows:
-        parents[s].add(c)
-        per_name[(s, base)].add(c)
-    diff_file = [{"child": s, "base_name": b, "joined_class": c}
-                 for s, b, c, f in cd_rows if f != classes[s][1]]
-    multi = [{"child": s, "parents": sorted(ps)[:5], "n_parents": len(ps)}
-             for s, ps in parents.items() if len(ps) > 1]
-    ambiguous = [{"child": s, "base_name": b, "n_classes": len(cs),
-                  "joined_classes": sorted(cs)[:5]}
-                 for (s, b), cs in per_name.items() if len(cs) > 1]
-    n_base_names = conn.execute(
-        "SELECT COUNT(*) FROM link WHERE link_type = 'INHERITS'").fetchone()[0]
-    matched = {(s, b) for s, b, _, _ in cd_rows}
+    # Step 6의 조인은 커밋마다 다르다. 5e1638d까지는 target이 부모 *이름*이라
+    # `class_name = target_id`, e55c4ea부터는 해석기가 class id를 쓰므로
+    # `class_id = target_id`. DB의 INHERITS target이 id인지 보고 그 DB를 만든
+    # 커밋의 조인을 고른다. 두 조인 결과는 `by_join`에 모두 남긴다.
+    n_inh = len(links["INHERITS"])
+    n_inh_id = totals["INHERITS"]["target_is_id"]
+    join = "class_id" if n_inh and n_inh_id * 2 >= n_inh else "class_name"
+    by_join = {col: _class_diagram(conn, classes, col, n_examples)
+               for col in ("class_name", "class_id")}
     report["class_diagram_inherits"] = {
-        "inherits_links": n_base_names,
-        "links_matching_any_class": len(matched),
-        "edges": len(edges),
-        "edges_to_different_file": len(diff_file),
-        "edges_to_different_project": sum(
-            1 for d in diff_file
-            if project_of(file_of(d["child"])) != project_of(file_of(d["joined_class"]))),
-        "children_with_multiple_parents": len(multi),
-        "base_names_matching_multiple_classes": len(ambiguous),
-        "examples_different_file": _cap(diff_file, n_examples),
-        "examples_multiple_parents": sorted(
-            multi, key=lambda r: (-r["n_parents"], r["child"]))[:n_examples],
-        "examples_ambiguous_base_name": sorted(
-            ambiguous, key=lambda r: (-r["n_classes"], r["child"], r["base_name"]))[:n_examples],
+        "join": join,
+        "inherits_links": n_inh,
+        **by_join[join],
+        "by_join": {col: {k: v for k, v in d.items() if not k.startswith("examples")}
+                    for col, d in by_join.items()},
     }
 
     # ── 5. 파일 그래프 (Graph.cpp build_file_graph, CALLS/INHERITS 패스) ────
@@ -308,7 +351,83 @@ def measure(conn: sqlite3.Connection, n_examples: int = 10) -> dict:
         "cross_project_ratio": _ratio(len(xproj), len(pairs)),
         "examples_cross_project": [{"src": s, "tgt": t} for s, t in xproj[:n_examples]],
     }
+    # IMPORTS 패스는 DB 형식에 따라 다르다.
+    # - 4단계부터 `link`는 VIEW이고 IMPORTS 행의 target이 이미 해석된 file_id다
+    #   (외부 모듈은 행이 없다). Graph.cpp도 같은 쌍을 import_resolution에서 읽는다.
+    # - 그 전(`link`가 TABLE)에는 link.target_id(모듈 이름)를
+    #   PythonLanguage::resolveModule로 파일에 붙인다. 파이썬으로 재현하지 않고,
+    #   해석기가 남긴 import_resolution(같은 resolveModule 결과)을 쓴다. 그 테이블이
+    #   없는 DB(5e1638d)는 None. 근사: Graph.cpp는 link의 module 문자열을 다시
+    #   해석하고, import_resolution은 파서가 본 module_spec 기준이다.
+    if _is_view(conn, "link"):
+        imp = {(s, t) for s, t in conn.execute(
+            "SELECT DISTINCT source_id, target_id FROM link WHERE link_type = 'IMPORTS'")
+            if s in file_ids and t in file_ids}
+        imp_source = "link_view"
+    elif _has_table(conn, "import_resolution"):
+        imp = {(s, t) for s, t in conn.execute(
+            "SELECT DISTINCT ir.file_id, ir.resolved_file_id"
+            "  FROM import_resolution ir"
+            "  JOIN link l ON l.link_type = 'IMPORTS' AND l.source_id = ir.file_id"
+            "             AND l.target_id = ir.module_spec"
+            " WHERE ir.resolved_file_id IS NOT NULL")
+            if s in file_ids and t in file_ids}
+        imp_source = "import_resolution"
+    else:
+        imp = None
+    if imp is not None:
+        imp_pairs = {p for p in imp if p[0] != p[1]}
+        all_pairs = pairs | imp_pairs
+        fgraph["IMPORTS"] = {"distinct_pairs_excl_self": len(imp_pairs),
+                             "source": imp_source}
+        fgraph["all_types"] = {
+            "distinct_pairs_excl_self": len(all_pairs),
+            "cross_project_pairs": sum(1 for s, t in all_pairs
+                                       if project_of(s) != project_of(t)),
+        }
+    else:
+        fgraph["IMPORTS"] = None
+        fgraph["all_types"] = None
     report["file_graph"] = fgraph
+
+    # ── 6. reading_sequence 범위 ────────────────────────────────────────────
+    # e55c4ea부터 함수 그래프가 모든 함수·클래스를 노드로 미리 넣는다.
+    # 그 전에는 CALLS/INHERITS 링크에 끼지 않은 엔티티가 빠졌다.
+    if _has_table(conn, "reading_sequence"):
+        rs = dict(conn.execute(
+            "SELECT entity_type, COUNT(*) FROM reading_sequence GROUP BY entity_type"))
+        rs_ids = {r[0] for r in conn.execute("SELECT entity_id FROM reading_sequence")}
+        totals_by_type = {"file": file_ids, "class": set(classes), "function": set(functions)}
+        cov = {}
+        for typ, ids in totals_by_type.items():
+            missing = sorted(ids - rs_ids)
+            cov[typ] = {"in_db": len(ids), "in_reading_sequence": rs.get(typ, 0),
+                        "coverage": _ratio(len(ids & rs_ids), len(ids)),
+                        "examples_missing": missing[:n_examples]}
+        report["reading_sequence"] = cov
+    else:
+        report["reading_sequence"] = None
+
+    # ── 7. ref 상태 분포 (해석기 DB에만 있다) ────────────────────────────────
+    if _has_table(conn, "ref"):
+        by = defaultdict(Counter)
+        for kind, status, conf, n in conn.execute(
+                "SELECT kind, status, COALESCE(confidence, '-'), COUNT(*) FROM ref"
+                " GROUP BY 1, 2, 3"):
+            by[kind][status] += n
+            if conf == "heuristic":
+                by[kind]["heuristic"] += n
+        heads = Counter()
+        for (np_,) in conn.execute(
+                "SELECT name_path FROM ref WHERE status = 'unresolved'"):
+            heads[np_.split(".", 1)[0]] += 1
+        report["refs"] = {
+            "by_kind": {k: dict(sorted(v.items())) for k, v in sorted(by.items())},
+            "note": "'heuristic' is a subset of 'resolved'",
+            "top_unresolved_heads": heads.most_common(15),
+        }
+    else:
+        report["refs"] = None
     return report
 
 
@@ -325,14 +444,21 @@ def summary(report: dict) -> str:
         f"raw={L['INHERITS']['target_is_raw_name']} cross_project={C['INHERITS']['count']}",
         f"  CALLS->method (approx): builtin_name={M['builtin_name']['count']} "
         f"other_file={M['other_file']['count']} either={M['either']}",
-        f"  class diagram INHERITS: edges={D['edges']} diff_file={D['edges_to_different_file']} "
+        f"  class diagram INHERITS (join={D['join']}): edges={D['edges']} diff_file={D['edges_to_different_file']} "
         f"multi_parent_children={D['children_with_multiple_parents']} "
         f"ambiguous_base_names={D['base_names_matching_multiple_classes']}",
         f"  file graph: CALLS edges={F['CALLS']['edges']} INHERITS edges={F['INHERITS']['edges']} "
         f"pairs={F['CALLS+INHERITS']['distinct_pairs_excl_self']} "
         f"cross_project={F['CALLS+INHERITS']['cross_project_pairs']}",
-        "  " + APPROX_NOTE,
     ]
+    R = report.get("reading_sequence")
+    if R:
+        lines.append("  reading_sequence: " + " ".join(
+            f"{t}={v['in_reading_sequence']}/{v['in_db']}" for t, v in R.items()))
+    if report.get("refs"):
+        for k, v in report["refs"]["by_kind"].items():
+            lines.append(f"  refs {k}: " + " ".join(f"{s}={n}" for s, n in v.items()))
+    lines.append("  " + APPROX_NOTE)
     return "\n".join(lines)
 
 

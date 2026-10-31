@@ -6,8 +6,8 @@
 
 struct sqlite3;
 
-// Every operation that changes the database returns Resolver::kNeedsRescan,
-// and leaves the file untouched, on a database an older Telescode scanned.
+// Every operation returns kWrongDbVersion (db.h), and leaves the file
+// untouched, on a database of another version.
 class DbUpdater {
 public:
     static int updateFile(const char* dbPath, const ParseResult& result);
@@ -22,8 +22,10 @@ public:
                           const std::string& oldFileId,
                           const ParseResult& newResult);
 
-    static std::vector<std::string> findImportingFiles(const char* dbPath,
-                                                        const std::string& fileId);
+    // The files whose imports resolve to fileId, sorted; the file itself is
+    // left out. Read-only.
+    static int findImportingFiles(const char* dbPath, const std::string& fileId,
+                                  std::vector<std::string>& importers);
 
 private:
     static int deleteFileEntities(sqlite3* db, const std::string& fileId);

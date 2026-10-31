@@ -10,8 +10,8 @@
 #include <algorithm>
 #include <stdexcept>
 #include <unordered_map>
+#include <map>
 #include <set>
-#include <tuple>
 #include <iostream>
 #include <memory>
 #include <thread>
@@ -57,15 +57,16 @@ struct TraversalContext {
     struct Frame {
         std::string id;   // class_id or function_id
         std::string kind; // "class" or "function"
-        // Names this scope declares `global` / `nonlocal`: assigning them binds
-        // in another scope, so they get no binding here.
-        std::set<std::string> declared;
+        // Names this scope declares `global` (true) / `nonlocal` (false):
+        // assigning them binds in another scope, so they get no binding here.
+        std::map<std::string, bool> declared;
     };
     std::vector<Frame> scopeStack;
 
     // (scope_id, local_name, line) already bound -- binding's PK. A name bound
     // twice on one line (`a = a = 1`) keeps its first row.
     std::set<std::string> bindingKeys;
+    std::set<std::string> importSpecs;   // result.import_specs, for dedup
 
     int nestingDepth() const {
         return (int)scopeStack.size();
@@ -261,15 +262,38 @@ static void addScope(TraversalContext& ctx, const std::string& id, const char* k
 // resolver prefers the binding that resolves to a project symbol and marks
 // that choice confidence = 'heuristic'. Only a repeat on the same line (same
 // PK) is dropped, keeping the first.
+// The scope a name declared `global` / `nonlocal` in the innermost scope lives
+// in: the file for `global`, else the nearest enclosing function that does not
+// pass it further out itself. Class bodies are not enclosing scopes.
+static std::string ownerScope(const TraversalContext& ctx, const std::string& name) {
+    for (size_t i = ctx.scopeStack.size(); i-- > 0;) {
+        const TraversalContext::Frame& f = ctx.scopeStack[i];
+        auto it = f.declared.find(name);
+        if (it != f.declared.end()) {
+            if (it->second) return ctx.fileId;   // global
+            continue;                             // nonlocal: further out
+        }
+        if (f.kind == "function") return f.id;
+    }
+    return ctx.fileId;
+}
+
 static void addBinding(TraversalContext& ctx, const std::string& name,
                        const char* kind, const std::string& targetId, int line,
                        const std::string& moduleSpec = "",
                        const std::string& importedName = "") {
     if (name.empty()) return;
-    if (!ctx.scopeStack.empty() && ctx.scopeStack.back().declared.count(name)) return;
+    std::string scopeId = ctx.parentId();
+    if (!ctx.scopeStack.empty() && ctx.scopeStack.back().declared.count(name)) {
+        // An assignment to a declared name binds nothing new here. An import
+        // does, in the scope that owns the name: its module spec is what
+        // import_resolution and so the IMPORTS links are made from.
+        if (moduleSpec.empty()) return;
+        scopeId = ownerScope(ctx, name);
+    }
 
     BindingEntity b;
-    b.scope_id      = ctx.parentId();
+    b.scope_id      = scopeId;
     b.local_name    = name;
     b.kind          = kind;
     b.file_id       = ctx.fileId;
@@ -281,6 +305,11 @@ static void addBinding(TraversalContext& ctx, const std::string& name,
     std::string key = b.scope_id + '\n' + name + '\n' + std::to_string(line);
     if (ctx.bindingKeys.insert(std::move(key)).second)
         ctx.result.bindings.push_back(std::move(b));
+}
+
+// Record a module spec an import statement names (ParseResult::import_specs).
+static void addImportSpec(TraversalContext& ctx, const std::string& spec) {
+    if (ctx.importSpecs.insert(spec).second) ctx.result.import_specs.push_back(spec);
 }
 
 // Bind every name an assignment target introduces: `x`, `a, (b, *c)`, `[d, e]`.
@@ -318,16 +347,17 @@ static void bindTargets(TSNode node, TraversalContext& ctx) {
 // declaration to the whole block wherever it appears, so it is collected
 // before the body is walked. Nested definitions have their own blocks.
 static void collectDeclared(TSNode node, const std::string& src,
-                            std::set<std::string>& out) {
+                            std::map<std::string, bool>& out) {
     if (nodeIsNull(node)) return;
     std::string type = nodeType(node);
     if (type == "function_definition" || type == "class_definition" || type == "lambda")
         return;
     if (type == "global_statement" || type == "nonlocal_statement") {
+        const bool global = type == "global_statement";
         uint32_t n = ts_node_child_count(node);
         for (uint32_t i = 0; i < n; ++i) {
             TSNode c = ts_node_child(node, i);
-            if (nodeType(c) == "identifier") out.insert(nodeText(c, src));
+            if (nodeType(c) == "identifier") out.emplace(nodeText(c, src), global);
         }
         return;
     }
@@ -444,7 +474,7 @@ static void handleClassDef(TSNode node, TraversalContext& ctx) {
     // Bases are evaluated in the scope enclosing the class statement.
     const std::string outerScope = ctx.parentId();
 
-    // base_class entities and INHERITS refs; the resolver writes the links
+    // base_class entities and INHERITS refs; the links come from resolving them
     TSNode superclassesNode = childByFieldName(node, "superclasses");
     if (!nodeIsNull(superclassesNode)) {
         int ordinal = 0;
@@ -638,12 +668,7 @@ static void handleImport(TSNode node, TraversalContext& ctx) {
             if (!nodeIsNull(aliasNode)) alias = nodeText(aliasNode, ctx.src);
         }
         if (!modName.empty()) {
-            LinkEntity link;
-            link.source_id = ctx.fileId;
-            link.target_id = modName;
-            link.link_type = "IMPORTS";
-            ctx.result.links.push_back(link);
-
+            addImportSpec(ctx, modName);
             // `import a.b.c` binds the top-level package `a`; `import a.b as x`
             // binds `x` to a.b itself. module_spec is the full dotted name either way.
             std::string local = alias.empty() ? modName.substr(0, modName.find('.')) : alias;
@@ -660,12 +685,7 @@ static void handleImportFrom(TSNode node, TraversalContext& ctx) {
     if (!nodeIsNull(moduleNode)) {
         std::string modName = nodeText(moduleNode, ctx.src);
         if (!modName.empty()) {
-            LinkEntity link;
-            link.source_id = ctx.fileId;
-            link.target_id = modName;
-            link.link_type = "IMPORTS";
-            ctx.result.links.push_back(link);
-
+            addImportSpec(ctx, modName);
             // module_spec stays verbatim (".", "..pkg") for resolveModule.
             uint32_t count = ts_node_child_count(node);
             for (uint32_t i = 0; i < count; ++i) {
@@ -864,7 +884,7 @@ static void collectCalls(TSNode node, const std::string& funcId,
 
     if (type == "call") {
         // Only identifier chains become refs; `super().x`, `d[k].f` and the
-        // like have no name to look up. The resolver writes the CALLS links.
+        // like have no name to look up. CALLS links come from resolving them.
         TSNode funcNode = childByFieldName(node, "function");
         if (!nodeIsNull(funcNode))
             addRef(result, fileId, funcId, scopeId, "CALLS", funcNode, src);
@@ -1159,21 +1179,6 @@ ParseResult PythonParser::parseFile(const std::string& filePath,
         result.file.avg_block_depth           = n > 0 ? sumBD  / n : 0.0;
         result.file.max_function_loc          = maxLOC;
         result.file.avg_function_loc          = n > 0 ? sumLOC / n : 0.0;
-    }
-
-    // Deduplicate links to satisfy PRIMARY KEY (source_id, target_id, link_type)
-    // The parser only writes IMPORTS links, and the same module can be
-    // imported at top level and again inside a function.
-    {
-        std::set<std::tuple<std::string, std::string, std::string>> seen;
-        std::vector<LinkEntity> unique;
-        unique.reserve(result.links.size());
-        for (auto& link : result.links) {
-            if (seen.emplace(link.source_id, link.target_id, link.link_type).second) {
-                unique.push_back(std::move(link));
-            }
-        }
-        result.links = std::move(unique);
     }
 
     return result;

@@ -9,15 +9,15 @@ struct sqlite3;
 
 // ── Name resolver ───────────────────────────────────────────────────────────
 // Turns the parser's per-file extraction (symbol/scope/binding/ref) into
-// project-wide answers: import_resolution for every module spec a binding names,
-// resolved_id/status/confidence for every ref, and from those the CALLS /
-// INHERITS / DECORATES rows of `link`. It is the only writer of those three
-// link types; IMPORTS links are still the parser's.
+// project-wide answers: what each module spec in import_resolution names,
+// resolved_id/status/confidence/emits_link for every ref. The `link` view
+// (db.cpp) is derived from those two: CALLS / INHERITS / DECORATES from the refs
+// marked emits_link, IMPORTS from import_resolution. Nothing writes links.
 //
 // Works on the whole database every time: everything is loaded into memory
 // once, resolved, and written back. Language rules come only from the
 // ILanguage registered for each file's `file.language`; a file whose language
-// has no plugin keeps its refs 'pending' and contributes no links.
+// has no plugin has its refs set back to 'pending' and contributes no links.
 //
 // ref.status:
 //   resolved   -- resolved_id is a project symbol, or a project file when the
@@ -42,9 +42,9 @@ public:
     static constexpr const char* kName = "treesitter";
 
     struct Stats {
-        int imports = 0;                     // import_resolution rows written
+        int imports = 0;                     // import_resolution rows answered
         std::map<std::string, int> status;   // ref.status -> refs decided
-        std::map<std::string, int> links;    // link_type  -> links written
+        std::map<std::string, int> links;    // link_type  -> links the refs now give
         long long ms = 0;                    // wall time of the whole pass
         int inheritsRounds = 0;              // rounds the INHERITS fixpoint took
         bool inheritsCapHit = false;         // stopped at the round cap, not at a fixpoint
@@ -54,21 +54,8 @@ public:
     // answers may still depend on ref order. `who` prefixes it ("scan").
     static void warnIfCapped(const Stats& stats, const char* who);
 
-    // Returned instead of an SQLite code when the database's files were written
-    // by an older parser (see needsRescan): they lack rows the resolver works
-    // from, so resolving would drop links. Only a full scan brings it up to date.
-    static constexpr int kNeedsRescan = -2;
-
-    // True if the database holds files but no current scan stamp (db.h). Works
-    // on a database initDb has not migrated, too.
-    static bool needsRescan(sqlite3* db);
-
     // Resolve an open database in place. Caller is responsible for
-    // BEGIN/COMMIT/ROLLBACK. kNeedsRescan, and nothing changed, on an old database.
+    // BEGIN/COMMIT/ROLLBACK.
     static int resolveAll(sqlite3* db, Stats* stats = nullptr,
                           const LanguageRegistry& languages = LanguageRegistry::builtin());
-
-    // resolveAll inside its own transaction, rolled back on failure.
-    static int run(sqlite3* db, Stats* stats = nullptr,
-                   const LanguageRegistry& languages = LanguageRegistry::builtin());
 };

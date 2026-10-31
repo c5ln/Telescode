@@ -10,12 +10,15 @@
 #include "db/DbInserter.h"
 #include "db/DbUpdater.h"
 #include "db/db.h"
+#include "lang/LanguageRegistry.h"
 #include "parser/PythonParser.h"
 
 #include <gtest/gtest.h>
 #include <sqlite3.h>
 
+#include <algorithm>
 #include <filesystem>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -45,7 +48,9 @@ public:
     void scan() {
         PythonParser parser;
         const auto results = parser.parseDirectory(TS_RESOLUTION_FIXTURE, TS_RESOLUTION_FIXTURE);
-        ASSERT_EQ(DbInserter::insertAll(path_.c_str(), results), SQLITE_OK);
+        // No language plugin: the rows exactly as the parser wrote them.
+        ASSERT_EQ(DbInserter::insertAll(path_.c_str(), results, nullptr, LanguageRegistry{}),
+                  SQLITE_OK);
         open();
     }
 
@@ -159,7 +164,7 @@ TEST_F(Extraction, FileLanguageAndModuleName)
 
 TEST_F(Extraction, SchemaVersion)
 {
-    EXPECT_EQ(db_->count("PRAGMA user_version;"), 4);
+    EXPECT_EQ(db_->count("PRAGMA user_version;"), kDbVersion);
 }
 
 // ── resapp/__init__.py: re-exports ────────────────────────────────────────────
@@ -502,14 +507,14 @@ TEST_F(Extraction, EmptyPackageInitHasOnlyItsFileScope)
 
 TEST_F(Extraction, RefsAreIdentifierChainsAndPending)
 {
-    // The parser writes refs only; CALLS / INHERITS / DECORATES links are the
-    // resolver's, and this scan does not run it.
-    EXPECT_EQ(db_->count("SELECT COUNT(*) FROM link"
-                         " WHERE link_type IN ('CALLS', 'INHERITS', 'DECORATES');"), 0);
+    // The parser writes refs, bindings and module specs only; every link --
+    // IMPORTS too -- follows from the resolver's answers, and this scan has no
+    // language to resolve with.
+    EXPECT_EQ(db_->count("SELECT COUNT(*) FROM link;"), 0);
     EXPECT_EQ(db_->count("SELECT COUNT(*) FROM ref"
                          " WHERE name_path GLOB '*[^A-Za-z0-9_.]*';"), 0);
     EXPECT_EQ(db_->count("SELECT COUNT(*) FROM ref"
-                         " WHERE status <> 'pending' OR resolved_id IS NOT NULL;"), 0);
+                         " WHERE status <> 'pending' OR resolved_id IS NOT NULL OR emits_link <> 0;"), 0);
 }
 
 TEST_F(Extraction, EveryClassAndFunctionHasASymbol)
@@ -519,7 +524,15 @@ TEST_F(Extraction, EveryClassAndFunctionHasASymbol)
     EXPECT_EQ(db_->count("SELECT COUNT(*) FROM function"
                          " WHERE function_id NOT IN (SELECT symbol_id FROM symbol"
                          "                           WHERE kind IN ('function', 'method'));"), 0);
-    EXPECT_EQ(db_->count("SELECT COUNT(*) FROM import_resolution;"), 0);
+}
+
+TEST_F(Extraction, ImportSpecsArePending)
+{
+    // One row per module spec the file's imports name, unanswered.
+    EXPECT_EQ(db_->rows("SELECT module_spec, resolved_file_id, status FROM import_resolution"
+                        " WHERE file_id = ? ORDER BY 1;", "resapp/compat.py"),
+              (Rows{".util|NULL|pending", "xml.dom|NULL|pending", "xml.sax|NULL|pending"}));
+    EXPECT_EQ(db_->count("SELECT COUNT(*) FROM import_resolution WHERE status <> 'pending';"), 0);
 }
 
 // ── DbUpdater ─────────────────────────────────────────────────────────────────
@@ -555,32 +568,129 @@ TEST(ExtractionUpdate, DeleteAndUpdateFileRoundTrip)
     EXPECT_EQ(db.rows(kCounts, f), before);
 }
 
-// ── Schema upgrade ────────────────────────────────────────────────────────────
+// ── global / nonlocal imports ─────────────────────────────────────────────────
 
-TEST(ExtractionSchema, VersionOneDatabaseIsUpgradedInPlace)
+TEST(ExtractionDeclared, ImportOfADeclaredNameBindsWhereTheNameLives)
 {
-    ScannedDb db("v1");
-    {
-        sqlite3* raw = nullptr;
-        ASSERT_EQ(sqlite3_open(db.path().c_str(), &raw), SQLITE_OK);
-        // The version-1 file table: no module_name, no language default.
-        ASSERT_EQ(sqlite3_exec(raw,
-            "CREATE TABLE file (file_id TEXT PRIMARY KEY, file_name TEXT NOT NULL,"
-            " language TEXT NOT NULL, raw_loc INTEGER NOT NULL);"
-            "INSERT INTO file(file_id, file_name, language, raw_loc) VALUES('a.py', 'a.py', 'python', 3);",
-            nullptr, nullptr, nullptr), SQLITE_OK);
-        sqlite3_close(raw);
-    }
+    // An import is an assignment: under `global y` it binds the module's y,
+    // under `nonlocal z` the enclosing function's z. Its module spec has to
+    // reach a binding somewhere, or import_resolution -- and the IMPORTS link --
+    // never sees it. A plain assignment to a declared name still binds nothing.
+    const fs::path dir = fs::temp_directory_path() / "ts_parser_test_declared";
+    fs::remove_all(dir);
+    fs::create_directories(dir);
+    std::ofstream(dir / "t.py") <<
+        "y = None\n"
+        "def hook():\n"
+        "    global y\n"
+        "    from .mod import x as y\n"
+        "    y = 2\n"
+        "def outer():\n"
+        "    z = 0\n"
+        "    def inner():\n"
+        "        nonlocal z\n"
+        "        import pkg.mod as z\n"
+        "    class K:\n"
+        "        global w\n"
+        "        import os as w\n";
+    PythonParser parser;
+    const ParseResult r = parser.parseFile((dir / "t.py").string(), dir.string());
+    fs::remove_all(dir);
 
-    sqlite3* conn = nullptr;
-    ASSERT_EQ(initDb(db.path().c_str(), &conn), SQLITE_OK);
-    sqlite3_close(conn);
+    Rows bindings;
+    for (const BindingEntity& b : r.bindings)
+        bindings.push_back(b.scope_id + "|" + b.local_name + "|" + b.kind + "|" + b.module_spec + "|" +
+                           std::to_string(b.line));
+    std::sort(bindings.begin(), bindings.end());
+    EXPECT_EQ(bindings, (Rows{
+        "t.py::outer|K|def||10",
+        "t.py::outer|inner|def||7",
+        "t.py::outer|z|def||6",
+        "t.py::outer|z|import_module|pkg.mod|9",   // nonlocal: outer's z
+        "t.py|hook|def||1",
+        "t.py|outer|def||5",
+        "t.py|w|import_module|os|12",              // global in a class body
+        "t.py|y|def||0",
+        "t.py|y|import_symbol|.mod|3",             // global; `y = 2` binds nothing
+    }));
+}
 
-    db.open();
-    EXPECT_EQ(db.count("PRAGMA user_version;"), 4);
-    EXPECT_EQ(db.rows("SELECT file_id, module_name FROM file;"), (Rows{"a.py|NULL"}));
-    EXPECT_EQ(db.rows("SELECT name FROM sqlite_master WHERE type = 'table'"
-                      "   AND name IN ('symbol', 'scope', 'binding', 'import_resolution', 'ref')"
-                      " ORDER BY name;"),
-              (Rows{"binding", "import_resolution", "ref", "scope", "symbol"}));
+namespace {
+
+// t.py with the given text, parsed on its own.
+ParseResult parseSource(const std::string& tag, const std::string& text)
+{
+    const fs::path dir = fs::temp_directory_path() / ("ts_parser_test_" + tag);
+    fs::remove_all(dir);
+    fs::create_directories(dir);
+    std::ofstream(dir / "t.py") << text;
+    PythonParser parser;
+    ParseResult r = parser.parseFile((dir / "t.py").string(), dir.string());
+    fs::remove_all(dir);
+    return r;
+}
+
+// The import bindings of r, as scope|name|module_spec|line.
+Rows importBindings(const ParseResult& r)
+{
+    Rows out;
+    for (const BindingEntity& b : r.bindings)
+        if (!b.module_spec.empty())
+            out.push_back(b.scope_id + "|" + b.local_name + "|" + b.module_spec + "|" +
+                          std::to_string(b.line));
+    std::sort(out.begin(), out.end());
+    return out;
+}
+
+}  // namespace
+
+TEST(ExtractionDeclared, NonlocalChainBindsInTheFunctionThatOwnsTheName)
+{
+    // c's nonlocal x is b's, and b's is nonlocal too: the name is a's.
+    const ParseResult r = parseSource("declared_chain",
+        "def a():\n"
+        "    x = 0\n"
+        "    def b():\n"
+        "        nonlocal x\n"
+        "        def c():\n"
+        "            nonlocal x\n"
+        "            import pkg.mod as x\n");
+    EXPECT_EQ(importBindings(r), (Rows{"t.py::a|x|pkg.mod|6"}));
+}
+
+TEST(ExtractionDeclared, NonlocalInAMethodSkipsTheClassBody)
+{
+    // A class body is not an enclosing scope: m's nonlocal v is f's.
+    const ParseResult r = parseSource("declared_method",
+        "def f():\n"
+        "    v = 0\n"
+        "    class K:\n"
+        "        v = 1\n"
+        "        def m(self):\n"
+        "            nonlocal v\n"
+        "            import os as v\n");
+    EXPECT_EQ(importBindings(r), (Rows{"t.py::f|v|os|6"}));
+}
+
+// ── Import specs ──────────────────────────────────────────────────────────────
+
+TEST(ExtractionImports, EverySpecOfEveryImportIsListed)
+{
+    // Two imports that bind `pkg` on one line keep one binding, but each
+    // names its own module; a spec imported twice is listed once.
+    const ParseResult r = parseSource("import_specs",
+        "import pkg.h, pkg.i\n"
+        "import pkg.j; import pkg.k\n"
+        "from . import x\n"
+        "from .y import *\n"
+        "def f():\n"
+        "    import pkg.h\n");
+    EXPECT_EQ(r.import_specs, (Rows{"pkg.h", "pkg.i", "pkg.j", "pkg.k", ".", ".y"}));
+    EXPECT_EQ(importBindings(r), (Rows{
+        "t.py::f|pkg|pkg.h|5",
+        "t.py|*3|.y|3",
+        "t.py|pkg|pkg.h|0",
+        "t.py|pkg|pkg.j|1",
+        "t.py|x|.|2",
+    }));
 }

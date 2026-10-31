@@ -55,12 +55,6 @@ struct ParamEntity {
     int ordinal; // 0-indexed
 };
 
-struct LinkEntity {
-    std::string source_id;
-    std::string target_id;
-    std::string link_type; // IMPORTS; CALLS/INHERITS/DECORATES come from Resolver, not the parser
-};
-
 struct FieldEntity {
     std::string class_id;
     std::string field_name;
@@ -125,10 +119,13 @@ struct ParseResult {
     std::vector<BaseClassEntity> base_classes;
     std::vector<FunctionEntity> functions;
     std::vector<ParamEntity> params;
-    std::vector<LinkEntity> links;
     std::vector<FieldEntity> fields;
     std::vector<SymbolEntity> symbols;
     std::vector<ScopeEntity> scopes;
     std::vector<BindingEntity> bindings;
     std::vector<RefEntity> refs;
+    // Every module spec an import statement of the file names, once each, in
+    // source order. Not read off the bindings: one binding can stand for
+    // several imports (`import pkg.h, pkg.i` binds only `pkg`).
+    std::vector<std::string> import_specs;
 };

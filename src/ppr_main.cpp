@@ -1,6 +1,9 @@
 #include "algo/AlgoDbWriter.h"
 #include "algo/AlgoRunner.h"
 #include "algo/SeedIo.h"
+#include "db/db.h"
+
+#include <sqlite3.h>
 
 #include <cstdio>
 #include <stdexcept>
@@ -37,6 +40,15 @@ int main(int argc, char* argv[])
         if (seed.seeds.empty()) {
             std::fprintf(stderr, "TelescodePPR: seed csv has no rows: %s\n", seedCsv);
             return 3;
+        }
+
+        // AlgoRunner opens the database itself and would just come back empty.
+        sqlite3* db = nullptr;
+        const int rc = initDb(dbPath, &db);
+        sqlite3_close(db);
+        if (rc != SQLITE_OK) {
+            std::fprintf(stderr, "TelescodePPR: %s\n", dbOpenError(dbPath, rc).c_str());
+            return 4;
         }
 
         AlgoConfig cfg = AlgoDbWriter::loadConfig(dbPath);
