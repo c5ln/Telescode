@@ -96,7 +96,8 @@ def test_file_graph_drops_name_targets():
 
 
 def _resolved_db():
-    """e55c4ea 형태: INHERITS target이 class id, reading_sequence·ref·import_resolution 있음."""
+    """e55c4ea(3단계) 형태: `link`가 TABLE, INHERITS target이 class id,
+    reading_sequence·ref·import_resolution 있음."""
     conn = _db()
     conn.execute("DELETE FROM link WHERE link_type = 'INHERITS'")
     conn.executemany("INSERT INTO link VALUES (?, ?, ?)", [
@@ -143,10 +144,10 @@ def test_file_graph_with_id_inherits_and_imports():
     f = r["file_graph"]
     assert f["INHERITS"]["edges"] == 2                  # x→x (self loop), z→x
     assert f["INHERITS"]["self_loops"] == 1
-    assert f["IMPORTS"]["distinct_pairs_excl_self"] == 1  # y→x, os는 외부
-    # CALLS: x→y, x→z / INHERITS: z→x / IMPORTS: y→x
-    assert f["all_types"]["distinct_pairs_excl_self"] == 4
-    assert f["all_types"]["cross_project_pairs"] == 2   # x→z, z→x
+    # `link`가 TABLE인 DB는 IMPORTS를 세지 않는다 (3단계용 import_resolution 조인은 6단계에서 삭제)
+    assert f["IMPORTS"] is None and f["all_types"] is None
+    # CALLS: x→y, x→z / INHERITS: z→x
+    assert f["CALLS+INHERITS"]["distinct_pairs_excl_self"] == 3
     assert r["links"]["DECORATES"]["total"] == 1
     assert measure(_db())["file_graph"]["IMPORTS"] is None
 
@@ -220,5 +221,5 @@ def test_file_graph_imports_from_view():
     assert r["links"]["DECORATES"]["total"] == 1
     assert r["class_diagram_inherits"]["join"] == "class_id"
     assert r["class_diagram_inherits"]["edges_to_different_project"] == 1
-    # 예전 형식(TABLE)은 계속 import_resolution 조인 경로
-    assert measure(_resolved_db())["file_graph"]["IMPORTS"]["source"] == "import_resolution"
+    # 예전 형식(TABLE)은 import_resolution이 있어도 IMPORTS를 세지 않는다
+    assert measure(_resolved_db())["file_graph"]["IMPORTS"] is None

@@ -125,9 +125,13 @@ def _resolve_module(module: str, source_file: str, file_ids: set[str],
 def _imports_are_file_ids(conn: sqlite3.Connection) -> bool:
     """IMPORTS의 target이 file_id인 새 형식 DB인가.
 
-    새 스캐너는 `link`를 `ref` + `import_resolution` 위의 VIEW로 만들고, 그
-    VIEW의 IMPORTS target은 해석된 file_id다. 예전 스캐너(bench/bin에 pin된 것
-    포함)가 만든 DB에서는 `link`가 TABLE이고 target이 원문 모듈명이다.
+    새 스캐너(`bench/bin/93f9cf2/`, 기본 pin)는 `link`를 `ref` + `import_resolution`
+    위의 VIEW로 만들고, 그 VIEW의 IMPORTS target은 해석된 file_id다. 예전 스캐너
+    (`bench/bin/e2501cb/`)가 만든 DB에서는 `link`가 TABLE이고 target이 원문 모듈명이다.
+
+    예전 형식 경로는 6단계 pin 교체 뒤에도 **남긴다.** RESULTS.md §1~§12 수치를
+    `TELESCODE_BENCH_PIN=e2501cb`로 재현할 때 이 경로가 있어야 in_deg/out_deg가
+    비트 단위로 같게 나온다 (6단계에서 xarray 3개 인스턴스로 확인).
     """
     row = conn.execute(
         "SELECT type FROM sqlite_master WHERE name = 'link'"

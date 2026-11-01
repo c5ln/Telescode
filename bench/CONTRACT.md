@@ -17,7 +17,7 @@ Issue #37 추천 알고리즘 고도화 실험의 **공유 계약**이다.
 | `bench/seed/` | `retrieval` | 읽기만 |
 | `bench/ltr/` | `ltr-eval` | 읽기만 |
 | `ltr/` | 최종 모델 학습·저장·로드·추론 계약 | benchmark 코드에서 import |
-| `bench/bin/` | pin된 바이너리. Wave 1 종료 후 고정 | 실행만 |
+| `bench/bin/` | pin된 바이너리. pin별 하위 폴더(`e2501cb/`, `93f9cf2/`), 선택은 `TELESCODE_BENCH_PIN` (기본 93f9cf2) | 실행만 |
 | `bench/scratch/` | 인스턴스별 임시 DB. **추출 직후 삭제** | — |
 | `bench/data/` | 산출 매트릭스 (CSV) | 읽기 |
 | `src/` | `algo-core` | 읽기만 |
@@ -128,8 +128,8 @@ from bench.metrics.ranking import recall_at_k, mrr, ndcg_at_k, reachable_recall_
 
 ```
 git checkout <base_commit>
-  → bench/bin/TelescodeScanner <repo> bench/scratch/<id>.db
-  → bench/bin/TelescodeAlgo bench/scratch/<id>.db
+  → [bench.schema.SCANNER_CMD] <repo> bench/scratch/<id>.db   (93f9cf2: bench/bin/93f9cf2/TelescodeHeadless scan)
+  → [bench.schema.ALGO_CMD] bench/scratch/<id>.db             (93f9cf2: … TelescodeHeadless algo)
   → bench/features/extract.py  →  bench/data/features.csv
   → rm -f bench/scratch/<id>.db
 ```

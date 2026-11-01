@@ -19,7 +19,7 @@ ref_id 순서 둘. 함수 그래프는 (kind, file_id, ref_id) 순으로 간선�
 (`Graph.cpp build_func_graph`) 파일 안 순서가 다르면 reading_sequence 비트가 바뀔 수 있다.
 
     bench/.venv/bin/python -m bench.tools.update_equiv \\
-        --bin build/TelescodeHeadless --work /tmp/ue --out bench/results/update_stage5/x.json \\
+        --bin build/TelescodeHeadless --work /tmp/ue --out bench/results/update_incremental/x.json \\
         [--timing] [--only xr_body_edit,syn_*] [--inject ref_row]
 
 `--timing`이면 update를 3번 재서 최솟값을 쓴다(반복마다 A를 다시 만든다: 시작 DB를

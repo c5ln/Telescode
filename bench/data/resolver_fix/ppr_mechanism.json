@@ -1,0 +1,72 @@
+{
+  "inputs": {
+    "embed_ppr": "bench/data/resolver_fix/features_all_embedppr.csv",
+    "bm25_ppr": "bench/data/resolver_fix/features_all.csv",
+    "embed_seed": "bench/data/seed_all/embed_seed__no_paths.csv",
+    "bm25_seed": "bench/data/seed_all/bm25_seed__no_paths.csv",
+    "seed_topk": 2,
+    "seed_power": 1.0,
+    "bm25_seed_topk": 2,
+    "bm25_seed_power": null,
+    "out": "bench/data/resolver_fix/ppr_mechanism.json"
+  },
+  "embed_ppr_vs_pagerank": {
+    "pytest": {
+      "pooled_pearson": 0.5236128458132507,
+      "pooled_spearman": 0.6771205477479072,
+      "per_instance_spearman_median": 0.9103723997496712,
+      "n_instances": 119
+    },
+    "xarray": {
+      "pooled_pearson": 0.6538816515366511,
+      "pooled_spearman": 0.8302647552459379,
+      "per_instance_spearman_median": 0.9182300211621637,
+      "n_instances": 110
+    }
+  },
+  "bm25_ppr_vs_pagerank": {
+    "pytest": {
+      "pooled_pearson": 0.5046737459397517,
+      "pooled_spearman": 0.6802899329041262,
+      "per_instance_spearman_median": 0.9097161341062779,
+      "n_instances": 119
+    },
+    "xarray": {
+      "pooled_pearson": 0.5558056631941265,
+      "pooled_spearman": 0.8217123859141471,
+      "per_instance_spearman_median": 0.910296011916343,
+      "n_instances": 110
+    }
+  },
+  "embed_seed_top_placement": {
+    "n_instances": 229,
+    "seed_top_is_ppr_rank1": 0.5938864628820961,
+    "seed_top_in_ppr_top5": 1.0,
+    "seed_set_fills_ppr_front": 0.6681222707423581,
+    "ppr_rank1_is": {
+      "non_seed": 36,
+      "seed_rank1": 136,
+      "seed_rank2": 57
+    }
+  },
+  "bm25_seed_top_placement": {
+    "n_instances": 229,
+    "seed_top_is_ppr_rank1": 0.7510917030567685,
+    "seed_top_in_ppr_top5": 1.0,
+    "seed_set_fills_ppr_front": 0.7641921397379913,
+    "ppr_rank1_is": {
+      "non_seed": 19,
+      "seed_rank1": 172,
+      "seed_rank2": 38
+    }
+  },
+  "bm25_vs_embed_top1": {
+    "n_instances": 229,
+    "top1_same": 0.17467248908296942
+  },
+  "embed_ppr_vs_bm25_ppr": {
+    "n_instances": 229,
+    "per_instance_spearman_median": 0.9481402723828012,
+    "n_rows_joined": 43688
+  }
+}

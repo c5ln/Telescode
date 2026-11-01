@@ -10,7 +10,7 @@
 앞에 같은 파일의 모듈 수준 함수 호출(없으면 `len(())`) 한 줄을 넣는다.
 
     bench/.venv/bin/python -m bench.tools.update_repeat --bin <TelescodeHeadless> \\
-        --work /tmp/ur --out bench/results/update_stage5/new/repeat.json [--seed 5] [--body 20]
+        --work /tmp/ur --out bench/results/update_incremental/new/repeat.json [--seed 5] [--body 20]
 
 종료 코드: 마지막 비교가 같으면 0, 다르면 1.
 """

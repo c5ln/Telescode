@@ -1,0 +1,132 @@
+{
+ "binary": "/tmp/claude-1000/-home-cheonsh-Telescode/7f54ce26-45e3-42c7-b4f6-27eab223d029/scratchpad/stage5-verify/head-build/TelescodeHeadless",
+ "binary_md5": "c81c5e2161bdedcbd222ec3c975adf7d",
+ "timing": true,
+ "reps": 3,
+ "inject": null,
+ "all_equal": true,
+ "scenarios": [
+  {
+   "name": "root_body_edit",
+   "repo": "root",
+   "class": "ordinary",
+   "target_ms": 1000,
+   "fresh_scan_ms": 44013.1,
+   "effect": {
+    "file": [
+     2,
+     2
+    ],
+    "symbol": [
+     4,
+     4
+    ],
+    "scope": [
+     5,
+     5
+    ],
+    "binding": [
+     25,
+     25
+    ],
+    "ref": [
+     18,
+     19
+    ],
+    "function": [
+     4,
+     4
+    ],
+    "reading_sequence": [
+     2,
+     2
+    ]
+   },
+   "algo_ms": 2128.5,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 4652
+     },
+     "symbol": {
+      "rows": 153728
+     },
+     "scope": {
+      "rows": 94777
+     },
+     "binding": {
+      "rows": 666505
+     },
+     "import_resolution": {
+      "rows": 41332
+     },
+     "ref": {
+      "rows": 384014
+     },
+     "class": {
+      "rows": 19036
+     },
+     "base_class": {
+      "rows": 17585
+     },
+     "function": {
+      "rows": 71089
+     },
+     "param": {
+      "rows": 192321
+     },
+     "field": {
+      "rows": 51983
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 94829
+     },
+     "link_set": {
+      "rows": 94829
+     },
+     "reading_sequence": {
+      "rows": 94777
+     }
+    },
+    "user_version": [
+     6,
+     6
+    ],
+    "info_ref_order": {
+     "same_order": false,
+     "positions_differing": 383937,
+     "first_difference": {
+      "position": 77,
+      "a": {
+       "file_id": "bench/metrics/test_ranking.py",
+       "source_id": "bench/metrics/test_ranking.py::isnan",
+       "kind": "CALLS",
+       "name_path": "isinstance",
+       "line": 33
+      },
+      "b": {
+       "file_id": "bench/env.py",
+       "source_id": "bench/env.py::parse_env",
+       "kind": "CALLS",
+       "name_path": "out.clear",
+       "line": 33
+      }
+     }
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    6232.3,
+    6310.2,
+    6260.2
+   ],
+   "update_ms": 6232.3,
+   "equal": true,
+   "meets_target": false
+  }
+ ]
+}

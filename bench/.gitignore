@@ -13,3 +13,10 @@ data/seed_all/embed_blobs.npz
 __pycache__/
 .venv/
 repos/
+data/resolver_fix/*.csv
+data/resolver_fix/*.log
+data/resolver_fix/seed_all/*.csv
+data/resolver_fix/sens_topk1/*.csv
+data/resolver_fix/sens_topk1/*.log
+data/resolver_fix/e2501cb_rerun/*.csv
+data/resolver_fix/e2501cb_rerun/*.log

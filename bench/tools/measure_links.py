@@ -36,9 +36,10 @@ DB는 읽기 전용으로 연다.
    한 부모 이름이 클래스 >1개로 퍼지는 (자식, 이름) 쌍.
 5. 파일 그래프 — `Graph.cpp build_file_graph`의 substr/file_ids 필터를 재현.
    개편 전 INHERITS는 target이 이름이라 전부 탈락한다 (기대값 0).
-   IMPORTS 패스는 `link`가 VIEW인 DB(4단계부터)에서는 VIEW의 IMPORTS 행
-   (target이 file_id)을 그대로 쓰고, `link`가 TABLE이면 `import_resolution`이
-   있는 DB에서만 센다 (근사, 코드 주석 참고).
+   IMPORTS 패스는 `link`가 VIEW인 DB(4단계부터)에서만 센다. VIEW의 IMPORTS 행
+   (target이 file_id)을 그대로 쓴다. `link`가 TABLE인 DB(e2501cb·5e1638d·3단계)는
+   None이다 — 3단계 DB용 `import_resolution` 조인 근사는 6단계에서 지웠다
+   (`bench/results/link_scope_resolver/*.json`의 IMPORTS 수치는 ea032f8의 이 파일로 재현).
 6. reading_sequence 범위 — entity_type별 행 수와 DB의 파일·클래스·함수 수.
 7. ref 상태 분포 — kind별 resolved/builtin/external/unresolved(+heuristic),
    unresolved name_path의 첫 세그먼트 상위 15개. `ref` 테이블이 없으면 None.
@@ -47,67 +48,11 @@ DB는 읽기 전용으로 연다.
 
 예시는 범주마다 최대 `--examples`개(기본 10), 정렬해서 결정적으로 뽑는다.
 
-## Stage 6 — RESULTS.md 수치 재생성 (여기서는 실행하지 않았다)
+## 이름 해석 개편 후 재측정 — RESULTS.md §13
 
-`bench/collect/pipeline.py`는 `bench.schema.SCANNER_BIN/ALGO_BIN`
-(`bench/bin/TelescodeScanner`, `TelescodeAlgo`, `e2501cb`에서 pin)만 부른다.
-**개편된 파서로 재측정하려면 먼저 `bench/bin/`을 다시 pin해야 한다.** 그러지 않으면
-옛 알고리즘을 다시 잰다. 현재 CMake는 `TelescodeScanner/Algo` 타깃을 만들지 않고
-`TelescodeHeadless scan|algo`만 만든다 — pipeline은 `[SCANNER_BIN, tree, db]`로
-부르므로 서브커맨드를 붙이는 래퍼 스크립트를 pin하거나 `bench/schema.py`를 고쳐야
-한다. pin 후 `PINNED_FROM.txt`(커밋·md5)를 갱신한다. `TelescodePPR`도 같은 빌드로 다시 pin.
-
-임베딩/BM25/리랭크 seed는 파일 내용만 보고 링크를 보지 않으므로 재사용한다
-(API 호출 불필요). 링크가 바뀌면 달라지는 것은 그래프 피처와 PPR뿐이다.
-
-    # 0. 테스트 / clone 확인 (시스템 python3는 PEP 668로 잠김)
-    bench/.venv/bin/python -m pytest bench/ -q
-    bench/.venv/bin/python bench/fetch_repositories.py --verify-only
-
-    # 1. (선택) 그래프가 바뀌었으니 PPR seed 샤프닝을 train fold에서 다시 고른다
-    bench/.venv/bin/python -m bench.features.ppr_sweep \\
-        --repo pydata/xarray --repo-dir bench/repos/xarray \\
-        --repo pytest-dev/pytest --repo-dir bench/repos/pytest \\
-        --seed bench/data/seed_all/embed_seed__no_paths.csv --seed-weight-col embed \\
-        --splits bench/data/splits_all.csv --out bench/data/ppr_sweep_embed14.csv
-    bench/.venv/bin/python -m bench.features.ppr_select \\
-        --sweep bench/data/ppr_sweep_embed14.csv \\
-        --splits bench/data/splits_all.csv --manifest bench/data/instances_all.csv
-
-    # 2. 229개 재스캔 + PPR (RESULTS.md의 선택값: topk 1, power 1.0)
-    #    SWE-bench parquet은 HF hub에서 받는다 (캐시 없으면 네트워크 필요)
-    for spec in pydata/xarray:xarray pytest-dev/pytest:pytest; do
-      repo=${spec%%:*}; name=${spec##*:}
-      bench/.venv/bin/python -m bench.collect.pipeline \\
-        --repo $repo --repo-dir bench/repos/$name --split test \\
-        --ppr-bin bench/bin/TelescodePPR \\
-        --seed-csv bench/data/seed_all/embed_seed__no_paths.csv \\
-        --seed-weight-col embed --seed-topk 1 --seed-power 1.0 \\
-        --out bench/data/features_${name}_embedppr.csv \\
-        --manifest bench/data/instances_${name}_embedppr.csv
-    done
-    bench/.venv/bin/python -m bench.features.combine \\
-        --features bench/data/features_xarray_embedppr.csv bench/data/features_pytest_embedppr.csv \\
-        --manifests bench/data/instances_xarray_embedppr.csv bench/data/instances_pytest_embedppr.csv \\
-        --out bench/data/features_all_embedppr.csv \\
-        --manifest-out bench/data/instances_all_embedppr.csv \\
-        --splits-out bench/data/splits_all.csv
-    #    splits_all.csv는 instance_id 해시라 내용이 같아야 한다 — diff로 확인할 것.
-
-    # 3. LTR + ablation (RESULTS.md §1·§3·§6·§8 수치 = ltr_rerank_*)
-    bench/.venv/bin/python -m bench.ltr.run_ltr \\
-        --features bench/data/features_all_embedppr.csv \\
-        --manifest bench/data/instances_all_embedppr.csv \\
-        --bm25-seed   bench/data/seed_all/bm25_seed__no_paths.csv \\
-        --embed-seed  bench/data/seed_all/embed_seed__no_paths.csv \\
-        --rerank-seed bench/data/seed_all/rerank_seed__no_paths.csv \\
-        --overlap bench/data/vocab_overlap.csv --overlap-condition no_paths \\
-        --splits bench/data/splits_all.csv --out-prefix bench/data/ltr_rerank
-
-`--out-prefix`: RESULTS.md §11은 `ltr_embed`라고 적었지만 §6·§8의 최종 수치는
-`ltr_rerank_*`(+`--rerank-seed`)에서 나왔다. 리랭커 이전 단계를 재현하려면
-`--rerank-seed` 없이 `--out-prefix bench/data/ltr_embed`.
-비교 기준: `bench/data/ltr_rerank.log`, `ltr_rerank_*.csv`의 현재 사본을 덮어쓰기 전에 보관.
+6단계에서 실행했다. `bench/bin/`은 pin별 폴더가 됐고(`bench/bin/PINNED_FROM.txt`),
+기본 pin 93f9cf2는 `TelescodeHeadless scan|algo`를 `bench.schema.SCANNER_CMD`/
+`ALGO_CMD`로 부른다. 재생성 명령은 `bench/RESULTS.md` §13.7.
 """
 
 from __future__ import annotations
@@ -351,28 +296,14 @@ def measure(conn: sqlite3.Connection, n_examples: int = 10) -> dict:
         "cross_project_ratio": _ratio(len(xproj), len(pairs)),
         "examples_cross_project": [{"src": s, "tgt": t} for s, t in xproj[:n_examples]],
     }
-    # IMPORTS 패스는 DB 형식에 따라 다르다.
-    # - 4단계부터 `link`는 VIEW이고 IMPORTS 행의 target이 이미 해석된 file_id다
-    #   (외부 모듈은 행이 없다). Graph.cpp도 같은 쌍을 import_resolution에서 읽는다.
-    # - 그 전(`link`가 TABLE)에는 link.target_id(모듈 이름)를
-    #   PythonLanguage::resolveModule로 파일에 붙인다. 파이썬으로 재현하지 않고,
-    #   해석기가 남긴 import_resolution(같은 resolveModule 결과)을 쓴다. 그 테이블이
-    #   없는 DB(5e1638d)는 None. 근사: Graph.cpp는 link의 module 문자열을 다시
-    #   해석하고, import_resolution은 파서가 본 module_spec 기준이다.
+    # IMPORTS 패스: 4단계부터 `link`는 VIEW이고 IMPORTS 행의 target이 이미 해석된
+    # file_id다 (외부 모듈은 행이 없다). Graph.cpp도 같은 쌍을 import_resolution에서
+    # 읽는다. `link`가 TABLE인 예전 DB는 target이 모듈 이름이라 세지 않는다(None).
     if _is_view(conn, "link"):
         imp = {(s, t) for s, t in conn.execute(
             "SELECT DISTINCT source_id, target_id FROM link WHERE link_type = 'IMPORTS'")
             if s in file_ids and t in file_ids}
         imp_source = "link_view"
-    elif _has_table(conn, "import_resolution"):
-        imp = {(s, t) for s, t in conn.execute(
-            "SELECT DISTINCT ir.file_id, ir.resolved_file_id"
-            "  FROM import_resolution ir"
-            "  JOIN link l ON l.link_type = 'IMPORTS' AND l.source_id = ir.file_id"
-            "             AND l.target_id = ir.module_spec"
-            " WHERE ir.resolved_file_id IS NOT NULL")
-            if s in file_ids and t in file_ids}
-        imp_source = "import_resolution"
     else:
         imp = None
     if imp is not None:

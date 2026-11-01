@@ -1,0 +1,70 @@
+{
+  "inputs": {
+    "embed_ppr": "bench/data/features_all_embedppr.csv",
+    "bm25_ppr": "bench/data/features_all.csv",
+    "embed_seed": "bench/data/seed_all/embed_seed__no_paths.csv",
+    "bm25_seed": "bench/data/seed_all/bm25_seed__no_paths.csv",
+    "seed_topk": 1,
+    "seed_power": 1.0,
+    "bm25_seed_topk": null,
+    "bm25_seed_power": null,
+    "out": "bench/data/resolver_fix/ppr_mechanism_e2501cb.json"
+  },
+  "embed_ppr_vs_pagerank": {
+    "pytest": {
+      "pooled_pearson": 0.6074412710095299,
+      "pooled_spearman": 0.6946046194437776,
+      "per_instance_spearman_median": 0.9250892565790738,
+      "n_instances": 119
+    },
+    "xarray": {
+      "pooled_pearson": 0.7441051155943026,
+      "pooled_spearman": 0.8642063416214334,
+      "per_instance_spearman_median": 0.9413826799857857,
+      "n_instances": 110
+    }
+  },
+  "bm25_ppr_vs_pagerank": {
+    "pytest": {
+      "pooled_pearson": 0.6145548945224979,
+      "pooled_spearman": 0.6972118957978666,
+      "per_instance_spearman_median": 0.9330207733265539,
+      "n_instances": 119
+    },
+    "xarray": {
+      "pooled_pearson": 0.25061186711526706,
+      "pooled_spearman": 0.8160500132095738,
+      "per_instance_spearman_median": 0.9451207725440656,
+      "n_instances": 110
+    }
+  },
+  "embed_seed_top_placement": {
+    "n_instances": 229,
+    "seed_top_is_ppr_rank1": 0.8820960698689956,
+    "seed_top_in_ppr_top5": 1.0,
+    "seed_set_fills_ppr_front": 0.8820960698689956,
+    "ppr_rank1_is": {
+      "non_seed": 27,
+      "seed_rank1": 202
+    }
+  },
+  "bm25_seed_top_placement": {
+    "n_instances": 229,
+    "seed_top_is_ppr_rank1": 0.9301310043668122,
+    "seed_top_in_ppr_top5": 1.0,
+    "seed_set_fills_ppr_front": 0.9301310043668122,
+    "ppr_rank1_is": {
+      "non_seed": 16,
+      "seed_rank1": 213
+    }
+  },
+  "bm25_vs_embed_top1": {
+    "n_instances": 229,
+    "top1_same": 0.17467248908296942
+  },
+  "embed_ppr_vs_bm25_ppr": {
+    "n_instances": 229,
+    "per_instance_spearman_median": 0.9792987855539127,
+    "n_rows_joined": 43688
+  }
+}

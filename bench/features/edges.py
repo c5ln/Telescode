@@ -32,7 +32,7 @@ import pandas as pd
 
 from bench.collect.pipeline import InstanceFailure, _export_tree, _remove_db, _run
 from bench.features.extract import _file_level_edges
-from bench.schema import C, SCANNER_BIN, SCRATCH_DIR
+from bench.schema import C, PINNED_BINARIES, SCANNER_CMD, SCRATCH_DIR
 
 EDGE_COLUMNS = [C.instance_id, "src", "tgt"]
 
@@ -52,7 +52,7 @@ def scan_edges(repo_dir: Path, instance_id: str, commit: str, work_root: Path,
     _remove_db(db)
     try:
         _export_tree(repo_dir, commit, tree, timeout)
-        scan = _run([str(SCANNER_BIN), str(tree), str(db)], timeout)
+        scan = _run([*SCANNER_CMD, str(tree), str(db)], timeout)
         if scan.returncode != 0:
             raise InstanceFailure(f"scanner rc={scan.returncode}: {scan.stderr.strip()[:200]}")
         if not db.exists():
@@ -89,8 +89,8 @@ def main(argv=None) -> int:
     ap.add_argument("--out", required=True)
     args = ap.parse_args(argv)
 
-    if not SCANNER_BIN.exists():
-        print(f"pin된 바이너리 없음: {SCANNER_BIN}", file=sys.stderr)
+    if not PINNED_BINARIES["scanner"].exists():
+        print(f"pin된 바이너리 없음: {PINNED_BINARIES['scanner']}", file=sys.stderr)
         return 2
     repos = {}
     for spec in args.add_repo:
