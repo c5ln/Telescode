@@ -7,7 +7,10 @@
 struct sqlite3;
 
 // Every operation returns kWrongDbVersion (db.h), and leaves the file
-// untouched, on a database of another version.
+// untouched, on a database of another version. Each change is one
+// transaction, and re-resolves only the refs it can have changed
+// (Resolver::resolveChanged): the database is then what a scan of the same
+// files gives.
 class DbUpdater {
 public:
     static int updateFile(const char* dbPath, const ParseResult& result);
@@ -22,8 +25,9 @@ public:
                           const std::string& oldFileId,
                           const ParseResult& newResult);
 
-    // The files whose imports resolve to fileId, sorted; the file itself is
-    // left out. Read-only.
+    // The files whose imports resolve to fileId, sorted: by a module spec
+    // that names it, or by `from pkg import mod` binding a name to it. The
+    // file itself is left out. Read-only.
     static int findImportingFiles(const char* dbPath, const std::string& fileId,
                                   std::vector<std::string>& importers);
 

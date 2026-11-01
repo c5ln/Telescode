@@ -4,11 +4,14 @@
 #include "resolve/Resolver.h"
 #include <sqlite3.h>
 
+#include <algorithm>
+
 // ── deleteFileEntities ────────────────────────────────────────────────────────
 // Every row the file contributed goes with its file row, by cascade -- the
-// refs and import_resolution rows `link` is derived from included. Links into
-// the file are re-derived too: every operation below ends by re-running the
-// resolver over the whole database.
+// refs and import_resolution rows `link` is derived from included, and the
+// refs' ref_dep rows. Links into the file are re-derived too: every operation
+// below ends with Resolver::resolveChanged, which re-resolves every ref that
+// read something of a file the operation touched.
 
 int DbUpdater::deleteFileEntities(sqlite3* db, const std::string& fileId)
 {
@@ -30,12 +33,20 @@ int DbUpdater::updateFiles(const char* dbPath,
                             const std::vector<ParseResult>& results)
 {
     Resolver::Stats stats;
+    Resolver::Change change;
     sqlite3* db = nullptr;
     int rc = initDb(dbPath, &db);
     if (rc != SQLITE_OK) return rc;
 
     rc = sqlite3_exec(db, "BEGIN;", nullptr, nullptr, nullptr);
     if (rc != SQLITE_OK) { sqlite3_close(db); return rc; }
+
+    {
+        std::vector<std::string> files;
+        for (const ParseResult& r : results) files.push_back(r.file.file_id);
+        rc = Resolver::beginChange(db, files, change);
+        if (rc != SQLITE_OK) goto rollback;
+    }
 
     for (const ParseResult& r : results) {
         rc = deleteFileEntities(db, r.file.file_id);
@@ -45,8 +56,7 @@ int DbUpdater::updateFiles(const char* dbPath,
     rc = DbInserter::insertResults(db, results);
     if (rc != SQLITE_OK) goto rollback;
 
-    // Full re-resolution after every change, until it is made incremental.
-    rc = Resolver::resolveAll(db, &stats);
+    rc = Resolver::resolveChanged(db, change, &stats);
     if (rc != SQLITE_OK) goto rollback;
     Resolver::warnIfCapped(stats, "update");
 
@@ -73,6 +83,7 @@ int DbUpdater::deleteFiles(const char* dbPath,
                             const std::vector<std::string>& fileIds)
 {
     Resolver::Stats stats;
+    Resolver::Change change;
     sqlite3* db = nullptr;
     int rc = initDb(dbPath, &db);
     if (rc != SQLITE_OK) return rc;
@@ -80,13 +91,15 @@ int DbUpdater::deleteFiles(const char* dbPath,
     rc = sqlite3_exec(db, "BEGIN;", nullptr, nullptr, nullptr);
     if (rc != SQLITE_OK) { sqlite3_close(db); return rc; }
 
+    rc = Resolver::beginChange(db, fileIds, change);
+    if (rc != SQLITE_OK) goto rollback;
+
     for (const std::string& id : fileIds) {
         rc = deleteFileEntities(db, id);
         if (rc != SQLITE_OK) goto rollback;
     }
 
-    // Full re-resolution after every change, until it is made incremental.
-    rc = Resolver::resolveAll(db, &stats);
+    rc = Resolver::resolveChanged(db, change, &stats);
     if (rc != SQLITE_OK) goto rollback;
     Resolver::warnIfCapped(stats, "update");
 
@@ -114,6 +127,7 @@ int DbUpdater::renameFile(const char* dbPath,
                            const ParseResult& newResult)
 {
     Resolver::Stats stats;
+    Resolver::Change change;
     sqlite3* db = nullptr;
     int rc = initDb(dbPath, &db);
     if (rc != SQLITE_OK) return rc;
@@ -121,14 +135,16 @@ int DbUpdater::renameFile(const char* dbPath,
     rc = sqlite3_exec(db, "BEGIN;", nullptr, nullptr, nullptr);
     if (rc != SQLITE_OK) { sqlite3_close(db); return rc; }
 
+    rc = Resolver::beginChange(db, {oldFileId, newResult.file.file_id}, change);
+    if (rc != SQLITE_OK) goto rollback;
+
     rc = deleteFileEntities(db, oldFileId);
     if (rc != SQLITE_OK) goto rollback;
 
     rc = DbInserter::insertResults(db, {newResult});
     if (rc != SQLITE_OK) goto rollback;
 
-    // Full re-resolution after every change, until it is made incremental.
-    rc = Resolver::resolveAll(db, &stats);
+    rc = Resolver::resolveChanged(db, change, &stats);
     if (rc != SQLITE_OK) goto rollback;
     Resolver::warnIfCapped(stats, "update");
 
@@ -155,14 +171,13 @@ int DbUpdater::findImportingFiles(const char* dbPath, const std::string& fileId,
     if (rc != SQLITE_OK) return rc;
 
     // Absolute or relative, the resolver has already turned each module spec
-    // into the file it names. `from pkg import mod` counts as an import of pkg
-    // (its __init__), not of pkg/mod: the spec is all import_resolution keeps.
-    // A file importing itself does not dangle when it goes.
+    // into the file it names. `from pkg import mod` names pkg, though: that it
+    // imports pkg/mod.py too only the binding of `mod` says, which the
+    // resolver looks up. A file importing itself does not dangle when it goes.
     sqlite3_stmt* stmt = nullptr;
     rc = sqlite3_prepare_v2(db,
         "SELECT DISTINCT file_id FROM import_resolution"
-        " WHERE resolved_file_id = ? AND status = 'resolved' AND file_id <> resolved_file_id"
-        " ORDER BY file_id;",
+        " WHERE resolved_file_id = ? AND status = 'resolved' AND file_id <> resolved_file_id;",
         -1, &stmt, nullptr);
     if (rc == SQLITE_OK) {
         sqlite3_bind_text(stmt, 1, fileId.c_str(), -1, SQLITE_STATIC);
@@ -172,6 +187,10 @@ int DbUpdater::findImportingFiles(const char* dbPath, const std::string& fileId,
         }
         rc = (rc == SQLITE_DONE) ? SQLITE_OK : rc;
     }
+    if (rc == SQLITE_OK) rc = Resolver::findSubmoduleImporters(db, fileId, importers);
+    std::sort(importers.begin(), importers.end());
+    importers.erase(std::unique(importers.begin(), importers.end()), importers.end());
+    if (rc != SQLITE_OK) importers.clear();
 
     sqlite3_finalize(stmt);
     sqlite3_close(db);

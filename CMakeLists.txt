@@ -261,6 +261,7 @@ endif()
 
 ts_test_sources(TS_RESOLVE_TEST_SRC
     tests/resolve/test_resolver.cpp
+    tests/resolve/test_incremental.cpp
 )
 if(TS_RESOLVE_TEST_SRC)
     add_executable(ResolverTests ${TS_RESOLVE_TEST_SRC})

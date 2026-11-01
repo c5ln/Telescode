@@ -623,9 +623,10 @@ TEST(ResolverRerun, ReplacesStaleLinksAndIsIdempotent)
 }
 
 // ── After DbUpdater ───────────────────────────────────────────────────────────
-// Every update operation re-resolves the whole database, so links into and out
-// of the changed file are right afterwards -- including links from files that
-// were not re-parsed.
+// Every update operation re-resolves the refs the change can affect, so links
+// into and out of the changed file are right afterwards -- including links from
+// files that were not re-parsed. test_incremental.cpp holds each update against
+// a fresh scan.
 
 namespace {
 
@@ -1050,7 +1051,7 @@ TEST(DbVersion, ScanLeavesSomeoneElsesSqliteFileAlone)
     FixtureCopy tree("version_foreign");
     PythonParser parser;
     const auto results = parser.parseDirectory(tree.root(), tree.root());
-    for (int version : {0, 7}) {
+    for (int version : {0, kDbVersion + 1}) {
         ResolvedDb db("version_foreign");
         makeSqliteFile(db.path(),
             "CREATE TABLE important(x); INSERT INTO important VALUES('precious');"
@@ -1221,11 +1222,12 @@ TEST(ResolverDangling, ImportersByEveryKindOfSpec)
 
     std::vector<std::string> importers;
     ASSERT_EQ(DbUpdater::findImportingFiles(db.path().c_str(), "pkg/mod.py", importers), SQLITE_OK);
-    // `from pkg import mod` names the package, whose __init__ is what it
-    // imports; the submodule is found only through the binding, which
-    // import_resolution does not record.
+    // `from pkg import mod` names the package, whose __init__ is what
+    // import_resolution has; that the name is the submodule the resolver
+    // finds through the binding. So does the package's own `from . import mod`.
     EXPECT_EQ(importers, (std::vector<std::string>{
-        "absolute.py", "aliased.py", "fromsym.py", "pkg/rel.py", "pkg/up/deep.py", "twice.py"}));
+        "absolute.py", "aliased.py", "frompkg.py", "fromsym.py", "pkg/__init__.py", "pkg/rel.py",
+        "pkg/up/deep.py", "twice.py"}));
 
     // A spec names one file: `import pkg.mod` is pkg/mod.py's, not the
     // package's. `from . import mod` in the package itself imports

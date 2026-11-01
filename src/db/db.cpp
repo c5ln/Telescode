@@ -8,6 +8,7 @@
 #include <random>
 #ifndef _WIN32
 #include <stdlib.h>   // mkdtemp
+#include <unistd.h>   // access
 #endif
 #include <string>
 #include <system_error>
@@ -211,7 +212,30 @@ static const char* kSchemaSQL =
     "CREATE INDEX IF NOT EXISTS idx_ref_status   ON ref(status);"
     "CREATE INDEX IF NOT EXISTS idx_ref_resolved ON ref(resolved_id);"
     "CREATE INDEX IF NOT EXISTS idx_ref_link     ON ref(kind, ref_id, source_id, resolved_id)"
-    "    WHERE emits_link = 1;";
+    "    WHERE emits_link = 1;"
+
+    // What each ref's answer was decided on (Resolver.h), so that an update
+    // re-resolves only the refs whose facts it changed. fact.key is the
+    // resolver's: a letter and the fact's parts. A ref's facts of its own file
+    // are left out; its ref_dep rows go with it.
+    "CREATE TABLE IF NOT EXISTS fact ("
+    "    fact_id INTEGER PRIMARY KEY,"
+    "    key     TEXT NOT NULL UNIQUE"
+    ");"
+    // An E fact (an answer several refs share) stands for the facts in its
+    // fact_edge rows, which may be E facts in turn.
+    "CREATE TABLE IF NOT EXISTS fact_edge ("
+    "    parent_id INTEGER NOT NULL,"
+    "    child_id  INTEGER NOT NULL,"
+    "    PRIMARY KEY (parent_id, child_id)"
+    ") WITHOUT ROWID;"
+    "CREATE INDEX IF NOT EXISTS idx_fact_edge_child ON fact_edge(child_id);"
+    "CREATE TABLE IF NOT EXISTS ref_dep ("
+    "    fact_id INTEGER NOT NULL,"
+    "    ref_id  INTEGER NOT NULL REFERENCES ref(ref_id) ON DELETE CASCADE,"
+    "    PRIMARY KEY (fact_id, ref_id)"
+    ") WITHOUT ROWID;"
+    "CREATE INDEX IF NOT EXISTS idx_ref_dep_ref ON ref_dep(ref_id);";
 
 // `link`: every CALLS / INHERITS / DECORATES / IMPORTS edge, derived from the
 // resolver's answers rather than stored beside them. One row per distinct
@@ -457,6 +481,72 @@ int initDb(const char* dbPath, sqlite3** db)
     return rc;
 }
 
+namespace {
+
+// The file a path names once every symlink on it is followed, a dangling
+// one included (weakly_canonical stops at a link whose target is missing).
+std::filesystem::path linkTarget(const std::filesystem::path& path)
+{
+    namespace fs = std::filesystem;
+    fs::path p = path;
+    std::error_code ec;
+    for (int hops = 0; hops < 40 && fs::is_symlink(fs::symlink_status(p, ec)); ++hops) {
+        const fs::path to = fs::read_symlink(p, ec);
+        if (ec) break;
+        p = to.is_absolute() ? to : p.parent_path() / to;
+    }
+    const fs::path resolved = fs::weakly_canonical(p, ec);
+    return ec ? p : resolved;
+}
+
+// SQLITE_OK if files can be created and removed in the directory `file` is
+// in -- SQLite needs that for the database's -wal and -shm, scan to replace
+// one of another version -- else why not.
+int checkDirFor(const std::filesystem::path& file)
+{
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    const fs::path dir = file.has_parent_path() ? file.parent_path() : fs::path(".");
+    if (!fs::is_directory(dir, ec)) return SQLITE_CANTOPEN;
+#ifndef _WIN32
+    if (access(dir.c_str(), W_OK | X_OK) != 0) return SQLITE_READONLY;
+#endif
+    return SQLITE_OK;
+}
+
+}  // namespace
+
+int checkScanTarget(const char* dbPath)
+{
+    namespace fs = std::filesystem;
+    if (!dbPath) return SQLITE_MISUSE;
+    DbKind kind;
+    int rc = classifyPath(dbPath, &kind);
+    if (rc != SQLITE_OK) return rc;
+    if (kind == DbKind::NotTelescode) return kNotADatabase;
+    if (std::string(dbPath) == ":memory:") return SQLITE_OK;
+
+    // Nothing is created, opened or removed to find out: the directories
+    // and the file are only looked at. The path's own directory holds what
+    // openDbForScan removes (a symlink, not its target); the target's holds
+    // the database and its -wal and -shm.
+    const fs::path path = dbPath;
+    const fs::path target = linkTarget(path);
+    if ((rc = checkDirFor(path)) != SQLITE_OK) return rc;
+    if ((rc = checkDirFor(target)) != SQLITE_OK) return rc;
+    std::error_code ec;
+    const fs::file_status st = fs::status(target, ec);
+    if (fs::exists(st)) {
+        if (!fs::is_regular_file(st)) return SQLITE_CANTOPEN;
+#ifndef _WIN32
+        // One of another version is removed rather than written, but a
+        // read-only file is one the user means to keep.
+        if (access(target.c_str(), R_OK | W_OK) != 0) return SQLITE_READONLY;
+#endif
+    }
+    return SQLITE_OK;
+}
+
 int openDbForScan(const char* dbPath, sqlite3** db, bool* empty)
 {
     if (!dbPath || !db || !empty) return SQLITE_MISUSE;
@@ -472,13 +562,17 @@ int openDbForScan(const char* dbPath, sqlite3** db, bool* empty)
 
     if (kind == DbKind::OtherVersion) {
         // Start over from nothing. The -wal file goes too, or SQLite would
-        // replay the old database's pages into the new one.
+        // replay the old database's pages into the new one. Through a
+        // symlink, the file it names goes (SQLite names the -wal and -shm
+        // after that file too), and the new database is made there: the
+        // link is the user's.
+        const std::string target = linkTarget(dbPath).string();
         for (const char* suffix : {"", "-wal", "-shm"}) {
             std::error_code ec;
-            std::filesystem::remove(std::string(dbPath) + suffix, ec);
+            std::filesystem::remove(target + suffix, ec);
             if (ec) {
                 std::fprintf(stderr, "scan: cannot remove '%s%s': %s\n",
-                             dbPath, suffix, ec.message().c_str());
+                             target.c_str(), suffix, ec.message().c_str());
                 return SQLITE_CANTOPEN;
             }
         }

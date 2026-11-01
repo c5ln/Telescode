@@ -26,6 +26,23 @@ int CmdScan(int argc, char* argv[]) {
     const char* dbPath      = argv[2];
     const char* allowedRoot = (argc == 4) ? argv[3] : repoPath;
 
+    // A path the database cannot go to is refused before any parsing --
+    // a file that is not a Telescode database, a directory that is not
+    // there: insertAll would fail too, but only after the whole repo is read.
+    {
+        const int rc = checkScanTarget(dbPath);
+        if (rc == kNotADatabase) {
+            std::fprintf(stderr, "[error] %s is not a Telescode database; refusing to overwrite it\n",
+                         dbPath);
+            return 1;
+        }
+        if (rc != SQLITE_OK) {
+            std::fprintf(stderr, "[error] cannot write a database at %s: %s; nothing was scanned\n",
+                         dbPath, sqlite3_errstr(rc));
+            return 1;
+        }
+    }
+
     ParserRegistry registry;
     registry.registerParser(".py", std::make_unique<PythonParser>());
 

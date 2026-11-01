@@ -7,6 +7,7 @@
 // success. The parser refuses that combination instead.
 
 #include "cli/ts_cli.h"
+#include "db/db.h"
 
 #include <gtest/gtest.h>
 
@@ -20,6 +21,9 @@
 #include <iterator>
 #include <string>
 #include <vector>
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 
 namespace fs = std::filesystem;
 
@@ -191,6 +195,154 @@ private:
 };
 
 } // anonymous namespace
+
+TEST(CliScan, RefusesAFileThatIsNotADatabaseBeforeParsing) {
+    // The refusal comes before the repo is read: nothing is parsed, nothing
+    // written over.
+    DanglingTree tree;
+    std::FILE* f = std::fopen(tree.db().c_str(), "w");
+    std::fputs("my notes, not a database\n", f);
+    std::fclose(f);
+    std::string out, err;
+    EXPECT_EQ(run({"scan", tree.root(), tree.db()}, TS::CmdScan, &out, &err), 1);
+    EXPECT_EQ(out.find("Parsed"), std::string::npos) << out;
+    EXPECT_NE(err.find("is not a Telescode database"), std::string::npos) << err;
+    std::ifstream in(tree.db());
+    EXPECT_EQ(std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()),
+              "my notes, not a database\n");
+}
+
+TEST(CliScan, RefusesAPathItCannotWriteBeforeParsing) {
+    // A directory that is not there: SQLite could only say so once the whole
+    // repo had been parsed.
+    DanglingTree tree;
+    const std::string db = (fs::path(tree.db()).parent_path() / "missing" / "t.db").string();
+    std::string out, err;
+    EXPECT_EQ(run({"scan", tree.root(), db}, TS::CmdScan, &out, &err), 1);
+    EXPECT_EQ(out.find("Parsed"), std::string::npos) << out;
+    EXPECT_NE(err.find("cannot write a database at " + db), std::string::npos) << err;
+    EXPECT_FALSE(fs::exists(fs::path(db).parent_path()));
+}
+
+TEST(CliScan, ChecksANewPathWithoutLeavingAFile) {
+    // The check creates the file to see that it can; the scan then makes it.
+    DanglingTree tree;
+    EXPECT_FALSE(fs::exists(tree.db()));
+    EXPECT_EQ(checkScanTarget(tree.db().c_str()), SQLITE_OK);
+    EXPECT_FALSE(fs::exists(tree.db()));
+    std::string out;
+    ASSERT_EQ(run({"scan", tree.root(), tree.db()}, TS::CmdScan, &out), 0);
+    EXPECT_NE(out.find("Parsed"), std::string::npos) << out;
+    // A database that is there, of this version: scanned over again.
+    EXPECT_EQ(checkScanTarget(tree.db().c_str()), SQLITE_OK);
+    ASSERT_EQ(run({"scan", tree.root(), tree.db()}, TS::CmdScan, &out), 0);
+}
+
+TEST(CliScan, WritesThroughADanglingSymlink) {
+    // The database goes where the link points; the link stays, and nothing
+    // else is left beside them.
+    DanglingTree tree;
+    const fs::path dir = fs::path(tree.db()).parent_path();
+    const fs::path link = dir / "link.db";
+    fs::create_symlink("target.db", link);
+    std::string out, err;
+    ASSERT_EQ(run({"scan", tree.root(), link.string()}, TS::CmdScan, &out, &err), 0) << err;
+    EXPECT_TRUE(fs::is_symlink(fs::symlink_status(link)));
+    EXPECT_TRUE(fs::is_regular_file(dir / "target.db"));
+    EXPECT_GT(fs::file_size(dir / "target.db"), 0u);
+    std::vector<std::string> names;
+    for (const auto& e : fs::directory_iterator(dir)) names.push_back(e.path().filename().string());
+    std::sort(names.begin(), names.end());
+    EXPECT_EQ(names, (std::vector<std::string>{"link.db", "pkg", "src", "target.db"}));
+}
+
+TEST(CliScan, ReplacesAnOldVersionThroughASymlink) {
+    // A database of another version is replaced where the link points; the
+    // link stays.
+    DanglingTree tree;
+    const fs::path dir = fs::path(tree.db()).parent_path();
+    const fs::path target = dir / "target.db";
+    const fs::path link = dir / "link.db";
+    ASSERT_EQ(run({"scan", tree.root(), target.string()}, TS::CmdScan), 0);
+    {
+        sqlite3* h = nullptr;
+        ASSERT_EQ(sqlite3_open(target.string().c_str(), &h), SQLITE_OK);
+        ASSERT_EQ(sqlite3_exec(h, "PRAGMA user_version = 1;", nullptr, nullptr, nullptr), SQLITE_OK);
+        sqlite3_close(h);
+    }
+    ASSERT_EQ(checkDbVersion(target.string().c_str()), kWrongDbVersion);
+    fs::create_symlink("target.db", link);
+    std::string out, err;
+    ASSERT_EQ(run({"scan", tree.root(), link.string()}, TS::CmdScan, &out, &err), 0) << err;
+    EXPECT_TRUE(fs::is_symlink(fs::symlink_status(link)));
+    EXPECT_TRUE(fs::is_regular_file(fs::symlink_status(target)));
+    EXPECT_EQ(checkDbVersion(target.string().c_str()), SQLITE_OK);
+    sqlite3* h = nullptr;
+    ASSERT_EQ(sqlite3_open_v2(target.string().c_str(), &h, SQLITE_OPEN_READONLY, nullptr), SQLITE_OK);
+    sqlite3_stmt* st = nullptr;
+    ASSERT_EQ(sqlite3_prepare_v2(h, "SELECT user_version, (SELECT COUNT(*) FROM file)"
+                                    " FROM pragma_user_version;", -1, &st, nullptr), SQLITE_OK);
+    ASSERT_EQ(sqlite3_step(st), SQLITE_ROW);
+    EXPECT_EQ(sqlite3_column_int(st, 0), kDbVersion);
+    EXPECT_GT(sqlite3_column_int(st, 1), 0);
+    sqlite3_finalize(st);
+    sqlite3_close(h);
+}
+
+namespace {
+
+// Permissions mean nothing to root: the read-only cases are skipped there.
+bool runningAsRoot()
+{
+#ifndef _WIN32
+    return geteuid() == 0;
+#else
+    return true;
+#endif
+}
+
+// Scans into db, expecting a refusal before the repo is parsed.
+void expectRefusedBeforeParsing(const DanglingTree& tree, const std::string& db)
+{
+    std::string out, err;
+    EXPECT_EQ(run({"scan", tree.root(), db}, TS::CmdScan, &out, &err), 1);
+    EXPECT_EQ(out.find("Parsed"), std::string::npos) << out;
+    EXPECT_NE(err.find("cannot write a database at " + db), std::string::npos) << err;
+}
+
+} // anonymous namespace
+
+TEST(CliScan, RefusesReadOnlyPlacesBeforeParsing) {
+    if (runningAsRoot()) GTEST_SKIP() << "root ignores permissions";
+    DanglingTree tree;
+    const fs::path dir = fs::path(tree.db()).parent_path() / "ro";
+    fs::create_directories(dir);
+    const std::string db = (dir / "t.db").string();
+    ASSERT_EQ(run({"scan", tree.root(), db}, TS::CmdScan), 0);
+
+    // A writable database in a directory that is not: SQLite needs the
+    // directory for the -wal.
+    fs::permissions(dir, fs::perms::owner_read | fs::perms::owner_exec);
+    expectRefusedBeforeParsing(tree, (dir / "new.db").string());
+    expectRefusedBeforeParsing(tree, db);
+    fs::permissions(dir, fs::perms::owner_all);
+
+    // A read-only database, of this version and of an older one (which a
+    // scan would otherwise remove and write anew).
+    fs::permissions(db, fs::perms::owner_read);
+    expectRefusedBeforeParsing(tree, db);
+    {
+        sqlite3* h = nullptr;
+        fs::permissions(db, fs::perms::owner_read | fs::perms::owner_write);
+        ASSERT_EQ(sqlite3_open(db.c_str(), &h), SQLITE_OK);
+        ASSERT_EQ(sqlite3_exec(h, "PRAGMA user_version = 1;", nullptr, nullptr, nullptr), SQLITE_OK);
+        sqlite3_close(h);
+    }
+    ASSERT_EQ(checkDbVersion(db.c_str()), kWrongDbVersion);
+    fs::permissions(db, fs::perms::owner_read);
+    expectRefusedBeforeParsing(tree, db);
+    fs::permissions(db, fs::perms::owner_read | fs::perms::owner_write);
+}
 
 TEST(CliUpdate, DanglingListsImportersOnePerLine) {
     DanglingTree tree;

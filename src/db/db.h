@@ -13,7 +13,9 @@ struct sqlite3;
 // Bump whenever the schema or the parser's output changes what a database holds.
 //   6 -- link is a view over ref / import_resolution; the parser writes every
 //        module spec of every import into import_resolution
-inline constexpr int kDbVersion = 6;
+//   7 -- fact / fact_edge / ref_dep: what each ref's answer rests on, for
+//        incremental updates
+inline constexpr int kDbVersion = 7;
 
 // Returned instead of an SQLite code for a database of another version.
 inline constexpr int kWrongDbVersion = -2;
@@ -62,6 +64,13 @@ int initDb(const char* dbPath, sqlite3** db);
 // scan's own transaction calls createSchema, so that the version is only there
 // once everything the scan writes is.
 int openDbForScan(const char* dbPath, sqlite3** db, bool* empty);
+
+// For `scan`, before it reads the repo: whether openDbForScan could write a
+// database at the path. kNotADatabase as openDbForScan has it; SQLITE_CANTOPEN
+// for a directory that is not there (of the path, or of the file a symlink
+// at it names) or a path that is not a file; SQLITE_READONLY for a directory
+// or file it may not write. Creates, opens and changes nothing.
+int checkScanTarget(const char* dbPath);
 
 // The tables, the `link` view and user_version = kDbVersion, for an empty
 // database. No transaction of its own.
