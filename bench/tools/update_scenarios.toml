@@ -1,0 +1,689 @@
+# update_equiv.py 시나리오 — "update 결과 == 같은 코드를 새로 스캔한 결과" 검사용.
+#
+# [repos.<name>]
+#   path    = 복사해 올 원본 (Telescode 루트 기준 상대경로). .py 파일만 복사한다.
+#   files   = path 대신 합성 저장소: { "상대경로" = "내용" }
+#   rescan_each_rep = true면 반복마다 DB를 복사하지 않고 다시 스캔한다 (DB가 커서 디스크가 모자란 경우).
+#
+# [[scenario]]
+#   name, repo
+#   class     = ordinary | big | hub | other (시간 목표 분류, 보고용)
+#   target_ms = update 목표 시간 (없으면 보고만)
+#   setup     = scan A 전에 적용하는 편집 (시작 상태 만들기)
+#   edits     = scan A 뒤에 적용하는 편집
+#   update    = A에 실행할 update 명령 (순서대로)
+#
+# 편집 op: replace(old, new[, count=1]) / append(text) / write(text) / remove / move(to)
+#          remove_def(name; "Class.method" 가능) / add_method(class, text)
+# update cmd: file(path) / files(paths) / delete(file_id) / rename(old, new)
+
+[repos.xarray]
+path = "bench/repos/xarray"
+
+[repos.root]
+path = "."
+rescan_each_rep = true
+
+[repos.syn]
+[repos.syn.files]
+"pkg/__init__.py" = ""
+"pkg/core.py" = """
+def thing():
+    return 1
+
+
+def other():
+    return 2
+"""
+"pkg/alt.py" = """
+def thing():
+    return 3
+"""
+# re-export 사슬: main -> r1 -> r2 -> r3 -> r4 -> r5 -> core (6번 import, re-export 5단계)
+"pkg/r1.py" = "from pkg.r2 import thing\n"
+"pkg/r2.py" = "from pkg.r3 import thing\n"
+"pkg/r3.py" = "from pkg.r4 import thing\n"
+"pkg/r4.py" = "from pkg.r5 import thing\n"
+"pkg/r5.py" = "from pkg.core import thing\n"
+"pkg/chain_user.py" = """
+from pkg.r1 import thing
+
+
+def use_chain():
+    return thing()
+"""
+"pkg/star_src.py" = """
+def a():
+    return 1
+
+
+def _hidden():
+    return 0
+"""
+"pkg/star_user.py" = """
+from pkg.star_src import *
+
+
+def use_star():
+    a()
+    b()
+    _hidden()
+"""
+"pkg/glob.py" = """
+def init():
+    global helper
+    from pkg.core import thing as helper
+
+
+def use_global():
+    return helper()
+"""
+"pkg/h.py" = """
+def fh():
+    return 1
+"""
+"pkg/same_line.py" = """
+import pkg.h, pkg.i
+
+
+def use_same_line():
+    pkg.h.fh()
+    pkg.i.fi()
+"""
+"pkg/fallback.py" = """
+try:
+    from pkg.fast import impl
+except ImportError:
+    from pkg.slow import impl
+
+
+def use_fallback():
+    return impl()
+"""
+"pkg/slow.py" = """
+def impl():
+    return "slow"
+"""
+"pkg/ext_user.py" = """
+import extmod
+import pkg.missing
+
+
+def use_ext():
+    extmod.go()
+    pkg.missing.go()
+"""
+"pkg/base.py" = """
+class Base:
+    def run(self):
+        return self.step()
+"""
+"pkg/child.py" = """
+from pkg.base import Base
+
+
+class Child(Base):
+    def go(self):
+        return self.hook()
+"""
+
+# 5단계 의존성 기록(ref_dep/fact) 겨냥: 편집은 다른 파일의 ref가 읽은 fact만 바꾸고,
+# 그 ref가 있는 파일은 건드리지 않는다.
+[repos.dep]
+[repos.dep.files]
+"dep/__init__.py" = ""
+"dep/core.py" = """
+def thing():
+    return 1
+"""
+"dep/alt.py" = """
+def thing():
+    return 2
+"""
+# 2단계 star: user -> dep.outer(*) -> dep.inner(*)
+"dep/inner.py" = """
+def present():
+    return 1
+"""
+"dep/outer.py" = "from dep.inner import *\n"
+"dep/star_user.py" = """
+from dep.outer import *
+
+
+def use():
+    present()
+    later()
+"""
+# 3단 상속: C(B) -> B(A) -> A
+"dep/ga.py" = """
+class A:
+    def base(self):
+        return 0
+"""
+"dep/gb.py" = """
+from dep.ga import A
+
+
+class B(A):
+    pass
+"""
+"dep/gc.py" = """
+from dep.gb import B
+
+
+class C(B):
+    def go(self):
+        return self.lifted()
+"""
+# 여러 파일이 공유하는 re-export 사슬: h1 -> h2 -> h3 -> h4 -> core
+"dep/h1.py" = "from dep.h2 import thing\n"
+"dep/h2.py" = "from dep.h3 import thing\n"
+"dep/h3.py" = "from dep.h4 import thing\n"
+"dep/h4.py" = "from dep.core import thing\n"
+"dep/u1.py" = """
+from dep.h1 import thing
+
+
+def f1():
+    thing()
+    thing()
+
+
+def f2():
+    return thing()
+"""
+"dep/u2.py" = """
+from dep import h1
+
+
+def g1():
+    h1.thing()
+
+
+def g2():
+    h1.thing()
+"""
+"dep/u3.py" = """
+import dep.h2
+
+
+def k1():
+    dep.h2.thing()
+"""
+# Class.attr로 찾은 멤버
+"dep/k.py" = """
+class K:
+    LIMIT = 3
+
+    @classmethod
+    def make(cls):
+        return cls()
+
+    def helper(self):
+        return 1
+"""
+"dep/k_user.py" = """
+from dep.k import K
+
+
+def build():
+    K.make()
+    K.helper(None)
+"""
+# 두 표기로 import되는 모듈
+"dep/sub/__init__.py" = ""
+"dep/sub/mod.py" = """
+def f():
+    return 1
+"""
+"dep/sub/rel_user.py" = """
+from . import mod
+from .mod import f
+
+
+def r():
+    mod.f()
+    f()
+"""
+"dep/abs_user.py" = """
+import dep.sub.mod
+from dep.sub import mod as m2
+
+
+def a():
+    dep.sub.mod.f()
+    m2.f()
+"""
+# 같은 이름의 binding 두 개 (순서가 답을 정한다)
+"dep/order.py" = """
+from dep.alt import thing
+from dep.core import thing
+"""
+"dep/order_user.py" = """
+from dep.order import thing
+
+
+def o():
+    thing()
+"""
+"dep/moved.py" = """
+from dep.core import thing
+from dep.alt import thing as other
+"""
+"dep/moved_user.py" = """
+from dep.moved import thing, other
+
+
+def m():
+    thing()
+    other()
+"""
+
+# ── xarray ────────────────────────────────────────────────────────────────────
+
+[[scenario]]
+name = "xr_body_edit"
+repo = "xarray"
+class = "ordinary"
+target_ms = 300
+edits = [{ op = "replace", path = "xarray/util/print_versions.py", old = "    blob = []\n", new = "    blob = []\n    blob.append((\"stage5\", \"probe\"))\n" }]
+update = [{ cmd = "file", path = "xarray/util/print_versions.py" }]
+
+[[scenario]]
+name = "xr_add_func_and_caller"
+repo = "xarray"
+class = "hub"
+target_ms = 1000
+edits = [
+  { op = "append", path = "xarray/core/utils.py", text = "\n\ndef stage5_helper(x):\n    return is_dict_like(x)\n" },
+  { op = "replace", path = "xarray/util/print_versions.py", old = "    blob = []\n", new = "    blob = []\n    from xarray.core.utils import stage5_helper\n    stage5_helper(blob)\n" },
+]
+update = [{ cmd = "files", paths = ["xarray/core/utils.py", "xarray/util/print_versions.py"] }]
+
+[[scenario]]
+name = "xr_delete_called_func"
+repo = "xarray"
+class = "hub"
+target_ms = 1000
+edits = [{ op = "remove_def", path = "xarray/core/utils.py", name = "drop_dims_from_indexers" }]
+update = [{ cmd = "file", path = "xarray/core/utils.py" }]
+
+[[scenario]]
+name = "xr_base_method_add"
+repo = "xarray"
+class = "other"
+setup = [{ op = "replace", path = "xarray/backends/memory.py", old = "    def get_attrs(self):\n        return self._attributes\n", new = "    def get_attrs(self):\n        self._stage5_probe()\n        return self._attributes\n" }]
+edits = [{ op = "add_method", path = "xarray/backends/common.py", class = "AbstractDataStore", text = "def _stage5_probe(self):\n    return None\n" }]
+update = [{ cmd = "file", path = "xarray/backends/common.py" }]
+
+[[scenario]]
+name = "xr_base_method_remove"
+repo = "xarray"
+class = "other"
+setup = [
+  { op = "replace", path = "xarray/backends/memory.py", old = "    def get_attrs(self):\n        return self._attributes\n", new = "    def get_attrs(self):\n        self._stage5_probe()\n        return self._attributes\n" },
+  { op = "add_method", path = "xarray/backends/common.py", class = "AbstractDataStore", text = "def _stage5_probe(self):\n    return None\n" },
+]
+edits = [{ op = "remove_def", path = "xarray/backends/common.py", name = "AbstractDataStore._stage5_probe" }]
+update = [{ cmd = "file", path = "xarray/backends/common.py" }]
+
+[[scenario]]
+name = "xr_reexport_add"
+repo = "xarray"
+class = "hub"
+target_ms = 1000
+setup = [{ op = "append", path = "xarray/tests/test_print_versions.py", text = "\n\ndef test_stage5() -> None:\n    xarray.stage5_reexport({})\n" }]
+edits = [{ op = "append", path = "xarray/__init__.py", text = "from xarray.core.utils import is_dict_like as stage5_reexport\n" }]
+update = [{ cmd = "file", path = "xarray/__init__.py" }]
+
+[[scenario]]
+name = "xr_reexport_remove"
+repo = "xarray"
+class = "hub"
+target_ms = 1000
+edits = [{ op = "replace", path = "xarray/__init__.py", old = "from xarray.util.print_versions import show_versions\n", new = "" }]
+update = [{ cmd = "file", path = "xarray/__init__.py" }]
+
+[[scenario]]
+name = "xr_delete_module"
+repo = "xarray"
+class = "other"
+edits = [{ op = "remove", path = "xarray/util/print_versions.py" }]
+update = [{ cmd = "delete", file_id = "xarray/util/print_versions.py" }]
+
+[[scenario]]
+name = "xr_rename_module"
+repo = "xarray"
+class = "other"
+edits = [{ op = "move", path = "xarray/core/formatting_html.py", to = "xarray/core/formatting_html2.py" }]
+update = [{ cmd = "rename", old = "xarray/core/formatting_html.py", new = "xarray/core/formatting_html2.py" }]
+
+[[scenario]]
+name = "xr_add_module_and_import"
+repo = "xarray"
+class = "other"
+edits = [
+  { op = "write", path = "xarray/core/stage5_new.py", text = "def fresh():\n    return 1\n" },
+  { op = "replace", path = "xarray/util/print_versions.py", old = "    blob = []\n", new = "    blob = []\n    from xarray.core.stage5_new import fresh\n    fresh()\n" },
+]
+update = [{ cmd = "files", paths = ["xarray/core/stage5_new.py", "xarray/util/print_versions.py"] }]
+
+[[scenario]]
+name = "xr_big_dataset_edit"
+repo = "xarray"
+class = "big"
+target_ms = 1000
+edits = [{ op = "replace", path = "xarray/core/dataset.py", old = "        indexers = either_dict_or_kwargs(indexers, indexers_kwargs, \"isel\")\n", new = "        indexers = either_dict_or_kwargs(indexers, indexers_kwargs, \"isel\")\n        _ = is_dict_like(indexers)\n" }]
+update = [{ cmd = "file", path = "xarray/core/dataset.py" }]
+
+[[scenario]]
+name = "xr_hub_init_edit"
+repo = "xarray"
+class = "hub"
+target_ms = 1000
+# 맨 위에 한 줄을 넣어 파일 안의 모든 binding/ref 줄 번호를 민다.
+edits = [{ op = "replace", path = "xarray/__init__.py", old = "from importlib.metadata import version as _version\n", new = "# stage5\nfrom importlib.metadata import version as _version\n" }]
+update = [{ cmd = "file", path = "xarray/__init__.py" }]
+
+[[scenario]]
+name = "xr_hub_utils_edit"
+repo = "xarray"
+class = "hub"
+target_ms = 1000
+edits = [{ op = "replace", path = "xarray/core/utils.py", old = "    elif missing_dims == \"ignore\":\n", new = "    elif missing_dims == \"ignore\":\n        _ = is_dict_like(dims)\n" }]
+update = [{ cmd = "file", path = "xarray/core/utils.py" }]
+
+# ── 합성 저장소 ───────────────────────────────────────────────────────────────
+
+[[scenario]]
+name = "syn_chain_middle_shorten"
+repo = "syn"
+class = "other"
+edits = [{ op = "write", path = "pkg/r3.py", text = "from pkg.alt import thing\n" }]
+update = [{ cmd = "file", path = "pkg/r3.py" }]
+
+[[scenario]]
+name = "syn_chain_middle_lengthen"
+repo = "syn"
+class = "other"
+# r3 -> r3b -> r4: 사슬이 re-export 상한(5단계)을 넘는다
+edits = [
+  { op = "write", path = "pkg/r3b.py", text = "from pkg.r4 import thing\n" },
+  { op = "write", path = "pkg/r3.py", text = "from pkg.r3b import thing\n" },
+]
+update = [{ cmd = "files", paths = ["pkg/r3b.py", "pkg/r3.py"] }]
+
+[[scenario]]
+name = "syn_chain_end_changes"
+repo = "syn"
+class = "other"
+# 사슬 끝의 정의만 바뀐다: core.thing 삭제. 중간 파일들은 그대로.
+edits = [{ op = "remove_def", path = "pkg/core.py", name = "thing" }]
+update = [{ cmd = "file", path = "pkg/core.py" }]
+
+[[scenario]]
+name = "syn_star_gains_name"
+repo = "syn"
+class = "other"
+edits = [{ op = "append", path = "pkg/star_src.py", text = "\n\ndef b():\n    return 2\n" }]
+update = [{ cmd = "file", path = "pkg/star_src.py" }]
+
+[[scenario]]
+name = "syn_star_loses_name"
+repo = "syn"
+class = "other"
+edits = [{ op = "remove_def", path = "pkg/star_src.py", name = "a" }]
+update = [{ cmd = "file", path = "pkg/star_src.py" }]
+
+[[scenario]]
+name = "syn_star_all_added"
+repo = "syn"
+class = "other"
+# __all__이 생기면 _hidden도 내보내고 a는 빠진다
+edits = [{ op = "append", path = "pkg/star_src.py", text = "\n__all__ = [\"_hidden\"]\n" }]
+update = [{ cmd = "file", path = "pkg/star_src.py" }]
+
+[[scenario]]
+name = "syn_global_import_target_changes"
+repo = "syn"
+class = "other"
+edits = [{ op = "remove_def", path = "pkg/core.py", name = "thing" }]
+update = [{ cmd = "file", path = "pkg/core.py" }]
+
+[[scenario]]
+name = "syn_global_import_rewritten"
+repo = "syn"
+class = "other"
+edits = [{ op = "replace", path = "pkg/glob.py", old = "from pkg.core import thing as helper", new = "from pkg.alt import thing as helper" }]
+update = [{ cmd = "file", path = "pkg/glob.py" }]
+
+[[scenario]]
+name = "syn_same_line_add_missing"
+repo = "syn"
+class = "other"
+edits = [{ op = "write", path = "pkg/i.py", text = "def fi():\n    return 2\n" }]
+update = [{ cmd = "file", path = "pkg/i.py" }]
+
+[[scenario]]
+name = "syn_same_line_delete"
+repo = "syn"
+class = "other"
+edits = [{ op = "remove", path = "pkg/h.py" }]
+update = [{ cmd = "delete", file_id = "pkg/h.py" }]
+
+[[scenario]]
+name = "syn_fallback_appears"
+repo = "syn"
+class = "other"
+edits = [{ op = "write", path = "pkg/fast.py", text = "def impl():\n    return \"fast\"\n" }]
+update = [{ cmd = "file", path = "pkg/fast.py" }]
+
+[[scenario]]
+name = "syn_fallback_disappears"
+repo = "syn"
+class = "other"
+setup = [{ op = "write", path = "pkg/fast.py", text = "def impl():\n    return \"fast\"\n" }]
+edits = [{ op = "remove", path = "pkg/fast.py" }]
+update = [{ cmd = "delete", file_id = "pkg/fast.py" }]
+
+[[scenario]]
+name = "syn_external_becomes_project"
+repo = "syn"
+class = "other"
+edits = [{ op = "write", path = "extmod.py", text = "def go():\n    return 1\n" }]
+update = [{ cmd = "file", path = "extmod.py" }]
+
+[[scenario]]
+name = "syn_missing_module_added"
+repo = "syn"
+class = "other"
+edits = [{ op = "write", path = "pkg/missing.py", text = "def go():\n    return 1\n" }]
+update = [{ cmd = "file", path = "pkg/missing.py" }]
+
+[[scenario]]
+name = "syn_project_becomes_missing"
+repo = "syn"
+class = "other"
+setup = [{ op = "write", path = "pkg/missing.py", text = "def go():\n    return 1\n" }]
+edits = [{ op = "remove", path = "pkg/missing.py" }]
+update = [{ cmd = "delete", file_id = "pkg/missing.py" }]
+
+[[scenario]]
+name = "syn_base_gains_method"
+repo = "syn"
+class = "other"
+edits = [{ op = "add_method", path = "pkg/base.py", class = "Base", text = "def hook(self):\n    return 0\n" }]
+update = [{ cmd = "file", path = "pkg/base.py" }]
+
+[[scenario]]
+name = "syn_rename_chain_target"
+repo = "syn"
+class = "other"
+edits = [{ op = "move", path = "pkg/core.py", to = "pkg/core2.py" }]
+update = [{ cmd = "rename", old = "pkg/core.py", new = "pkg/core2.py" }]
+
+[[scenario]]
+name = "syn_rename_and_fix_importer"
+repo = "syn"
+class = "other"
+# 이름 바꾼 파일을 importer가 따라가도록 r5도 함께 고친다 (rename 다음 file)
+edits = [
+  { op = "move", path = "pkg/core.py", to = "pkg/core2.py" },
+  { op = "replace", path = "pkg/r5.py", old = "from pkg.core import", new = "from pkg.core2 import" },
+]
+update = [
+  { cmd = "rename", old = "pkg/core.py", new = "pkg/core2.py" },
+  { cmd = "file", path = "pkg/r5.py" },
+]
+
+# ── Telescode 루트 ────────────────────────────────────────────────────────────
+
+[[scenario]]
+name = "root_body_edit"
+repo = "root"
+class = "ordinary"
+target_ms = 1000
+edits = [{ op = "replace", path = "bench/env.py", old = "    out: dict[str, str] = {}\n", new = "    out: dict[str, str] = {}\n    out.clear()\n" }]
+update = [{ cmd = "file", path = "bench/env.py" }]
+
+# ── 의존성 기록 겨냥 (ref가 있는 파일은 건드리지 않는다) ──────────────────────
+
+[[scenario]]
+name = "dep_star2_name_added"
+repo = "dep"
+class = "other"
+edits = [{ op = "append", path = "dep/inner.py", text = "\n\ndef later():\n    return 2\n" }]
+update = [{ cmd = "file", path = "dep/inner.py" }]
+
+[[scenario]]
+name = "dep_star2_name_removed"
+repo = "dep"
+class = "other"
+edits = [{ op = "remove_def", path = "dep/inner.py", name = "present" }]
+update = [{ cmd = "file", path = "dep/inner.py" }]
+
+[[scenario]]
+name = "dep_grandbase_gains_method"
+repo = "dep"
+class = "other"
+edits = [{ op = "add_method", path = "dep/ga.py", class = "A", text = "def lifted(self):\n    return 1\n" }]
+update = [{ cmd = "file", path = "dep/ga.py" }]
+
+[[scenario]]
+name = "dep_grandbase_loses_base"
+repo = "dep"
+class = "other"
+# 중간 클래스의 부모가 바뀐다 (gb만 수정): C의 self.base() 답이 사라진다
+setup = [{ op = "replace", path = "dep/gc.py", old = "        return self.lifted()\n", new = "        return self.base()\n" }]
+edits = [{ op = "replace", path = "dep/gb.py", old = "class B(A):", new = "class B:" }]
+update = [{ cmd = "file", path = "dep/gb.py" }]
+
+[[scenario]]
+name = "dep_shared_chain_middle"
+repo = "dep"
+class = "other"
+edits = [{ op = "write", path = "dep/h3.py", text = "from dep.alt import thing\n" }]
+update = [{ cmd = "file", path = "dep/h3.py" }]
+
+[[scenario]]
+name = "dep_shared_chain_middle_broken"
+repo = "dep"
+class = "other"
+edits = [{ op = "write", path = "dep/h3.py", text = "from dep.h4 import nothing as thing\n" }]
+update = [{ cmd = "file", path = "dep/h3.py" }]
+
+[[scenario]]
+name = "dep_class_member_lost"
+repo = "dep"
+class = "other"
+edits = [{ op = "remove_def", path = "dep/k.py", name = "K.make" }]
+update = [{ cmd = "file", path = "dep/k.py" }]
+
+[[scenario]]
+name = "dep_class_member_gained"
+repo = "dep"
+class = "other"
+setup = [{ op = "append", path = "dep/k_user.py", text = "\n\ndef build2():\n    K.fresh()\n" }]
+edits = [{ op = "add_method", path = "dep/k.py", class = "K", text = "@staticmethod\ndef fresh():\n    return 2\n" }]
+update = [{ cmd = "file", path = "dep/k.py" }]
+
+[[scenario]]
+name = "dep_delete_two_spellings"
+repo = "dep"
+class = "other"
+edits = [{ op = "remove", path = "dep/sub/mod.py" }]
+update = [{ cmd = "delete", file_id = "dep/sub/mod.py" }]
+
+[[scenario]]
+name = "dep_readd_two_spellings"
+repo = "dep"
+class = "other"
+setup = [{ op = "remove", path = "dep/sub/mod.py" }]
+edits = [{ op = "write", path = "dep/sub/mod.py", text = "def f():\n    return 1\n" }]
+update = [{ cmd = "file", path = "dep/sub/mod.py" }]
+
+[[scenario]]
+name = "dep_binding_order_swap"
+repo = "dep"
+class = "other"
+edits = [{ op = "write", path = "dep/order.py", text = "from dep.core import thing\nfrom dep.alt import thing\n" }]
+update = [{ cmd = "file", path = "dep/order.py" }]
+
+[[scenario]]
+name = "dep_binding_line_move"
+repo = "dep"
+class = "other"
+# 순서는 그대로, 줄만 바뀐다
+edits = [{ op = "write", path = "dep/moved.py", text = "# moved\n\nfrom dep.core import thing\n\nfrom dep.alt import thing as other\n" }]
+update = [{ cmd = "file", path = "dep/moved.py" }]
+
+[[scenario]]
+name = "dep_binding_order_swap_distinct"
+repo = "dep"
+class = "other"
+# 서로 다른 이름 두 줄의 순서만 바꾼다
+edits = [{ op = "write", path = "dep/moved.py", text = "from dep.alt import thing as other\nfrom dep.core import thing\n" }]
+update = [{ cmd = "file", path = "dep/moved.py" }]
+
+[[scenario]]
+name = "xr_dep_grandbase_gains_method"
+repo = "xarray"
+class = "other"
+# NetCDF4DataStore -> WritableCFDataStore -> AbstractWritableDataStore -> AbstractDataStore
+setup = [{ op = "replace", path = "xarray/backends/netCDF4_.py", old = "    def sync(self):\n", new = "    def sync(self):\n        self._stage5_gp()\n" }]
+edits = [{ op = "add_method", path = "xarray/backends/common.py", class = "AbstractDataStore", text = "def _stage5_gp(self):\n    return None\n" }]
+update = [{ cmd = "file", path = "xarray/backends/common.py" }]
+
+[[scenario]]
+name = "xr_dep_class_member_lost"
+repo = "xarray"
+class = "big"
+target_ms = 1000
+# Dataset._construct_direct: datatree.py, dataarray.py에서 Class.attr로 부른다
+edits = [{ op = "remove_def", path = "xarray/core/dataset.py", name = "Dataset._construct_direct" }]
+update = [{ cmd = "file", path = "xarray/core/dataset.py" }]
+
+[[scenario]]
+name = "xr_dep_shared_reexport_middle"
+repo = "xarray"
+class = "hub"
+target_ms = 1000
+# xr.Dataset(테스트 수천 곳)의 사슬 중간을 바꾼다: __init__ -> dataarray(-> dataset)
+edits = [{ op = "replace", path = "xarray/__init__.py", old = "from xarray.core.dataset import Dataset\n", new = "from xarray.core.dataarray import Dataset\n" }]
+update = [{ cmd = "file", path = "xarray/__init__.py" }]
+
+[[scenario]]
+name = "xr_dep_delete_two_spellings"
+repo = "xarray"
+class = "other"
+# `from xarray.core import formatting_html`과 `from xarray.core.formatting_html import ...`
+edits = [{ op = "remove", path = "xarray/core/formatting_html.py" }]
+update = [{ cmd = "delete", file_id = "xarray/core/formatting_html.py" }]
+
+[[scenario]]
+name = "xr_dep_binding_order_swap"
+repo = "xarray"
+class = "hub"
+target_ms = 1000
+edits = [{ op = "replace", path = "xarray/__init__.py", old = "from xarray.core.dataarray import DataArray\nfrom xarray.core.dataset import Dataset\n", new = "from xarray.core.dataset import Dataset\nfrom xarray.core.dataarray import DataArray\n" }]
+update = [{ cmd = "file", path = "xarray/__init__.py" }]
