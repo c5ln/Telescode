@@ -1,15 +1,18 @@
 // Tutorial mode's floating card over the map: the current step's explanation
-// and playback controls, or, before a tutorial exists, its generation.
+// and playback controls, or, before a tutorial exists, its generation. A quiz
+// on the step takes the card's place until the user goes back to the tutorial.
 
 import type { KeyboardEvent } from 'react'
 
+import type { Quiz } from '../app/useQuiz'
 import type { SetupPhase, Tutorial } from '../app/useTutorial'
 import { formatEvidenceValue } from '../tour/model'
 import { stepDurationMs } from '../tour/tutorial'
 import { Button } from '../ui/Button'
-import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, PauseIcon, PlayIcon } from '../ui/icons'
+import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, PauseIcon, PlayIcon, QuizIcon } from '../ui/icons'
 import { IconButton } from '../ui/IconButton'
 import { Spinner } from '../ui/Spinner'
+import { QuizCard } from './QuizCard'
 import styles from './TutorialPanel.module.css'
 
 const SETUP_TITLES: Record<SetupPhase, (repository: string) => string> = {
@@ -27,15 +30,26 @@ function installCommand(): string {
 
 interface TutorialPanelProps {
   tutorial: Tutorial
+  quiz: Quiz
   repositoryName: string
 }
 
-export function TutorialPanel({ tutorial, repositoryName }: TutorialPanelProps) {
+export function TutorialPanel({ tutorial, quiz, repositoryName }: TutorialPanelProps) {
   const { state } = tutorial
   if (state.status === 'off') return null
 
+  if (state.status === 'playing' && quiz.state.status !== 'off') {
+    const stop = state.tour.plan.stops[quiz.state.at.stopIndex]
+    return <QuizCard quiz={quiz} stepTitle={stop?.title || quiz.state.at.nodeId} />
+  }
+
+  const exit = () => {
+    quiz.close()
+    tutorial.exit()
+  }
+
   const onKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') tutorial.exit()
+    if (e.key === 'Escape') exit()
     else if (state.status !== 'playing') return
     else if (e.key === 'ArrowLeft') tutorial.goTo(state.index - 1)
     else if (e.key === 'ArrowRight') tutorial.goTo(state.index + 1)
@@ -44,7 +58,7 @@ export function TutorialPanel({ tutorial, repositoryName }: TutorialPanelProps) 
   }
 
   const close = (
-    <IconButton label="Exit tutorial" tooltip="top" tooltipAlign="end" onClick={tutorial.exit}>
+    <IconButton label="Exit tutorial" tooltip="top" tooltipAlign="end" onClick={exit}>
       <CloseIcon />
     </IconButton>
   )
@@ -109,10 +123,18 @@ export function TutorialPanel({ tutorial, repositoryName }: TutorialPanelProps) 
   const { plan } = state.tour
   const stop = plan.stops[state.index]!
   const last = plan.stops.length - 1
+  const startQuiz = () => {
+    // The step stays put while the user answers.
+    if (state.playing && !state.finished) tutorial.togglePlaying()
+    quiz.open(state.tour, state.index)
+  }
   return (
     <section className={styles.panel} aria-label="Tutorial" onKeyDown={onKeyDown}>
       <header className={styles.header}>
         <p className={styles.eyebrow}>Tutorial</p>
+        <IconButton label="Quiz on this step" tooltip="top" onClick={startQuiz}>
+          <QuizIcon />
+        </IconButton>
         {close}
       </header>
       <div aria-live="polite">

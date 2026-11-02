@@ -2,12 +2,18 @@ import { createHash, randomUUID } from 'node:crypto'
 import { readFile, readdir, mkdir, writeFile, rename, stat } from 'node:fs/promises'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import { resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
 import type { AnalysisSnapshot } from '../../frontend/src/bridge/models.ts'
 import { parseAnalysis, parseGraph } from '../../frontend/src/bridge/parse.ts'
 import { makeStops, type StopInput, type TourPlan } from '../../frontend/src/tour/model.ts'
 
-export interface Project { id: string; snapshot: AnalysisSnapshot; hash: string }
+export interface Project {
+  id: string
+  snapshot: AnalysisSnapshot
+  hash: string
+  /** Where the analyzed source is, for quiz excerpts; absent for snapshots without one. */
+  sourceRoot?: string
+}
 export interface Draft {
   plan: TourPlan
   project: Project
@@ -60,12 +66,12 @@ export class TourStore {
     }))
     return tours.flat()
   }
-  async open(path: string, headless?: string) {
+  async open(path: string, headless?: string, sourceRoot?: string) {
     const absolute = resolve(path)
     const raw = absolute.toLowerCase().endsWith('.json') ? await readFile(absolute, 'utf8')
       : (await promisify(execFile)(headless ?? process.env.TELESCODE_HEADLESS ?? 'TelescodeHeadless', ['analyze', absolute], { maxBuffer: 128 * 1024 * 1024 })).stdout
     const snapshot = 'readingSequence' in JSON.parse(raw) ? parseAnalysis(raw) : { ...parseGraph(raw), readingSequence: [] }
-    const project = { id: randomUUID(), snapshot, hash: createHash('sha256').update(JSON.stringify(snapshot)).digest('hex') }
+    const project: Project = { id: randomUUID(), snapshot, hash: createHash('sha256').update(JSON.stringify(snapshot)).digest('hex'), sourceRoot: sourceRoot ? resolve(sourceRoot) : await recordedSource(absolute) }
     this.projects.set(project.id, project)
     return project
   }
@@ -122,4 +128,17 @@ export class TourStore {
     if (draft.state !== 'approved' || draft.approvedRevision !== revision || draft.plan.revision !== revision) throw new Error('User approval required for this exact revision; open the review URL')
     if (draft.plan.snapshotHash !== draft.project.hash) throw new Error('Snapshot changed')
   }
+}
+
+/**
+ * The source folder the desktop shell recorded beside a database
+ * (`<db>.source`), else a downloaded repository's `source` folder beside it.
+ */
+async function recordedSource(db: string): Promise<string | undefined> {
+  const recorded = (await readFile(`${db}.source`, 'utf8').catch(() => '')).trim()
+  const candidates = [recorded, resolve(dirname(db), 'source')].filter(Boolean)
+  for (const dir of candidates) {
+    if (await stat(dir).then(s => s.isDirectory(), () => false)) return dir
+  }
+  return undefined
 }

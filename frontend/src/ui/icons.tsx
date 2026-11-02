@@ -87,3 +87,11 @@ export const CloseIcon = (p: IconProps) => (
     <path d="m4 4 8 8M12 4l-8 8" />
   </Icon>
 )
+
+export const QuizIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="8" cy="8" r="5.75" />
+    <path d="M6.25 6.5a1.75 1.75 0 1 1 2.5 1.6c-.5.23-.75.6-.75 1.15v.25" />
+    <path d="M8 11.5h.01" />
+  </Icon>
+)
