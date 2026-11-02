@@ -287,7 +287,23 @@ fn scan(sidecar: &Path, source: &Path, db: &Path, name: &str) -> Result<(), Brid
         });
     }
     bridge::run_sidecar(sidecar, &[OsStr::new("algo"), db.as_os_str()])?;
-    Ok(())
+    record_source(db, source)
+}
+
+/// `<db>.source`: where the scanned source is, for the Telescode MCP server
+/// to read code excerpts from when it writes quizzes. The database itself
+/// keeps only paths relative to it.
+pub fn source_record(db: &Path) -> PathBuf {
+    let mut path = db.as_os_str().to_owned();
+    path.push(".source");
+    PathBuf::from(path)
+}
+
+fn record_source(db: &Path, source: &Path) -> Result<(), BridgeError> {
+    let source = std::path::absolute(source).unwrap_or_else(|_| source.to_path_buf());
+    fs::write(source_record(db), source.to_string_lossy().as_bytes()).map_err(|e| BridgeError::Internal {
+        message: format!("Could not record the source folder of {}: {e}", db.display()),
+    })
 }
 
 /// One lock per cache directory, so two opens of the same repository never
@@ -446,6 +462,17 @@ pub async fn open_repository(app: tauri::AppHandle, url: String) -> Result<Strin
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn records_the_source_folder_beside_the_database() {
+        let dir = std::env::temp_dir().join(format!("telescode-source-record-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let db = dir.join("repo.db");
+        record_source(&db, &dir.join("source")).unwrap();
+        assert_eq!(source_record(&db), dir.join("repo.db.source"));
+        assert_eq!(fs::read_to_string(source_record(&db)).unwrap(), dir.join("source").to_string_lossy());
+        let _ = fs::remove_dir_all(&dir);
+    }
 
     fn repo(owner: &str, name: &str) -> RepositoryRef {
         RepositoryRef { owner: owner.into(), name: name.into() }
