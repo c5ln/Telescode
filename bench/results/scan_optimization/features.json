@@ -1,0 +1,12 @@
+{
+  "pytest": {
+    "equal": true,
+    "rows": 271,
+    "columns": 24
+  },
+  "xarray": {
+    "equal": true,
+    "rows": 241,
+    "columns": 24
+  }
+}

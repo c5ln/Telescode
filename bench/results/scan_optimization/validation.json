@@ -1,0 +1,60 @@
+{
+  "date": "2026-11-02",
+  "baseline_commit": "797601d",
+  "baseline_md5": "f1cd721f6f8b5d515566fb1cb99d8f49",
+  "optimized_md5": "6331bfe3afc159a21cd2b7f44e11b5f4",
+  "build_type": "Release",
+  "update_scenarios": 50,
+  "all_update_scenarios_equal": true,
+  "fresh_scan_comparison": {
+    "fixtures": {
+      "equal": true,
+      "ref_order_same": true,
+      "files": 27
+    },
+    "sherlock": {
+      "equal": true,
+      "ref_order_same": true,
+      "files": 16
+    },
+    "pytest": {
+      "equal": true,
+      "ref_order_same": true,
+      "files": 271
+    },
+    "xarray": {
+      "equal": true,
+      "ref_order_same": true,
+      "files": 241
+    },
+    "root": {
+      "equal": true,
+      "ref_order_same": true,
+      "files": 4659
+    }
+  },
+  "comparison_exclusions": [
+    "schema (intentional version 8 changes)",
+    "user_version",
+    "reading_sequence_config.last_computed_at"
+  ],
+  "cpp_test_targets": 6,
+  "cpp_test_result": "all passed (ctest --test-dir build -E LayoutTests --output-on-failure)",
+  "cpp_tests_passed": 363,
+  "source_sha256": {
+    "src/db/DbUpdater.cpp": "0e7917fc8f75b4505c6c0bf206e1d1cbeb818b49e4e6c2c8a62ed55313dd7863",
+    "src/db/DbInserter.cpp": "a9ebe741199bb3db753ff1c90ab1d7d8b219b941eb323af32d6a6f8625941002",
+    "src/db/db.cpp": "374db056228180c1470729e51137d38c39a8279a2ba75f8868283641ae5463b3",
+    "src/db/DbInserter.h": "fa4f2b86ef0e34e315efe972c87c201c8fee98373f4ff58676aa764c19a02ac2",
+    "src/db/db.h": "524d04594050af721ffe9e308d60cbf69abdd9e71515627ece8df2d19a91de3d",
+    "src/db/DbUpdater.h": "4c6ffe81bcd4c736e300027bf1c03f6f93c451647c88c04ee9faba2907384b1d",
+    "src/resolve/Resolver.cpp": "5ad6361d7d87a48b9f0727e47b08088f9dc6dc72090c0ba82361cda6180f9720",
+    "src/resolve/Resolver.h": "9d93fe2fed39cc1f34da0b805a1d93283f7777886246fe29603271d867b200f9",
+    "src/parser/ParseResult.h": "3c1620af75cb90edc45d2afe91a10ba75ae4edcc7fc4ed68d2316660871919f9"
+  },
+  "bench_tests_passed": 235,
+  "bench_features_exactly_equal": [
+    "pytest",
+    "xarray"
+  ]
+}

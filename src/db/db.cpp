@@ -23,8 +23,12 @@ static const char* kPragmaSQL =
     // symbol/binding/ref inserts run ~1.7x slower.
     "PRAGMA cache_size = -65536;";
 
-// Only ever run on an empty database (createSchema).
-static const char* kSchemaSQL =
+// Only ever run on an empty database (createSchema). The tables only: their
+// secondary indexes are kIndexSQL, which a scan builds once the rows are in.
+// A CHECK lists its values with OR, not IN: SQLite builds an IN list of more
+// than two values into a temporary b-tree for every row it checks, which was a
+// third of the cost of an insert.
+static const char* kTableSQL =
     "CREATE TABLE IF NOT EXISTS file ("
     "    file_id                   TEXT PRIMARY KEY,"
     "    file_name                 TEXT NOT NULL,"
@@ -48,16 +52,15 @@ static const char* kSchemaSQL =
     "    class_name TEXT NOT NULL,"
     "    start_line INTEGER NOT NULL,"
     "    end_line   INTEGER NOT NULL,"
-    "    UNIQUE(file_id, class_name)"
+    "    UNIQUE(file_id, class_name)"   // also the index of class by file
     ");"
-    "CREATE INDEX IF NOT EXISTS idx_class_file ON class(file_id);"
 
     "CREATE TABLE IF NOT EXISTS base_class ("
     "    class_id        TEXT NOT NULL REFERENCES class(class_id) ON DELETE CASCADE,"
     "    base_class_name TEXT NOT NULL,"
     "    ordinal         INTEGER NOT NULL,"
     "    PRIMARY KEY (class_id, ordinal)"
-    ");"
+    ") WITHOUT ROWID;"
 
     "CREATE TABLE IF NOT EXISTS function ("
     "    function_id            TEXT PRIMARY KEY,"
@@ -73,26 +76,25 @@ static const char* kSchemaSQL =
     "    end_line               INTEGER NOT NULL,"
     "    CHECK ((file_id IS NULL) <> (class_id IS NULL))"
     ");"
-    "CREATE INDEX IF NOT EXISTS idx_function_file ON function(file_id) WHERE file_id IS NOT NULL;"
-    "CREATE INDEX IF NOT EXISTS idx_function_class ON function(class_id) WHERE class_id IS NOT NULL;"
 
     "CREATE TABLE IF NOT EXISTS param ("
     "    function_id TEXT NOT NULL REFERENCES function(function_id) ON DELETE CASCADE,"
     "    param_name  TEXT NOT NULL,"
     "    ordinal     INTEGER NOT NULL,"
     "    PRIMARY KEY (function_id, ordinal)"
-    ");"
+    ") WITHOUT ROWID;"
 
     "CREATE TABLE IF NOT EXISTS field ("
     "    class_id   TEXT NOT NULL REFERENCES class(class_id) ON DELETE CASCADE,"
     "    field_name TEXT NOT NULL,"
     "    access     TEXT NOT NULL DEFAULT '+',"
     "    PRIMARY KEY (class_id, field_name)"
-    ");"
+    ") WITHOUT ROWID;"
 
     "CREATE TABLE IF NOT EXISTS reading_sequence ("
     "    entity_id      TEXT PRIMARY KEY,"
-    "    entity_type    TEXT NOT NULL CHECK(entity_type IN ('file', 'class', 'function')),"
+    "    entity_type    TEXT NOT NULL"
+    "                   CHECK(entity_type = 'file' OR entity_type = 'class' OR entity_type = 'function'),"
     "    file_id        TEXT NOT NULL REFERENCES file(file_id) ON DELETE CASCADE,"
     "    file_rank      INTEGER,"
     "    local_rank     INTEGER,"
@@ -104,8 +106,6 @@ static const char* kSchemaSQL =
     "        (entity_type != 'file' AND local_rank IS NOT NULL AND file_rank  IS NULL)"
     "    )"
     ");"
-    "CREATE INDEX IF NOT EXISTS idx_rs_file      ON reading_sequence(file_id);"
-    "CREATE INDEX IF NOT EXISTS idx_rs_file_rank ON reading_sequence(file_rank);"
 
     "CREATE TABLE IF NOT EXISTS reading_sequence_config ("
     "    config_key   TEXT PRIMARY KEY,"
@@ -124,51 +124,56 @@ static const char* kSchemaSQL =
     "    symbol_id   TEXT PRIMARY KEY,"
     "    file_id     TEXT NOT NULL REFERENCES file(file_id) ON DELETE CASCADE,"
     "    parent_id   TEXT,"
-    "    kind        TEXT NOT NULL CHECK(kind IN ('class', 'interface', 'struct', 'trait', 'enum',"
-    "                                           'function', 'method', 'field', 'variable',"
-    "                                           'type_alias', 'namespace')),"
+    "    kind        TEXT NOT NULL CHECK(kind = 'class' OR kind = 'interface' OR kind = 'struct' OR"
+    "                                    kind = 'trait' OR kind = 'enum' OR kind = 'function' OR"
+    "                                    kind = 'method' OR kind = 'field' OR kind = 'variable' OR"
+    "                                    kind = 'type_alias' OR kind = 'namespace'),"
     "    name        TEXT NOT NULL,"
-    "    namespace   TEXT NOT NULL DEFAULT 'value' CHECK(namespace IN ('value', 'type')),"
+    "    namespace   TEXT NOT NULL DEFAULT 'value' CHECK(namespace = 'value' OR namespace = 'type'),"
     "    is_exported INTEGER NOT NULL DEFAULT 1,"
     "    signature   TEXT,"
     "    start_line  INTEGER NOT NULL,"
     "    end_line    INTEGER NOT NULL"
     ");"
-    "CREATE INDEX IF NOT EXISTS idx_symbol_file   ON symbol(file_id);"
-    "CREATE INDEX IF NOT EXISTS idx_symbol_parent ON symbol(parent_id, name);"
 
     // Lexical scopes. The file scope's id is the file_id; a class or function
-    // scope's id is its symbol id, which is also owner_id.
+    // scope's id is its symbol id, which is also owner_id. A scope id starts
+    // with its file_id, so (file_id, scope_id) is as unique as scope_id, and
+    // as the key it is also the index of a file's scopes.
     "CREATE TABLE IF NOT EXISTS scope ("
-    "    scope_id        TEXT PRIMARY KEY,"
+    "    scope_id        TEXT NOT NULL,"
     "    file_id         TEXT NOT NULL REFERENCES file(file_id) ON DELETE CASCADE,"
     "    parent_scope_id TEXT,"
-    "    kind            TEXT NOT NULL CHECK(kind IN ('file', 'namespace', 'class', 'function', 'block')),"
+    "    kind            TEXT NOT NULL CHECK(kind = 'file' OR kind = 'namespace' OR kind = 'class' OR"
+    "                                    kind = 'function' OR kind = 'block'),"
     "    owner_id        TEXT,"
     "    start_line      INTEGER NOT NULL,"
-    "    end_line        INTEGER NOT NULL"
-    ");"
-    "CREATE INDEX IF NOT EXISTS idx_scope_file ON scope(file_id);"
+    "    end_line        INTEGER NOT NULL,"
+    "    PRIMARY KEY (file_id, scope_id)"
+    ") WITHOUT ROWID;"
 
     // What a name means inside one scope. target_id is the defining symbol for
     // `def`, NULL for a local with no symbol row (parameters, function locals).
     // A name bound more than once in a scope has one row per line; choosing
     // among them is the resolver's job. is_exported: as symbol.is_exported, for
     // module-level bindings -- what a wildcard import of the module sees.
+    // file_id leads the key as in scope: the same rows are unique, and a
+    // file's bindings are one range of it.
     "CREATE TABLE IF NOT EXISTS binding ("
     "    scope_id      TEXT NOT NULL,"
     "    local_name    TEXT NOT NULL,"
-    "    namespace     TEXT NOT NULL DEFAULT 'value' CHECK(namespace IN ('value', 'type')),"
-    "    kind          TEXT NOT NULL CHECK(kind IN ('def', 'import_module', 'import_symbol', 'import_all', 'reexport')),"
+    "    namespace     TEXT NOT NULL DEFAULT 'value' CHECK(namespace = 'value' OR namespace = 'type'),"
+    "    kind          TEXT NOT NULL CHECK(kind = 'def' OR kind = 'import_module' OR"
+    "                                      kind = 'import_symbol' OR kind = 'import_all' OR"
+    "                                      kind = 'reexport'),"
     "    file_id       TEXT NOT NULL REFERENCES file(file_id) ON DELETE CASCADE,"
     "    target_id     TEXT,"
     "    module_spec   TEXT,"
     "    imported_name TEXT,"
     "    line          INTEGER NOT NULL,"
     "    is_exported   INTEGER NOT NULL DEFAULT 1,"
-    "    PRIMARY KEY (scope_id, namespace, local_name, line)"
-    ");"
-    "CREATE INDEX IF NOT EXISTS idx_binding_file ON binding(file_id);"
+    "    PRIMARY KEY (file_id, scope_id, namespace, local_name, line)"
+    ") WITHOUT ROWID;"
 
     // module_spec as written in file_id -> the project file it names. One row
     // per spec any import statement of the file names, whatever it binds:
@@ -181,7 +186,6 @@ static const char* kSchemaSQL =
     "    status           TEXT NOT NULL DEFAULT 'pending',"
     "    PRIMARY KEY (file_id, module_spec)"
     ");"
-    "CREATE INDEX IF NOT EXISTS idx_import_resolution_target ON import_resolution(resolved_file_id);"
 
     // An unresolved use of a name. resolved_id has no FK: it may point into a
     // file that is re-scanned later, and the resolver re-checks it then.
@@ -189,30 +193,29 @@ static const char* kSchemaSQL =
     // resolved to a project symbol of the kind its link type takes -- and only
     // on the first such ref (lowest ref_id) of each link, so the view needs no
     // DISTINCT. Written by the resolver; idx_ref_link indexes these refs.
+    // (source_id, kind, name_path, line) is unique -- the same callee twice on
+    // one line is one ref -- which DbInserter and the resolver keep to rather
+    // than an index: nothing looks a ref up by it.
     "CREATE TABLE IF NOT EXISTS ref ("
     "    ref_id      INTEGER PRIMARY KEY,"
     "    file_id     TEXT NOT NULL REFERENCES file(file_id) ON DELETE CASCADE,"
     "    source_id   TEXT NOT NULL,"
     "    scope_id    TEXT NOT NULL,"
-    "    kind        TEXT NOT NULL CHECK(kind IN ('CALLS', 'INHERITS', 'IMPLEMENTS', 'DECORATES')),"
+    "    kind        TEXT NOT NULL CHECK(kind = 'CALLS' OR kind = 'INHERITS' OR kind = 'IMPLEMENTS' OR"
+    "                                    kind = 'DECORATES'),"
     "    subkind     TEXT,"
-    "    namespace   TEXT NOT NULL DEFAULT 'value' CHECK(namespace IN ('value', 'type')),"
+    "    namespace   TEXT NOT NULL DEFAULT 'value' CHECK(namespace = 'value' OR namespace = 'type'),"
     "    name_path   TEXT NOT NULL,"
     "    raw_text    TEXT NOT NULL,"
     "    line        INTEGER NOT NULL,"
     "    resolved_id TEXT,"
     "    status      TEXT NOT NULL DEFAULT 'pending'"
-    "                CHECK(status IN ('pending', 'resolved', 'builtin', 'external', 'unresolved')),"
-    "    confidence  TEXT CHECK(confidence IN ('exact', 'heuristic')),"
+    "                CHECK(status = 'pending' OR status = 'resolved' OR status = 'builtin' OR"
+    "                      status = 'external' OR status = 'unresolved'),"
+    "    confidence  TEXT CHECK(confidence = 'exact' OR confidence = 'heuristic'),"
     "    resolver    TEXT,"
-    "    emits_link  INTEGER NOT NULL DEFAULT 0,"
-    "    UNIQUE(source_id, kind, name_path, line)"
+    "    emits_link  INTEGER NOT NULL DEFAULT 0"
     ");"
-    "CREATE INDEX IF NOT EXISTS idx_ref_file     ON ref(file_id);"
-    "CREATE INDEX IF NOT EXISTS idx_ref_status   ON ref(status);"
-    "CREATE INDEX IF NOT EXISTS idx_ref_resolved ON ref(resolved_id);"
-    "CREATE INDEX IF NOT EXISTS idx_ref_link     ON ref(kind, ref_id, source_id, resolved_id)"
-    "    WHERE emits_link = 1;"
 
     // What each ref's answer was decided on (Resolver.h), so that an update
     // re-resolves only the refs whose facts it changed. fact.key is the
@@ -229,12 +232,35 @@ static const char* kSchemaSQL =
     "    child_id  INTEGER NOT NULL,"
     "    PRIMARY KEY (parent_id, child_id)"
     ") WITHOUT ROWID;"
-    "CREATE INDEX IF NOT EXISTS idx_fact_edge_child ON fact_edge(child_id);"
     "CREATE TABLE IF NOT EXISTS ref_dep ("
     "    fact_id INTEGER NOT NULL,"
     "    ref_id  INTEGER NOT NULL REFERENCES ref(ref_id) ON DELETE CASCADE,"
     "    PRIMARY KEY (fact_id, ref_id)"
-    ") WITHOUT ROWID;"
+    ") WITHOUT ROWID;";
+
+// Every index that is not a table's own key: what reads each, and the
+// cascades of a file's delete (DbUpdater), which look a file's rows up by
+// file_id. Created with the tables for any database but a scan's, which
+// builds them after the bulk insert (createIndexes): sorting the rows once
+// is much cheaper than inserting each into every index, and leaves the
+// indexes packed.
+static const char* kIndexSQL =
+    "CREATE INDEX IF NOT EXISTS idx_function_file ON function(file_id) WHERE file_id IS NOT NULL;"
+    "CREATE INDEX IF NOT EXISTS idx_function_class ON function(class_id) WHERE class_id IS NOT NULL;"
+    "CREATE INDEX IF NOT EXISTS idx_rs_file      ON reading_sequence(file_id);"
+    "CREATE INDEX IF NOT EXISTS idx_rs_file_rank ON reading_sequence(file_rank);"
+    "CREATE INDEX IF NOT EXISTS idx_symbol_file  ON symbol(file_id);"
+    // DbUpdater::findImportingFiles
+    "CREATE INDEX IF NOT EXISTS idx_import_resolution_target ON import_resolution(resolved_file_id);"
+    // A file's refs: the resolver's per-file reads, and the cascade.
+    "CREATE INDEX IF NOT EXISTS idx_ref_file     ON ref(file_id);"
+    // The INHERITS refs of a class (addClassBases) and into a file's classes
+    // (Resolver::beginChange), the only lookups by source or target.
+    "CREATE INDEX IF NOT EXISTS idx_ref_inherits_source ON ref(source_id) WHERE kind = 'INHERITS';"
+    "CREATE INDEX IF NOT EXISTS idx_ref_inherits_target ON ref(resolved_id) WHERE kind = 'INHERITS';"
+    "CREATE INDEX IF NOT EXISTS idx_ref_link     ON ref(kind, ref_id, source_id, resolved_id)"
+    "    WHERE emits_link = 1;"
+    "CREATE INDEX IF NOT EXISTS idx_fact_edge_child ON fact_edge(child_id);"
     "CREATE INDEX IF NOT EXISTS idx_ref_dep_ref ON ref_dep(ref_id);";
 
 // `link`: every CALLS / INHERITS / DECORATES / IMPORTS edge, derived from the
@@ -263,17 +289,52 @@ static const char* kLinkViewSQL =
     "  SELECT DISTINCT file_id, resolved_file_id, 'IMPORTS' FROM import_resolution"
     "   WHERE status = 'resolved';";
 
-int createSchema(sqlite3* db)
+namespace {
+
+int execReporting(sqlite3* db, const char* who, const std::string& sql)
 {
-    const std::string sql = std::string(kSchemaSQL) + kLinkViewSQL +
-                            "PRAGMA user_version = " + std::to_string(kDbVersion) + ";";
     char* errMsg = nullptr;
     const int rc = sqlite3_exec(db, sql.c_str(), nullptr, nullptr, &errMsg);
     if (rc != SQLITE_OK) {
-        std::fprintf(stderr, "createSchema: %s\n", errMsg);
+        std::fprintf(stderr, "%s: %s\n", who, errMsg ? errMsg : sqlite3_errstr(rc));
         sqlite3_free(errMsg);
     }
     return rc;
+}
+
+}  // namespace
+
+int createSchema(sqlite3* db, bool indexes)
+{
+    return execReporting(db, "createSchema",
+                         std::string(kTableSQL) + (indexes ? kIndexSQL : "") + kLinkViewSQL +
+                         "PRAGMA user_version = " + std::to_string(kDbVersion) + ";");
+}
+
+int createIndexes(sqlite3* db)
+{
+    return execReporting(db, "createIndexes", kIndexSQL);
+}
+
+int dropIndexes(sqlite3* db)
+{
+    // The indexes kIndexSQL creates: every one with SQL of its own, which a
+    // key's index (sqlite_autoindex_*) has not.
+    std::string sql;
+    sqlite3_stmt* stmt = nullptr;
+    int rc = sqlite3_prepare_v2(db,
+        "SELECT name FROM sqlite_master WHERE type = 'index' AND sql IS NOT NULL;",
+        -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) return rc;
+    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        std::string name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        std::string quoted;
+        for (char c : name) quoted += c == '"' ? std::string("\"\"") : std::string(1, c);
+        sql += "DROP INDEX \"" + quoted + "\";";
+    }
+    sqlite3_finalize(stmt);
+    if (rc != SQLITE_DONE) return rc;
+    return execReporting(db, "dropIndexes", sql);
 }
 
 namespace {

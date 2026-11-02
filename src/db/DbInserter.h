@@ -20,9 +20,12 @@ public:
                          const LanguageRegistry& languages = LanguageRegistry::builtin());
 
     // Insert results into an already-open db without managing the transaction.
-    // Caller is responsible for BEGIN/COMMIT/ROLLBACK.
+    // Caller is responsible for BEGIN/COMMIT/ROLLBACK. The refs, one per
+    // refKey, unless `refs` is false (a scan: Resolver::resolveScan inserts
+    // them with their answers).
     static int insertResults(sqlite3* db,
-                             const std::vector<ParseResult>& results);
+                             const std::vector<ParseResult>& results,
+                             bool refs = true);
 
 private:
     explicit DbInserter(sqlite3* db);

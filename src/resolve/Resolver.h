@@ -1,6 +1,7 @@
 #pragma once
 
 #include "lang/LanguageRegistry.h"
+#include "parser/ParseResult.h"
 
 #include <map>
 #include <set>
@@ -96,6 +97,14 @@ public:
     // BEGIN/COMMIT/ROLLBACK.
     static int resolveAll(sqlite3* db, Stats* stats = nullptr,
                           const LanguageRegistry& languages = LanguageRegistry::builtin());
+
+    // resolveAll for a scan, whose refs are not in the database yet: `ref` is
+    // empty, every other row of `results` is in. Each ref goes in once, with
+    // its answer, as DbInserter would have inserted it (one per refKey, ids
+    // from 1 in order) and resolveAll answered it.
+    static int resolveScan(sqlite3* db, const std::vector<ParseResult>& results,
+                           Stats* stats = nullptr,
+                           const LanguageRegistry& languages = LanguageRegistry::builtin());
 
     // An update in two calls, in the caller's transaction: beginChange before
     // the rows of `files` (every file the update deletes, re-parses or adds)

@@ -2,6 +2,12 @@
 #include "db.h"
 #include <sqlite3.h>
 
+#include <algorithm>
+#include <string>
+#include <tuple>
+#include <unordered_set>
+#include <vector>
+
 // ── Constructor / Destructor ──────────────────────────────────────────────────
 
 DbInserter::DbInserter(sqlite3* db)
@@ -75,9 +81,9 @@ int DbInserter::prepareStatements()
         -1, &stmtBinding_, nullptr);
     if (rc != SQLITE_OK) return rc;
 
-    // OR IGNORE: the same callee twice on one line is one ref (UNIQUE key).
+    // One per refKey: insertResults skips the rest.
     rc = sqlite3_prepare_v2(db_,
-        "INSERT OR IGNORE INTO ref(file_id, source_id, scope_id, kind, namespace, name_path, raw_text, line) VALUES(?,?,?,?,?,?,?,?);",
+        "INSERT INTO ref(file_id, source_id, scope_id, kind, namespace, name_path, raw_text, line) VALUES(?,?,?,?,?,?,?,?);",
         -1, &stmtRef_, nullptr);
     if (rc != SQLITE_OK) return rc;
 
@@ -276,14 +282,37 @@ int DbInserter::insertImportSpec(const std::string& fileId, const std::string& s
 
 // ── insertResults ─────────────────────────────────────────────────────────────
 
+namespace {
+
+// `rows`, stably sorted by `less`: the order to insert them into a WITHOUT
+// ROWID table in. Appending in key order leaves its pages full; inserting in
+// any other order leaves them a third empty. Stable, so that of two rows with
+// the same key the later still replaces the earlier (INSERT OR REPLACE).
+template <typename T, typename Less>
+std::vector<const T*> inKeyOrder(const std::vector<T>& rows, Less less)
+{
+    std::vector<const T*> out;
+    out.reserve(rows.size());
+    for (const T& r : rows) out.push_back(&r);
+    std::stable_sort(out.begin(), out.end(), [&](const T* a, const T* b) { return less(*a, *b); });
+    return out;
+}
+
+}  // namespace
+
 int DbInserter::insertResults(sqlite3* db,
-                               const std::vector<ParseResult>& results)
+                               const std::vector<ParseResult>& results,
+                               bool refs)
 {
     DbInserter inserter(db);
     int rc = inserter.prepareStatements();
     if (rc != SQLITE_OK) return rc;
     // ~DbInserter() finalizes statements on any return path
 
+    // The rowid tables, file by file in the order given -- which is the order
+    // of their rowids, and of ref_id, that readers see -- each file's parents
+    // before their children.
+    std::unordered_set<std::string> seenRefs;
     for (const ParseResult& r : results) {
         rc = inserter.insertFile(r.file);
         if (rc != SQLITE_OK) return rc;
@@ -293,23 +322,8 @@ int DbInserter::insertResults(sqlite3* db,
             if (rc != SQLITE_OK) return rc;
         }
 
-        for (const BaseClassEntity& b : r.base_classes) {
-            rc = inserter.insertBaseClass(b);
-            if (rc != SQLITE_OK) return rc;
-        }
-
         for (const FunctionEntity& f : r.functions) {
             rc = inserter.insertFunction(f);
-            if (rc != SQLITE_OK) return rc;
-        }
-
-        for (const ParamEntity& p : r.params) {
-            rc = inserter.insertParam(p);
-            if (rc != SQLITE_OK) return rc;
-        }
-
-        for (const FieldEntity& f : r.fields) {
-            rc = inserter.insertField(f);
             if (rc != SQLITE_OK) return rc;
         }
 
@@ -318,19 +332,12 @@ int DbInserter::insertResults(sqlite3* db,
             if (rc != SQLITE_OK) return rc;
         }
 
-        for (const ScopeEntity& s : r.scopes) {
-            rc = inserter.insertScope(s);
-            if (rc != SQLITE_OK) return rc;
-        }
-
-        for (const BindingEntity& b : r.bindings) {
-            rc = inserter.insertBinding(b);
-            if (rc != SQLITE_OK) return rc;
-        }
-
-        for (const RefEntity& ref : r.refs) {
-            rc = inserter.insertRef(ref);
-            if (rc != SQLITE_OK) return rc;
+        if (refs) {
+            for (const RefEntity& ref : r.refs) {
+                if (!seenRefs.insert(refKey(ref)).second) continue;
+                rc = inserter.insertRef(ref);
+                if (rc != SQLITE_OK) return rc;
+            }
         }
 
         for (const std::string& spec : r.import_specs) {
@@ -339,10 +346,76 @@ int DbInserter::insertResults(sqlite3* db,
         }
     }
 
+    // The WITHOUT ROWID tables, whose rows have no order but their key's: in
+    // key order, as near as file by file gets -- files by file_id, each one's
+    // rows sorted. Their parents are all in by now.
+    std::vector<const ParseResult*> files;
+    files.reserve(results.size());
+    for (const ParseResult& r : results) files.push_back(&r);
+    std::stable_sort(files.begin(), files.end(), [](const ParseResult* a, const ParseResult* b) {
+        return a->file.file_id < b->file.file_id;
+    });
+    for (const ParseResult* r : files) {
+        for (const BaseClassEntity* b : inKeyOrder(r->base_classes, [](const auto& x, const auto& y) {
+                 return std::tie(x.class_id, x.ordinal) < std::tie(y.class_id, y.ordinal);
+             })) {
+            rc = inserter.insertBaseClass(*b);
+            if (rc != SQLITE_OK) return rc;
+        }
+
+        for (const ParamEntity* p : inKeyOrder(r->params, [](const auto& x, const auto& y) {
+                 return std::tie(x.function_id, x.ordinal) < std::tie(y.function_id, y.ordinal);
+             })) {
+            rc = inserter.insertParam(*p);
+            if (rc != SQLITE_OK) return rc;
+        }
+
+        for (const FieldEntity* f : inKeyOrder(r->fields, [](const auto& x, const auto& y) {
+                 return std::tie(x.class_id, x.field_name) < std::tie(y.class_id, y.field_name);
+             })) {
+            rc = inserter.insertField(*f);
+            if (rc != SQLITE_OK) return rc;
+        }
+
+        for (const ScopeEntity* sc : inKeyOrder(r->scopes, [](const auto& x, const auto& y) {
+                 return std::tie(x.file_id, x.scope_id) < std::tie(y.file_id, y.scope_id);
+             })) {
+            rc = inserter.insertScope(*sc);
+            if (rc != SQLITE_OK) return rc;
+        }
+
+        for (const BindingEntity* b : inKeyOrder(r->bindings, [](const auto& x, const auto& y) {
+                 return std::tie(x.file_id, x.scope_id, x.ns, x.local_name, x.line) <
+                        std::tie(y.file_id, y.scope_id, y.ns, y.local_name, y.line);
+             })) {
+            rc = inserter.insertBinding(*b);
+            if (rc != SQLITE_OK) return rc;
+        }
+    }
+
     return SQLITE_OK;
 }
 
 // ── insertAll ─────────────────────────────────────────────────────────────────
+
+// Every row a scan replaces: all of every table but reading_sequence_config,
+// the settings `algo` keeps.
+static int clearTables(sqlite3* db)
+{
+    std::string sql;
+    sqlite3_stmt* stmt = nullptr;
+    int rc = sqlite3_prepare_v2(db,
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
+        "   AND name <> 'reading_sequence_config';",
+        -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) return rc;
+    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW)
+        sql += std::string("DELETE FROM \"") +
+               reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)) + "\";";
+    sqlite3_finalize(stmt);
+    if (rc != SQLITE_DONE) return rc;
+    return sqlite3_exec(db, sql.c_str(), nullptr, nullptr, nullptr);
+}
 
 int DbInserter::insertAll(const char* dbPath,
                           const std::vector<ParseResult>& results,
@@ -354,24 +427,37 @@ int DbInserter::insertAll(const char* dbPath,
     int rc = openDbForScan(dbPath, &db, &empty);
     if (rc != SQLITE_OK) return rc;
 
+    // No foreign keys while the scan writes (per connection, and only
+    // outside a transaction): it empties every table itself and fills them
+    // from one parse, each file's parents before their children, so there is
+    // nothing for them to cascade -- and checking every row costs a lookup.
+    rc = sqlite3_exec(db, "PRAGMA foreign_keys = OFF;", nullptr, nullptr, nullptr);
+    if (rc != SQLITE_OK) { sqlite3_close(db); return rc; }
     rc = sqlite3_exec(db, "BEGIN;", nullptr, nullptr, nullptr);
     if (rc != SQLITE_OK) { sqlite3_close(db); return rc; }
 
     // In this transaction: a new database gets its version only together
-    // with everything below.
+    // with everything below. Either way the tables start without their
+    // secondary indexes, which are built once every row is in.
     if (empty) {
-        rc = createSchema(db);
+        rc = createSchema(db, false);
+        if (rc != SQLITE_OK) goto rollback;
+    } else {
+        rc = dropIndexes(db);
+        if (rc != SQLITE_OK) goto rollback;
+        rc = clearTables(db);
         if (rc != SQLITE_OK) goto rollback;
     }
 
-    rc = sqlite3_exec(db, "DELETE FROM file;", nullptr, nullptr, nullptr);
+    rc = insertResults(db, results, false);
     if (rc != SQLITE_OK) goto rollback;
 
-    rc = insertResults(db, results);
+    // Names across files can only be resolved once every file is in. The
+    // refs go in with their answers.
+    rc = Resolver::resolveScan(db, results, stats, languages);
     if (rc != SQLITE_OK) goto rollback;
 
-    // Names across files can only be resolved once every file is in.
-    rc = Resolver::resolveAll(db, stats, languages);
+    rc = createIndexes(db);
     if (rc != SQLITE_OK) goto rollback;
 
     rc = sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);

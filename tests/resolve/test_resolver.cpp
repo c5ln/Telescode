@@ -1142,9 +1142,11 @@ TEST(ScanAtomic, FailedResolveLeavesThePreviousDatabase)
     ResolvedDb db("atomic_fail");
     db.scan(tree.root());
     const Rows files = db.rows("SELECT file_id FROM file ORDER BY 1;");
-    // Any write to a ref's answer now fails, as a full disk would.
+    // Any write of a ref's answer now fails, as a full disk would: a scan
+    // inserts each ref with its answer (Resolver::resolveScan).
     ASSERT_EQ(sqlite3_exec(db.db(),
-        "CREATE TRIGGER no_answers BEFORE UPDATE ON ref BEGIN SELECT RAISE(ABORT, 'no'); END;",
+        "CREATE TRIGGER no_answers BEFORE INSERT ON ref BEGIN SELECT RAISE(ABORT, 'no'); END;"
+        "CREATE TRIGGER no_updates BEFORE UPDATE ON ref BEGIN SELECT RAISE(ABORT, 'no'); END;",
         nullptr, nullptr, nullptr), SQLITE_OK);
     db.close();
 

@@ -113,6 +113,22 @@ struct RefEntity {
     int line;
 };
 
+// What makes a ref one: the same callee twice on one line is one ref. The
+// first of each is kept, in order (DbInserter, Resolver::resolveScan).
+inline std::string refKey(const RefEntity& r)
+{
+    std::string k;
+    k.reserve(r.source_id.size() + r.kind.size() + r.name_path.size() + 16);
+    k += r.source_id;
+    k += '\n';
+    k += r.kind;
+    k += '\n';
+    k += r.name_path;
+    k += '\n';
+    k += std::to_string(r.line);
+    return k;
+}
+
 struct ParseResult {
     FileEntity file;
     std::vector<ClassEntity> classes;

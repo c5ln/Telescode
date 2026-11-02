@@ -1,0 +1,7270 @@
+{
+ "binary": "/tmp/claude-1000/-home-cheonsh-Telescode/7f54ce26-45e3-42c7-b4f6-27eab223d029/scratchpad/stage7/final/TelescodeHeadless",
+ "binary_md5": "6331bfe3afc159a21cd2b7f44e11b5f4",
+ "timing": true,
+ "reps": 3,
+ "inject": null,
+ "all_equal": true,
+ "scenarios": [
+  {
+   "name": "xr_body_edit",
+   "repo": "xarray",
+   "class": "ordinary",
+   "target_ms": 300,
+   "fresh_scan_ms": 1436.4,
+   "effect": {
+    "file": [
+     1,
+     1
+    ],
+    "symbol": [
+     3,
+     3
+    ],
+    "scope": [
+     4,
+     4
+    ],
+    "binding": [
+     35,
+     35
+    ],
+    "ref": [
+     25,
+     26
+    ],
+    "function": [
+     3,
+     3
+    ],
+    "reading_sequence": [
+     1,
+     1
+    ],
+    "dep_ref_dep": [
+     21,
+     21
+    ]
+   },
+   "algo_ms": 137.8,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 241
+     },
+     "symbol": {
+      "rows": 10661
+     },
+     "scope": {
+      "rows": 9282
+     },
+     "binding": {
+      "rows": 63600
+     },
+     "import_resolution": {
+      "rows": 2687
+     },
+     "ref": {
+      "rows": 50727
+     },
+     "class": {
+      "rows": 687
+     },
+     "base_class": {
+      "rows": 368
+     },
+     "function": {
+      "rows": 8354
+     },
+     "param": {
+      "rows": 16702
+     },
+     "field": {
+      "rows": 669
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 14842
+     },
+     "link_set": {
+      "rows": 14842
+     },
+     "reading_sequence": {
+      "rows": 9282
+     },
+     "dep_fact": {
+      "rows": 7793
+     },
+     "dep_fact_edge": {
+      "rows": 1981
+     },
+     "dep_ref_dep": {
+      "rows": 86338
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": false,
+     "positions_differing": 1647,
+     "first_difference": {
+      "position": 49080,
+      "a": {
+       "file_id": "xarray/util/generate_aggregations.py",
+       "source_id": "xarray/util/generate_aggregations.py::ExtraKwarg",
+       "kind": "INHERITS",
+       "name_path": "NamedTuple",
+       "line": 275
+      },
+      "b": {
+       "file_id": "xarray/util/print_versions.py",
+       "source_id": "xarray/util/print_versions.py::get_sys_info",
+       "kind": "CALLS",
+       "name_path": "blob.append",
+       "line": 16
+      }
+     }
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    59.9,
+    63.7,
+    54.3
+   ],
+   "update_ms": 54.3,
+   "equal": true,
+   "meets_target": true
+  },
+  {
+   "name": "xr_add_func_and_caller",
+   "repo": "xarray",
+   "class": "hub",
+   "target_ms": 1000,
+   "fresh_scan_ms": 1432.6,
+   "effect": {
+    "file": [
+     21,
+     21
+    ],
+    "symbol": [
+     3,
+     4
+    ],
+    "scope": [
+     5,
+     6
+    ],
+    "binding": [
+     34,
+     37
+    ],
+    "import_resolution": [
+     0,
+     1
+    ],
+    "ref": [
+     24,
+     26
+    ],
+    "function": [
+     3,
+     4
+    ],
+    "param": [
+     0,
+     1
+    ],
+    "link_multiset": [
+     0,
+     3
+    ],
+    "link_set": [
+     0,
+     3
+    ],
+    "reading_sequence": [
+     9282,
+     9283
+    ],
+    "dep_fact": [
+     0,
+     4
+    ],
+    "dep_fact_edge": [
+     0,
+     2
+    ],
+    "dep_ref_dep": [
+     24,
+     30
+    ]
+   },
+   "algo_ms": 136.0,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 241
+     },
+     "symbol": {
+      "rows": 10662
+     },
+     "scope": {
+      "rows": 9283
+     },
+     "binding": {
+      "rows": 63603
+     },
+     "import_resolution": {
+      "rows": 2688
+     },
+     "ref": {
+      "rows": 50728
+     },
+     "class": {
+      "rows": 687
+     },
+     "base_class": {
+      "rows": 368
+     },
+     "function": {
+      "rows": 8355
+     },
+     "param": {
+      "rows": 16703
+     },
+     "field": {
+      "rows": 669
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 14845
+     },
+     "link_set": {
+      "rows": 14845
+     },
+     "reading_sequence": {
+      "rows": 9283
+     },
+     "dep_fact": {
+      "rows": 7797
+     },
+     "dep_fact_edge": {
+      "rows": 1983
+     },
+     "dep_ref_dep": {
+      "rows": 86344
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": false,
+     "positions_differing": 15706,
+     "first_difference": {
+      "position": 35022,
+      "a": {
+       "file_id": "xarray/core/coordinate_transform.py",
+       "source_id": "xarray/core/coordinate_transform.py::CoordinateTransform::__init__",
+       "kind": "CALLS",
+       "name_path": "tuple",
+       "line": 27
+      },
+      "b": {
+       "file_id": "xarray/core/utils.py",
+       "source_id": "xarray/core/utils.py::is_allowed_extension_array_dtype",
+       "kind": "CALLS",
+       "name_path": "pd.api.types.is_extension_array_dtype",
+       "line": 107
+      }
+     }
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    88.0,
+    80.8,
+    88.7
+   ],
+   "update_ms": 80.8,
+   "equal": true,
+   "meets_target": true
+  },
+  {
+   "name": "xr_delete_called_func",
+   "repo": "xarray",
+   "class": "hub",
+   "target_ms": 1000,
+   "fresh_scan_ms": 1437.7,
+   "effect": {
+    "file": [
+     4,
+     4
+    ],
+    "symbol": [
+     22,
+     21
+    ],
+    "scope": [
+     19,
+     18
+    ],
+    "binding": [
+     147,
+     139
+    ],
+    "ref": [
+     85,
+     75
+    ],
+    "class": [
+     2,
+     2
+    ],
+    "function": [
+     16,
+     15
+    ],
+    "param": [
+     3,
+     0
+    ],
+    "link_multiset": [
+     4,
+     0
+    ],
+    "link_set": [
+     4,
+     0
+    ],
+    "reading_sequence": [
+     9282,
+     9281
+    ],
+    "dep_fact": [
+     1,
+     4
+    ],
+    "dep_fact_edge": [
+     1,
+     1
+    ],
+    "dep_ref_dep": [
+     43,
+     41
+    ]
+   },
+   "algo_ms": 138.3,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 241
+     },
+     "symbol": {
+      "rows": 10660
+     },
+     "scope": {
+      "rows": 9281
+     },
+     "binding": {
+      "rows": 63592
+     },
+     "import_resolution": {
+      "rows": 2687
+     },
+     "ref": {
+      "rows": 50716
+     },
+     "class": {
+      "rows": 687
+     },
+     "base_class": {
+      "rows": 368
+     },
+     "function": {
+      "rows": 8353
+     },
+     "param": {
+      "rows": 16699
+     },
+     "field": {
+      "rows": 669
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 14838
+     },
+     "link_set": {
+      "rows": 14838
+     },
+     "reading_sequence": {
+      "rows": 9281
+     },
+     "dep_fact": {
+      "rows": 7796
+     },
+     "dep_fact_edge": {
+      "rows": 1981
+     },
+     "dep_ref_dep": {
+      "rows": 86336
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": false,
+     "positions_differing": 15694,
+     "first_difference": {
+      "position": 35022,
+      "a": {
+       "file_id": "xarray/core/coordinate_transform.py",
+       "source_id": "xarray/core/coordinate_transform.py::CoordinateTransform::__init__",
+       "kind": "CALLS",
+       "name_path": "tuple",
+       "line": 27
+      },
+      "b": {
+       "file_id": "xarray/core/utils.py",
+       "source_id": "xarray/core/utils.py::is_allowed_extension_array_dtype",
+       "kind": "CALLS",
+       "name_path": "pd.api.types.is_extension_array_dtype",
+       "line": 107
+      }
+     }
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    94.9,
+    85.3,
+    93.5
+   ],
+   "update_ms": 85.3,
+   "equal": true,
+   "meets_target": true
+  },
+  {
+   "name": "xr_base_method_add",
+   "repo": "xarray",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 1462.8,
+   "effect": {
+    "file": [
+     1,
+     1
+    ],
+    "symbol": [
+     37,
+     38
+    ],
+    "scope": [
+     32,
+     33
+    ],
+    "binding": [
+     170,
+     172
+    ],
+    "ref": [
+     80,
+     80
+    ],
+    "class": [
+     5,
+     5
+    ],
+    "function": [
+     26,
+     27
+    ],
+    "param": [
+     0,
+     1
+    ],
+    "link_multiset": [
+     0,
+     1
+    ],
+    "link_set": [
+     0,
+     1
+    ],
+    "reading_sequence": [
+     9282,
+     9283
+    ],
+    "dep_fact": [
+     0,
+     1
+    ],
+    "dep_ref_dep": [
+     68,
+     68
+    ]
+   },
+   "algo_ms": 138.2,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 241
+     },
+     "symbol": {
+      "rows": 10662
+     },
+     "scope": {
+      "rows": 9283
+     },
+     "binding": {
+      "rows": 63602
+     },
+     "import_resolution": {
+      "rows": 2687
+     },
+     "ref": {
+      "rows": 50727
+     },
+     "class": {
+      "rows": 687
+     },
+     "base_class": {
+      "rows": 368
+     },
+     "function": {
+      "rows": 8355
+     },
+     "param": {
+      "rows": 16703
+     },
+     "field": {
+      "rows": 669
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 14843
+     },
+     "link_set": {
+      "rows": 14843
+     },
+     "reading_sequence": {
+      "rows": 9283
+     },
+     "dep_fact": {
+      "rows": 7797
+     },
+     "dep_fact_edge": {
+      "rows": 1981
+     },
+     "dep_ref_dep": {
+      "rows": 86343
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": false,
+     "positions_differing": 2749,
+     "first_difference": {
+      "position": 47978,
+      "a": {
+       "file_id": "xarray/backends/writers.py",
+       "source_id": "xarray/backends/writers.py::get_writable_netcdf_store",
+       "kind": "CALLS",
+       "name_path": "ValueError",
+       "line": 61
+      },
+      "b": {
+       "file_id": "xarray/backends/common.py",
+       "source_id": "xarray/backends/common.py::_normalize_path",
+       "kind": "DECORATES",
+       "name_path": "overload",
+       "line": 55
+      }
+     }
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    86.2,
+    94.6,
+    89.0
+   ],
+   "update_ms": 86.2,
+   "equal": true
+  },
+  {
+   "name": "xr_base_method_remove",
+   "repo": "xarray",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 1403.7,
+   "effect": {
+    "file": [
+     1,
+     1
+    ],
+    "symbol": [
+     38,
+     37
+    ],
+    "scope": [
+     33,
+     32
+    ],
+    "binding": [
+     170,
+     168
+    ],
+    "ref": [
+     79,
+     79
+    ],
+    "class": [
+     5,
+     5
+    ],
+    "function": [
+     27,
+     26
+    ],
+    "param": [
+     1,
+     0
+    ],
+    "link_multiset": [
+     1,
+     0
+    ],
+    "link_set": [
+     1,
+     0
+    ],
+    "reading_sequence": [
+     9283,
+     9282
+    ],
+    "dep_fact": [
+     1,
+     0
+    ],
+    "dep_ref_dep": [
+     63,
+     63
+    ]
+   },
+   "algo_ms": 136.5,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 241
+     },
+     "symbol": {
+      "rows": 10661
+     },
+     "scope": {
+      "rows": 9282
+     },
+     "binding": {
+      "rows": 63600
+     },
+     "import_resolution": {
+      "rows": 2687
+     },
+     "ref": {
+      "rows": 50727
+     },
+     "class": {
+      "rows": 687
+     },
+     "base_class": {
+      "rows": 368
+     },
+     "function": {
+      "rows": 8354
+     },
+     "param": {
+      "rows": 16702
+     },
+     "field": {
+      "rows": 669
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 14842
+     },
+     "link_set": {
+      "rows": 14842
+     },
+     "reading_sequence": {
+      "rows": 9282
+     },
+     "dep_fact": {
+      "rows": 7796
+     },
+     "dep_fact_edge": {
+      "rows": 1981
+     },
+     "dep_ref_dep": {
+      "rows": 86343
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": false,
+     "positions_differing": 2749,
+     "first_difference": {
+      "position": 47978,
+      "a": {
+       "file_id": "xarray/backends/writers.py",
+       "source_id": "xarray/backends/writers.py::get_writable_netcdf_store",
+       "kind": "CALLS",
+       "name_path": "ValueError",
+       "line": 61
+      },
+      "b": {
+       "file_id": "xarray/backends/common.py",
+       "source_id": "xarray/backends/common.py::_normalize_path",
+       "kind": "DECORATES",
+       "name_path": "overload",
+       "line": 55
+      }
+     }
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    88.5,
+    90.6,
+    85.8
+   ],
+   "update_ms": 85.8,
+   "equal": true
+  },
+  {
+   "name": "xr_reexport_add",
+   "repo": "xarray",
+   "class": "hub",
+   "target_ms": 1000,
+   "fresh_scan_ms": 1395.4,
+   "effect": {
+    "file": [
+     22,
+     22
+    ],
+    "scope": [
+     1,
+     1
+    ],
+    "binding": [
+     0,
+     1
+    ],
+    "import_resolution": [
+     0,
+     1
+    ],
+    "ref": [
+     1,
+     1
+    ],
+    "link_multiset": [
+     0,
+     2
+    ],
+    "link_set": [
+     0,
+     2
+    ],
+    "reading_sequence": [
+     9283,
+     9283
+    ],
+    "dep_fact": [
+     1,
+     1
+    ],
+    "dep_fact_edge": [
+     1,
+     3
+    ],
+    "dep_ref_dep": [
+     1,
+     1
+    ]
+   },
+   "algo_ms": 138.1,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 241
+     },
+     "symbol": {
+      "rows": 10662
+     },
+     "scope": {
+      "rows": 9283
+     },
+     "binding": {
+      "rows": 63602
+     },
+     "import_resolution": {
+      "rows": 2688
+     },
+     "ref": {
+      "rows": 50727
+     },
+     "class": {
+      "rows": 687
+     },
+     "base_class": {
+      "rows": 368
+     },
+     "function": {
+      "rows": 8355
+     },
+     "param": {
+      "rows": 16702
+     },
+     "field": {
+      "rows": 669
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 14844
+     },
+     "link_set": {
+      "rows": 14844
+     },
+     "reading_sequence": {
+      "rows": 9283
+     },
+     "dep_fact": {
+      "rows": 7796
+     },
+     "dep_fact_edge": {
+      "rows": 1985
+     },
+     "dep_ref_dep": {
+      "rows": 86341
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    58.9,
+    64.2,
+    65.1
+   ],
+   "update_ms": 58.9,
+   "equal": true,
+   "meets_target": true
+  },
+  {
+   "name": "xr_reexport_remove",
+   "repo": "xarray",
+   "class": "hub",
+   "target_ms": 1000,
+   "fresh_scan_ms": 1439.3,
+   "effect": {
+    "file": [
+     37,
+     37
+    ],
+    "symbol": [
+     2,
+     2
+    ],
+    "scope": [
+     1,
+     1
+    ],
+    "binding": [
+     4,
+     3
+    ],
+    "import_resolution": [
+     1,
+     0
+    ],
+    "ref": [
+     1,
+     1
+    ],
+    "link_multiset": [
+     2,
+     0
+    ],
+    "link_set": [
+     2,
+     0
+    ],
+    "reading_sequence": [
+     9282,
+     9282
+    ],
+    "dep_fact": [
+     4,
+     1
+    ],
+    "dep_fact_edge": [
+     5,
+     1
+    ],
+    "dep_ref_dep": [
+     1,
+     1
+    ]
+   },
+   "algo_ms": 137.1,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 241
+     },
+     "symbol": {
+      "rows": 10661
+     },
+     "scope": {
+      "rows": 9282
+     },
+     "binding": {
+      "rows": 63599
+     },
+     "import_resolution": {
+      "rows": 2686
+     },
+     "ref": {
+      "rows": 50726
+     },
+     "class": {
+      "rows": 687
+     },
+     "base_class": {
+      "rows": 368
+     },
+     "function": {
+      "rows": 8354
+     },
+     "param": {
+      "rows": 16702
+     },
+     "field": {
+      "rows": 669
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 14840
+     },
+     "link_set": {
+      "rows": 14840
+     },
+     "reading_sequence": {
+      "rows": 9282
+     },
+     "dep_fact": {
+      "rows": 7790
+     },
+     "dep_fact_edge": {
+      "rows": 1977
+     },
+     "dep_ref_dep": {
+      "rows": 86338
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    59.3,
+    59.0,
+    65.1
+   ],
+   "update_ms": 59.0,
+   "equal": true,
+   "meets_target": true
+  },
+  {
+   "name": "xr_delete_module",
+   "repo": "xarray",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 1417.2,
+   "effect": {
+    "file": [
+     233,
+     232
+    ],
+    "symbol": [
+     3,
+     0
+    ],
+    "scope": [
+     4,
+     0
+    ],
+    "binding": [
+     46,
+     0
+    ],
+    "import_resolution": [
+     11,
+     1
+    ],
+    "ref": [
+     28,
+     1
+    ],
+    "function": [
+     3,
+     0
+    ],
+    "param": [
+     1,
+     0
+    ],
+    "link_multiset": [
+     4,
+     0
+    ],
+    "link_set": [
+     4,
+     0
+    ],
+    "reading_sequence": [
+     9282,
+     9278
+    ],
+    "dep_fact": [
+     22,
+     2
+    ],
+    "dep_fact_edge": [
+     4,
+     1
+    ],
+    "dep_ref_dep": [
+     25,
+     1
+    ]
+   },
+   "algo_ms": 139.2,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 240
+     },
+     "symbol": {
+      "rows": 10658
+     },
+     "scope": {
+      "rows": 9278
+     },
+     "binding": {
+      "rows": 63554
+     },
+     "import_resolution": {
+      "rows": 2677
+     },
+     "ref": {
+      "rows": 50699
+     },
+     "class": {
+      "rows": 687
+     },
+     "base_class": {
+      "rows": 368
+     },
+     "function": {
+      "rows": 8351
+     },
+     "param": {
+      "rows": 16701
+     },
+     "field": {
+      "rows": 669
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 14838
+     },
+     "link_set": {
+      "rows": 14838
+     },
+     "reading_sequence": {
+      "rows": 9278
+     },
+     "dep_fact": {
+      "rows": 7773
+     },
+     "dep_fact_edge": {
+      "rows": 1978
+     },
+     "dep_ref_dep": {
+      "rows": 86314
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    70.4,
+    73.9,
+    70.6
+   ],
+   "update_ms": 70.4,
+   "equal": true
+  },
+  {
+   "name": "xr_rename_module",
+   "repo": "xarray",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 1398.1,
+   "effect": {
+    "file": [
+     77,
+     77
+    ],
+    "symbol": [
+     35,
+     35
+    ],
+    "scope": [
+     30,
+     30
+    ],
+    "binding": [
+     245,
+     245
+    ],
+    "import_resolution": [
+     14,
+     14
+    ],
+    "ref": [
+     219,
+     219
+    ],
+    "class": [
+     1,
+     1
+    ],
+    "function": [
+     28,
+     28
+    ],
+    "param": [
+     51,
+     51
+    ],
+    "link_multiset": [
+     73,
+     54
+    ],
+    "link_set": [
+     73,
+     54
+    ],
+    "reading_sequence": [
+     9282,
+     9282
+    ],
+    "dep_fact": [
+     35,
+     18
+    ],
+    "dep_fact_edge": [
+     12,
+     0
+    ],
+    "dep_ref_dep": [
+     140,
+     103
+    ]
+   },
+   "algo_ms": 135.9,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 241
+     },
+     "symbol": {
+      "rows": 10661
+     },
+     "scope": {
+      "rows": 9282
+     },
+     "binding": {
+      "rows": 63600
+     },
+     "import_resolution": {
+      "rows": 2687
+     },
+     "ref": {
+      "rows": 50726
+     },
+     "class": {
+      "rows": 687
+     },
+     "base_class": {
+      "rows": 368
+     },
+     "function": {
+      "rows": 8354
+     },
+     "param": {
+      "rows": 16702
+     },
+     "field": {
+      "rows": 669
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 14823
+     },
+     "link_set": {
+      "rows": 14823
+     },
+     "reading_sequence": {
+      "rows": 9282
+     },
+     "dep_fact": {
+      "rows": 7776
+     },
+     "dep_fact_edge": {
+      "rows": 1969
+     },
+     "dep_ref_dep": {
+      "rows": 86301
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": false,
+     "positions_differing": 8716,
+     "first_difference": {
+      "position": 42010,
+      "a": {
+       "file_id": "xarray/core/dataarray.py",
+       "source_id": "xarray/core/dataarray.py::_infer_coords_and_dims",
+       "kind": "CALLS",
+       "name_path": "utils.is_dict_like",
+       "line": 143
+      },
+      "b": {
+       "file_id": "xarray/core/formatting_html2.py",
+       "source_id": "xarray/core/formatting_html2.py::_load_static_files",
+       "kind": "DECORATES",
+       "name_path": "lru_cache",
+       "line": 31
+      }
+     }
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    96.3,
+    99.5,
+    106.3
+   ],
+   "update_ms": 96.3,
+   "equal": true
+  },
+  {
+   "name": "xr_add_module_and_import",
+   "repo": "xarray",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 1387.4,
+   "effect": {
+    "file": [
+     233,
+     234
+    ],
+    "symbol": [
+     3,
+     4
+    ],
+    "scope": [
+     4,
+     6
+    ],
+    "binding": [
+     34,
+     36
+    ],
+    "import_resolution": [
+     0,
+     1
+    ],
+    "ref": [
+     24,
+     25
+    ],
+    "function": [
+     3,
+     4
+    ],
+    "link_multiset": [
+     0,
+     2
+    ],
+    "link_set": [
+     0,
+     2
+    ],
+    "reading_sequence": [
+     9282,
+     9284
+    ],
+    "dep_fact": [
+     0,
+     4
+    ],
+    "dep_fact_edge": [
+     0,
+     2
+    ],
+    "dep_ref_dep": [
+     24,
+     27
+    ]
+   },
+   "algo_ms": 139.9,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 242
+     },
+     "symbol": {
+      "rows": 10662
+     },
+     "scope": {
+      "rows": 9284
+     },
+     "binding": {
+      "rows": 63602
+     },
+     "import_resolution": {
+      "rows": 2688
+     },
+     "ref": {
+      "rows": 50727
+     },
+     "class": {
+      "rows": 687
+     },
+     "base_class": {
+      "rows": 368
+     },
+     "function": {
+      "rows": 8355
+     },
+     "param": {
+      "rows": 16702
+     },
+     "field": {
+      "rows": 669
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 14844
+     },
+     "link_set": {
+      "rows": 14844
+     },
+     "reading_sequence": {
+      "rows": 9284
+     },
+     "dep_fact": {
+      "rows": 7797
+     },
+     "dep_fact_edge": {
+      "rows": 1983
+     },
+     "dep_ref_dep": {
+      "rows": 86341
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": false,
+     "positions_differing": 1647,
+     "first_difference": {
+      "position": 49080,
+      "a": {
+       "file_id": "xarray/util/generate_aggregations.py",
+       "source_id": "xarray/util/generate_aggregations.py::ExtraKwarg",
+       "kind": "INHERITS",
+       "name_path": "NamedTuple",
+       "line": 275
+      },
+      "b": {
+       "file_id": "xarray/util/print_versions.py",
+       "source_id": "xarray/util/print_versions.py::get_sys_info",
+       "kind": "CALLS",
+       "name_path": "fresh",
+       "line": 17
+      }
+     }
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    73.1,
+    81.8,
+    73.2
+   ],
+   "update_ms": 73.1,
+   "equal": true
+  },
+  {
+   "name": "xr_big_dataset_edit",
+   "repo": "xarray",
+   "class": "big",
+   "target_ms": 1000,
+   "fresh_scan_ms": 1390.5,
+   "effect": {
+    "file": [
+     1,
+     1
+    ],
+    "symbol": [
+     116,
+     116
+    ],
+    "scope": [
+     117,
+     117
+    ],
+    "binding": [
+     1392,
+     1393
+    ],
+    "ref": [
+     1041,
+     1042
+    ],
+    "class": [
+     1,
+     1
+    ],
+    "function": [
+     115,
+     115
+    ],
+    "link_multiset": [
+     0,
+     1
+    ],
+    "link_set": [
+     0,
+     1
+    ],
+    "reading_sequence": [
+     9282,
+     9282
+    ],
+    "dep_ref_dep": [
+     767,
+     770
+    ]
+   },
+   "algo_ms": 134.9,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 241
+     },
+     "symbol": {
+      "rows": 10661
+     },
+     "scope": {
+      "rows": 9282
+     },
+     "binding": {
+      "rows": 63601
+     },
+     "import_resolution": {
+      "rows": 2687
+     },
+     "ref": {
+      "rows": 50727
+     },
+     "class": {
+      "rows": 687
+     },
+     "base_class": {
+      "rows": 368
+     },
+     "function": {
+      "rows": 8354
+     },
+     "param": {
+      "rows": 16702
+     },
+     "field": {
+      "rows": 669
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 14843
+     },
+     "link_set": {
+      "rows": 14843
+     },
+     "reading_sequence": {
+      "rows": 9282
+     },
+     "dep_fact": {
+      "rows": 7793
+     },
+     "dep_fact_edge": {
+      "rows": 1981
+     },
+     "dep_ref_dep": {
+      "rows": 86341
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": false,
+     "positions_differing": 15449,
+     "first_difference": {
+      "position": 35278,
+      "a": {
+       "file_id": "xarray/core/datatree_render.py",
+       "source_id": "xarray/core/datatree_render.py::Row",
+       "kind": "INHERITS",
+       "name_path": "NamedTuple",
+       "line": 18
+      },
+      "b": {
+       "file_id": "xarray/core/dataset.py",
+       "source_id": "xarray/core/dataset.py::_sparse_coo_to_index",
+       "kind": "CALLS",
+       "name_path": "pd.MultiIndex.from_arrays",
+       "line": 218
+      }
+     }
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    220.3,
+    218.4,
+    237.6
+   ],
+   "update_ms": 218.4,
+   "equal": true,
+   "meets_target": true
+  },
+  {
+   "name": "xr_hub_init_edit",
+   "repo": "xarray",
+   "class": "hub",
+   "target_ms": 1000,
+   "fresh_scan_ms": 1415.1,
+   "effect": {
+    "file": [
+     1,
+     1
+    ],
+    "symbol": [
+     2,
+     2
+    ],
+    "scope": [
+     1,
+     1
+    ],
+    "binding": [
+     71,
+     71
+    ]
+   },
+   "algo_ms": 134.8,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 241
+     },
+     "symbol": {
+      "rows": 10661
+     },
+     "scope": {
+      "rows": 9282
+     },
+     "binding": {
+      "rows": 63600
+     },
+     "import_resolution": {
+      "rows": 2687
+     },
+     "ref": {
+      "rows": 50726
+     },
+     "class": {
+      "rows": 687
+     },
+     "base_class": {
+      "rows": 368
+     },
+     "function": {
+      "rows": 8354
+     },
+     "param": {
+      "rows": 16702
+     },
+     "field": {
+      "rows": 669
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 14842
+     },
+     "link_set": {
+      "rows": 14842
+     },
+     "reading_sequence": {
+      "rows": 9282
+     },
+     "dep_fact": {
+      "rows": 7793
+     },
+     "dep_fact_edge": {
+      "rows": 1981
+     },
+     "dep_ref_dep": {
+      "rows": 86338
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    57.1,
+    56.9,
+    58.1
+   ],
+   "update_ms": 56.9,
+   "equal": true,
+   "meets_target": true
+  },
+  {
+   "name": "xr_hub_utils_edit",
+   "repo": "xarray",
+   "class": "hub",
+   "target_ms": 1000,
+   "fresh_scan_ms": 1389.4,
+   "effect": {
+    "file": [
+     1,
+     1
+    ],
+    "symbol": [
+     22,
+     22
+    ],
+    "scope": [
+     19,
+     19
+    ],
+    "binding": [
+     138,
+     139
+    ],
+    "ref": [
+     69,
+     70
+    ],
+    "class": [
+     2,
+     2
+    ],
+    "function": [
+     16,
+     16
+    ],
+    "link_multiset": [
+     0,
+     1
+    ],
+    "link_set": [
+     0,
+     1
+    ],
+    "reading_sequence": [
+     9282,
+     9282
+    ],
+    "dep_ref_dep": [
+     37,
+     40
+    ]
+   },
+   "algo_ms": 142.0,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 241
+     },
+     "symbol": {
+      "rows": 10661
+     },
+     "scope": {
+      "rows": 9282
+     },
+     "binding": {
+      "rows": 63601
+     },
+     "import_resolution": {
+      "rows": 2687
+     },
+     "ref": {
+      "rows": 50727
+     },
+     "class": {
+      "rows": 687
+     },
+     "base_class": {
+      "rows": 368
+     },
+     "function": {
+      "rows": 8354
+     },
+     "param": {
+      "rows": 16702
+     },
+     "field": {
+      "rows": 669
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 14843
+     },
+     "link_set": {
+      "rows": 14843
+     },
+     "reading_sequence": {
+      "rows": 9282
+     },
+     "dep_fact": {
+      "rows": 7793
+     },
+     "dep_fact_edge": {
+      "rows": 1981
+     },
+     "dep_ref_dep": {
+      "rows": 86341
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": false,
+     "positions_differing": 15705,
+     "first_difference": {
+      "position": 35022,
+      "a": {
+       "file_id": "xarray/core/coordinate_transform.py",
+       "source_id": "xarray/core/coordinate_transform.py::CoordinateTransform::__init__",
+       "kind": "CALLS",
+       "name_path": "tuple",
+       "line": 27
+      },
+      "b": {
+       "file_id": "xarray/core/utils.py",
+       "source_id": "xarray/core/utils.py::is_allowed_extension_array_dtype",
+       "kind": "CALLS",
+       "name_path": "pd.api.types.is_extension_array_dtype",
+       "line": 107
+      }
+     }
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    84.0,
+    85.2,
+    86.0
+   ],
+   "update_ms": 84.0,
+   "equal": true,
+   "meets_target": true
+  },
+  {
+   "name": "syn_chain_middle_shorten",
+   "repo": "syn",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 13.7,
+   "effect": {
+    "file": [
+     3,
+     3
+    ],
+    "binding": [
+     1,
+     1
+    ],
+    "import_resolution": [
+     1,
+     1
+    ],
+    "ref": [
+     1,
+     1
+    ],
+    "link_multiset": [
+     2,
+     2
+    ],
+    "link_set": [
+     2,
+     2
+    ],
+    "reading_sequence": [
+     25,
+     25
+    ],
+    "dep_fact": [
+     7,
+     4
+    ],
+    "dep_fact_edge": [
+     13,
+     7
+    ],
+    "dep_ref_dep": [
+     1,
+     1
+    ]
+   },
+   "algo_ms": 12.6,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 19
+     },
+     "symbol": {
+      "rows": 18
+     },
+     "scope": {
+      "rows": 37
+     },
+     "binding": {
+      "rows": 34
+     },
+     "import_resolution": {
+      "rows": 15
+     },
+     "ref": {
+      "rows": 13
+     },
+     "class": {
+      "rows": 2
+     },
+     "base_class": {
+      "rows": 1
+     },
+     "function": {
+      "rows": 16
+     },
+     "param": {
+      "rows": 2
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 17
+     },
+     "link_set": {
+      "rows": 17
+     },
+     "reading_sequence": {
+      "rows": 37
+     },
+     "dep_fact": {
+      "rows": 55
+     },
+     "dep_fact_edge": {
+      "rows": 32
+     },
+     "dep_ref_dep": {
+      "rows": 40
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    9.3,
+    11.4,
+    9.0
+   ],
+   "update_ms": 9.0,
+   "equal": true
+  },
+  {
+   "name": "syn_chain_middle_lengthen",
+   "repo": "syn",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 13.1,
+   "effect": {
+    "file": [
+     18,
+     19
+    ],
+    "scope": [
+     0,
+     1
+    ],
+    "binding": [
+     1,
+     2
+    ],
+    "import_resolution": [
+     1,
+     2
+    ],
+    "ref": [
+     1,
+     1
+    ],
+    "link_multiset": [
+     2,
+     2
+    ],
+    "link_set": [
+     2,
+     2
+    ],
+    "reading_sequence": [
+     37,
+     38
+    ],
+    "dep_fact": [
+     6,
+     10
+    ],
+    "dep_fact_edge": [
+     20,
+     0
+    ],
+    "dep_ref_dep": [
+     2,
+     19
+    ]
+   },
+   "algo_ms": 11.5,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 20
+     },
+     "symbol": {
+      "rows": 18
+     },
+     "scope": {
+      "rows": 38
+     },
+     "binding": {
+      "rows": 35
+     },
+     "import_resolution": {
+      "rows": 16
+     },
+     "ref": {
+      "rows": 13
+     },
+     "class": {
+      "rows": 2
+     },
+     "base_class": {
+      "rows": 1
+     },
+     "function": {
+      "rows": 16
+     },
+     "param": {
+      "rows": 2
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 17
+     },
+     "link_set": {
+      "rows": 17
+     },
+     "reading_sequence": {
+      "rows": 38
+     },
+     "dep_fact": {
+      "rows": 62
+     },
+     "dep_fact_edge": {
+      "rows": 18
+     },
+     "dep_ref_dep": {
+      "rows": 57
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    8.8,
+    8.7,
+    10.1
+   ],
+   "update_ms": 8.7,
+   "equal": true
+  },
+  {
+   "name": "syn_chain_end_changes",
+   "repo": "syn",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 13.7,
+   "effect": {
+    "file": [
+     6,
+     6
+    ],
+    "symbol": [
+     2,
+     1
+    ],
+    "scope": [
+     3,
+     2
+    ],
+    "binding": [
+     2,
+     1
+    ],
+    "ref": [
+     2,
+     2
+    ],
+    "function": [
+     2,
+     1
+    ],
+    "link_multiset": [
+     2,
+     0
+    ],
+    "link_set": [
+     2,
+     0
+    ],
+    "reading_sequence": [
+     37,
+     36
+    ],
+    "dep_fact": [
+     1,
+     8
+    ],
+    "dep_fact_edge": [
+     6,
+     6
+    ],
+    "dep_ref_dep": [
+     2,
+     2
+    ]
+   },
+   "algo_ms": 13.1,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 19
+     },
+     "symbol": {
+      "rows": 17
+     },
+     "scope": {
+      "rows": 36
+     },
+     "binding": {
+      "rows": 33
+     },
+     "import_resolution": {
+      "rows": 15
+     },
+     "ref": {
+      "rows": 13
+     },
+     "class": {
+      "rows": 2
+     },
+     "base_class": {
+      "rows": 1
+     },
+     "function": {
+      "rows": 15
+     },
+     "param": {
+      "rows": 2
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 15
+     },
+     "link_set": {
+      "rows": 15
+     },
+     "reading_sequence": {
+      "rows": 36
+     },
+     "dep_fact": {
+      "rows": 65
+     },
+     "dep_fact_edge": {
+      "rows": 38
+     },
+     "dep_ref_dep": {
+      "rows": 40
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    8.0,
+    8.7,
+    10.4
+   ],
+   "update_ms": 8.0,
+   "equal": true
+  },
+  {
+   "name": "syn_star_gains_name",
+   "repo": "syn",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 14.4,
+   "effect": {
+    "file": [
+     5,
+     5
+    ],
+    "symbol": [
+     0,
+     1
+    ],
+    "scope": [
+     1,
+     2
+    ],
+    "binding": [
+     0,
+     1
+    ],
+    "ref": [
+     1,
+     1
+    ],
+    "function": [
+     0,
+     1
+    ],
+    "link_multiset": [
+     0,
+     1
+    ],
+    "link_set": [
+     0,
+     1
+    ],
+    "reading_sequence": [
+     26,
+     27
+    ],
+    "dep_fact": [
+     1,
+     1
+    ],
+    "dep_fact_edge": [
+     1,
+     1
+    ],
+    "dep_ref_dep": [
+     0,
+     1
+    ]
+   },
+   "algo_ms": 15.0,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 19
+     },
+     "symbol": {
+      "rows": 19
+     },
+     "scope": {
+      "rows": 38
+     },
+     "binding": {
+      "rows": 35
+     },
+     "import_resolution": {
+      "rows": 15
+     },
+     "ref": {
+      "rows": 13
+     },
+     "class": {
+      "rows": 2
+     },
+     "base_class": {
+      "rows": 1
+     },
+     "function": {
+      "rows": 17
+     },
+     "param": {
+      "rows": 2
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 18
+     },
+     "link_set": {
+      "rows": 18
+     },
+     "reading_sequence": {
+      "rows": 38
+     },
+     "dep_fact": {
+      "rows": 58
+     },
+     "dep_fact_edge": {
+      "rows": 38
+     },
+     "dep_ref_dep": {
+      "rows": 41
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    9.0,
+    9.0,
+    10.5
+   ],
+   "update_ms": 9.0,
+   "equal": true
+  },
+  {
+   "name": "syn_star_loses_name",
+   "repo": "syn",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 13.7,
+   "effect": {
+    "file": [
+     6,
+     6
+    ],
+    "symbol": [
+     2,
+     1
+    ],
+    "scope": [
+     3,
+     2
+    ],
+    "binding": [
+     2,
+     1
+    ],
+    "ref": [
+     1,
+     1
+    ],
+    "function": [
+     2,
+     1
+    ],
+    "link_multiset": [
+     1,
+     0
+    ],
+    "link_set": [
+     1,
+     0
+    ],
+    "reading_sequence": [
+     26,
+     25
+    ],
+    "dep_fact": [
+     1,
+     0
+    ],
+    "dep_fact_edge": [
+     1,
+     1
+    ],
+    "dep_ref_dep": [
+     1,
+     0
+    ]
+   },
+   "algo_ms": 11.6,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 19
+     },
+     "symbol": {
+      "rows": 17
+     },
+     "scope": {
+      "rows": 36
+     },
+     "binding": {
+      "rows": 33
+     },
+     "import_resolution": {
+      "rows": 15
+     },
+     "ref": {
+      "rows": 13
+     },
+     "class": {
+      "rows": 2
+     },
+     "base_class": {
+      "rows": 1
+     },
+     "function": {
+      "rows": 15
+     },
+     "param": {
+      "rows": 2
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 16
+     },
+     "link_set": {
+      "rows": 16
+     },
+     "reading_sequence": {
+      "rows": 36
+     },
+     "dep_fact": {
+      "rows": 57
+     },
+     "dep_fact_edge": {
+      "rows": 38
+     },
+     "dep_ref_dep": {
+      "rows": 39
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    9.3,
+    9.5,
+    8.0
+   ],
+   "update_ms": 8.0,
+   "equal": true
+  },
+  {
+   "name": "syn_star_all_added",
+   "repo": "syn",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 13.5,
+   "effect": {
+    "file": [
+     4,
+     4
+    ],
+    "symbol": [
+     2,
+     3
+    ],
+    "scope": [
+     1,
+     1
+    ],
+    "binding": [
+     2,
+     3
+    ],
+    "ref": [
+     2,
+     2
+    ],
+    "link_multiset": [
+     1,
+     1
+    ],
+    "link_set": [
+     1,
+     1
+    ],
+    "reading_sequence": [
+     8,
+     8
+    ],
+    "dep_fact": [
+     2,
+     2
+    ],
+    "dep_fact_edge": [
+     2,
+     2
+    ],
+    "dep_ref_dep": [
+     2,
+     2
+    ]
+   },
+   "algo_ms": 11.8,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 19
+     },
+     "symbol": {
+      "rows": 19
+     },
+     "scope": {
+      "rows": 37
+     },
+     "binding": {
+      "rows": 35
+     },
+     "import_resolution": {
+      "rows": 15
+     },
+     "ref": {
+      "rows": 13
+     },
+     "class": {
+      "rows": 2
+     },
+     "base_class": {
+      "rows": 1
+     },
+     "function": {
+      "rows": 16
+     },
+     "param": {
+      "rows": 2
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 17
+     },
+     "link_set": {
+      "rows": 17
+     },
+     "reading_sequence": {
+      "rows": 37
+     },
+     "dep_fact": {
+      "rows": 58
+     },
+     "dep_fact_edge": {
+      "rows": 38
+     },
+     "dep_ref_dep": {
+      "rows": 40
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    8.3,
+    9.7,
+    8.8
+   ],
+   "update_ms": 8.3,
+   "equal": true
+  },
+  {
+   "name": "syn_global_import_target_changes",
+   "repo": "syn",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 14.4,
+   "effect": {
+    "file": [
+     6,
+     6
+    ],
+    "symbol": [
+     2,
+     1
+    ],
+    "scope": [
+     3,
+     2
+    ],
+    "binding": [
+     2,
+     1
+    ],
+    "ref": [
+     2,
+     2
+    ],
+    "function": [
+     2,
+     1
+    ],
+    "link_multiset": [
+     2,
+     0
+    ],
+    "link_set": [
+     2,
+     0
+    ],
+    "reading_sequence": [
+     37,
+     36
+    ],
+    "dep_fact": [
+     1,
+     8
+    ],
+    "dep_fact_edge": [
+     6,
+     6
+    ],
+    "dep_ref_dep": [
+     2,
+     2
+    ]
+   },
+   "algo_ms": 12.7,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 19
+     },
+     "symbol": {
+      "rows": 17
+     },
+     "scope": {
+      "rows": 36
+     },
+     "binding": {
+      "rows": 33
+     },
+     "import_resolution": {
+      "rows": 15
+     },
+     "ref": {
+      "rows": 13
+     },
+     "class": {
+      "rows": 2
+     },
+     "base_class": {
+      "rows": 1
+     },
+     "function": {
+      "rows": 15
+     },
+     "param": {
+      "rows": 2
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 15
+     },
+     "link_set": {
+      "rows": 15
+     },
+     "reading_sequence": {
+      "rows": 36
+     },
+     "dep_fact": {
+      "rows": 65
+     },
+     "dep_fact_edge": {
+      "rows": 38
+     },
+     "dep_ref_dep": {
+      "rows": 40
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    8.3,
+    8.5,
+    9.9
+   ],
+   "update_ms": 8.3,
+   "equal": true
+  },
+  {
+   "name": "syn_global_import_rewritten",
+   "repo": "syn",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 14.3,
+   "effect": {
+    "file": [
+     10,
+     10
+    ],
+    "binding": [
+     1,
+     1
+    ],
+    "import_resolution": [
+     1,
+     1
+    ],
+    "ref": [
+     1,
+     1
+    ],
+    "link_multiset": [
+     2,
+     2
+    ],
+    "link_set": [
+     2,
+     2
+    ],
+    "reading_sequence": [
+     27,
+     27
+    ],
+    "dep_fact": [
+     1,
+     4
+    ],
+    "dep_fact_edge": [
+     0,
+     2
+    ],
+    "dep_ref_dep": [
+     3,
+     3
+    ]
+   },
+   "algo_ms": 12.7,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 19
+     },
+     "symbol": {
+      "rows": 18
+     },
+     "scope": {
+      "rows": 37
+     },
+     "binding": {
+      "rows": 34
+     },
+     "import_resolution": {
+      "rows": 15
+     },
+     "ref": {
+      "rows": 13
+     },
+     "class": {
+      "rows": 2
+     },
+     "base_class": {
+      "rows": 1
+     },
+     "function": {
+      "rows": 16
+     },
+     "param": {
+      "rows": 2
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 17
+     },
+     "link_set": {
+      "rows": 17
+     },
+     "reading_sequence": {
+      "rows": 37
+     },
+     "dep_fact": {
+      "rows": 61
+     },
+     "dep_fact_edge": {
+      "rows": 40
+     },
+     "dep_ref_dep": {
+      "rows": 40
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    8.3,
+    9.6,
+    8.3
+   ],
+   "update_ms": 8.3,
+   "equal": true
+  },
+  {
+   "name": "syn_same_line_add_missing",
+   "repo": "syn",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 14.2,
+   "effect": {
+    "file": [
+     18,
+     19
+    ],
+    "symbol": [
+     0,
+     1
+    ],
+    "scope": [
+     0,
+     2
+    ],
+    "binding": [
+     0,
+     1
+    ],
+    "import_resolution": [
+     1,
+     1
+    ],
+    "ref": [
+     1,
+     1
+    ],
+    "function": [
+     0,
+     1
+    ],
+    "link_multiset": [
+     0,
+     2
+    ],
+    "link_set": [
+     0,
+     2
+    ],
+    "reading_sequence": [
+     37,
+     39
+    ],
+    "dep_fact": [
+     0,
+     3
+    ],
+    "dep_fact_edge": [
+     0,
+     2
+    ],
+    "dep_ref_dep": [
+     0,
+     2
+    ]
+   },
+   "algo_ms": 10.9,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 20
+     },
+     "symbol": {
+      "rows": 19
+     },
+     "scope": {
+      "rows": 39
+     },
+     "binding": {
+      "rows": 35
+     },
+     "import_resolution": {
+      "rows": 15
+     },
+     "ref": {
+      "rows": 13
+     },
+     "class": {
+      "rows": 2
+     },
+     "base_class": {
+      "rows": 1
+     },
+     "function": {
+      "rows": 17
+     },
+     "param": {
+      "rows": 2
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 19
+     },
+     "link_set": {
+      "rows": 19
+     },
+     "reading_sequence": {
+      "rows": 39
+     },
+     "dep_fact": {
+      "rows": 61
+     },
+     "dep_fact_edge": {
+      "rows": 40
+     },
+     "dep_ref_dep": {
+      "rows": 42
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    8.4,
+    8.7,
+    8.5
+   ],
+   "update_ms": 8.4,
+   "equal": true
+  },
+  {
+   "name": "syn_same_line_delete",
+   "repo": "syn",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 13.6,
+   "effect": {
+    "file": [
+     18,
+     17
+    ],
+    "symbol": [
+     1,
+     0
+    ],
+    "scope": [
+     2,
+     0
+    ],
+    "binding": [
+     1,
+     0
+    ],
+    "import_resolution": [
+     1,
+     1
+    ],
+    "ref": [
+     1,
+     1
+    ],
+    "function": [
+     1,
+     0
+    ],
+    "link_multiset": [
+     2,
+     0
+    ],
+    "link_set": [
+     2,
+     0
+    ],
+    "reading_sequence": [
+     37,
+     35
+    ],
+    "dep_fact": [
+     3,
+     0
+    ],
+    "dep_fact_edge": [
+     2,
+     0
+    ],
+    "dep_ref_dep": [
+     2,
+     0
+    ]
+   },
+   "algo_ms": 11.7,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 18
+     },
+     "symbol": {
+      "rows": 17
+     },
+     "scope": {
+      "rows": 35
+     },
+     "binding": {
+      "rows": 33
+     },
+     "import_resolution": {
+      "rows": 15
+     },
+     "ref": {
+      "rows": 13
+     },
+     "class": {
+      "rows": 2
+     },
+     "base_class": {
+      "rows": 1
+     },
+     "function": {
+      "rows": 15
+     },
+     "param": {
+      "rows": 2
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 15
+     },
+     "link_set": {
+      "rows": 15
+     },
+     "reading_sequence": {
+      "rows": 35
+     },
+     "dep_fact": {
+      "rows": 55
+     },
+     "dep_fact_edge": {
+      "rows": 36
+     },
+     "dep_ref_dep": {
+      "rows": 38
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    9.1,
+    8.4,
+    8.1
+   ],
+   "update_ms": 8.1,
+   "equal": true
+  },
+  {
+   "name": "syn_fallback_appears",
+   "repo": "syn",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 13.9,
+   "effect": {
+    "file": [
+     18,
+     19
+    ],
+    "symbol": [
+     0,
+     1
+    ],
+    "scope": [
+     0,
+     2
+    ],
+    "binding": [
+     0,
+     1
+    ],
+    "import_resolution": [
+     1,
+     1
+    ],
+    "function": [
+     0,
+     1
+    ],
+    "link_multiset": [
+     0,
+     1
+    ],
+    "link_set": [
+     0,
+     1
+    ],
+    "reading_sequence": [
+     37,
+     39
+    ],
+    "dep_fact": [
+     1,
+     3
+    ],
+    "dep_fact_edge": [
+     0,
+     2
+    ],
+    "dep_ref_dep": [
+     1,
+     2
+    ]
+   },
+   "algo_ms": 12.1,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 20
+     },
+     "symbol": {
+      "rows": 19
+     },
+     "scope": {
+      "rows": 39
+     },
+     "binding": {
+      "rows": 35
+     },
+     "import_resolution": {
+      "rows": 15
+     },
+     "ref": {
+      "rows": 13
+     },
+     "class": {
+      "rows": 2
+     },
+     "base_class": {
+      "rows": 1
+     },
+     "function": {
+      "rows": 17
+     },
+     "param": {
+      "rows": 2
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 18
+     },
+     "link_set": {
+      "rows": 18
+     },
+     "reading_sequence": {
+      "rows": 39
+     },
+     "dep_fact": {
+      "rows": 60
+     },
+     "dep_fact_edge": {
+      "rows": 40
+     },
+     "dep_ref_dep": {
+      "rows": 41
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    9.1,
+    7.6,
+    7.5
+   ],
+   "update_ms": 7.5,
+   "equal": true
+  },
+  {
+   "name": "syn_fallback_disappears",
+   "repo": "syn",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 12.6,
+   "effect": {
+    "file": [
+     19,
+     18
+    ],
+    "symbol": [
+     1,
+     0
+    ],
+    "scope": [
+     2,
+     0
+    ],
+    "binding": [
+     1,
+     0
+    ],
+    "import_resolution": [
+     1,
+     1
+    ],
+    "function": [
+     1,
+     0
+    ],
+    "link_multiset": [
+     1,
+     0
+    ],
+    "link_set": [
+     1,
+     0
+    ],
+    "reading_sequence": [
+     39,
+     37
+    ],
+    "dep_fact": [
+     3,
+     1
+    ],
+    "dep_fact_edge": [
+     2,
+     0
+    ],
+    "dep_ref_dep": [
+     2,
+     1
+    ]
+   },
+   "algo_ms": 10.3,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 19
+     },
+     "symbol": {
+      "rows": 18
+     },
+     "scope": {
+      "rows": 37
+     },
+     "binding": {
+      "rows": 34
+     },
+     "import_resolution": {
+      "rows": 15
+     },
+     "ref": {
+      "rows": 13
+     },
+     "class": {
+      "rows": 2
+     },
+     "base_class": {
+      "rows": 1
+     },
+     "function": {
+      "rows": 16
+     },
+     "param": {
+      "rows": 2
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 17
+     },
+     "link_set": {
+      "rows": 17
+     },
+     "reading_sequence": {
+      "rows": 37
+     },
+     "dep_fact": {
+      "rows": 58
+     },
+     "dep_fact_edge": {
+      "rows": 38
+     },
+     "dep_ref_dep": {
+      "rows": 40
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    7.8,
+    9.6,
+    8.6
+   ],
+   "update_ms": 7.8,
+   "equal": true
+  },
+  {
+   "name": "syn_external_becomes_project",
+   "repo": "syn",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 14.0,
+   "effect": {
+    "file": [
+     18,
+     19
+    ],
+    "symbol": [
+     0,
+     1
+    ],
+    "scope": [
+     0,
+     2
+    ],
+    "binding": [
+     0,
+     1
+    ],
+    "import_resolution": [
+     1,
+     1
+    ],
+    "ref": [
+     1,
+     1
+    ],
+    "function": [
+     0,
+     1
+    ],
+    "link_multiset": [
+     0,
+     2
+    ],
+    "link_set": [
+     0,
+     2
+    ],
+    "reading_sequence": [
+     37,
+     39
+    ],
+    "dep_fact": [
+     1,
+     3
+    ],
+    "dep_fact_edge": [
+     0,
+     2
+    ],
+    "dep_ref_dep": [
+     1,
+     2
+    ]
+   },
+   "algo_ms": 11.2,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 20
+     },
+     "symbol": {
+      "rows": 19
+     },
+     "scope": {
+      "rows": 39
+     },
+     "binding": {
+      "rows": 35
+     },
+     "import_resolution": {
+      "rows": 15
+     },
+     "ref": {
+      "rows": 13
+     },
+     "class": {
+      "rows": 2
+     },
+     "base_class": {
+      "rows": 1
+     },
+     "function": {
+      "rows": 17
+     },
+     "param": {
+      "rows": 2
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 19
+     },
+     "link_set": {
+      "rows": 19
+     },
+     "reading_sequence": {
+      "rows": 39
+     },
+     "dep_fact": {
+      "rows": 60
+     },
+     "dep_fact_edge": {
+      "rows": 40
+     },
+     "dep_ref_dep": {
+      "rows": 41
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    9.4,
+    8.2,
+    9.4
+   ],
+   "update_ms": 8.2,
+   "equal": true
+  },
+  {
+   "name": "syn_missing_module_added",
+   "repo": "syn",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 13.1,
+   "effect": {
+    "file": [
+     18,
+     19
+    ],
+    "symbol": [
+     0,
+     1
+    ],
+    "scope": [
+     0,
+     2
+    ],
+    "binding": [
+     0,
+     1
+    ],
+    "import_resolution": [
+     1,
+     1
+    ],
+    "ref": [
+     1,
+     1
+    ],
+    "function": [
+     0,
+     1
+    ],
+    "link_multiset": [
+     0,
+     2
+    ],
+    "link_set": [
+     0,
+     2
+    ],
+    "reading_sequence": [
+     37,
+     39
+    ],
+    "dep_fact": [
+     0,
+     3
+    ],
+    "dep_fact_edge": [
+     0,
+     2
+    ],
+    "dep_ref_dep": [
+     0,
+     2
+    ]
+   },
+   "algo_ms": 11.6,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 20
+     },
+     "symbol": {
+      "rows": 19
+     },
+     "scope": {
+      "rows": 39
+     },
+     "binding": {
+      "rows": 35
+     },
+     "import_resolution": {
+      "rows": 15
+     },
+     "ref": {
+      "rows": 13
+     },
+     "class": {
+      "rows": 2
+     },
+     "base_class": {
+      "rows": 1
+     },
+     "function": {
+      "rows": 17
+     },
+     "param": {
+      "rows": 2
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 19
+     },
+     "link_set": {
+      "rows": 19
+     },
+     "reading_sequence": {
+      "rows": 39
+     },
+     "dep_fact": {
+      "rows": 61
+     },
+     "dep_fact_edge": {
+      "rows": 40
+     },
+     "dep_ref_dep": {
+      "rows": 42
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    7.3,
+    8.2,
+    8.3
+   ],
+   "update_ms": 7.3,
+   "equal": true
+  },
+  {
+   "name": "syn_project_becomes_missing",
+   "repo": "syn",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 14.0,
+   "effect": {
+    "file": [
+     19,
+     18
+    ],
+    "symbol": [
+     1,
+     0
+    ],
+    "scope": [
+     2,
+     0
+    ],
+    "binding": [
+     1,
+     0
+    ],
+    "import_resolution": [
+     1,
+     1
+    ],
+    "ref": [
+     1,
+     1
+    ],
+    "function": [
+     1,
+     0
+    ],
+    "link_multiset": [
+     2,
+     0
+    ],
+    "link_set": [
+     2,
+     0
+    ],
+    "reading_sequence": [
+     39,
+     37
+    ],
+    "dep_fact": [
+     3,
+     0
+    ],
+    "dep_fact_edge": [
+     2,
+     0
+    ],
+    "dep_ref_dep": [
+     2,
+     0
+    ]
+   },
+   "algo_ms": 19.9,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 19
+     },
+     "symbol": {
+      "rows": 18
+     },
+     "scope": {
+      "rows": 37
+     },
+     "binding": {
+      "rows": 34
+     },
+     "import_resolution": {
+      "rows": 15
+     },
+     "ref": {
+      "rows": 13
+     },
+     "class": {
+      "rows": 2
+     },
+     "base_class": {
+      "rows": 1
+     },
+     "function": {
+      "rows": 16
+     },
+     "param": {
+      "rows": 2
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 17
+     },
+     "link_set": {
+      "rows": 17
+     },
+     "reading_sequence": {
+      "rows": 37
+     },
+     "dep_fact": {
+      "rows": 58
+     },
+     "dep_fact_edge": {
+      "rows": 38
+     },
+     "dep_ref_dep": {
+      "rows": 40
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    9.0,
+    9.5,
+    8.0
+   ],
+   "update_ms": 8.0,
+   "equal": true
+  },
+  {
+   "name": "syn_base_gains_method",
+   "repo": "syn",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 13.4,
+   "effect": {
+    "file": [
+     8,
+     8
+    ],
+    "symbol": [
+     1,
+     2
+    ],
+    "scope": [
+     2,
+     3
+    ],
+    "binding": [
+     0,
+     2
+    ],
+    "ref": [
+     1,
+     1
+    ],
+    "class": [
+     1,
+     1
+    ],
+    "function": [
+     0,
+     1
+    ],
+    "param": [
+     0,
+     1
+    ],
+    "link_multiset": [
+     0,
+     1
+    ],
+    "link_set": [
+     0,
+     1
+    ],
+    "reading_sequence": [
+     28,
+     29
+    ],
+    "dep_fact": [
+     0,
+     1
+    ],
+    "dep_ref_dep": [
+     1,
+     1
+    ]
+   },
+   "algo_ms": 12.0,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 19
+     },
+     "symbol": {
+      "rows": 19
+     },
+     "scope": {
+      "rows": 38
+     },
+     "binding": {
+      "rows": 36
+     },
+     "import_resolution": {
+      "rows": 15
+     },
+     "ref": {
+      "rows": 13
+     },
+     "class": {
+      "rows": 2
+     },
+     "base_class": {
+      "rows": 1
+     },
+     "function": {
+      "rows": 17
+     },
+     "param": {
+      "rows": 3
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 18
+     },
+     "link_set": {
+      "rows": 18
+     },
+     "reading_sequence": {
+      "rows": 38
+     },
+     "dep_fact": {
+      "rows": 59
+     },
+     "dep_fact_edge": {
+      "rows": 38
+     },
+     "dep_ref_dep": {
+      "rows": 40
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": false,
+     "positions_differing": 13,
+     "first_difference": {
+      "position": 0,
+      "a": {
+       "file_id": "pkg/chain_user.py",
+       "source_id": "pkg/chain_user.py::use_chain",
+       "kind": "CALLS",
+       "name_path": "thing",
+       "line": 4
+      },
+      "b": {
+       "file_id": "pkg/base.py",
+       "source_id": "pkg/base.py::Base::run",
+       "kind": "CALLS",
+       "name_path": "self.step",
+       "line": 2
+      }
+     }
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    9.7,
+    8.5,
+    9.1
+   ],
+   "update_ms": 8.5,
+   "equal": true
+  },
+  {
+   "name": "syn_rename_chain_target",
+   "repo": "syn",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 13.3,
+   "effect": {
+    "file": [
+     16,
+     16
+    ],
+    "symbol": [
+     2,
+     2
+    ],
+    "scope": [
+     3,
+     3
+    ],
+    "binding": [
+     2,
+     2
+    ],
+    "import_resolution": [
+     2,
+     2
+    ],
+    "ref": [
+     2,
+     2
+    ],
+    "function": [
+     2,
+     2
+    ],
+    "link_multiset": [
+     4,
+     0
+    ],
+    "link_set": [
+     4,
+     0
+    ],
+    "reading_sequence": [
+     37,
+     37
+    ],
+    "dep_fact": [
+     3,
+     7
+    ],
+    "dep_fact_edge": [
+     8,
+     5
+    ],
+    "dep_ref_dep": [
+     3,
+     2
+    ]
+   },
+   "algo_ms": 12.7,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 19
+     },
+     "symbol": {
+      "rows": 18
+     },
+     "scope": {
+      "rows": 37
+     },
+     "binding": {
+      "rows": 34
+     },
+     "import_resolution": {
+      "rows": 15
+     },
+     "ref": {
+      "rows": 13
+     },
+     "class": {
+      "rows": 2
+     },
+     "base_class": {
+      "rows": 1
+     },
+     "function": {
+      "rows": 16
+     },
+     "param": {
+      "rows": 2
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 13
+     },
+     "link_set": {
+      "rows": 13
+     },
+     "reading_sequence": {
+      "rows": 37
+     },
+     "dep_fact": {
+      "rows": 62
+     },
+     "dep_fact_edge": {
+      "rows": 35
+     },
+     "dep_ref_dep": {
+      "rows": 39
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    9.1,
+    10.8,
+    9.1
+   ],
+   "update_ms": 9.1,
+   "equal": true
+  },
+  {
+   "name": "syn_rename_and_fix_importer",
+   "repo": "syn",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 14.6,
+   "effect": {
+    "file": [
+     11,
+     11
+    ],
+    "symbol": [
+     2,
+     2
+    ],
+    "scope": [
+     3,
+     3
+    ],
+    "binding": [
+     3,
+     3
+    ],
+    "import_resolution": [
+     2,
+     2
+    ],
+    "ref": [
+     2,
+     2
+    ],
+    "function": [
+     2,
+     2
+    ],
+    "link_multiset": [
+     4,
+     2
+    ],
+    "link_set": [
+     4,
+     2
+    ],
+    "reading_sequence": [
+     37,
+     37
+    ],
+    "dep_fact": [
+     4,
+     5
+    ],
+    "dep_fact_edge": [
+     9,
+     9
+    ],
+    "dep_ref_dep": [
+     3,
+     2
+    ]
+   },
+   "algo_ms": 13.1,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 19
+     },
+     "symbol": {
+      "rows": 18
+     },
+     "scope": {
+      "rows": 37
+     },
+     "binding": {
+      "rows": 34
+     },
+     "import_resolution": {
+      "rows": 15
+     },
+     "ref": {
+      "rows": 13
+     },
+     "class": {
+      "rows": 2
+     },
+     "base_class": {
+      "rows": 1
+     },
+     "function": {
+      "rows": 16
+     },
+     "param": {
+      "rows": 2
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 15
+     },
+     "link_set": {
+      "rows": 15
+     },
+     "reading_sequence": {
+      "rows": 37
+     },
+     "dep_fact": {
+      "rows": 59
+     },
+     "dep_fact_edge": {
+      "rows": 38
+     },
+     "dep_ref_dep": {
+      "rows": 39
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    16.8,
+    18.0,
+    18.1
+   ],
+   "update_ms": 16.8,
+   "update_ms_per_op_min": [
+    8.5,
+    8.0
+   ],
+   "equal": true
+  },
+  {
+   "name": "root_body_edit",
+   "repo": "root",
+   "class": "ordinary",
+   "target_ms": 1000,
+   "fresh_scan_ms": 16981.9,
+   "effect": {
+    "file": [
+     2,
+     2
+    ],
+    "symbol": [
+     4,
+     4
+    ],
+    "scope": [
+     5,
+     5
+    ],
+    "binding": [
+     25,
+     25
+    ],
+    "ref": [
+     18,
+     19
+    ],
+    "function": [
+     4,
+     4
+    ],
+    "reading_sequence": [
+     2,
+     2
+    ],
+    "dep_ref_dep": [
+     3,
+     3
+    ]
+   },
+   "algo_ms": 1892.6,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 4659
+     },
+     "symbol": {
+      "rows": 153795
+     },
+     "scope": {
+      "rows": 94808
+     },
+     "binding": {
+      "rows": 666904
+     },
+     "import_resolution": {
+      "rows": 41387
+     },
+     "ref": {
+      "rows": 384338
+     },
+     "class": {
+      "rows": 19036
+     },
+     "base_class": {
+      "rows": 17585
+     },
+     "function": {
+      "rows": 71113
+     },
+     "param": {
+      "rows": 192362
+     },
+     "field": {
+      "rows": 51983
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 94887
+     },
+     "link_set": {
+      "rows": 94887
+     },
+     "reading_sequence": {
+      "rows": 94808
+     },
+     "dep_fact": {
+      "rows": 112796
+     },
+     "dep_fact_edge": {
+      "rows": 60630
+     },
+     "dep_ref_dep": {
+      "rows": 413273
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": false,
+     "positions_differing": 384261,
+     "first_difference": {
+      "position": 77,
+      "a": {
+       "file_id": "bench/metrics/test_ranking.py",
+       "source_id": "bench/metrics/test_ranking.py::isnan",
+       "kind": "CALLS",
+       "name_path": "isinstance",
+       "line": 33
+      },
+      "b": {
+       "file_id": "bench/env.py",
+       "source_id": "bench/env.py::parse_env",
+       "kind": "CALLS",
+       "name_path": "out.clear",
+       "line": 33
+      }
+     }
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    22.4,
+    26.5,
+    34.3
+   ],
+   "update_ms": 22.4,
+   "equal": true,
+   "meets_target": true
+  },
+  {
+   "name": "dep_star2_name_added",
+   "repo": "dep",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 14.6,
+   "effect": {
+    "file": [
+     9,
+     9
+    ],
+    "symbol": [
+     0,
+     1
+    ],
+    "scope": [
+     1,
+     2
+    ],
+    "binding": [
+     0,
+     1
+    ],
+    "ref": [
+     1,
+     1
+    ],
+    "function": [
+     0,
+     1
+    ],
+    "link_multiset": [
+     0,
+     1
+    ],
+    "link_set": [
+     0,
+     1
+    ],
+    "reading_sequence": [
+     49,
+     50
+    ],
+    "dep_fact": [
+     1,
+     1
+    ],
+    "dep_fact_edge": [
+     1,
+     1
+    ],
+    "dep_ref_dep": [
+     0,
+     1
+    ]
+   },
+   "algo_ms": 11.6,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 26
+     },
+     "symbol": {
+      "rows": 24
+     },
+     "scope": {
+      "rows": 50
+     },
+     "binding": {
+      "rows": 52
+     },
+     "import_resolution": {
+      "rows": 22
+     },
+     "ref": {
+      "rows": 22
+     },
+     "class": {
+      "rows": 4
+     },
+     "base_class": {
+      "rows": 2
+     },
+     "function": {
+      "rows": 20
+     },
+     "param": {
+      "rows": 4
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 38
+     },
+     "link_set": {
+      "rows": 38
+     },
+     "reading_sequence": {
+      "rows": 50
+     },
+     "dep_fact": {
+      "rows": 87
+     },
+     "dep_fact_edge": {
+      "rows": 65
+     },
+     "dep_ref_dep": {
+      "rows": 82
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    8.9,
+    8.5,
+    9.4
+   ],
+   "update_ms": 8.5,
+   "equal": true
+  },
+  {
+   "name": "dep_star2_name_removed",
+   "repo": "dep",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 14.1,
+   "effect": {
+    "file": [
+     24,
+     24
+    ],
+    "symbol": [
+     1,
+     0
+    ],
+    "scope": [
+     2,
+     1
+    ],
+    "binding": [
+     1,
+     0
+    ],
+    "ref": [
+     1,
+     1
+    ],
+    "function": [
+     1,
+     0
+    ],
+    "link_multiset": [
+     1,
+     0
+    ],
+    "link_set": [
+     1,
+     0
+    ],
+    "reading_sequence": [
+     49,
+     48
+    ],
+    "dep_fact": [
+     1,
+     0
+    ],
+    "dep_fact_edge": [
+     1,
+     1
+    ],
+    "dep_ref_dep": [
+     1,
+     0
+    ]
+   },
+   "algo_ms": 12.9,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 26
+     },
+     "symbol": {
+      "rows": 22
+     },
+     "scope": {
+      "rows": 48
+     },
+     "binding": {
+      "rows": 50
+     },
+     "import_resolution": {
+      "rows": 22
+     },
+     "ref": {
+      "rows": 22
+     },
+     "class": {
+      "rows": 4
+     },
+     "base_class": {
+      "rows": 2
+     },
+     "function": {
+      "rows": 18
+     },
+     "param": {
+      "rows": 4
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 36
+     },
+     "link_set": {
+      "rows": 36
+     },
+     "reading_sequence": {
+      "rows": 48
+     },
+     "dep_fact": {
+      "rows": 86
+     },
+     "dep_fact_edge": {
+      "rows": 65
+     },
+     "dep_ref_dep": {
+      "rows": 80
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    9.4,
+    9.0,
+    8.7
+   ],
+   "update_ms": 8.7,
+   "equal": true
+  },
+  {
+   "name": "dep_grandbase_gains_method",
+   "repo": "dep",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 12.8,
+   "effect": {
+    "file": [
+     17,
+     17
+    ],
+    "symbol": [
+     1,
+     2
+    ],
+    "scope": [
+     2,
+     3
+    ],
+    "binding": [
+     0,
+     2
+    ],
+    "ref": [
+     1,
+     1
+    ],
+    "class": [
+     1,
+     1
+    ],
+    "function": [
+     0,
+     1
+    ],
+    "param": [
+     0,
+     1
+    ],
+    "link_multiset": [
+     0,
+     1
+    ],
+    "link_set": [
+     0,
+     1
+    ],
+    "reading_sequence": [
+     49,
+     50
+    ],
+    "dep_fact": [
+     1,
+     1
+    ],
+    "dep_ref_dep": [
+     1,
+     1
+    ]
+   },
+   "algo_ms": 12.6,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 26
+     },
+     "symbol": {
+      "rows": 24
+     },
+     "scope": {
+      "rows": 50
+     },
+     "binding": {
+      "rows": 53
+     },
+     "import_resolution": {
+      "rows": 22
+     },
+     "ref": {
+      "rows": 22
+     },
+     "class": {
+      "rows": 4
+     },
+     "base_class": {
+      "rows": 2
+     },
+     "function": {
+      "rows": 20
+     },
+     "param": {
+      "rows": 5
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 38
+     },
+     "link_set": {
+      "rows": 38
+     },
+     "reading_sequence": {
+      "rows": 50
+     },
+     "dep_fact": {
+      "rows": 87
+     },
+     "dep_fact_edge": {
+      "rows": 65
+     },
+     "dep_ref_dep": {
+      "rows": 81
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    8.1,
+    9.1,
+    9.0
+   ],
+   "update_ms": 8.1,
+   "equal": true
+  },
+  {
+   "name": "dep_grandbase_loses_base",
+   "repo": "dep",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 12.8,
+   "effect": {
+    "file": [
+     15,
+     15
+    ],
+    "ref": [
+     2,
+     1
+    ],
+    "base_class": [
+     1,
+     0
+    ],
+    "link_multiset": [
+     2,
+     0
+    ],
+    "link_set": [
+     2,
+     0
+    ],
+    "reading_sequence": [
+     49,
+     49
+    ],
+    "dep_fact": [
+     6,
+     0
+    ],
+    "dep_fact_edge": [
+     2,
+     0
+    ],
+    "dep_ref_dep": [
+     5,
+     0
+    ]
+   },
+   "algo_ms": 13.3,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 26
+     },
+     "symbol": {
+      "rows": 23
+     },
+     "scope": {
+      "rows": 49
+     },
+     "binding": {
+      "rows": 51
+     },
+     "import_resolution": {
+      "rows": 22
+     },
+     "ref": {
+      "rows": 21
+     },
+     "class": {
+      "rows": 4
+     },
+     "base_class": {
+      "rows": 1
+     },
+     "function": {
+      "rows": 19
+     },
+     "param": {
+      "rows": 4
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 36
+     },
+     "link_set": {
+      "rows": 36
+     },
+     "reading_sequence": {
+      "rows": 49
+     },
+     "dep_fact": {
+      "rows": 81
+     },
+     "dep_fact_edge": {
+      "rows": 63
+     },
+     "dep_ref_dep": {
+      "rows": 76
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    8.5,
+    9.4,
+    10.2
+   ],
+   "update_ms": 8.5,
+   "equal": true
+  },
+  {
+   "name": "dep_shared_chain_middle",
+   "repo": "dep",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 15.6,
+   "effect": {
+    "file": [
+     12,
+     12
+    ],
+    "binding": [
+     1,
+     1
+    ],
+    "import_resolution": [
+     1,
+     1
+    ],
+    "ref": [
+     6,
+     6
+    ],
+    "link_multiset": [
+     6,
+     6
+    ],
+    "link_set": [
+     6,
+     6
+    ],
+    "reading_sequence": [
+     34,
+     34
+    ],
+    "dep_fact": [
+     4,
+     1
+    ],
+    "dep_fact_edge": [
+     9,
+     5
+    ],
+    "dep_ref_dep": [
+     6,
+     6
+    ]
+   },
+   "algo_ms": 12.1,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 26
+     },
+     "symbol": {
+      "rows": 23
+     },
+     "scope": {
+      "rows": 49
+     },
+     "binding": {
+      "rows": 51
+     },
+     "import_resolution": {
+      "rows": 22
+     },
+     "ref": {
+      "rows": 22
+     },
+     "class": {
+      "rows": 4
+     },
+     "base_class": {
+      "rows": 2
+     },
+     "function": {
+      "rows": 19
+     },
+     "param": {
+      "rows": 4
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 37
+     },
+     "link_set": {
+      "rows": 37
+     },
+     "reading_sequence": {
+      "rows": 49
+     },
+     "dep_fact": {
+      "rows": 84
+     },
+     "dep_fact_edge": {
+      "rows": 61
+     },
+     "dep_ref_dep": {
+      "rows": 81
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    8.7,
+    8.6,
+    8.4
+   ],
+   "update_ms": 8.4,
+   "equal": true
+  },
+  {
+   "name": "dep_shared_chain_middle_broken",
+   "repo": "dep",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 21.0,
+   "effect": {
+    "file": [
+     9,
+     9
+    ],
+    "binding": [
+     1,
+     1
+    ],
+    "ref": [
+     6,
+     6
+    ],
+    "link_multiset": [
+     5,
+     0
+    ],
+    "link_set": [
+     5,
+     0
+    ],
+    "reading_sequence": [
+     49,
+     49
+    ],
+    "dep_fact": [
+     3,
+     9
+    ],
+    "dep_fact_edge": [
+     8,
+     6
+    ],
+    "dep_ref_dep": [
+     6,
+     6
+    ]
+   },
+   "algo_ms": 12.1,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 26
+     },
+     "symbol": {
+      "rows": 23
+     },
+     "scope": {
+      "rows": 49
+     },
+     "binding": {
+      "rows": 51
+     },
+     "import_resolution": {
+      "rows": 22
+     },
+     "ref": {
+      "rows": 22
+     },
+     "class": {
+      "rows": 4
+     },
+     "base_class": {
+      "rows": 2
+     },
+     "function": {
+      "rows": 19
+     },
+     "param": {
+      "rows": 4
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 32
+     },
+     "link_set": {
+      "rows": 32
+     },
+     "reading_sequence": {
+      "rows": 49
+     },
+     "dep_fact": {
+      "rows": 93
+     },
+     "dep_fact_edge": {
+      "rows": 63
+     },
+     "dep_ref_dep": {
+      "rows": 81
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    8.5,
+    10.2,
+    8.4
+   ],
+   "update_ms": 8.4,
+   "equal": true
+  },
+  {
+   "name": "dep_class_member_lost",
+   "repo": "dep",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 13.7,
+   "effect": {
+    "file": [
+     5,
+     5
+    ],
+    "symbol": [
+     3,
+     2
+    ],
+    "scope": [
+     4,
+     3
+    ],
+    "binding": [
+     4,
+     2
+    ],
+    "ref": [
+     3,
+     1
+    ],
+    "class": [
+     1,
+     1
+    ],
+    "function": [
+     2,
+     1
+    ],
+    "param": [
+     1,
+     0
+    ],
+    "link_multiset": [
+     1,
+     0
+    ],
+    "link_set": [
+     1,
+     0
+    ],
+    "reading_sequence": [
+     28,
+     27
+    ],
+    "dep_fact": [
+     1,
+     1
+    ],
+    "dep_ref_dep": [
+     1,
+     1
+    ]
+   },
+   "algo_ms": 13.0,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 26
+     },
+     "symbol": {
+      "rows": 22
+     },
+     "scope": {
+      "rows": 48
+     },
+     "binding": {
+      "rows": 49
+     },
+     "import_resolution": {
+      "rows": 22
+     },
+     "ref": {
+      "rows": 20
+     },
+     "class": {
+      "rows": 4
+     },
+     "base_class": {
+      "rows": 2
+     },
+     "function": {
+      "rows": 18
+     },
+     "param": {
+      "rows": 3
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 36
+     },
+     "link_set": {
+      "rows": 36
+     },
+     "reading_sequence": {
+      "rows": 48
+     },
+     "dep_fact": {
+      "rows": 87
+     },
+     "dep_fact_edge": {
+      "rows": 65
+     },
+     "dep_ref_dep": {
+      "rows": 81
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    8.3,
+    9.6,
+    8.4
+   ],
+   "update_ms": 8.3,
+   "equal": true
+  },
+  {
+   "name": "dep_class_member_gained",
+   "repo": "dep",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 15.5,
+   "effect": {
+    "file": [
+     1,
+     1
+    ],
+    "symbol": [
+     1,
+     2
+    ],
+    "scope": [
+     2,
+     3
+    ],
+    "binding": [
+     0,
+     1
+    ],
+    "ref": [
+     1,
+     2
+    ],
+    "class": [
+     1,
+     1
+    ],
+    "function": [
+     0,
+     1
+    ],
+    "link_multiset": [
+     0,
+     1
+    ],
+    "link_set": [
+     0,
+     1
+    ],
+    "reading_sequence": [
+     24,
+     25
+    ],
+    "dep_fact": [
+     1,
+     1
+    ],
+    "dep_ref_dep": [
+     1,
+     1
+    ]
+   },
+   "algo_ms": 11.6,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 26
+     },
+     "symbol": {
+      "rows": 25
+     },
+     "scope": {
+      "rows": 51
+     },
+     "binding": {
+      "rows": 53
+     },
+     "import_resolution": {
+      "rows": 22
+     },
+     "ref": {
+      "rows": 24
+     },
+     "class": {
+      "rows": 4
+     },
+     "base_class": {
+      "rows": 2
+     },
+     "function": {
+      "rows": 21
+     },
+     "param": {
+      "rows": 4
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 38
+     },
+     "link_set": {
+      "rows": 38
+     },
+     "reading_sequence": {
+      "rows": 51
+     },
+     "dep_fact": {
+      "rows": 89
+     },
+     "dep_fact_edge": {
+      "rows": 65
+     },
+     "dep_ref_dep": {
+      "rows": 86
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": false,
+     "positions_differing": 13,
+     "first_difference": {
+      "position": 11,
+      "a": {
+       "file_id": "dep/u1.py",
+       "source_id": "dep/u1.py::f1",
+       "kind": "CALLS",
+       "name_path": "thing",
+       "line": 4
+      },
+      "b": {
+       "file_id": "dep/k.py",
+       "source_id": "dep/k.py::K::make",
+       "kind": "CALLS",
+       "name_path": "cls",
+       "line": 5
+      }
+     }
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    8.9,
+    10.3,
+    9.0
+   ],
+   "update_ms": 8.9,
+   "equal": true
+  },
+  {
+   "name": "dep_delete_two_spellings",
+   "repo": "dep",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 12.6,
+   "effect": {
+    "file": [
+     26,
+     25
+    ],
+    "symbol": [
+     1,
+     0
+    ],
+    "scope": [
+     2,
+     0
+    ],
+    "binding": [
+     1,
+     0
+    ],
+    "import_resolution": [
+     2,
+     2
+    ],
+    "ref": [
+     4,
+     4
+    ],
+    "function": [
+     1,
+     0
+    ],
+    "link_multiset": [
+     4,
+     0
+    ],
+    "link_set": [
+     4,
+     0
+    ],
+    "reading_sequence": [
+     49,
+     47
+    ],
+    "dep_fact": [
+     3,
+     1
+    ],
+    "dep_fact_edge": [
+     2,
+     0
+    ],
+    "dep_ref_dep": [
+     8,
+     1
+    ]
+   },
+   "algo_ms": 11.9,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 25
+     },
+     "symbol": {
+      "rows": 22
+     },
+     "scope": {
+      "rows": 47
+     },
+     "binding": {
+      "rows": 50
+     },
+     "import_resolution": {
+      "rows": 22
+     },
+     "ref": {
+      "rows": 22
+     },
+     "class": {
+      "rows": 4
+     },
+     "base_class": {
+      "rows": 2
+     },
+     "function": {
+      "rows": 18
+     },
+     "param": {
+      "rows": 4
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 33
+     },
+     "link_set": {
+      "rows": 33
+     },
+     "reading_sequence": {
+      "rows": 47
+     },
+     "dep_fact": {
+      "rows": 85
+     },
+     "dep_fact_edge": {
+      "rows": 63
+     },
+     "dep_ref_dep": {
+      "rows": 74
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    8.3,
+    8.2,
+    8.9
+   ],
+   "update_ms": 8.2,
+   "equal": true
+  },
+  {
+   "name": "dep_readd_two_spellings",
+   "repo": "dep",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 14.2,
+   "effect": {
+    "file": [
+     25,
+     26
+    ],
+    "symbol": [
+     0,
+     1
+    ],
+    "scope": [
+     0,
+     2
+    ],
+    "binding": [
+     0,
+     1
+    ],
+    "import_resolution": [
+     2,
+     2
+    ],
+    "ref": [
+     4,
+     4
+    ],
+    "function": [
+     0,
+     1
+    ],
+    "link_multiset": [
+     0,
+     4
+    ],
+    "link_set": [
+     0,
+     4
+    ],
+    "reading_sequence": [
+     47,
+     49
+    ],
+    "dep_fact": [
+     1,
+     3
+    ],
+    "dep_fact_edge": [
+     0,
+     2
+    ],
+    "dep_ref_dep": [
+     1,
+     8
+    ]
+   },
+   "algo_ms": 11.9,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 26
+     },
+     "symbol": {
+      "rows": 23
+     },
+     "scope": {
+      "rows": 49
+     },
+     "binding": {
+      "rows": 51
+     },
+     "import_resolution": {
+      "rows": 22
+     },
+     "ref": {
+      "rows": 22
+     },
+     "class": {
+      "rows": 4
+     },
+     "base_class": {
+      "rows": 2
+     },
+     "function": {
+      "rows": 19
+     },
+     "param": {
+      "rows": 4
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 37
+     },
+     "link_set": {
+      "rows": 37
+     },
+     "reading_sequence": {
+      "rows": 49
+     },
+     "dep_fact": {
+      "rows": 87
+     },
+     "dep_fact_edge": {
+      "rows": 65
+     },
+     "dep_ref_dep": {
+      "rows": 81
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    9.2,
+    9.6,
+    8.5
+   ],
+   "update_ms": 8.5,
+   "equal": true
+  },
+  {
+   "name": "dep_binding_order_swap",
+   "repo": "dep",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 13.6,
+   "effect": {
+    "binding": [
+     2,
+     2
+    ],
+    "ref": [
+     1,
+     1
+    ],
+    "link_multiset": [
+     1,
+     1
+    ],
+    "link_set": [
+     1,
+     1
+    ],
+    "reading_sequence": [
+     16,
+     16
+    ],
+    "dep_ref_dep": [
+     1,
+     1
+    ]
+   },
+   "algo_ms": 11.2,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 26
+     },
+     "symbol": {
+      "rows": 23
+     },
+     "scope": {
+      "rows": 49
+     },
+     "binding": {
+      "rows": 51
+     },
+     "import_resolution": {
+      "rows": 22
+     },
+     "ref": {
+      "rows": 22
+     },
+     "class": {
+      "rows": 4
+     },
+     "base_class": {
+      "rows": 2
+     },
+     "function": {
+      "rows": 19
+     },
+     "param": {
+      "rows": 4
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 37
+     },
+     "link_set": {
+      "rows": 37
+     },
+     "reading_sequence": {
+      "rows": 49
+     },
+     "dep_fact": {
+      "rows": 87
+     },
+     "dep_fact_edge": {
+      "rows": 65
+     },
+     "dep_ref_dep": {
+      "rows": 81
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    9.9,
+    9.1,
+    8.3
+   ],
+   "update_ms": 8.3,
+   "equal": true
+  },
+  {
+   "name": "dep_binding_line_move",
+   "repo": "dep",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 13.4,
+   "effect": {
+    "file": [
+     1,
+     1
+    ],
+    "scope": [
+     1,
+     1
+    ],
+    "binding": [
+     2,
+     2
+    ]
+   },
+   "algo_ms": 11.5,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 26
+     },
+     "symbol": {
+      "rows": 23
+     },
+     "scope": {
+      "rows": 49
+     },
+     "binding": {
+      "rows": 51
+     },
+     "import_resolution": {
+      "rows": 22
+     },
+     "ref": {
+      "rows": 22
+     },
+     "class": {
+      "rows": 4
+     },
+     "base_class": {
+      "rows": 2
+     },
+     "function": {
+      "rows": 19
+     },
+     "param": {
+      "rows": 4
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 37
+     },
+     "link_set": {
+      "rows": 37
+     },
+     "reading_sequence": {
+      "rows": 49
+     },
+     "dep_fact": {
+      "rows": 87
+     },
+     "dep_fact_edge": {
+      "rows": 65
+     },
+     "dep_ref_dep": {
+      "rows": 81
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    8.8,
+    9.5,
+    7.9
+   ],
+   "update_ms": 7.9,
+   "equal": true
+  },
+  {
+   "name": "dep_binding_order_swap_distinct",
+   "repo": "dep",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 13.6,
+   "effect": {
+    "binding": [
+     2,
+     2
+    ]
+   },
+   "algo_ms": 13.4,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 26
+     },
+     "symbol": {
+      "rows": 23
+     },
+     "scope": {
+      "rows": 49
+     },
+     "binding": {
+      "rows": 51
+     },
+     "import_resolution": {
+      "rows": 22
+     },
+     "ref": {
+      "rows": 22
+     },
+     "class": {
+      "rows": 4
+     },
+     "base_class": {
+      "rows": 2
+     },
+     "function": {
+      "rows": 19
+     },
+     "param": {
+      "rows": 4
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 37
+     },
+     "link_set": {
+      "rows": 37
+     },
+     "reading_sequence": {
+      "rows": 49
+     },
+     "dep_fact": {
+      "rows": 87
+     },
+     "dep_fact_edge": {
+      "rows": 65
+     },
+     "dep_ref_dep": {
+      "rows": 81
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    15.9,
+    8.4,
+    7.8
+   ],
+   "update_ms": 7.8,
+   "equal": true
+  },
+  {
+   "name": "xr_dep_grandbase_gains_method",
+   "repo": "xarray",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 1445.6,
+   "effect": {
+    "file": [
+     1,
+     1
+    ],
+    "symbol": [
+     37,
+     38
+    ],
+    "scope": [
+     32,
+     33
+    ],
+    "binding": [
+     170,
+     172
+    ],
+    "ref": [
+     80,
+     80
+    ],
+    "class": [
+     5,
+     5
+    ],
+    "function": [
+     26,
+     27
+    ],
+    "param": [
+     0,
+     1
+    ],
+    "link_multiset": [
+     0,
+     1
+    ],
+    "link_set": [
+     0,
+     1
+    ],
+    "reading_sequence": [
+     9282,
+     9283
+    ],
+    "dep_fact": [
+     0,
+     1
+    ],
+    "dep_ref_dep": [
+     68,
+     68
+    ]
+   },
+   "algo_ms": 147.0,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 241
+     },
+     "symbol": {
+      "rows": 10662
+     },
+     "scope": {
+      "rows": 9283
+     },
+     "binding": {
+      "rows": 63602
+     },
+     "import_resolution": {
+      "rows": 2687
+     },
+     "ref": {
+      "rows": 50727
+     },
+     "class": {
+      "rows": 687
+     },
+     "base_class": {
+      "rows": 368
+     },
+     "function": {
+      "rows": 8355
+     },
+     "param": {
+      "rows": 16703
+     },
+     "field": {
+      "rows": 669
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 14843
+     },
+     "link_set": {
+      "rows": 14843
+     },
+     "reading_sequence": {
+      "rows": 9283
+     },
+     "dep_fact": {
+      "rows": 7798
+     },
+     "dep_fact_edge": {
+      "rows": 1981
+     },
+     "dep_ref_dep": {
+      "rows": 86345
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": false,
+     "positions_differing": 2749,
+     "first_difference": {
+      "position": 47978,
+      "a": {
+       "file_id": "xarray/backends/writers.py",
+       "source_id": "xarray/backends/writers.py::get_writable_netcdf_store",
+       "kind": "CALLS",
+       "name_path": "ValueError",
+       "line": 61
+      },
+      "b": {
+       "file_id": "xarray/backends/common.py",
+       "source_id": "xarray/backends/common.py::_normalize_path",
+       "kind": "DECORATES",
+       "name_path": "overload",
+       "line": 55
+      }
+     }
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    85.5,
+    85.0,
+    87.0
+   ],
+   "update_ms": 85.0,
+   "equal": true
+  },
+  {
+   "name": "xr_dep_class_member_lost",
+   "repo": "xarray",
+   "class": "big",
+   "target_ms": 1000,
+   "fresh_scan_ms": 1423.2,
+   "effect": {
+    "file": [
+     1,
+     1
+    ],
+    "symbol": [
+     165,
+     164
+    ],
+    "scope": [
+     166,
+     165
+    ],
+    "binding": [
+     1834,
+     1822
+    ],
+    "ref": [
+     1355,
+     1352
+    ],
+    "class": [
+     1,
+     1
+    ],
+    "function": [
+     164,
+     163
+    ],
+    "param": [
+     8,
+     0
+    ],
+    "link_multiset": [
+     16,
+     0
+    ],
+    "link_set": [
+     16,
+     0
+    ],
+    "reading_sequence": [
+     9282,
+     9281
+    ],
+    "dep_fact": [
+     1,
+     7
+    ],
+    "dep_ref_dep": [
+     1061,
+     1271
+    ]
+   },
+   "algo_ms": 136.7,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 241
+     },
+     "symbol": {
+      "rows": 10660
+     },
+     "scope": {
+      "rows": 9281
+     },
+     "binding": {
+      "rows": 63588
+     },
+     "import_resolution": {
+      "rows": 2687
+     },
+     "ref": {
+      "rows": 50723
+     },
+     "class": {
+      "rows": 687
+     },
+     "base_class": {
+      "rows": 368
+     },
+     "function": {
+      "rows": 8353
+     },
+     "param": {
+      "rows": 16694
+     },
+     "field": {
+      "rows": 669
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 14826
+     },
+     "link_set": {
+      "rows": 14826
+     },
+     "reading_sequence": {
+      "rows": 9281
+     },
+     "dep_fact": {
+      "rows": 7799
+     },
+     "dep_fact_edge": {
+      "rows": 1981
+     },
+     "dep_ref_dep": {
+      "rows": 86548
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": false,
+     "positions_differing": 15445,
+     "first_difference": {
+      "position": 35278,
+      "a": {
+       "file_id": "xarray/core/datatree_render.py",
+       "source_id": "xarray/core/datatree_render.py::Row",
+       "kind": "INHERITS",
+       "name_path": "NamedTuple",
+       "line": 18
+      },
+      "b": {
+       "file_id": "xarray/core/dataset.py",
+       "source_id": "xarray/core/dataset.py::_sparse_coo_to_index",
+       "kind": "CALLS",
+       "name_path": "pd.MultiIndex.from_arrays",
+       "line": 218
+      }
+     }
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    219.6,
+    216.8,
+    222.1
+   ],
+   "update_ms": 216.8,
+   "equal": true,
+   "meets_target": true
+  },
+  {
+   "name": "xr_dep_shared_reexport_middle",
+   "repo": "xarray",
+   "class": "hub",
+   "target_ms": 1000,
+   "fresh_scan_ms": 1458.4,
+   "effect": {
+    "file": [
+     2,
+     2
+    ],
+    "binding": [
+     1,
+     1
+    ],
+    "import_resolution": [
+     1,
+     0
+    ],
+    "link_multiset": [
+     1,
+     0
+    ],
+    "link_set": [
+     1,
+     0
+    ],
+    "reading_sequence": [
+     241,
+     241
+    ],
+    "dep_fact": [
+     1,
+     2
+    ],
+    "dep_fact_edge": [
+     2,
+     6
+    ]
+   },
+   "algo_ms": 139.0,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 241
+     },
+     "symbol": {
+      "rows": 10661
+     },
+     "scope": {
+      "rows": 9282
+     },
+     "binding": {
+      "rows": 63600
+     },
+     "import_resolution": {
+      "rows": 2686
+     },
+     "ref": {
+      "rows": 50726
+     },
+     "class": {
+      "rows": 687
+     },
+     "base_class": {
+      "rows": 368
+     },
+     "function": {
+      "rows": 8354
+     },
+     "param": {
+      "rows": 16702
+     },
+     "field": {
+      "rows": 669
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 14841
+     },
+     "link_set": {
+      "rows": 14841
+     },
+     "reading_sequence": {
+      "rows": 9282
+     },
+     "dep_fact": {
+      "rows": 7794
+     },
+     "dep_fact_edge": {
+      "rows": 1985
+     },
+     "dep_ref_dep": {
+      "rows": 86338
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    229.4,
+    235.2,
+    250.2
+   ],
+   "update_ms": 229.4,
+   "equal": true,
+   "meets_target": true
+  },
+  {
+   "name": "xr_dep_delete_two_spellings",
+   "repo": "xarray",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 1428.8,
+   "effect": {
+    "file": [
+     233,
+     232
+    ],
+    "symbol": [
+     35,
+     0
+    ],
+    "scope": [
+     30,
+     0
+    ],
+    "binding": [
+     245,
+     0
+    ],
+    "import_resolution": [
+     14,
+     1
+    ],
+    "ref": [
+     219,
+     19
+    ],
+    "class": [
+     1,
+     0
+    ],
+    "function": [
+     28,
+     0
+    ],
+    "param": [
+     51,
+     0
+    ],
+    "link_multiset": [
+     73,
+     0
+    ],
+    "link_set": [
+     73,
+     0
+    ],
+    "reading_sequence": [
+     9282,
+     9252
+    ],
+    "dep_fact": [
+     47,
+     1
+    ],
+    "dep_fact_edge": [
+     20,
+     0
+    ],
+    "dep_ref_dep": [
+     140,
+     1
+    ]
+   },
+   "algo_ms": 138.0,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 240
+     },
+     "symbol": {
+      "rows": 10626
+     },
+     "scope": {
+      "rows": 9252
+     },
+     "binding": {
+      "rows": 63355
+     },
+     "import_resolution": {
+      "rows": 2674
+     },
+     "ref": {
+      "rows": 50526
+     },
+     "class": {
+      "rows": 686
+     },
+     "base_class": {
+      "rows": 368
+     },
+     "function": {
+      "rows": 8326
+     },
+     "param": {
+      "rows": 16651
+     },
+     "field": {
+      "rows": 669
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 14769
+     },
+     "link_set": {
+      "rows": 14769
+     },
+     "reading_sequence": {
+      "rows": 9252
+     },
+     "dep_fact": {
+      "rows": 7747
+     },
+     "dep_fact_edge": {
+      "rows": 1961
+     },
+     "dep_ref_dep": {
+      "rows": 86199
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    81.8,
+    84.1,
+    85.2
+   ],
+   "update_ms": 81.8,
+   "equal": true
+  },
+  {
+   "name": "xr_dep_binding_order_swap",
+   "repo": "xarray",
+   "class": "hub",
+   "target_ms": 1000,
+   "fresh_scan_ms": 1428.0,
+   "effect": {
+    "binding": [
+     2,
+     2
+    ]
+   },
+   "algo_ms": 136.7,
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 241
+     },
+     "symbol": {
+      "rows": 10661
+     },
+     "scope": {
+      "rows": 9282
+     },
+     "binding": {
+      "rows": 63600
+     },
+     "import_resolution": {
+      "rows": 2687
+     },
+     "ref": {
+      "rows": 50726
+     },
+     "class": {
+      "rows": 687
+     },
+     "base_class": {
+      "rows": 368
+     },
+     "function": {
+      "rows": 8354
+     },
+     "param": {
+      "rows": 16702
+     },
+     "field": {
+      "rows": 669
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 14842
+     },
+     "link_set": {
+      "rows": 14842
+     },
+     "reading_sequence": {
+      "rows": 9282
+     },
+     "dep_fact": {
+      "rows": 7793
+     },
+     "dep_fact_edge": {
+      "rows": 1981
+     },
+     "dep_ref_dep": {
+      "rows": 86338
+     }
+    },
+    "user_version": [
+     8,
+     8
+    ],
+    "deps_differ": [],
+    "info_orphan_facts": [
+     0,
+     0
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "info_ref_order_in_file": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [],
+    "equal": true
+   },
+   "update_ms_all": [
+    57.2,
+    57.7,
+    58.6
+   ],
+   "update_ms": 57.2,
+   "equal": true,
+   "meets_target": true
+  }
+ ]
+}

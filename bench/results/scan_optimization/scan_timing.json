@@ -1,0 +1,103 @@
+{
+  "date": "2026-11-02",
+  "units": {
+    "scan_seconds": "wall time",
+    "db_mb": "decimal MB, immediately after scan and before algo",
+    "rss_mb": "MiB, max of three scans"
+  },
+  "reps": 3,
+  "optimized": {
+    "xarray": {
+      "seconds": [
+        1.552,
+        1.569,
+        1.484
+      ],
+      "rss_mb": 256,
+      "db_mb": 38.4,
+      "algo_seconds": 0.131,
+      "best_timing_ms": {
+        "parse": 394,
+        "db_insert": 579,
+        "resolve": 451
+      }
+    },
+    "pytest": {
+      "seconds": [
+        0.775,
+        0.745,
+        0.751
+      ],
+      "rss_mb": 129,
+      "db_mb": 21.1,
+      "algo_seconds": 0.091,
+      "best_timing_ms": {
+        "parse": 170,
+        "db_insert": 334,
+        "resolve": 205
+      }
+    },
+    "root": {
+      "seconds": [
+        17.555,
+        17.574,
+        17.584
+      ],
+      "rss_mb": 1879,
+      "db_mb": 667.6,
+      "algo_seconds": 1.855,
+      "best_timing_ms": {
+        "parse": 3372,
+        "db_insert": 8396,
+        "resolve": 5191
+      }
+    }
+  },
+  "baseline": {
+    "xarray": {
+      "seconds": [
+        3.162,
+        3.13,
+        3.164
+      ],
+      "rss_mb": 284,
+      "db_mb": 60.1,
+      "algo_seconds": 0.148,
+      "best_timing_ms": {
+        "parse": 375,
+        "db_insert": 1959,
+        "resolve": 729
+      }
+    },
+    "pytest": {
+      "seconds": [
+        1.374,
+        1.377,
+        1.385
+      ],
+      "rss_mb": 144,
+      "db_mb": 32.9,
+      "algo_seconds": 0.103,
+      "best_timing_ms": {
+        "parse": 177,
+        "db_insert": 842,
+        "resolve": 317
+      }
+    },
+    "root": {
+      "seconds": [
+        54.721,
+        55.174,
+        55.432
+      ],
+      "rss_mb": 1875,
+      "db_mb": 1047.8,
+      "algo_seconds": 1.991,
+      "best_timing_ms": {
+        "parse": 3443,
+        "db_insert": 42717,
+        "resolve": 7949
+      }
+    }
+  }
+}

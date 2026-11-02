@@ -15,7 +15,10 @@ struct sqlite3;
 //        module spec of every import into import_resolution
 //   7 -- fact / fact_edge / ref_dep: what each ref's answer rests on, for
 //        incremental updates
-inline constexpr int kDbVersion = 7;
+//   8 -- smaller and faster to write: binding, scope, param, field and
+//        base_class are WITHOUT ROWID (binding and scope keyed by file_id
+//        first), ref has no UNIQUE index, unread indexes are gone
+inline constexpr int kDbVersion = 8;
 
 // Returned instead of an SQLite code for a database of another version.
 inline constexpr int kWrongDbVersion = -2;
@@ -73,5 +76,12 @@ int openDbForScan(const char* dbPath, sqlite3** db, bool* empty);
 int checkScanTarget(const char* dbPath);
 
 // The tables, the `link` view and user_version = kDbVersion, for an empty
-// database. No transaction of its own.
-int createSchema(sqlite3* db);
+// database. No transaction of its own. Without `indexes`, the tables' keys
+// are the only indexes until createIndexes.
+int createSchema(sqlite3* db, bool indexes = true);
+
+// Creates every index createSchema leaves out without `indexes` / drops every
+// one there is but the tables' keys. For a scan: it fills the tables, then
+// builds the indexes.
+int createIndexes(sqlite3* db);
+int dropIndexes(sqlite3* db);

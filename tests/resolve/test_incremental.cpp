@@ -778,3 +778,132 @@ TEST(Incremental, ScanRefusesAForeignFileBeforeParsing)
     EXPECT_EQ(checkDbVersion(path.c_str()), kNotADatabase);
     removeDb(path);
 }
+
+// ── What a scan writes ────────────────────────────────────────────────────────
+
+namespace {
+
+// Every object of the schema, as sqlite_master has it.
+Rows schemaOf(const std::string& path)
+{
+    sqlite3* db = nullptr;
+    EXPECT_EQ(initDb(path.c_str(), &db), SQLITE_OK);
+    Rows r = query(db, "SELECT type, name, tbl_name, sql FROM sqlite_master ORDER BY type, name;");
+    sqlite3_close(db);
+    return r;
+}
+
+Rows newDatabaseSchema()
+{
+    const std::string path = dbPath("schema_init");
+    removeDb(path);
+    sqlite3* db = nullptr;
+    EXPECT_EQ(initDb(path.c_str(), &db), SQLITE_OK);
+    sqlite3_close(db);
+    Rows r = schemaOf(path);
+    removeDb(path);
+    return r;
+}
+
+}  // namespace
+
+TEST(Incremental, ScanEndsWithTheSchemaOfANewDatabase)
+{
+    // A scan builds the indexes once its rows are in (DbInserter::insertAll),
+    // and writes with foreign keys off: the result must be what initDb
+    // creates, every row with its parent.
+    Session s("schema");
+    EXPECT_EQ(schemaOf(s.db()), newDatabaseSchema());
+    EXPECT_EQ(s.rows("PRAGMA foreign_key_check;"), Rows{});
+    EXPECT_EQ(s.rows("PRAGMA integrity_check;"), Rows{"ok"});
+}
+
+TEST(Incremental, RescanReplacesEverythingButTheAlgoSettings)
+{
+    Session s("rescan");
+    s.rows("INSERT INTO reading_sequence_config(config_key, config_value) VALUES('probe', '1');");
+    s.tree().write("pkg/added.py", "from .lib import A\n\nclass B(A):\n    def run(self):\n        A()\n");
+    s.tree().remove(s.tree().fileIds().front());
+    ASSERT_EQ(scan(s.tree(), s.db()), SQLITE_OK);
+    expectLikeAScan(s.tree(), s.db(), "rescan", true);
+    EXPECT_EQ(schemaOf(s.db()), newDatabaseSchema());
+    EXPECT_EQ(s.rows("SELECT config_value FROM reading_sequence_config WHERE config_key = 'probe';"),
+              Rows{"1"});
+    EXPECT_EQ(s.rows("PRAGMA foreign_key_check;"), Rows{});
+}
+
+TEST(Incremental, OneRefPerCalleeAndLine)
+{
+    // No index keeps a ref unique (db.cpp): the scan and DbInserter do.
+    Session s("dupref", {{"a.py", "def f():\n    pass\n\ndef g():\n    f(); f()\n"}});
+    EXPECT_EQ(s.rows("SELECT COUNT(*) FROM ref WHERE name_path = 'f';"), Rows{"1"});
+    s.edit("a.py", "def f():\n    pass\n\ndef g():\n    f(); f(); f()\n    f()\n");
+    EXPECT_EQ(s.rows("SELECT COUNT(*) FROM ref WHERE name_path = 'f';"), Rows{"2"});
+}
+
+TEST(Incremental, ChecksTakeExactlyTheirValues)
+{
+    // The CHECKs list their values with OR (db.cpp), not IN: each column must
+    // still take every listed value, and nothing else.
+    struct Column {
+        const char* insert;   // ?1 is the value
+        std::vector<const char*> values;
+    };
+    const std::vector<Column> columns = {
+        {"INSERT INTO symbol(symbol_id, file_id, kind, name, start_line, end_line)"
+         " VALUES(hex(randomblob(8)), 'f', ?1, 'n', 0, 0);",
+         {"class", "interface", "struct", "trait", "enum", "function", "method", "field",
+          "variable", "type_alias", "namespace"}},
+        {"INSERT INTO symbol(symbol_id, file_id, kind, name, namespace, start_line, end_line)"
+         " VALUES(hex(randomblob(8)), 'f', 'class', 'n', ?1, 0, 0);",
+         {"value", "type"}},
+        {"INSERT INTO scope(scope_id, file_id, kind, start_line, end_line)"
+         " VALUES(hex(randomblob(8)), 'f', ?1, 0, 0);",
+         {"file", "namespace", "class", "function", "block"}},
+        {"INSERT INTO binding(scope_id, local_name, kind, file_id, line)"
+         " VALUES('f', hex(randomblob(8)), ?1, 'f', 0);",
+         {"def", "import_module", "import_symbol", "import_all", "reexport"}},
+        {"INSERT INTO binding(scope_id, local_name, namespace, kind, file_id, line)"
+         " VALUES('f', hex(randomblob(8)), ?1, 'def', 'f', 0);",
+         {"value", "type"}},
+        {"INSERT INTO ref(file_id, source_id, scope_id, kind, name_path, raw_text, line)"
+         " VALUES('f', 'f', 'f', ?1, 'x', 'x', 0);",
+         {"CALLS", "INHERITS", "IMPLEMENTS", "DECORATES"}},
+        {"INSERT INTO ref(file_id, source_id, scope_id, kind, namespace, name_path, raw_text, line)"
+         " VALUES('f', 'f', 'f', 'CALLS', ?1, 'x', 'x', 0);",
+         {"value", "type"}},
+        {"INSERT INTO ref(file_id, source_id, scope_id, kind, name_path, raw_text, line, status)"
+         " VALUES('f', 'f', 'f', 'CALLS', 'x', 'x', 0, ?1);",
+         {"pending", "resolved", "builtin", "external", "unresolved"}},
+        {"INSERT INTO ref(file_id, source_id, scope_id, kind, name_path, raw_text, line, confidence)"
+         " VALUES('f', 'f', 'f', 'CALLS', 'x', 'x', 0, ?1);",
+         {"exact", "heuristic"}},
+        {"INSERT INTO reading_sequence(entity_id, entity_type, file_id, file_rank, local_rank,"
+         "                             pagerank_score, bc_score, combined_score)"
+         " VALUES(hex(randomblob(8)), ?1, 'f', CASE WHEN ?1 = 'file' THEN 1 END,"
+         "        CASE WHEN ?1 <> 'file' THEN 1 END, 0, 0, 0);",
+         {"file", "class", "function"}},
+    };
+    sqlite3* db = nullptr;
+    ASSERT_EQ(sqlite3_open(":memory:", &db), SQLITE_OK);   // foreign keys off
+    ASSERT_EQ(createSchema(db), SQLITE_OK);
+    auto insert = [&](const char* sql, const char* value) {
+        sqlite3_stmt* stmt = nullptr;
+        EXPECT_EQ(sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr), SQLITE_OK) << sql;
+        sqlite3_bind_text(stmt, 1, value, -1, SQLITE_TRANSIENT);
+        const int rc = sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+        return rc;
+    };
+    for (const Column& c : columns) {
+        for (const char* v : c.values) EXPECT_EQ(insert(c.insert, v), SQLITE_DONE) << c.insert << " " << v;
+        // Not listed: another column's value, a case change, a near miss, empty.
+        for (const char* v : {"bogus", "Class", "CALLS ", "", "file|class", "value"}) {
+            if (std::find_if(c.values.begin(), c.values.end(),
+                             [&](const char* x) { return std::string(x) == v; }) != c.values.end())
+                continue;
+            EXPECT_EQ(insert(c.insert, v), SQLITE_CONSTRAINT) << c.insert << " " << v;
+        }
+    }
+    sqlite3_close(db);
+}

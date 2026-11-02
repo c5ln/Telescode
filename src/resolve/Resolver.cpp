@@ -333,7 +333,8 @@ public:
     Engine(sqlite3* db, const LanguageRegistry& languages) : db_(db), languages_(languages) {}
 
     int loadFiles();
-    int loadAll();
+    // All rows. `fresh`: the refs are these, not the table's (resolveScan).
+    int loadAll(const std::vector<ParseResult>* fresh = nullptr);
     // Files whose ref rows the update replaced: their stored INHERITS answers
     // are not bases yet (they are 'pending').
     void setTouched(const std::set<std::string>& touched) { touched_ = touched; }
@@ -452,6 +453,9 @@ private:
     std::unordered_map<std::string, std::vector<Binding>> stars_;   // scope -> import_all
     std::vector<Ref> refs_;
     std::unordered_set<std::int64_t> refIds_;
+    // resolveScan: the parser's ref behind each of refs_, which writeAll
+    // inserts rather than updates.
+    std::vector<const RefEntity*> fresh_;
 
     std::unordered_map<std::string, Import> imports_;      // factM(from, spec)
     std::vector<std::pair<std::string, std::string>> importSpecs_;   // import_resolution keys (file, spec)
@@ -549,10 +553,17 @@ void binding(std::unordered_map<std::string,
     b.line          = sqlite3_column_int(s, 8);
     b.exported      = sqlite3_column_int(s, 9) != 0;
     const std::string scope = columnText(s, 0);
-    if (b.kind == "import_all")
-        stars[scope].push_back(std::move(b));
-    else
+    // Each name's bindings in source order. The rows come in key order
+    // (kBindingOrder), which is line order for one name; the wildcard
+    // imports of a scope, named '*' || line, come in text order instead.
+    if (b.kind == "import_all") {
+        auto& all = stars[scope];
+        auto at = std::upper_bound(all.begin(), all.end(), b.line,
+                                   [](int line, const Binding& x) { return line < x.line; });
+        all.insert(at, std::move(b));
+    } else {
         bindings[scope][key(columnText(s, 2), b.local_name)].push_back(std::move(b));
+    }
 }
 
 void ref(std::vector<Ref>& refs, sqlite3_stmt* s)
@@ -578,6 +589,8 @@ const char* const kScopeSql =
 const char* const kBindingSql =
     "SELECT scope_id, local_name, namespace, kind, file_id, target_id, module_spec,"
     "       imported_name, line, is_exported FROM binding";
+// binding's key, so that the rows are read straight off the table.
+const char* const kBindingOrder = " ORDER BY file_id, scope_id, namespace, local_name, line;";
 
 int Engine::loadFiles()
 {
@@ -596,14 +609,14 @@ int Engine::loadFiles()
     for (auto& [lang, ids] : files) index_.emplace(lang, lang->buildIndex(std::move(ids)));
 
     const std::string where = " WHERE file_id = ?;";
-    const std::string bindingWhere = " WHERE file_id = ? ORDER BY scope_id, line;";
+    const std::string bindingWhere = std::string(" WHERE file_id = ?") + kBindingOrder;
     if ((rc = fileSymbols_.prepare(db_, (kSymbolSql + where).c_str())) != SQLITE_OK) return rc;
     if ((rc = fileScopes_.prepare(db_, (kScopeSql + where).c_str())) != SQLITE_OK) return rc;
     if ((rc = fileBindings_.prepare(db_, (kBindingSql + bindingWhere).c_str())) != SQLITE_OK) return rc;
     return fileBases_.prepare(db_, kBasesSql);
 }
 
-int Engine::loadAll()
+int Engine::loadAll(const std::vector<ParseResult>* fresh)
 {
     int rc = loadFiles();
     if (rc != SQLITE_OK) return rc;
@@ -611,7 +624,7 @@ int Engine::loadAll()
 
     const std::string symbolSql = std::string(kSymbolSql) + ';';
     const std::string scopeSql = std::string(kScopeSql) + ';';
-    const std::string bindingSql = std::string(kBindingSql) + " ORDER BY scope_id, line;";
+    const std::string bindingSql = std::string(kBindingSql) + kBindingOrder;
     const std::string refSql = std::string("SELECT ") + kRefColumns + " FROM ref ORDER BY ref_id;";
     struct Query {
         const char* sql;
@@ -630,11 +643,31 @@ int Engine::loadAll()
         { refSql.c_str(), [](Engine& e, sqlite3_stmt* s) { rows::ref(e.refs_, s); } },
     };
     for (const Query& q : queries) {
+        if (fresh && q.sql == refSql.c_str()) continue;
         Stmt stmt;
         rc = stmt.prepare(db_, q.sql);
         if (rc != SQLITE_OK) return rc;
         rc = each(stmt.s, [&](sqlite3_stmt* s) { q.row(*this, s); });
         if (rc != SQLITE_OK) return rc;
+    }
+    if (fresh) {
+        std::unordered_set<std::string> seen;
+        for (const ParseResult& pr : *fresh) {
+            for (const RefEntity& e : pr.refs) {
+                if (!seen.insert(refKey(e)).second) continue;
+                Ref r;
+                r.id        = static_cast<std::int64_t>(refs_.size()) + 1;
+                r.file_id   = e.file_id;
+                r.source_id = e.source_id;
+                r.scope_id  = e.scope_id;
+                r.kind      = e.kind;
+                r.ns        = e.ns;
+                r.name_path = e.name_path;
+                r.line      = e.line;
+                refs_.push_back(std::move(r));
+                fresh_.push_back(&e);
+            }
+        }
     }
     for (const Ref& r : refs_) refIds_.insert(r.id);
     return SQLITE_OK;
@@ -1282,19 +1315,12 @@ int writeOutcome(sqlite3_stmt* upd, const Ref& ref, const Outcome& o, bool emits
 const char* const kRefUpdateSql =
     "UPDATE ref SET resolved_id = ?, status = ?, confidence = ?, resolver = ?, emits_link = ?"
     " WHERE ref_id = ?;";
-
-int countLinks(sqlite3* db, Resolver::Stats* stats)
-{
-    if (!stats) return SQLITE_OK;
-    Stmt count;
-    int rc = count.prepare(db,
-        "SELECT link_type, COUNT(*) FROM link"
-        " WHERE link_type IN ('CALLS', 'INHERITS', 'DECORATES') GROUP BY link_type;");
-    if (rc != SQLITE_OK) return rc;
-    return each(count.s, [&](sqlite3_stmt* s) {
-        stats->links[columnText(s, 0)] = sqlite3_column_int(s, 1);
-    });
-}
+// The same answer, for a ref not in the table yet (resolveScan): 1-6 as in
+// kRefUpdateSql, then the columns DbInserter would have written.
+const char* const kRefInsertSql =
+    "INSERT INTO ref(resolved_id, status, confidence, resolver, emits_link, ref_id,"
+    "                file_id, source_id, scope_id, kind, namespace, name_path, raw_text, line)"
+    " VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14);";
 
 int Engine::writeAll(Resolver::Stats* stats)
 {
@@ -1307,12 +1333,14 @@ int Engine::writeAll(Resolver::Stats* stats)
     }
 
     Stmt refUpd;
-    rc = refUpd.prepare(db_, kRefUpdateSql);
+    rc = refUpd.prepare(db_, fresh_.empty() ? kRefUpdateSql : kRefInsertSql);
     if (rc != SQLITE_OK) return rc;
 
     // Each link once, on its first ref: refs_ is in ref_id order, and the refs
-    // of one link share their source, so their file.
+    // of one link share their source, so their file. Every ref is written, so
+    // the refs marked are every `link` row but IMPORTS.
     std::unordered_set<std::string> linked;
+    std::map<std::string, int> links;
     for (std::size_t i = 0; i < refs_.size(); ++i) {
         const Ref& ref = refs_[i];
         const Outcome& o = outcomes_[i];
@@ -1322,14 +1350,29 @@ int Engine::writeAll(Resolver::Stats* stats)
             if (sym != symbols_.end()) emits = linksTo(ref.kind, sym->second.kind);
         }
         if (emits) emits = linked.insert(key(ref.kind, key(ref.source_id, o.id))).second;
+        if (emits) ++links[ref.kind];
+        if (!fresh_.empty()) {
+            // The parser's columns; writeOutcome binds the answer and ref_id.
+            const RefEntity& e = *fresh_[i];
+            sqlite3_reset(refUpd.s);
+            sqlite3_bind_text(refUpd.s, 7, e.file_id.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(refUpd.s, 8, e.source_id.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(refUpd.s, 9, e.scope_id.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(refUpd.s, 10, e.kind.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(refUpd.s, 11, e.ns.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(refUpd.s, 12, e.name_path.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(refUpd.s, 13, e.raw_text.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_int(refUpd.s, 14, e.line);
+        }
         rc = writeOutcome(refUpd.s, ref, o, emits, stats);
         if (rc != SQLITE_OK) return rc;
     }
 
     rc = writeDeps(true);
     if (rc != SQLITE_OK) return rc;
-    // The links follow from the refs just written (the `link` view, db.cpp).
-    return countLinks(db_, stats);
+    if (stats)
+        for (const auto& [type, n] : links) stats->links[type] = n;
+    return SQLITE_OK;
 }
 
 // fact.fact_id of an interned fact, adding the row if there is none.
@@ -1685,6 +1728,25 @@ int Resolver::resolveAll(sqlite3* db, Stats* stats, const LanguageRegistry& lang
     const auto t0 = std::chrono::steady_clock::now();
     Engine engine(db, languages);
     int rc = engine.loadAll();
+    if (rc != SQLITE_OK) return rc;
+    engine.resolve();
+    if (stats) {
+        stats->inheritsRounds = engine.inheritsRounds();
+        stats->inheritsCapHit = engine.inheritsCapHit();
+    }
+    rc = engine.writeAll(stats);
+    if (stats)
+        stats->ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - t0).count();
+    return rc;
+}
+
+int Resolver::resolveScan(sqlite3* db, const std::vector<ParseResult>& results, Stats* stats,
+                          const LanguageRegistry& languages)
+{
+    const auto t0 = std::chrono::steady_clock::now();
+    Engine engine(db, languages);
+    int rc = engine.loadAll(&results);
     if (rc != SQLITE_OK) return rc;
     engine.resolve();
     if (stats) {
