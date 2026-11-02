@@ -26,30 +26,9 @@ from bench.seed.bm25 import BM25, B_DEFAULT, K1_DEFAULT, K3_DEFAULT
 from bench.seed.corpus import build_corpus
 from bench.seed.dataset import Instance, load_instances
 from bench.seed.tokenizer import tokenize
+from ltr.retrieval.bm25 import rank_pessimistic
 
 SEED_COLUMNS = [C.instance_id, C.file_id, C.bm25, C.bm25_rank]
-
-
-def rank_pessimistic(scores: list[float]) -> list[int]:
-    """점수 내림차순 1-based 순위. 동점은 전부 그 그룹의 **최악** 순위를 받는다.
-
-    라벨을 보지 않는다 — `bm25_rank`는 학습 피처이므로 gold를 참조하면 누출이다.
-    (`bench.metrics.ranking.apply_pessimistic_tiebreak`은 gold를 보는 **평가용**이고,
-    이건 라벨 없이 동점을 비관적으로 처리하는 **피처용**이다. 둘은 다른 물건이다.)
-    """
-    n = len(scores)
-    order = sorted(range(n), key=lambda i: -scores[i])
-    ranks = [0] * n
-    i = 0
-    while i < n:
-        j = i
-        while j + 1 < n and scores[order[j + 1]] == scores[order[i]]:
-            j += 1
-        worst = j + 1  # 1-based
-        for k in range(i, j + 1):
-            ranks[order[k]] = worst
-        i = j + 1
-    return ranks
 
 
 def run(repos: list[tuple[str, Path]], *, conditions: list[str],
