@@ -30,6 +30,8 @@ DB는 §6대로 즉시 삭제된다.
 """
 
 import argparse
+import hashlib
+import json
 import shutil
 import sys
 import tempfile
@@ -39,6 +41,7 @@ import pandas as pd
 
 from bench.collect.pipeline import (
     InstanceFailure,
+    binary_provenance,
     _export_tree,
     _remove_db,
     _run,
@@ -46,7 +49,7 @@ from bench.collect.pipeline import (
     sharpen_seed,
 )
 from bench.collect.swebench import load_instances
-from bench.schema import ALGO_BIN, C, DATA_DIR, SCANNER_BIN, SCRATCH_DIR
+from bench.schema import ALGO_CMD, C, DATA_DIR, PPR_BIN, SCANNER_CMD, SCRATCH_DIR
 
 # (topk, power). topk=0은 전부 유지, power=1.0은 항등 = 현재 동작.
 # 항등을 반드시 포함한다 — 샤프닝이 실제로 필요한지가 측정 대상이기 때문이다.
@@ -73,10 +76,10 @@ def sweep_instance(row, repo_dir: Path, work_root: Path, ppr_bin: Path,
     out = []
     try:
         _export_tree(repo_dir, row.base_commit, tree, timeout)
-        scan = _run([str(SCANNER_BIN), str(tree), str(db)], timeout)
+        scan = _run([*SCANNER_CMD, str(tree), str(db)], timeout)
         if scan.returncode != 0:
             raise InstanceFailure(f"scanner rc={scan.returncode}")
-        algo = _run([str(ALGO_BIN), str(db)], timeout)
+        algo = _run([*ALGO_CMD, str(db)], timeout)
         if algo.returncode != 0:
             raise InstanceFailure(f"algo rc={algo.returncode}")
 
@@ -113,7 +116,7 @@ def main(argv=None) -> int:
     if len(args.repo) != len(args.repo_dir):
         print("--repo와 --repo-dir 개수가 다르다", file=sys.stderr)
         return 2
-    ppr_bin = Path(__file__).resolve().parents[1] / "bin" / "TelescodePPR"
+    ppr_bin = PPR_BIN   # 활성 pin (bench.schema)
     if not ppr_bin.exists():
         print(f"pin된 PPR 바이너리 없음: {ppr_bin}", file=sys.stderr)
         return 2
@@ -159,6 +162,21 @@ def main(argv=None) -> int:
     shutil.rmtree(work_root, ignore_errors=True)
     if frames:
         pd.concat(frames, ignore_index=True).to_csv(args.out, index=False)
+        prov = binary_provenance(ppr_bin)
+        prov.update({
+            "sweep_csv": args.out,
+            "seed": {"seed_csv": args.seed,
+                     "seed_md5": hashlib.md5(Path(args.seed).read_bytes()).hexdigest(),
+                     "seed_weight_col": args.seed_weight_col},
+            "grid": [config_name(t, w) for t, w in grid],
+            "splits_csv": args.splits,
+            "splits_md5": hashlib.md5(Path(args.splits).read_bytes()).hexdigest(),
+            "repos": dict(zip(args.repo, args.repo_dir)),
+            "n_ok": n_ok, "n_failed": len(failures),
+        })
+        prov_path = Path(args.out).with_suffix(".provenance.json")
+        prov_path.write_text(json.dumps(prov, indent=2, ensure_ascii=False))
+        print(f"provenance → {prov_path}")
         print(f"\n→ {args.out}")
     print(f"성공 {n_ok} / 실패 {len(failures)}")           # §7
     for iid, why in failures:

@@ -1,15 +1,16 @@
 """인스턴스 수집 파이프라인. CONTRACT.md §4를 그대로 구현한다.
 
     git archive <base_commit> | tar -x         (checkout 대신 archive:
-      → bench/bin/TelescodeScanner              잔여 파일 없는 깨끗한 트리가
-      → bench/bin/TelescodeAlgo                 나오고 clone과 격리된다)
+      → scan  (bench.schema.SCANNER_CMD)        잔여 파일 없는 깨끗한 트리가
+      → algo  (bench.schema.ALGO_CMD)           나오고 clone과 격리된다)
       → bench/features/extract.py
       → rm -f DB, rm -rf 워크트리
 
 무결성 규칙 준수:
   §3 피처는 base_commit 트리에서만 나온다. gold patch는 라벨에만 쓰고
      트리에 적용하지 않는다.
-  §5 `bench/bin/`의 pin된 바이너리만 부른다 (`bench.schema.SCANNER_BIN`).
+  §5 `bench/bin/<pin>/`의 pin된 바이너리만 부른다 (`bench.schema.SCANNER_CMD`).
+     pin은 `TELESCODE_BENCH_PIN`으로 고른다 (기본 최신, `bench/bin/PINNED_FROM.txt`).
   §6 DB는 피처 추출 직후 삭제. 동시에 존재하는 DB는 항상 1개다.
   §7 실패는 조용히 건너뛰지 않는다. 사유별로 기록해서 manifest에 남긴다.
 """
@@ -29,13 +30,14 @@ import pandas as pd
 from bench.collect.swebench import gold_files_from_patch, load_instances
 from bench.metrics.ranking import reachable_recall_ceiling
 from bench.features.extract import extract
-from bench.schema import ALGO_BIN, BIN_DIR, DATA_DIR, SCANNER_BIN, SCRATCH_DIR
+from bench.schema import (ACTIVE_PIN, ALGO_CMD, BIN_DIR, DATA_DIR, PIN_DIR,
+                          PINNED_BINARIES, PPR_BIN, SCANNER_CMD, SCRATCH_DIR)
 
 FEATURES_CSV = DATA_DIR / "features.csv"
 MANIFEST_CSV = DATA_DIR / "instances.csv"
 
 
-def binary_provenance() -> dict:
+def binary_provenance(ppr_bin: Path | None = None) -> dict:
     """실행에 쓴 바이너리의 경로와 md5.
 
     무결성 규칙 §5는 `bench/bin/`의 pin된 바이너리만 쓰라고 하는데, 산출물만
@@ -43,17 +45,39 @@ def binary_provenance() -> dict:
     manifest와 별도 JSON 양쪽에 남긴다. pin과 md5가 다르면 그 매트릭스는
     재현 불가능한 것으로 취급해야 한다.
     """
-    out = {"pinned_from": "", "binaries": {}}
-    pin = BIN_DIR / "PINNED_FROM.txt"
+    out = {"pin": ACTIVE_PIN, "pinned_from": "", "binaries": {}}
+    pin = PIN_DIR / "PINNED_FROM.txt"
     if pin.exists():
         out["pinned_from"] = pin.read_text().strip()
-    for name, path in (("scanner", SCANNER_BIN), ("algo", ALGO_BIN)):
+    # 93f9cf2부터 scan/algo가 같은 실행 파일이라 md5도 같다. 이름별로 그대로 남긴다.
+    entries = [("scanner", PINNED_BINARIES["scanner"]), ("algo", PINNED_BINARIES["algo"])]
+    if ppr_bin is not None:
+        entries.append(("ppr", Path(ppr_bin)))
+    for name, path in entries:
         if path.exists():
             out["binaries"][name] = {
                 "path": str(path),
                 "md5": hashlib.md5(path.read_bytes()).hexdigest(),
             }
     return out
+
+
+def seed_provenance(seed_csv: str | None, weight_col: str, topk: int,
+                    power: float) -> dict:
+    """PPR seed 설정. 바이너리 md5만으로는 어떤 teleport로 PPR을 돌렸는지 알 수 없다.
+
+    `topk`/`power`는 train CV로 고른 하이퍼파라미터이고(§4), seed CSV가 바뀌면
+    같은 바이너리로도 다른 `ppr`이 나온다. 그래서 셋 다 manifest와 provenance에 남긴다.
+    PPR을 안 돌렸으면(`seed_csv` 없음) 빈 dict.
+    """
+    if not seed_csv:
+        return {}
+    path = Path(seed_csv)
+    return {"seed_csv": str(seed_csv),
+            "seed_md5": hashlib.md5(path.read_bytes()).hexdigest() if path.exists() else "",
+            "seed_weight_col": weight_col,
+            "seed_topk": int(topk),
+            "seed_power": float(power)}
 
 
 class InstanceFailure(Exception):
@@ -177,13 +201,13 @@ def process_instance(row, repo_dir: Path, work_root: Path,
     try:
         _export_tree(repo_dir, row.base_commit, tree, timeout)
 
-        scan = _run([str(SCANNER_BIN), str(tree), str(db)], timeout)
+        scan = _run([*SCANNER_CMD, str(tree), str(db)], timeout)
         if scan.returncode != 0:
             raise InstanceFailure(f"scanner rc={scan.returncode}: {scan.stderr.strip()[:200]}")
         if not db.exists():
             raise InstanceFailure("scanner가 DB를 만들지 않았다")
 
-        algo = _run([str(ALGO_BIN), str(db)], timeout)
+        algo = _run([*ALGO_CMD, str(db)], timeout)
         if algo.returncode != 0:
             raise InstanceFailure(f"algo rc={algo.returncode}: {algo.stderr.strip()[:200]}")
 
@@ -253,7 +277,9 @@ def main(argv=None) -> int:
     ap.add_argument("--out", default=str(FEATURES_CSV))
     ap.add_argument("--manifest", default=str(MANIFEST_CSV))
     ap.add_argument("--ppr-bin", default=None,
-                    help="Phase 3 PPR CLI. 주면 인스턴스 DB가 살아 있는 동안 실행한다")
+                    help="Phase 3 PPR CLI. 주면 인스턴스 DB가 살아 있는 동안 실행한다. "
+                         "`pin`이라고 쓰면 활성 pin의 TelescodePPR. 다른 pin 폴더의 "
+                         "바이너리는 거부한다 (scan과 PPR이 다른 그래프를 보게 된다)")
     ap.add_argument("--seed-csv", default=None,
                     help="long CSV: instance_id, file_id, <weight-col>. --ppr-bin과 함께 쓴다")
     ap.add_argument("--seed-weight-col", default="bm25",
@@ -264,7 +290,7 @@ def main(argv=None) -> int:
                     help="teleport 가중치 거듭제곱. 1.0=항등. **§4 하이퍼파라미터**")
     args = ap.parse_args(argv)
 
-    for path in (SCANNER_BIN, ALGO_BIN):
+    for path in (PINNED_BINARIES["scanner"], PINNED_BINARIES["algo"]):
         if not path.exists():
             print(f"pin된 바이너리 없음: {path}", file=sys.stderr)
             return 2
@@ -281,11 +307,17 @@ def main(argv=None) -> int:
         tempfile.mkdtemp(prefix="bench-trees-"))
     work_root.mkdir(parents=True, exist_ok=True)
 
-    ppr_bin = Path(args.ppr_bin).resolve() if args.ppr_bin else None
+    ppr_bin = None
+    if args.ppr_bin:
+        ppr_bin = PPR_BIN if args.ppr_bin == "pin" else Path(args.ppr_bin)
+        ppr_bin = ppr_bin.resolve()
     seeds_by_instance = None
     if ppr_bin is not None:
         if not ppr_bin.exists():
             print(f"PPR 바이너리 없음: {ppr_bin}", file=sys.stderr)
+            return 2
+        if ppr_bin.parent != PIN_DIR.resolve():
+            print(f"PPR 바이너리가 활성 pin({PIN_DIR})에 없다: {ppr_bin}", file=sys.stderr)
             return 2
         if not args.seed_csv:
             print("--ppr-bin에는 --seed-csv가 필요하다", file=sys.stderr)
@@ -322,24 +354,30 @@ def main(argv=None) -> int:
             print(f"[{n}/{len(instances)}] FAIL {row.instance_id}: {exc}",
                   file=sys.stderr, flush=True)
 
-    prov = binary_provenance()
+    prov = binary_provenance(ppr_bin)
+    seed_prov = seed_provenance(args.seed_csv if ppr_bin is not None else None,
+                                args.seed_weight_col, args.seed_topk, args.seed_power)
     manifest_df = pd.DataFrame(manifests)
     # 모든 행에 같은 값이라 낭비처럼 보이지만, manifest 한 장만 들고 있어도
     # 어느 바이너리로 만든 매트릭스인지 알 수 있어야 한다.
     for name, info in prov["binaries"].items():
         manifest_df[f"{name}_md5"] = info["md5"]
         manifest_df[f"{name}_path"] = info["path"]
+    for key, value in seed_prov.items():
+        manifest_df[key] = value
     manifest_df.to_csv(args.manifest, index=False)
 
     prov_path = Path(args.manifest).with_suffix(".provenance.json")
     prov["features_csv"] = args.out
     prov["repo"] = args.repo
+    prov["ppr_seed"] = seed_prov
     prov_path.write_text(json.dumps(prov, indent=2, ensure_ascii=False))
     print(f"provenance → {prov_path}")
     for name, info in prov["binaries"].items():
         print(f"  {name}: {info['md5']}  {info['path']}")
     if any(not info["path"].startswith(str(BIN_DIR)) for info in prov["binaries"].values()):
         print("경고: bench/bin/ 밖의 바이너리를 썼다 (§5 위반)", file=sys.stderr)
+    print(f"pin: {ACTIVE_PIN}")
 
     n_ok = int((manifest_df["status"] == "ok").sum())
     n_fail = len(manifest_df) - n_ok

@@ -1,0 +1,337 @@
+{
+ "binary": "/tmp/claude-1000/-home-cheonsh-Telescode/7f54ce26-45e3-42c7-b4f6-27eab223d029/scratchpad/stage5-verify/head-build/TelescodeHeadless",
+ "binary_md5": "c81c5e2161bdedcbd222ec3c975adf7d",
+ "timing": false,
+ "reps": 1,
+ "inject": "rs_ulp",
+ "all_equal": false,
+ "scenarios": [
+  {
+   "name": "xr_body_edit",
+   "repo": "xarray",
+   "class": "ordinary",
+   "target_ms": 300,
+   "fresh_scan_ms": 2838.5,
+   "effect": {
+    "file": [
+     1,
+     1
+    ],
+    "symbol": [
+     3,
+     3
+    ],
+    "scope": [
+     4,
+     4
+    ],
+    "binding": [
+     35,
+     35
+    ],
+    "ref": [
+     25,
+     26
+    ],
+    "function": [
+     3,
+     3
+    ],
+    "reading_sequence": [
+     1,
+     1
+    ]
+   },
+   "algo_ms": 156.0,
+   "injected": "rs_ulp",
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 241
+     },
+     "symbol": {
+      "rows": 10661
+     },
+     "scope": {
+      "rows": 9282
+     },
+     "binding": {
+      "rows": 63600
+     },
+     "import_resolution": {
+      "rows": 2687
+     },
+     "ref": {
+      "rows": 50727
+     },
+     "class": {
+      "rows": 687
+     },
+     "base_class": {
+      "rows": 368
+     },
+     "function": {
+      "rows": 8354
+     },
+     "param": {
+      "rows": 16702
+     },
+     "field": {
+      "rows": 669
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 14842
+     },
+     "link_set": {
+      "rows": 14842
+     },
+     "reading_sequence": {
+      "rows_a": 9282,
+      "rows_b": 9282,
+      "only_in_a": 1,
+      "only_in_b": 1,
+      "examples_a": [
+       {
+        "entity_id": ".github/workflows/configure-testpypi-version.py",
+        "entity_type": "file",
+        "file_id": ".github/workflows/configure-testpypi-version.py",
+        "file_rank": 181,
+        "local_rank": null,
+        "pagerank_score": "f80f6609017964c3f",
+        "bc_score": "f0000000000000000",
+        "combined_score": "f16511e293796be3f"
+       }
+      ],
+      "examples_b": [
+       {
+        "entity_id": ".github/workflows/configure-testpypi-version.py",
+        "entity_type": "file",
+        "file_id": ".github/workflows/configure-testpypi-version.py",
+        "file_rank": 181,
+        "local_rank": null,
+        "pagerank_score": "f7ff6609017964c3f",
+        "bc_score": "f0000000000000000",
+        "combined_score": "f16511e293796be3f"
+       }
+      ],
+      "entities_only_in_a": 0,
+      "entities_only_in_b": 0,
+      "entities_changed": 1,
+      "entities_rank_changed": 0,
+      "max_abs_diff": {
+       "pagerank_score": 1.0842021724855044e-19,
+       "bc_score": 0.0,
+       "combined_score": 0.0
+      },
+      "examples_changed": [
+       {
+        "entity_id": ".github/workflows/configure-testpypi-version.py",
+        "pagerank_score": [
+         0.0008723845537656622,
+         0.000872384553765662
+        ]
+       }
+      ]
+     }
+    },
+    "user_version": [
+     6,
+     6
+    ],
+    "info_ref_order": {
+     "same_order": false,
+     "positions_differing": 1647,
+     "first_difference": {
+      "position": 49080,
+      "a": {
+       "file_id": "xarray/util/generate_aggregations.py",
+       "source_id": "xarray/util/generate_aggregations.py::ExtraKwarg",
+       "kind": "INHERITS",
+       "name_path": "NamedTuple",
+       "line": 275
+      },
+      "b": {
+       "file_id": "xarray/util/print_versions.py",
+       "source_id": "xarray/util/print_versions.py::get_sys_info",
+       "kind": "CALLS",
+       "name_path": "blob.append",
+       "line": 16
+      }
+     }
+    },
+    "differs": [
+     "reading_sequence"
+    ],
+    "equal": false
+   },
+   "update_ms_all": [
+    738.9
+   ],
+   "update_ms": 738.9,
+   "equal": false,
+   "meets_target": false
+  },
+  {
+   "name": "syn_star_gains_name",
+   "repo": "syn",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 14.8,
+   "effect": {
+    "file": [
+     5,
+     5
+    ],
+    "symbol": [
+     0,
+     1
+    ],
+    "scope": [
+     1,
+     2
+    ],
+    "binding": [
+     0,
+     1
+    ],
+    "ref": [
+     1,
+     1
+    ],
+    "function": [
+     0,
+     1
+    ],
+    "link_multiset": [
+     0,
+     1
+    ],
+    "link_set": [
+     0,
+     1
+    ],
+    "reading_sequence": [
+     26,
+     27
+    ]
+   },
+   "algo_ms": 12.4,
+   "injected": "rs_ulp",
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 19
+     },
+     "symbol": {
+      "rows": 19
+     },
+     "scope": {
+      "rows": 38
+     },
+     "binding": {
+      "rows": 35
+     },
+     "import_resolution": {
+      "rows": 15
+     },
+     "ref": {
+      "rows": 13
+     },
+     "class": {
+      "rows": 2
+     },
+     "base_class": {
+      "rows": 1
+     },
+     "function": {
+      "rows": 17
+     },
+     "param": {
+      "rows": 2
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows": 18
+     },
+     "link_set": {
+      "rows": 18
+     },
+     "reading_sequence": {
+      "rows_a": 38,
+      "rows_b": 38,
+      "only_in_a": 1,
+      "only_in_b": 1,
+      "examples_a": [
+       {
+        "entity_id": "pkg/__init__.py",
+        "entity_type": "file",
+        "file_id": "pkg/__init__.py",
+        "file_rank": 11,
+        "local_rank": null,
+        "pagerank_score": "f27a1b888fddf9c3f",
+        "bc_score": "f0000000000000000",
+        "combined_score": "f343333333333c33f"
+       }
+      ],
+      "examples_b": [
+       {
+        "entity_id": "pkg/__init__.py",
+        "entity_type": "file",
+        "file_id": "pkg/__init__.py",
+        "file_rank": 11,
+        "local_rank": null,
+        "pagerank_score": "f26a1b888fddf9c3f",
+        "bc_score": "f0000000000000000",
+        "combined_score": "f343333333333c33f"
+       }
+      ],
+      "entities_only_in_a": 0,
+      "entities_only_in_b": 0,
+      "entities_changed": 1,
+      "entities_rank_changed": 0,
+      "max_abs_diff": {
+       "pagerank_score": 3.469446951953614e-18,
+       "bc_score": 0.0,
+       "combined_score": 0.0
+      },
+      "examples_changed": [
+       {
+        "entity_id": "pkg/__init__.py",
+        "pagerank_score": [
+         0.02819820544223819,
+         0.028198205442238188
+        ]
+       }
+      ]
+     }
+    },
+    "user_version": [
+     6,
+     6
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [
+     "reading_sequence"
+    ],
+    "equal": false
+   },
+   "update_ms_all": [
+    8.4
+   ],
+   "update_ms": 8.4,
+   "equal": false
+  }
+ ]
+}

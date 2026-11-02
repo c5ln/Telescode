@@ -2,6 +2,7 @@
 #include "algo/Graph.h"
 #include "algo/Scoring.h"
 #include "db/db.h"
+#include "../link_rows.h"
 
 #include <gtest/gtest.h>
 #include <sqlite3.h>
@@ -504,11 +505,14 @@ void seedDb(sqlite3* db)
         " ('b.py','b.py','python',10),"
         " ('c.py','c.py','python',10),"
         " ('z.py','z.py','python',10);");
+    exec(db, test_links::linkRowsSql({
+        {"a.py::f", "b.py::g", "CALLS"},
+        {"b.py::g", "c.py::h", "CALLS"},
+    }).c_str());
+    // An external import: resolved to no file, so no IMPORTS link.
     exec(db,
-        "INSERT INTO link(source_id, target_id, link_type) VALUES"
-        " ('a.py::f','b.py::g','CALLS'),"
-        " ('b.py::g','c.py::h','CALLS'),"
-        " ('a.py','requests','IMPORTS');");   // external, unresolvable
+        "INSERT INTO import_resolution(file_id, module_spec, resolved_file_id, status)"
+        " VALUES('a.py', 'requests', NULL, 'external');");
 }
 
 double scoreOf(const std::vector<PprEntry>& v, const std::string& fid)

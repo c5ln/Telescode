@@ -74,7 +74,7 @@ struct AnalysisOptions {
     //
     // false reports whatever the database already holds and does not write to it
     // at all: the database is opened read-only, and the stored config -- whose
-    // loader would initialise and migrate the schema on the way in -- is not
+    // loader would give an empty file the schema on the way in -- is not
     // consulted, since only the algo pass needs it.
     bool run_algo = false;
 };
@@ -82,9 +82,10 @@ struct AnalysisOptions {
 class AnalysisService {
 public:
     // Opens dbPath, gathers a snapshot, closes it. Throws std::runtime_error if
-    // the database cannot be opened. A database missing the algo tables yields a
-    // snapshot with an empty reading_sequence rather than an error, matching how
-    // the viewer treats one.
+    // the database cannot be opened or is of another version (db.h). An empty
+    // file, or a database whose algo pass never ran, yields a snapshot with an
+    // empty reading_sequence rather than an error, matching how the viewer
+    // treats one.
     static AnalysisSnapshot Load(const std::string& dbPath,
                                  const AnalysisOptions& opts,
                                  const AlgoConfig& cfg);

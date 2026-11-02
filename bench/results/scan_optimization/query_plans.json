@@ -1,0 +1,51 @@
+{
+  "symbols_by_file": [
+    "SEARCH symbol USING INDEX idx_symbol_file (file_id=?)"
+  ],
+  "scopes_by_file": [
+    "SEARCH scope USING PRIMARY KEY (file_id=?)"
+  ],
+  "bindings_by_file": [
+    "SEARCH binding USING PRIMARY KEY (file_id=?)"
+  ],
+  "inherits_by_source": [
+    "SEARCH ref USING INDEX idx_ref_inherits_source (source_id=?)"
+  ],
+  "inherits_by_target": [
+    "SEARCH s USING INDEX idx_symbol_file (file_id=?)",
+    "SEARCH r USING INDEX idx_ref_inherits_target (resolved_id=?)",
+    "USE TEMP B-TREE FOR DISTINCT"
+  ],
+  "refs_by_file": [
+    "SEARCH ref USING COVERING INDEX idx_ref_file (file_id=?)"
+  ],
+  "dangling_imports": [
+    "SEARCH import_resolution USING INDEX idx_import_resolution_target (resolved_file_id=?)",
+    "USE TEMP B-TREE FOR DISTINCT"
+  ],
+  "dangling_submodules": [
+    "SCAN binding"
+  ],
+  "link_view": [
+    "CO-ROUTINE link",
+    "COMPOUND QUERY",
+    "LEFT-MOST SUBQUERY",
+    "SEARCH ref USING INDEX idx_ref_link (kind=?)",
+    "UNION ALL",
+    "SEARCH ref USING INDEX idx_ref_link (kind=?)",
+    "UNION ALL",
+    "SCAN import_resolution USING INDEX sqlite_autoindex_import_resolution_1",
+    "USE TEMP B-TREE FOR DISTINCT",
+    "SCAN link"
+  ],
+  "foreign_key_check": [],
+  "integrity_check": {
+    "sqlite_version": "3.51.3 (bundled)",
+    "result": [
+      "ok"
+    ],
+    "foreign_key_check": []
+  },
+  "note": "Python sqlite3 3.40.1 reports false NULL errors for WITHOUT ROWID param; checks repeated with bundled SQLite 3.51.3.",
+  "query_plan_sqlite_version": "3.40.1 (Python sqlite3)"
+}

@@ -5,13 +5,18 @@ DB는 `base_commit` 시점 트리를 스캔한 결과다 (무결성 규칙 §3).
 `TelescodeAlgo`가 이미 써둔 값을 읽기만 한다.
 
 `in_deg`/`out_deg`는 **`GraphBuilder::build_file_graph`와 동일한 간선 집합**에서
-센다 (`src/algo/Graph.cpp`). PageRank가 돈 그래프와 차수가 다르면 두 피처가
-서로 모순되는 그래프를 설명하게 된다. 구체적으로:
+센다. 간선 조립은 `src/algo/Graph.cpp`, 모듈 해석 규칙(`resolveModule` /
+`inferPackageRoots`)은 `src/lang/python/PythonLanguage.cpp`에 있다.
+PageRank가 돈 그래프와 차수가 다르면 두 피처가 서로 모순되는 그래프를
+설명하게 된다. 구체적으로:
 
   - CALLS / INHERITS : `entity_id`에서 `'::'` 앞을 잘라 file_id로 접는다
-  - IMPORTS          : target이 모듈명이므로 `resolveModule`로 파일에 해석하고,
-                       해석 안 되는 외부 모듈(`os`, `pytest` 등)은 버린다.
-                       상대 임포트(`.mod`, `..pkg`, `.`)는 source 파일 기준,
+  - IMPORTS          : DB 형식에 따라 둘 중 하나 (`_imports_are_file_ids`).
+      새 형식(`link`가 VIEW) — target이 이미 해석된 file_id다. 외부 모듈은
+                       VIEW에 행이 없다. 스캔된 파일인 것만 남긴다.
+      예전 형식(`link`가 TABLE) — target이 모듈명이므로 `resolveModule`로
+                       파일에 해석하고, 해석 안 되는 외부 모듈(`os`, `pytest` 등)은
+                       버린다. 상대 임포트(`.mod`, `..pkg`, `.`)는 source 파일 기준,
                        절대 임포트는 `inferPackageRoots`가 찾은 레이아웃
                        루트(`src/` 등)를 앞에 붙여 시도한다
   - self-loop 제외
@@ -29,7 +34,9 @@ from bench.schema import ALL_COLUMNS, C
 
 
 def _infer_package_roots(file_ids: set[str], max_depth: int = 1) -> list[str]:
-    """`src/algo/Graph.cpp`의 `inferPackageRoots`와 동일한 규칙.
+    """`src/lang/python/PythonLanguage.cpp`의 `inferPackageRoots`와 동일한 규칙.
+
+    예전 형식 DB(`_imports_are_file_ids`가 False)에서만 쓴다.
 
     `D/P/__init__.py`가 있고 `D/__init__.py`가 없으면 P가 최상위 패키지이고
     `D/`가 레이아웃 루트다 (pytest의 `src/`, matplotlib의 `lib/`).
@@ -65,7 +72,10 @@ def _file_for(path: str, file_ids: set[str]) -> str | None:
 
 def _resolve_module(module: str, source_file: str, file_ids: set[str],
                     roots: list[str]) -> str | None:
-    """`src/algo/Graph.cpp`의 `resolveModule`과 동일한 규칙.
+    """`src/lang/python/PythonLanguage.cpp`의 `resolveModule`과 동일한 규칙.
+
+    예전 형식 DB(`_imports_are_file_ids`가 False)에서만 쓴다. 새 형식에서는
+    스캐너가 `import_resolution`에 해석 결과를 남기고 `link` VIEW가 그걸 내보낸다.
 
     바뀌면 in_deg/out_deg가 PageRank가 본 그래프와 어긋난다.
     두 구현이 갈라지지 않는지는 `bench/features/test_extract.py`가 지킨다.
@@ -112,6 +122,23 @@ def _resolve_module(module: str, source_file: str, file_ids: set[str],
     return None
 
 
+def _imports_are_file_ids(conn: sqlite3.Connection) -> bool:
+    """IMPORTS의 target이 file_id인 새 형식 DB인가.
+
+    새 스캐너(`bench/bin/93f9cf2/`, 기본 pin)는 `link`를 `ref` + `import_resolution`
+    위의 VIEW로 만들고, 그 VIEW의 IMPORTS target은 해석된 file_id다. 예전 스캐너
+    (`bench/bin/e2501cb/`)가 만든 DB에서는 `link`가 TABLE이고 target이 원문 모듈명이다.
+
+    예전 형식 경로는 6단계 pin 교체 뒤에도 **남긴다.** RESULTS.md §1~§12 수치를
+    `TELESCODE_BENCH_PIN=e2501cb`로 재현할 때 이 경로가 있어야 in_deg/out_deg가
+    비트 단위로 같게 나온다 (6단계에서 xarray 3개 인스턴스로 확인).
+    """
+    row = conn.execute(
+        "SELECT type FROM sqlite_master WHERE name = 'link'"
+    ).fetchone()
+    return row is not None and row[0] == "view"
+
+
 def _file_level_edges(conn: sqlite3.Connection,
                       file_ids: set[str]) -> set[tuple[str, str]]:
     """알고리즘이 쓰는 file-level 간선 집합 (방향 있음, 중복 제거)."""
@@ -128,12 +155,20 @@ def _file_level_edges(conn: sqlite3.Connection,
         if src != tgt and src in file_ids and tgt in file_ids:
             edges.add((src, tgt))
 
-    # IMPORTS: target이 모듈명. 프로젝트 파일로 해석되는 것만 남긴다.
+    imports_are_file_ids = _imports_are_file_ids(conn)
     rows = conn.execute(
         "SELECT DISTINCT"
         "   substr(source_id, 1, instr(source_id||'::', '::')-1), target_id"
         " FROM link WHERE link_type = 'IMPORTS'"
     )
+    if imports_are_file_ids:
+        # IMPORTS: target이 해석된 file_id. 외부 모듈은 행 자체가 없다.
+        for src, tgt in rows:
+            if src != tgt and src in file_ids and tgt in file_ids:
+                edges.add((src, tgt))
+        return edges
+
+    # IMPORTS (예전 형식): target이 모듈명. 프로젝트 파일로 해석되는 것만 남긴다.
     roots = _infer_package_roots(file_ids)
     for src, module in rows:
         if src not in file_ids:

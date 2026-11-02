@@ -1,9 +1,15 @@
 #include "algo/Graph.h"
 #include "algo/Scoring.h"
 #include "db/db.h"
+#include "../link_rows.h"
 
 #include <gtest/gtest.h>
 #include <sqlite3.h>
+
+#include <string>
+#include <vector>
+
+using test_links::linkRowsSql;
 
 // ── Graph::add_edge ───────────────────────────────────────────────────────────
 
@@ -148,14 +154,14 @@ TEST(GraphWeights, builder_weights_by_link_type_and_count)
         " ('c.py','c.py','python',10),"
         " ('d.py','d.py','python',10);");
 
-    exec(db,
-        "INSERT INTO link(source_id, target_id, link_type) VALUES"
+    exec(db, linkRowsSql({
         // a.py -> b.py: one INHERITS
-        " ('a.py::A','b.py::B','INHERITS'),"
+        {"a.py::A", "b.py::B", "INHERITS"},
         // a.py -> c.py: one CALLS
-        " ('a.py::f','c.py::g','CALLS'),"
+        {"a.py::f", "c.py::g", "CALLS"},
         // a.py -> d.py: one IMPORTS
-        " ('a.py','d','IMPORTS');");
+        {"a.py", "d.py", "IMPORTS"},
+    }).c_str());
 
     AlgoConfig cfg;
     cfg.edge_count_mode = 0;  // isolate the link-type weighting
@@ -185,13 +191,13 @@ TEST(GraphWeights, builder_counts_call_multiplicity)
         " ('b.py','b.py','python',10),"
         " ('c.py','c.py','python',10);");
 
-    exec(db,
-        "INSERT INTO link(source_id, target_id, link_type) VALUES"
-        " ('a.py::f1','b.py::g1','CALLS'),"
-        " ('a.py::f2','b.py::g2','CALLS'),"
-        " ('a.py::f3','b.py::g3','CALLS'),"
-        " ('a.py::f4','b.py::g4','CALLS'),"
-        " ('a.py::f1','c.py::h1','CALLS');");
+    exec(db, linkRowsSql({
+        {"a.py::f1", "b.py::g1", "CALLS"},
+        {"a.py::f2", "b.py::g2", "CALLS"},
+        {"a.py::f3", "b.py::g3", "CALLS"},
+        {"a.py::f4", "b.py::g4", "CALLS"},
+        {"a.py::f1", "c.py::h1", "CALLS"},
+    }).c_str());
 
     AlgoConfig cfg;
     cfg.edge_count_mode = 1;  // linear, so the expected value is exact
@@ -219,11 +225,11 @@ TEST(GraphWeights, builder_count_mode_zero_ignores_multiplicity)
     exec(db,
         "INSERT INTO file(file_id, file_name, language, raw_loc) VALUES"
         " ('a.py','a.py','python',10), ('b.py','b.py','python',10);");
-    exec(db,
-        "INSERT INTO link(source_id, target_id, link_type) VALUES"
-        " ('a.py::f1','b.py::g1','CALLS'),"
-        " ('a.py::f2','b.py::g2','CALLS'),"
-        " ('a.py::f3','b.py::g3','CALLS');");
+    exec(db, linkRowsSql({
+        {"a.py::f1", "b.py::g1", "CALLS"},
+        {"a.py::f2", "b.py::g2", "CALLS"},
+        {"a.py::f3", "b.py::g3", "CALLS"},
+    }).c_str());
 
     AlgoConfig cfg;
     cfg.edge_count_mode = 0;
@@ -246,11 +252,11 @@ TEST(GraphWeights, builder_sums_weights_across_link_types)
     exec(db,
         "INSERT INTO file(file_id, file_name, language, raw_loc) VALUES"
         " ('a.py','a.py','python',10), ('b.py','b.py','python',10);");
-    exec(db,
-        "INSERT INTO link(source_id, target_id, link_type) VALUES"
-        " ('a.py::A','b.py::B','INHERITS'),"
-        " ('a.py::f','b.py::g','CALLS'),"
-        " ('a.py','b','IMPORTS');");
+    exec(db, linkRowsSql({
+        {"a.py::A", "b.py::B", "INHERITS"},
+        {"a.py::f", "b.py::g", "CALLS"},
+        {"a.py", "b.py", "IMPORTS"},
+    }).c_str());
 
     AlgoConfig cfg;
     cfg.edge_count_mode = 0;
@@ -263,6 +269,32 @@ TEST(GraphWeights, builder_sums_weights_across_link_types)
     EXPECT_NEAR(file_edge_weight(g, "a.py", "b.py"),
                 cfg.edge_w_inherits + cfg.edge_w_calls + cfg.edge_w_imports, 1e-12);
     EXPECT_EQ(g.adj[g.id_to_node.at("a.py")].size(), 1u);
+
+    sqlite3_close(db);
+}
+
+// Pass 2 adds edges in ref order (CALLS before INHERITS, then ref_id), not in
+// id order: the scores are summed in adjacency order, so it must not depend on
+// how SQLite happens to scan the view.
+TEST(GraphWeights, builder_func_edges_follow_ref_order)
+{
+    sqlite3* db = nullptr;
+    ASSERT_EQ(initDb(":memory:", &db), SQLITE_OK);
+
+    exec(db,
+        "INSERT INTO file(file_id, file_name, language, raw_loc) VALUES"
+        " ('a.py','a.py','python',10);");
+    exec(db, linkRowsSql({
+        {"a.py::f", "a.py::z", "CALLS"},
+        {"a.py::f", "a.py::Base", "INHERITS"},
+        {"a.py::f", "a.py::b", "CALLS"},
+    }).c_str());
+
+    auto gbr = GraphBuilder::build(db, AlgoConfig{});
+    const Graph& g = gbr.func_graph;
+    std::vector<std::string> targets;
+    for (NodeId v : g.adj[g.id_to_node.at("a.py::f")]) targets.push_back(g.node_to_id[v]);
+    EXPECT_EQ(targets, (std::vector<std::string>{"a.py::z", "a.py::b", "a.py::Base"}));
 
     sqlite3_close(db);
 }

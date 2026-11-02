@@ -1,0 +1,333 @@
+{
+ "binary": "/tmp/claude-1000/-home-cheonsh-Telescode/7f54ce26-45e3-42c7-b4f6-27eab223d029/scratchpad/stage5-verify/head-build/TelescodeHeadless",
+ "binary_md5": "c81c5e2161bdedcbd222ec3c975adf7d",
+ "timing": false,
+ "reps": 1,
+ "inject": "ir_status",
+ "all_equal": false,
+ "scenarios": [
+  {
+   "name": "xr_body_edit",
+   "repo": "xarray",
+   "class": "ordinary",
+   "target_ms": 300,
+   "fresh_scan_ms": 2944.8,
+   "effect": {
+    "file": [
+     1,
+     1
+    ],
+    "symbol": [
+     3,
+     3
+    ],
+    "scope": [
+     4,
+     4
+    ],
+    "binding": [
+     35,
+     35
+    ],
+    "ref": [
+     25,
+     26
+    ],
+    "function": [
+     3,
+     3
+    ],
+    "reading_sequence": [
+     1,
+     1
+    ]
+   },
+   "algo_ms": 161.5,
+   "injected": "ir_status",
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 241
+     },
+     "symbol": {
+      "rows": 10661
+     },
+     "scope": {
+      "rows": 9282
+     },
+     "binding": {
+      "rows": 63600
+     },
+     "import_resolution": {
+      "rows_a": 2687,
+      "rows_b": 2687,
+      "only_in_a": 1,
+      "only_in_b": 1,
+      "examples_a": [
+       {
+        "file_id": "properties/test_properties.py",
+        "module_spec": "xarray",
+        "resolved_file_id": null,
+        "status": "unresolved"
+       }
+      ],
+      "examples_b": [
+       {
+        "file_id": "properties/test_properties.py",
+        "module_spec": "xarray",
+        "resolved_file_id": "xarray/__init__.py",
+        "status": "resolved"
+       }
+      ]
+     },
+     "ref": {
+      "rows": 50727
+     },
+     "class": {
+      "rows": 687
+     },
+     "base_class": {
+      "rows": 368
+     },
+     "function": {
+      "rows": 8354
+     },
+     "param": {
+      "rows": 16702
+     },
+     "field": {
+      "rows": 669
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows_a": 14841,
+      "rows_b": 14842,
+      "only_in_a": 0,
+      "only_in_b": 1,
+      "examples_a": [],
+      "examples_b": [
+       {
+        "source_id": "properties/test_properties.py",
+        "target_id": "xarray/__init__.py",
+        "link_type": "IMPORTS"
+       }
+      ]
+     },
+     "link_set": {
+      "rows_a": 14841,
+      "rows_b": 14842,
+      "only_in_a": 0,
+      "only_in_b": 1,
+      "examples_a": [],
+      "examples_b": [
+       {
+        "source_id": "properties/test_properties.py",
+        "target_id": "xarray/__init__.py",
+        "link_type": "IMPORTS"
+       }
+      ]
+     },
+     "reading_sequence": {
+      "rows": 9282
+     }
+    },
+    "user_version": [
+     6,
+     6
+    ],
+    "info_ref_order": {
+     "same_order": false,
+     "positions_differing": 1647,
+     "first_difference": {
+      "position": 49080,
+      "a": {
+       "file_id": "xarray/util/generate_aggregations.py",
+       "source_id": "xarray/util/generate_aggregations.py::ExtraKwarg",
+       "kind": "INHERITS",
+       "name_path": "NamedTuple",
+       "line": 275
+      },
+      "b": {
+       "file_id": "xarray/util/print_versions.py",
+       "source_id": "xarray/util/print_versions.py::get_sys_info",
+       "kind": "CALLS",
+       "name_path": "blob.append",
+       "line": 16
+      }
+     }
+    },
+    "differs": [
+     "import_resolution",
+     "link_multiset",
+     "link_set"
+    ],
+    "equal": false
+   },
+   "update_ms_all": [
+    703.5
+   ],
+   "update_ms": 703.5,
+   "equal": false,
+   "meets_target": false
+  },
+  {
+   "name": "syn_star_gains_name",
+   "repo": "syn",
+   "class": "other",
+   "target_ms": null,
+   "fresh_scan_ms": 16.8,
+   "effect": {
+    "file": [
+     5,
+     5
+    ],
+    "symbol": [
+     0,
+     1
+    ],
+    "scope": [
+     1,
+     2
+    ],
+    "binding": [
+     0,
+     1
+    ],
+    "ref": [
+     1,
+     1
+    ],
+    "function": [
+     0,
+     1
+    ],
+    "link_multiset": [
+     0,
+     1
+    ],
+    "link_set": [
+     0,
+     1
+    ],
+    "reading_sequence": [
+     26,
+     27
+    ]
+   },
+   "algo_ms": 12.2,
+   "injected": "ir_status",
+   "compare": {
+    "tables": {
+     "file": {
+      "rows": 19
+     },
+     "symbol": {
+      "rows": 19
+     },
+     "scope": {
+      "rows": 38
+     },
+     "binding": {
+      "rows": 35
+     },
+     "import_resolution": {
+      "rows_a": 15,
+      "rows_b": 15,
+      "only_in_a": 1,
+      "only_in_b": 1,
+      "examples_a": [
+       {
+        "file_id": "pkg/chain_user.py",
+        "module_spec": "pkg.r1",
+        "resolved_file_id": null,
+        "status": "unresolved"
+       }
+      ],
+      "examples_b": [
+       {
+        "file_id": "pkg/chain_user.py",
+        "module_spec": "pkg.r1",
+        "resolved_file_id": "pkg/r1.py",
+        "status": "resolved"
+       }
+      ]
+     },
+     "ref": {
+      "rows": 13
+     },
+     "class": {
+      "rows": 2
+     },
+     "base_class": {
+      "rows": 1
+     },
+     "function": {
+      "rows": 17
+     },
+     "param": {
+      "rows": 2
+     },
+     "field": {
+      "rows": 0
+     },
+     "reading_sequence_config": {
+      "rows": 32
+     },
+     "link_multiset": {
+      "rows_a": 17,
+      "rows_b": 18,
+      "only_in_a": 0,
+      "only_in_b": 1,
+      "examples_a": [],
+      "examples_b": [
+       {
+        "source_id": "pkg/chain_user.py",
+        "target_id": "pkg/r1.py",
+        "link_type": "IMPORTS"
+       }
+      ]
+     },
+     "link_set": {
+      "rows_a": 17,
+      "rows_b": 18,
+      "only_in_a": 0,
+      "only_in_b": 1,
+      "examples_a": [],
+      "examples_b": [
+       {
+        "source_id": "pkg/chain_user.py",
+        "target_id": "pkg/r1.py",
+        "link_type": "IMPORTS"
+       }
+      ]
+     },
+     "reading_sequence": {
+      "rows": 38
+     }
+    },
+    "user_version": [
+     6,
+     6
+    ],
+    "info_ref_order": {
+     "same_order": true,
+     "positions_differing": 0,
+     "first_difference": null
+    },
+    "differs": [
+     "import_resolution",
+     "link_multiset",
+     "link_set"
+    ],
+    "equal": false
+   },
+   "update_ms_all": [
+    9.6
+   ],
+   "update_ms": 9.6,
+   "equal": false
+  }
+ ]
+}

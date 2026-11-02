@@ -1,0 +1,1883 @@
+{
+  "tests": {
+    "linear(bm25, B2) - bm25 [all]": {
+      "diff": 0.013688755320907145,
+      "ci_lo": 0.0020767574992597657,
+      "ci_hi": 0.026557584168793547,
+      "p_two_sided": 0.028,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "linear(bm25, B2) - linear(bm25, combined) [all]": {
+      "diff": -0.0287870823564851,
+      "ci_lo": -0.05132198952901764,
+      "ci_hi": -0.005573620512488041,
+      "p_two_sided": 0.012,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "linear(bm25, B2) - LTR base (무료 피처) [all]": {
+      "diff": -0.12082300517605536,
+      "ci_lo": -0.15755381264385399,
+      "ci_hi": -0.08158603712670144,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "linear(bm25, B2) - LTR +코드 어휘 피처 [all]": {
+      "diff": -0.17561867191073874,
+      "ci_lo": -0.22157635013570295,
+      "ci_hi": -0.13040728318851322,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "linear(bm25, B2) - bm25 [overlap]": {
+      "diff": 0.015229140848647476,
+      "ci_lo": 0.0021786049696613328,
+      "ci_hi": 0.029469237780618964,
+      "p_two_sided": 0.018,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "linear(bm25, B2) - linear(bm25, combined) [overlap]": {
+      "diff": -0.024480791527263925,
+      "ci_lo": -0.04949440230803483,
+      "ci_hi": 0.0003519748946354513,
+      "p_two_sided": 0.052,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "linear(bm25, B2) - LTR base (무료 피처) [overlap]": {
+      "diff": -0.12212761391926356,
+      "ci_lo": -0.16302638459816549,
+      "ci_hi": -0.08170467006832124,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "linear(bm25, B2) - LTR +코드 어휘 피처 [overlap]": {
+      "diff": -0.18881252883911667,
+      "ci_lo": -0.2360368919564979,
+      "ci_hi": -0.14231148271870184,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "linear(bm25, B2) - bm25 [non_overlap]": {
+      "diff": 0.003233517337941412,
+      "ci_lo": -0.005190535735512831,
+      "ci_hi": 0.014237304415340912,
+      "p_two_sided": 0.537,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "linear(bm25, B2) - linear(bm25, combined) [non_overlap]": {
+      "diff": -0.0456347831778517,
+      "ci_lo": -0.08432881273967772,
+      "ci_hi": -0.012783225331256315,
+      "p_two_sided": 0.002,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "linear(bm25, B2) - LTR base (무료 피처) [non_overlap]": {
+      "diff": -0.061885911945175696,
+      "ci_lo": -0.1238293378390853,
+      "ci_hi": 0.003264966847517315,
+      "p_two_sided": 0.064,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "linear(bm25, B2) - LTR +코드 어휘 피처 [non_overlap]": {
+      "diff": -0.005346065825540569,
+      "ci_lo": -0.05477179266696307,
+      "ci_hi": 0.0551097809305909,
+      "p_two_sided": 0.816,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "linear(bm25, combined) - bm25 [all]": {
+      "diff": 0.04247583767739224,
+      "ci_lo": 0.01664231588220122,
+      "ci_hi": 0.06736578690399718,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "linear(bm25, combined) - LTR base (무료 피처) [all]": {
+      "diff": -0.09203592281957025,
+      "ci_lo": -0.12860329009536414,
+      "ci_hi": -0.05638908551036753,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "linear(bm25, combined) - LTR +코드 어휘 피처 [all]": {
+      "diff": -0.14683158955425363,
+      "ci_lo": -0.1919009096403434,
+      "ci_hi": -0.10340973717379742,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "linear(bm25, combined) - bm25 [overlap]": {
+      "diff": 0.03970993237591141,
+      "ci_lo": 0.012459540786970641,
+      "ci_hi": 0.0677088225627454,
+      "p_two_sided": 0.006,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "linear(bm25, combined) - LTR base (무료 피처) [overlap]": {
+      "diff": -0.09764682239199961,
+      "ci_lo": -0.13519085695816424,
+      "ci_hi": -0.05890723791368702,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "linear(bm25, combined) - LTR +코드 어휘 피처 [overlap]": {
+      "diff": -0.16433173731185272,
+      "ci_lo": -0.2120138961323297,
+      "ci_hi": -0.11904503484225734,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "linear(bm25, combined) - bm25 [non_overlap]": {
+      "diff": 0.04886830051579311,
+      "ci_lo": 0.013023999524520293,
+      "ci_hi": 0.08850848201236446,
+      "p_two_sided": 0.003,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "linear(bm25, combined) - LTR base (무료 피처) [non_overlap]": {
+      "diff": -0.016251128767324003,
+      "ci_lo": -0.067830394674695,
+      "ci_hi": 0.043720940453606603,
+      "p_two_sided": 0.498,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "linear(bm25, combined) - LTR +코드 어휘 피처 [non_overlap]": {
+      "diff": 0.040288717352311126,
+      "ci_lo": -0.0029195346251669123,
+      "ci_hi": 0.10199789088633349,
+      "p_two_sided": 0.077,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "linear(bm25, pagerank) - bm25 [all]": {
+      "diff": 0.013422940408140618,
+      "ci_lo": 0.004060885323433787,
+      "ci_hi": 0.024733133130975207,
+      "p_two_sided": 0.003,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "linear(bm25, pagerank) - linear(bm25, combined) [all]": {
+      "diff": -0.02905289726925163,
+      "ci_lo": -0.05255948639711353,
+      "ci_hi": -0.004475038628481441,
+      "p_two_sided": 0.014,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "linear(bm25, pagerank) - LTR base (무료 피처) [all]": {
+      "diff": -0.1210888200888219,
+      "ci_lo": -0.15747413048402642,
+      "ci_hi": -0.08131080958692265,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "linear(bm25, pagerank) - LTR +코드 어휘 피처 [all]": {
+      "diff": -0.17588448682350524,
+      "ci_lo": -0.22133502895203644,
+      "ci_hi": -0.13056749034199716,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "linear(bm25, pagerank) - bm25 [overlap]": {
+      "diff": 0.014472706891635932,
+      "ci_lo": 0.003868007307855257,
+      "ci_hi": 0.026885758885056853,
+      "p_two_sided": 0.005,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "linear(bm25, pagerank) - linear(bm25, combined) [overlap]": {
+      "diff": -0.025237225484275472,
+      "ci_lo": -0.0509928036394708,
+      "ci_hi": 0.00033646222040123084,
+      "p_two_sided": 0.054,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "linear(bm25, pagerank) - LTR base (무료 피처) [overlap]": {
+      "diff": -0.12288404787627508,
+      "ci_lo": -0.16372734675979506,
+      "ci_hi": -0.08335993925707666,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "linear(bm25, pagerank) - LTR +코드 어휘 피처 [overlap]": {
+      "diff": -0.1895689627961282,
+      "ci_lo": -0.2359600220590088,
+      "ci_hi": -0.14283996980526278,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "linear(bm25, pagerank) - bm25 [non_overlap]": {
+      "diff": 0.0014442333008668276,
+      "ci_lo": -0.010062778536466388,
+      "ci_hi": 0.013467541063724078,
+      "p_two_sided": 0.75,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "linear(bm25, pagerank) - linear(bm25, combined) [non_overlap]": {
+      "diff": -0.047424067214926285,
+      "ci_lo": -0.09310483808440877,
+      "ci_hi": -0.009048098486299266,
+      "p_two_sided": 0.012,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "linear(bm25, pagerank) - LTR base (무료 피처) [non_overlap]": {
+      "diff": -0.06367519598225028,
+      "ci_lo": -0.12958182233216206,
+      "ci_hi": 0.004173760884687227,
+      "p_two_sided": 0.066,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "linear(bm25, pagerank) - LTR +코드 어휘 피처 [non_overlap]": {
+      "diff": -0.007135349862615154,
+      "ci_lo": -0.056832891551347235,
+      "ci_hi": 0.0551266761223457,
+      "p_two_sided": 0.764,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "linear(bm25, bc) - bm25 [all]": {
+      "diff": -0.00436420576724554,
+      "ci_lo": -0.017180620345853444,
+      "ci_hi": 0.008763000003681902,
+      "p_two_sided": 0.523,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "linear(bm25, bc) - linear(bm25, combined) [all]": {
+      "diff": -0.04684004344463778,
+      "ci_lo": -0.07367657084122634,
+      "ci_hi": -0.01959797303827056,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "linear(bm25, bc) - LTR base (무료 피처) [all]": {
+      "diff": -0.13887596626420806,
+      "ci_lo": -0.17504183930537554,
+      "ci_hi": -0.09995316119907308,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "linear(bm25, bc) - LTR +코드 어휘 피처 [all]": {
+      "diff": -0.1936716329988914,
+      "ci_lo": -0.23811660724547998,
+      "ci_hi": -0.14927069680767685,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "linear(bm25, bc) - bm25 [overlap]": {
+      "diff": -0.005089876338885218,
+      "ci_lo": -0.01844292014786592,
+      "ci_hi": 0.008812913354942399,
+      "p_two_sided": 0.486,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "linear(bm25, bc) - linear(bm25, combined) [overlap]": {
+      "diff": -0.04479980871479662,
+      "ci_lo": -0.0730543358906514,
+      "ci_hi": -0.016688632185460156,
+      "p_two_sided": 0.002,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "linear(bm25, bc) - LTR base (무료 피처) [overlap]": {
+      "diff": -0.14244663110679623,
+      "ci_lo": -0.18358676421885065,
+      "ci_hi": -0.10321106926301361,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "linear(bm25, bc) - LTR +코드 어휘 피처 [overlap]": {
+      "diff": -0.20913154602664932,
+      "ci_lo": -0.2563178008307744,
+      "ci_hi": -0.1627079603657693,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "linear(bm25, bc) - bm25 [non_overlap]": {
+      "diff": 0.0011833929419905749,
+      "ci_lo": -0.007767580777901451,
+      "ci_hi": 0.012711337163366242,
+      "p_two_sided": 0.89,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "linear(bm25, bc) - linear(bm25, combined) [non_overlap]": {
+      "diff": -0.04768490757380254,
+      "ci_lo": -0.08711398674864959,
+      "ci_hi": -0.015372729277758528,
+      "p_two_sided": 0.002,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "linear(bm25, bc) - LTR base (무료 피처) [non_overlap]": {
+      "diff": -0.06393603634112653,
+      "ci_lo": -0.12632945261328418,
+      "ci_hi": 0.0015693554836322173,
+      "p_two_sided": 0.054,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "linear(bm25, bc) - LTR +코드 어휘 피처 [non_overlap]": {
+      "diff": -0.007396190221491408,
+      "ci_lo": -0.057582866088740164,
+      "ci_hi": 0.053180501665068096,
+      "p_two_sided": 0.754,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "linear(bm25, ppr) - bm25 [all]": {
+      "diff": 0.002709056755713137,
+      "ci_lo": -0.002131873131363457,
+      "ci_hi": 0.007686795677478574,
+      "p_two_sided": 0.28,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "linear(bm25, ppr) - linear(bm25, combined) [all]": {
+      "diff": -0.0397667809216791,
+      "ci_lo": -0.06415746351042109,
+      "ci_hi": -0.014223280519235194,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "linear(bm25, ppr) - LTR base (무료 피처) [all]": {
+      "diff": -0.13180270374124936,
+      "ci_lo": -0.16882647314522595,
+      "ci_hi": -0.0941511783455339,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "linear(bm25, ppr) - LTR +코드 어휘 피처 [all]": {
+      "diff": -0.18659837047593272,
+      "ci_lo": -0.23160074732765631,
+      "ci_hi": -0.14279563502083517,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "linear(bm25, ppr) - bm25 [overlap]": {
+      "diff": 0.0018439804100524656,
+      "ci_lo": -0.003333206497906328,
+      "ci_hi": 0.007030227097691398,
+      "p_two_sided": 0.478,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "linear(bm25, ppr) - linear(bm25, combined) [overlap]": {
+      "diff": -0.037865951965858936,
+      "ci_lo": -0.06490275346372956,
+      "ci_hi": -0.011101594203929635,
+      "p_two_sided": 0.004,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "linear(bm25, ppr) - LTR base (무료 피처) [overlap]": {
+      "diff": -0.13551277435785858,
+      "ci_lo": -0.17491873794631266,
+      "ci_hi": -0.09707347698472663,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "linear(bm25, ppr) - LTR +코드 어휘 피처 [overlap]": {
+      "diff": -0.20219768927771167,
+      "ci_lo": -0.2503069760928087,
+      "ci_hi": -0.1566058919936683,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "linear(bm25, ppr) - bm25 [non_overlap]": {
+      "diff": 0.00861545779494117,
+      "ci_lo": -0.0005175024966922198,
+      "ci_hi": 0.021124221750401333,
+      "p_two_sided": 0.075,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "linear(bm25, ppr) - linear(bm25, combined) [non_overlap]": {
+      "diff": -0.04025284272085193,
+      "ci_lo": -0.08082221907933947,
+      "ci_hi": -0.004444784113584998,
+      "p_two_sided": 0.027,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "linear(bm25, ppr) - LTR base (무료 피처) [non_overlap]": {
+      "diff": -0.056503971488175944,
+      "ci_lo": -0.11940418854031692,
+      "ci_hi": 0.010895420836159946,
+      "p_two_sided": 0.101,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "linear(bm25, ppr) - LTR +코드 어휘 피처 [non_overlap]": {
+      "diff": 3.587463145919012e-05,
+      "ci_lo": -0.050534742712338446,
+      "ci_hi": 0.06361152630174222,
+      "p_two_sided": 0.967,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "mult(bm25, B2) - bm25 [all]": {
+      "diff": 0.010890891304588935,
+      "ci_lo": -0.0126343161650691,
+      "ci_hi": 0.03421744069461474,
+      "p_two_sided": 0.364,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "mult(bm25, B2) - linear(bm25, combined) [all]": {
+      "diff": -0.03158494637280331,
+      "ci_lo": -0.05634814130475004,
+      "ci_hi": -0.007199022583645524,
+      "p_two_sided": 0.007,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "mult(bm25, B2) - LTR base (무료 피처) [all]": {
+      "diff": -0.12362086919237357,
+      "ci_lo": -0.16154125271219621,
+      "ci_hi": -0.08276541058244419,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "mult(bm25, B2) - LTR +코드 어휘 피처 [all]": {
+      "diff": -0.17841653592705692,
+      "ci_lo": -0.22378176750303674,
+      "ci_hi": -0.13197911529886328,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "mult(bm25, B2) - bm25 [overlap]": {
+      "diff": 0.0076744479823178,
+      "ci_lo": -0.016435698419858702,
+      "ci_hi": 0.031458718835326714,
+      "p_two_sided": 0.548,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "mult(bm25, B2) - linear(bm25, combined) [overlap]": {
+      "diff": -0.032035484393593605,
+      "ci_lo": -0.05939674048605429,
+      "ci_hi": -0.007047374426115854,
+      "p_two_sided": 0.014,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "mult(bm25, B2) - LTR base (무료 피처) [overlap]": {
+      "diff": -0.12968230678559323,
+      "ci_lo": -0.17241540356518176,
+      "ci_hi": -0.08696321052440426,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "mult(bm25, B2) - LTR +코드 어휘 피처 [overlap]": {
+      "diff": -0.19636722170544632,
+      "ci_lo": -0.24385556865126096,
+      "ci_hi": -0.14875692968655177,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "mult(bm25, B2) - bm25 [non_overlap]": {
+      "diff": 0.02670264540712323,
+      "ci_lo": -0.007925557469598023,
+      "ci_hi": 0.07500972045620459,
+      "p_two_sided": 0.19,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "mult(bm25, B2) - linear(bm25, combined) [non_overlap]": {
+      "diff": -0.02216565510866988,
+      "ci_lo": -0.059501715607769914,
+      "ci_hi": 0.016472753317795262,
+      "p_two_sided": 0.268,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "mult(bm25, B2) - LTR base (무료 피처) [non_overlap]": {
+      "diff": -0.03841678387599388,
+      "ci_lo": -0.0883998811739952,
+      "ci_hi": 0.0214541821807442,
+      "p_two_sided": 0.197,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "mult(bm25, B2) - LTR +코드 어휘 피처 [non_overlap]": {
+      "diff": 0.01812306224364124,
+      "ci_lo": -0.030675604103822324,
+      "ci_hi": 0.08828072722827704,
+      "p_two_sided": 0.557,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "mult(bm25, combined) - bm25 [all]": {
+      "diff": 0.04170071574448972,
+      "ci_lo": 0.015102268404135291,
+      "ci_hi": 0.06694589330074814,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "mult(bm25, combined) - linear(bm25, combined) [all]": {
+      "diff": -0.0007751219329025169,
+      "ci_lo": -0.00833638321346658,
+      "ci_hi": 0.006251562965915285,
+      "p_two_sided": 0.794,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "mult(bm25, combined) - LTR base (무료 피처) [all]": {
+      "diff": -0.09281104475247277,
+      "ci_lo": -0.13090538508624774,
+      "ci_hi": -0.05753622600173383,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "mult(bm25, combined) - LTR +코드 어휘 피처 [all]": {
+      "diff": -0.14760671148715612,
+      "ci_lo": -0.1928117313856683,
+      "ci_hi": -0.10422773116859597,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "mult(bm25, combined) - bm25 [overlap]": {
+      "diff": 0.03892335952447328,
+      "ci_lo": 0.012507542796772327,
+      "ci_hi": 0.0654094503106895,
+      "p_two_sided": 0.005,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "mult(bm25, combined) - linear(bm25, combined) [overlap]": {
+      "diff": -0.0007865728514381248,
+      "ci_lo": -0.008631528844910674,
+      "ci_hi": 0.0070923702421258564,
+      "p_two_sided": 0.845,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "mult(bm25, combined) - LTR base (무료 피처) [overlap]": {
+      "diff": -0.09843339524343774,
+      "ci_lo": -0.13695662391417956,
+      "ci_hi": -0.060421780653171435,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "mult(bm25, combined) - LTR +코드 어휘 피처 [overlap]": {
+      "diff": -0.1651183101632909,
+      "ci_lo": -0.21183555071922833,
+      "ci_hi": -0.11925545662374132,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "mult(bm25, combined) - bm25 [non_overlap]": {
+      "diff": 0.047552417238446415,
+      "ci_lo": 0.012546974039947874,
+      "ci_hi": 0.08781241122668075,
+      "p_two_sided": 0.004,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "mult(bm25, combined) - linear(bm25, combined) [non_overlap]": {
+      "diff": -0.0013158832773466952,
+      "ci_lo": -0.006827332215775795,
+      "ci_hi": 0.004940503206780794,
+      "p_two_sided": 0.65,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "mult(bm25, combined) - LTR base (무료 피처) [non_overlap]": {
+      "diff": -0.0175670120446707,
+      "ci_lo": -0.0687892957883728,
+      "ci_hi": 0.04209893006434753,
+      "p_two_sided": 0.466,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "mult(bm25, combined) - LTR +코드 어휘 피처 [non_overlap]": {
+      "diff": 0.03897283407496443,
+      "ci_lo": -0.003945935522546344,
+      "ci_hi": 0.10038136616532163,
+      "p_two_sided": 0.088,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "mult(bm25, pagerank) - bm25 [all]": {
+      "diff": 0.010193451431580578,
+      "ci_lo": -0.011252933014834422,
+      "ci_hi": 0.03155078820398858,
+      "p_two_sided": 0.339,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "mult(bm25, pagerank) - linear(bm25, combined) [all]": {
+      "diff": -0.032282386245811666,
+      "ci_lo": -0.05601519163739473,
+      "ci_hi": -0.007784073319660361,
+      "p_two_sided": 0.006,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "mult(bm25, pagerank) - LTR base (무료 피처) [all]": {
+      "diff": -0.12431830906538194,
+      "ci_lo": -0.16214189420897349,
+      "ci_hi": -0.08600868800913497,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "mult(bm25, pagerank) - LTR +코드 어휘 피처 [all]": {
+      "diff": -0.17911397580006524,
+      "ci_lo": -0.223382491740795,
+      "ci_hi": -0.13277680934042282,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "mult(bm25, pagerank) - bm25 [overlap]": {
+      "diff": 0.006293246811262829,
+      "ci_lo": -0.015742690121040306,
+      "ci_hi": 0.027246402405494568,
+      "p_two_sided": 0.581,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "mult(bm25, pagerank) - linear(bm25, combined) [overlap]": {
+      "diff": -0.03341668556464857,
+      "ci_lo": -0.060404993751509456,
+      "ci_hi": -0.0075451414032332775,
+      "p_two_sided": 0.019,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "mult(bm25, pagerank) - LTR base (무료 피처) [overlap]": {
+      "diff": -0.1310635079566482,
+      "ci_lo": -0.173151846213454,
+      "ci_hi": -0.09000931665450725,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "mult(bm25, pagerank) - LTR +코드 어휘 피처 [overlap]": {
+      "diff": -0.1977484228765013,
+      "ci_lo": -0.24526472133958507,
+      "ci_hi": -0.15068517028738815,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "mult(bm25, pagerank) - bm25 [non_overlap]": {
+      "diff": 0.03783243326541698,
+      "ci_lo": 0.0016215516466268737,
+      "ci_hi": 0.08937523373067043,
+      "p_two_sided": 0.017,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "mult(bm25, pagerank) - linear(bm25, combined) [non_overlap]": {
+      "diff": -0.011035867250376133,
+      "ci_lo": -0.05515752818088539,
+      "ci_hi": 0.044817627302375346,
+      "p_two_sided": 0.638,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "mult(bm25, pagerank) - LTR base (무료 피처) [non_overlap]": {
+      "diff": -0.027286996017700137,
+      "ci_lo": -0.09912795387073477,
+      "ci_hi": 0.04951570665705558,
+      "p_two_sided": 0.467,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "mult(bm25, pagerank) - LTR +코드 어휘 피처 [non_overlap]": {
+      "diff": 0.029252850101934992,
+      "ci_lo": -0.024164608150219292,
+      "ci_hi": 0.10152071321585968,
+      "p_two_sided": 0.363,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "gate(bm25, B2) - bm25 [all]": {
+      "diff": 0.042094379410331846,
+      "ci_lo": 0.017608470954611183,
+      "ci_hi": 0.06559643687855858,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "gate(bm25, B2) - linear(bm25, combined) [all]": {
+      "diff": -0.0003814582670603939,
+      "ci_lo": -0.0158551072355802,
+      "ci_hi": 0.014775518171201154,
+      "p_two_sided": 0.999,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "gate(bm25, B2) - LTR base (무료 피처) [all]": {
+      "diff": -0.09241738108663065,
+      "ci_lo": -0.12901996782996836,
+      "ci_hi": -0.05705125344502728,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "gate(bm25, B2) - LTR +코드 어휘 피처 [all]": {
+      "diff": -0.147213047821314,
+      "ci_lo": -0.19309029764792413,
+      "ci_hi": -0.10302165466910708,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "gate(bm25, B2) - bm25 [overlap]": {
+      "diff": 0.0408835468581231,
+      "ci_lo": 0.016560051321859528,
+      "ci_hi": 0.06580621949576537,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "gate(bm25, B2) - linear(bm25, combined) [overlap]": {
+      "diff": 0.0011736144822116926,
+      "ci_lo": -0.016091115661571082,
+      "ci_hi": 0.01746794168540752,
+      "p_two_sided": 0.86,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "gate(bm25, B2) - LTR base (무료 피처) [overlap]": {
+      "diff": -0.09647320790978792,
+      "ci_lo": -0.13478247279996813,
+      "ci_hi": -0.05857733114079188,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "gate(bm25, B2) - LTR +코드 어휘 피처 [overlap]": {
+      "diff": -0.16315812282964107,
+      "ci_lo": -0.20944089190468254,
+      "ci_hi": -0.11671583693850529,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "gate(bm25, B2) - bm25 [non_overlap]": {
+      "diff": 0.03627366486396062,
+      "ci_lo": 0.0013429810990974109,
+      "ci_hi": 0.0770098612315895,
+      "p_two_sided": 0.042,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "gate(bm25, B2) - linear(bm25, combined) [non_overlap]": {
+      "diff": -0.01259463565183248,
+      "ci_lo": -0.021781456157105715,
+      "ci_hi": -0.003853961281948832,
+      "p_two_sided": 0.002,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "gate(bm25, B2) - LTR base (무료 피처) [non_overlap]": {
+      "diff": -0.028845764419156483,
+      "ci_lo": -0.08100126177436154,
+      "ci_hi": 0.03138624174844539,
+      "p_two_sided": 0.291,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "gate(bm25, B2) - LTR +코드 어휘 피처 [non_overlap]": {
+      "diff": 0.027694081700478646,
+      "ci_lo": -0.015518010861202384,
+      "ci_hi": 0.09061291251080045,
+      "p_two_sided": 0.278,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "gate(bm25, combined) - bm25 [all]": {
+      "diff": 0.030984643010244898,
+      "ci_lo": 0.002557868757737753,
+      "ci_hi": 0.05712493651013206,
+      "p_two_sided": 0.032,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "gate(bm25, combined) - linear(bm25, combined) [all]": {
+      "diff": -0.011491194667147342,
+      "ci_lo": -0.029857297007460048,
+      "ci_hi": 0.005124332709330379,
+      "p_two_sided": 0.195,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "gate(bm25, combined) - LTR base (무료 피처) [all]": {
+      "diff": -0.10352711748671761,
+      "ci_lo": -0.1422982079037246,
+      "ci_hi": -0.06631898874548618,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "gate(bm25, combined) - LTR +코드 어휘 피처 [all]": {
+      "diff": -0.15832278422140095,
+      "ci_lo": -0.20444954603818602,
+      "ci_hi": -0.11407229746877844,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "gate(bm25, combined) - bm25 [overlap]": {
+      "diff": 0.028786831336374896,
+      "ci_lo": -0.002515877303046381,
+      "ci_hi": 0.05699844727795552,
+      "p_two_sided": 0.06,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "gate(bm25, combined) - linear(bm25, combined) [overlap]": {
+      "diff": -0.010923101039536509,
+      "ci_lo": -0.03025492616877597,
+      "ci_hi": 0.0067624181482493426,
+      "p_two_sided": 0.234,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "gate(bm25, combined) - LTR base (무료 피처) [overlap]": {
+      "diff": -0.10856992343153613,
+      "ci_lo": -0.14884590641177023,
+      "ci_hi": -0.0692802145974169,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "gate(bm25, combined) - LTR +코드 어휘 피처 [overlap]": {
+      "diff": -0.17525483835138922,
+      "ci_lo": -0.22206961499712669,
+      "ci_hi": -0.1274219225414007,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "gate(bm25, combined) - bm25 [non_overlap]": {
+      "diff": 0.04224208850688094,
+      "ci_lo": 0.00458613082896372,
+      "ci_hi": 0.08251827057012999,
+      "p_two_sided": 0.027,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "gate(bm25, combined) - linear(bm25, combined) [non_overlap]": {
+      "diff": -0.006626212008912173,
+      "ci_lo": -0.01871615297989692,
+      "ci_hi": 0.006273345195317066,
+      "p_two_sided": 0.304,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "gate(bm25, combined) - LTR base (무료 피처) [non_overlap]": {
+      "diff": -0.022877340776236182,
+      "ci_lo": -0.07744909366265862,
+      "ci_hi": 0.0400379823305072,
+      "p_two_sided": 0.4,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "gate(bm25, combined) - LTR +코드 어휘 피처 [non_overlap]": {
+      "diff": 0.03366250534339895,
+      "ci_lo": -0.010763612089268558,
+      "ci_hi": 0.09610316139242389,
+      "p_two_sided": 0.169,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "gate(bm25, pagerank) - bm25 [all]": {
+      "diff": 0.04689185853460843,
+      "ci_lo": 0.022173288191482208,
+      "ci_hi": 0.07047652692488013,
+      "p_two_sided": 0.001,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "gate(bm25, pagerank) - linear(bm25, combined) [all]": {
+      "diff": 0.004416020857216184,
+      "ci_lo": -0.011664690085115406,
+      "ci_hi": 0.020008125934947454,
+      "p_two_sided": 0.582,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "gate(bm25, pagerank) - LTR base (무료 피처) [all]": {
+      "diff": -0.08761990196235406,
+      "ci_lo": -0.12410619282028365,
+      "ci_hi": -0.053477009957756914,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "gate(bm25, pagerank) - LTR +코드 어휘 피처 [all]": {
+      "diff": -0.14241556869703742,
+      "ci_lo": -0.18579170588151533,
+      "ci_hi": -0.09944907495436142,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "gate(bm25, pagerank) - bm25 [overlap]": {
+      "diff": 0.04530636551382314,
+      "ci_lo": 0.020512755469318963,
+      "ci_hi": 0.06960561175705027,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "gate(bm25, pagerank) - linear(bm25, combined) [overlap]": {
+      "diff": 0.005596433137911738,
+      "ci_lo": -0.011937030234734662,
+      "ci_hi": 0.022160274452877955,
+      "p_two_sided": 0.536,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "gate(bm25, pagerank) - LTR base (무료 피처) [overlap]": {
+      "diff": -0.09205038925408786,
+      "ci_lo": -0.1315005061376089,
+      "ci_hi": -0.05458230999550714,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "gate(bm25, pagerank) - LTR +코드 어휘 피처 [overlap]": {
+      "diff": -0.158735304173941,
+      "ci_lo": -0.20326932180812002,
+      "ci_hi": -0.1133456706676683,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "gate(bm25, pagerank) - bm25 [non_overlap]": {
+      "diff": 0.04657141947982679,
+      "ci_lo": 0.011221281759226227,
+      "ci_hi": 0.08836088760418358,
+      "p_two_sided": 0.01,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "gate(bm25, pagerank) - linear(bm25, combined) [non_overlap]": {
+      "diff": -0.002296881035966313,
+      "ci_lo": -0.014696046743159167,
+      "ci_hi": 0.011074090794041288,
+      "p_two_sided": 0.737,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "gate(bm25, pagerank) - LTR base (무료 피처) [non_overlap]": {
+      "diff": -0.01854800980329032,
+      "ci_lo": -0.0738217662856174,
+      "ci_hi": 0.04438290329737377,
+      "p_two_sided": 0.477,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "gate(bm25, pagerank) - LTR +코드 어휘 피처 [non_overlap]": {
+      "diff": 0.03799183631634481,
+      "ci_lo": -0.007554540312170043,
+      "ci_hi": 0.10174858419511747,
+      "p_two_sided": 0.116,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "cascade(bm25, B2) - bm25 [all]": {
+      "diff": 0.012852700035916065,
+      "ci_lo": -0.0035217253887455686,
+      "ci_hi": 0.030382190365821543,
+      "p_two_sided": 0.126,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "cascade(bm25, B2) - linear(bm25, combined) [all]": {
+      "diff": -0.02962313764147618,
+      "ci_lo": -0.05228108005625781,
+      "ci_hi": -0.007795820626465699,
+      "p_two_sided": 0.008,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "cascade(bm25, B2) - LTR base (무료 피처) [all]": {
+      "diff": -0.12165906046104644,
+      "ci_lo": -0.15883137605063677,
+      "ci_hi": -0.08291932874188897,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "cascade(bm25, B2) - LTR +코드 어휘 피처 [all]": {
+      "diff": -0.1764547271957298,
+      "ci_lo": -0.2227277447944174,
+      "ci_hi": -0.12958381643671224,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "cascade(bm25, B2) - bm25 [overlap]": {
+      "diff": 0.012012237082127132,
+      "ci_lo": -0.005094268143468366,
+      "ci_hi": 0.029432937033626528,
+      "p_two_sided": 0.181,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "cascade(bm25, B2) - linear(bm25, combined) [overlap]": {
+      "diff": -0.027697695293784276,
+      "ci_lo": -0.05374293405036184,
+      "ci_hi": -0.0030519826944730645,
+      "p_two_sided": 0.027,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "cascade(bm25, B2) - LTR base (무료 피처) [overlap]": {
+      "diff": -0.1253445176857839,
+      "ci_lo": -0.16656956979091436,
+      "ci_hi": -0.0859762364050298,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "cascade(bm25, B2) - LTR +코드 어휘 피처 [overlap]": {
+      "diff": -0.19202943260563698,
+      "ci_lo": -0.24067685221546023,
+      "ci_hi": -0.14321564057919642,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "cascade(bm25, B2) - bm25 [non_overlap]": {
+      "diff": 0.01350653593802299,
+      "ci_lo": -0.009735066704792364,
+      "ci_hi": 0.04473146752437482,
+      "p_two_sided": 0.343,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "cascade(bm25, B2) - linear(bm25, combined) [non_overlap]": {
+      "diff": -0.03536176457777012,
+      "ci_lo": -0.06374805573531538,
+      "ci_hi": -0.013190408940821323,
+      "p_two_sided": 0.0,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "cascade(bm25, B2) - LTR base (무료 피처) [non_overlap]": {
+      "diff": -0.05161289334509413,
+      "ci_lo": -0.11101851792573371,
+      "ci_hi": 0.011670311620059787,
+      "p_two_sided": 0.11,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "cascade(bm25, B2) - LTR +코드 어휘 피처 [non_overlap]": {
+      "diff": 0.004926952774541006,
+      "ci_lo": -0.03295532500998362,
+      "ci_hi": 0.060973058864635506,
+      "p_two_sided": 0.92,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "cascade(bm25, combined) - bm25 [all]": {
+      "diff": 0.03291499746182072,
+      "ci_lo": 0.0064710562627282005,
+      "ci_hi": 0.057915111012628,
+      "p_two_sided": 0.008,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "cascade(bm25, combined) - linear(bm25, combined) [all]": {
+      "diff": -0.00956084021557152,
+      "ci_lo": -0.0220287472876095,
+      "ci_hi": 0.0008992944962532855,
+      "p_two_sided": 0.086,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "cascade(bm25, combined) - LTR base (무료 피처) [all]": {
+      "diff": -0.10159676303514177,
+      "ci_lo": -0.13883482150799628,
+      "ci_hi": -0.06483827587308456,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "cascade(bm25, combined) - LTR +코드 어휘 피처 [all]": {
+      "diff": -0.15639242976982515,
+      "ci_lo": -0.20166525261261567,
+      "ci_hi": -0.1145278490385092,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "cascade(bm25, combined) - bm25 [overlap]": {
+      "diff": 0.030097919226984227,
+      "ci_lo": 0.0027381413798663063,
+      "ci_hi": 0.05699053095096929,
+      "p_two_sided": 0.026,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "cascade(bm25, combined) - linear(bm25, combined) [overlap]": {
+      "diff": -0.009612013148927177,
+      "ci_lo": -0.023110913368115257,
+      "ci_hi": 0.001742050151995524,
+      "p_two_sided": 0.112,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "cascade(bm25, combined) - LTR base (무료 피처) [overlap]": {
+      "diff": -0.1072588355409268,
+      "ci_lo": -0.14614314972409304,
+      "ci_hi": -0.06750732625615727,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "cascade(bm25, combined) - LTR +코드 어휘 피처 [overlap]": {
+      "diff": -0.1739437504607799,
+      "ci_lo": -0.21823101402908435,
+      "ci_hi": -0.12986890085681177,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "cascade(bm25, combined) - bm25 [non_overlap]": {
+      "diff": 0.04135978614355224,
+      "ci_lo": 0.0076237319977805725,
+      "ci_hi": 0.08224050435907893,
+      "p_two_sided": 0.014,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "cascade(bm25, combined) - linear(bm25, combined) [non_overlap]": {
+      "diff": -0.007508514372240866,
+      "ci_lo": -0.015221202051454774,
+      "ci_hi": 0.0004089171175189091,
+      "p_two_sided": 0.066,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "cascade(bm25, combined) - LTR base (무료 피처) [non_overlap]": {
+      "diff": -0.023759643139564877,
+      "ci_lo": -0.07418506159028768,
+      "ci_hi": 0.03693983997691958,
+      "p_two_sided": 0.37,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "cascade(bm25, combined) - LTR +코드 어휘 피처 [non_overlap]": {
+      "diff": 0.03278020298007026,
+      "ci_lo": -0.010057053905287931,
+      "ci_hi": 0.09506402212111835,
+      "p_two_sided": 0.181,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "cascade(bm25, pagerank) - bm25 [all]": {
+      "diff": 0.013241641302029494,
+      "ci_lo": -0.0034755005655235085,
+      "ci_hi": 0.028658105944669433,
+      "p_two_sided": 0.107,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "cascade(bm25, pagerank) - linear(bm25, combined) [all]": {
+      "diff": -0.02923419637536275,
+      "ci_lo": -0.04971043445288395,
+      "ci_hi": -0.009257770018657359,
+      "p_two_sided": 0.003,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "cascade(bm25, pagerank) - LTR base (무료 피처) [all]": {
+      "diff": -0.12127011919493301,
+      "ci_lo": -0.15841066216044317,
+      "ci_hi": -0.0842106273252432,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "cascade(bm25, pagerank) - LTR +코드 어휘 피처 [all]": {
+      "diff": -0.1760657859296164,
+      "ci_lo": -0.2222501328245321,
+      "ci_hi": -0.13211372376378908,
+      "p_two_sided": 0.0,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "cascade(bm25, pagerank) - bm25 [overlap]": {
+      "diff": 0.012283878063490026,
+      "ci_lo": -0.003633724390626001,
+      "ci_hi": 0.029413395345771323,
+      "p_two_sided": 0.134,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "cascade(bm25, pagerank) - linear(bm25, combined) [overlap]": {
+      "diff": -0.02742605431242138,
+      "ci_lo": -0.05028811043003572,
+      "ci_hi": -0.006529457297970817,
+      "p_two_sided": 0.011,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "cascade(bm25, pagerank) - LTR base (무료 피처) [overlap]": {
+      "diff": -0.125072876704421,
+      "ci_lo": -0.16483972006751732,
+      "ci_hi": -0.0866823456574534,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "cascade(bm25, pagerank) - LTR +코드 어휘 피처 [overlap]": {
+      "diff": -0.19175779162427412,
+      "ci_lo": -0.23865940546218956,
+      "ci_hi": -0.14576864971590703,
+      "p_two_sided": 0.0,
+      "n_paired": 214,
+      "underpowered": false
+    },
+    "cascade(bm25, pagerank) - bm25 [non_overlap]": {
+      "diff": 0.010930623403552829,
+      "ci_lo": -0.011580020843598042,
+      "ci_hi": 0.042667389963793746,
+      "p_two_sided": 0.476,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "cascade(bm25, pagerank) - linear(bm25, combined) [non_overlap]": {
+      "diff": -0.03793767711224028,
+      "ci_lo": -0.07576420291797664,
+      "ci_hi": -0.008637114229532497,
+      "p_two_sided": 0.006,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "cascade(bm25, pagerank) - LTR base (무료 피처) [non_overlap]": {
+      "diff": -0.054188805879564296,
+      "ci_lo": -0.1176697854117871,
+      "ci_hi": 0.010205025122218655,
+      "p_two_sided": 0.103,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "cascade(bm25, pagerank) - LTR +코드 어휘 피처 [non_overlap]": {
+      "diff": 0.002351040240070845,
+      "ci_lo": -0.038536683266774695,
+      "ci_hi": 0.05950921579592979,
+      "p_two_sided": 1.0,
+      "n_paired": 40,
+      "underpowered": false
+    }
+  },
+  "chosen": {
+    "linear(bm25, B2)": [
+      {
+        "alpha": 0.9
+      },
+      {
+        "alpha": 0.9
+      },
+      {
+        "alpha": 0.9
+      },
+      {
+        "alpha": 0.9
+      },
+      {
+        "alpha": 0.9
+      }
+    ],
+    "linear(bm25, combined)": [
+      {
+        "alpha": 0.7
+      },
+      {
+        "alpha": 0.7
+      },
+      {
+        "alpha": 0.7
+      },
+      {
+        "alpha": 0.6
+      },
+      {
+        "alpha": 0.7
+      }
+    ],
+    "linear(bm25, pagerank)": [
+      {
+        "alpha": 0.9
+      },
+      {
+        "alpha": 0.9
+      },
+      {
+        "alpha": 0.9
+      },
+      {
+        "alpha": 0.9
+      },
+      {
+        "alpha": 0.9
+      }
+    ],
+    "linear(bm25, bc)": [
+      {
+        "alpha": 0.85
+      },
+      {
+        "alpha": 0.8
+      },
+      {
+        "alpha": 0.95
+      },
+      {
+        "alpha": 0.9
+      },
+      {
+        "alpha": 0.95
+      }
+    ],
+    "linear(bm25, ppr)": [
+      {
+        "alpha": 0.8
+      },
+      {
+        "alpha": 0.75
+      },
+      {
+        "alpha": 0.8
+      },
+      {
+        "alpha": 0.8
+      },
+      {
+        "alpha": 0.8
+      }
+    ],
+    "mult(bm25, B2)": [
+      {
+        "beta": 0.25,
+        "eps": 0.5
+      },
+      {
+        "beta": 0.25,
+        "eps": 0.5
+      },
+      {
+        "beta": 0.25,
+        "eps": 0.5
+      },
+      {
+        "beta": 0.25,
+        "eps": 0.5
+      },
+      {
+        "beta": 0.25,
+        "eps": 0.5
+      }
+    ],
+    "mult(bm25, combined)": [
+      {
+        "beta": 0.25,
+        "eps": 0.1
+      },
+      {
+        "beta": 0.5,
+        "eps": 0.5
+      },
+      {
+        "beta": 0.5,
+        "eps": 0.5
+      },
+      {
+        "beta": 1.0,
+        "eps": 0.5
+      },
+      {
+        "beta": 0.5,
+        "eps": 0.5
+      }
+    ],
+    "mult(bm25, pagerank)": [
+      {
+        "beta": 0.25,
+        "eps": 0.5
+      },
+      {
+        "beta": 0.25,
+        "eps": 0.5
+      },
+      {
+        "beta": 0.25,
+        "eps": 0.5
+      },
+      {
+        "beta": 0.25,
+        "eps": 0.5
+      },
+      {
+        "beta": 0.25,
+        "eps": 0.5
+      }
+    ],
+    "gate(bm25, B2)": [
+      {
+        "a0": 0.5
+      },
+      {
+        "a0": 0.5
+      },
+      {
+        "a0": 0.5
+      },
+      {
+        "a0": 0.5
+      },
+      {
+        "a0": 0.5
+      }
+    ],
+    "gate(bm25, combined)": [
+      {
+        "a0": 0.25
+      },
+      {
+        "a0": 0.25
+      },
+      {
+        "a0": 0.75
+      },
+      {
+        "a0": 0.25
+      },
+      {
+        "a0": 0.0
+      }
+    ],
+    "gate(bm25, pagerank)": [
+      {
+        "a0": 0.5
+      },
+      {
+        "a0": 0.25
+      },
+      {
+        "a0": 0.5
+      },
+      {
+        "a0": 0.5
+      },
+      {
+        "a0": 0.5
+      }
+    ],
+    "cascade(bm25, B2)": [
+      {
+        "n": 10,
+        "w": 0.7
+      },
+      {
+        "n": 50,
+        "w": 0.8
+      },
+      {
+        "n": 50,
+        "w": 0.8
+      },
+      {
+        "n": 10,
+        "w": 0.7
+      },
+      {
+        "n": 10,
+        "w": 0.7
+      }
+    ],
+    "cascade(bm25, combined)": [
+      {
+        "n": 50,
+        "w": 0.7
+      },
+      {
+        "n": 20,
+        "w": 0.5
+      },
+      {
+        "n": 50,
+        "w": 0.7
+      },
+      {
+        "n": 20,
+        "w": 0.5
+      },
+      {
+        "n": 50,
+        "w": 0.7
+      }
+    ],
+    "cascade(bm25, pagerank)": [
+      {
+        "n": 5,
+        "w": 0.7
+      },
+      {
+        "n": 50,
+        "w": 0.8
+      },
+      {
+        "n": 5,
+        "w": 0.7
+      },
+      {
+        "n": 5,
+        "w": 0.7
+      },
+      {
+        "n": 50,
+        "w": 0.8
+      }
+    ]
+  },
+  "grids": {
+    "linear": [
+      {
+        "alpha": 1.0
+      },
+      {
+        "alpha": 0.95
+      },
+      {
+        "alpha": 0.9
+      },
+      {
+        "alpha": 0.85
+      },
+      {
+        "alpha": 0.8
+      },
+      {
+        "alpha": 0.75
+      },
+      {
+        "alpha": 0.7
+      },
+      {
+        "alpha": 0.65
+      },
+      {
+        "alpha": 0.6
+      },
+      {
+        "alpha": 0.55
+      },
+      {
+        "alpha": 0.5
+      },
+      {
+        "alpha": 0.45
+      },
+      {
+        "alpha": 0.4
+      },
+      {
+        "alpha": 0.35
+      },
+      {
+        "alpha": 0.3
+      },
+      {
+        "alpha": 0.25
+      },
+      {
+        "alpha": 0.2
+      },
+      {
+        "alpha": 0.15
+      },
+      {
+        "alpha": 0.1
+      },
+      {
+        "alpha": 0.05
+      },
+      {
+        "alpha": 0.0
+      }
+    ],
+    "mult": [
+      {
+        "beta": 0.0,
+        "eps": 0.5
+      },
+      {
+        "beta": 0.25,
+        "eps": 0.5
+      },
+      {
+        "beta": 0.25,
+        "eps": 0.1
+      },
+      {
+        "beta": 0.25,
+        "eps": 0.01
+      },
+      {
+        "beta": 0.5,
+        "eps": 0.5
+      },
+      {
+        "beta": 0.5,
+        "eps": 0.1
+      },
+      {
+        "beta": 0.5,
+        "eps": 0.01
+      },
+      {
+        "beta": 1.0,
+        "eps": 0.5
+      },
+      {
+        "beta": 1.0,
+        "eps": 0.1
+      },
+      {
+        "beta": 1.0,
+        "eps": 0.01
+      },
+      {
+        "beta": 2.0,
+        "eps": 0.5
+      },
+      {
+        "beta": 2.0,
+        "eps": 0.1
+      },
+      {
+        "beta": 2.0,
+        "eps": 0.01
+      },
+      {
+        "beta": 4.0,
+        "eps": 0.5
+      },
+      {
+        "beta": 4.0,
+        "eps": 0.1
+      },
+      {
+        "beta": 4.0,
+        "eps": 0.01
+      }
+    ],
+    "gate": [
+      {
+        "a0": 1.0
+      },
+      {
+        "a0": 0.9
+      },
+      {
+        "a0": 0.75
+      },
+      {
+        "a0": 0.5
+      },
+      {
+        "a0": 0.25
+      },
+      {
+        "a0": 0.0
+      }
+    ],
+    "cascade": [
+      {
+        "n": 5,
+        "w": 1.0
+      },
+      {
+        "n": 10,
+        "w": 1.0
+      },
+      {
+        "n": 20,
+        "w": 1.0
+      },
+      {
+        "n": 50,
+        "w": 1.0
+      },
+      {
+        "n": 5,
+        "w": 0.9
+      },
+      {
+        "n": 10,
+        "w": 0.9
+      },
+      {
+        "n": 20,
+        "w": 0.9
+      },
+      {
+        "n": 50,
+        "w": 0.9
+      },
+      {
+        "n": 5,
+        "w": 0.8
+      },
+      {
+        "n": 10,
+        "w": 0.8
+      },
+      {
+        "n": 20,
+        "w": 0.8
+      },
+      {
+        "n": 50,
+        "w": 0.8
+      },
+      {
+        "n": 5,
+        "w": 0.7
+      },
+      {
+        "n": 10,
+        "w": 0.7
+      },
+      {
+        "n": 20,
+        "w": 0.7
+      },
+      {
+        "n": 50,
+        "w": 0.7
+      },
+      {
+        "n": 5,
+        "w": 0.6
+      },
+      {
+        "n": 10,
+        "w": 0.6
+      },
+      {
+        "n": 20,
+        "w": 0.6
+      },
+      {
+        "n": 50,
+        "w": 0.6
+      },
+      {
+        "n": 5,
+        "w": 0.5
+      },
+      {
+        "n": 10,
+        "w": 0.5
+      },
+      {
+        "n": 20,
+        "w": 0.5
+      },
+      {
+        "n": 50,
+        "w": 0.5
+      },
+      {
+        "n": 5,
+        "w": 0.3
+      },
+      {
+        "n": 10,
+        "w": 0.3
+      },
+      {
+        "n": 20,
+        "w": 0.3
+      },
+      {
+        "n": 50,
+        "w": 0.3
+      },
+      {
+        "n": 5,
+        "w": 0.0
+      },
+      {
+        "n": 10,
+        "w": 0.0
+      },
+      {
+        "n": 20,
+        "w": 0.0
+      },
+      {
+        "n": 50,
+        "w": 0.0
+      }
+    ]
+  },
+  "notes": [
+    "embed seed 없음 — 임베딩 없이 진행",
+    "rerank seed 없음 — 리랭킹 없이 진행",
+    "extra 조인 43688/43688 (1.0000): def_match, str_match, nbr_bm25_max, nbr_bm25_mean",
+    "gold 437개 중 스캔에 있는 것 423개 (차이 14개가 Recall 상한을 깎는다)"
+  ]
+}

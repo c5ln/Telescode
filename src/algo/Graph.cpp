@@ -1,5 +1,6 @@
 #include "Graph.h"
 
+
 #include <sqlite3.h>
 #include <algorithm>
 #include <cmath>
@@ -7,6 +8,7 @@
 #include <cstring>
 #include <stack>
 #include <unordered_set>
+#include <utility>
 
 NodeId Graph::get_or_add(const std::string& id)
 {
@@ -104,121 +106,6 @@ std::vector<std::vector<NodeId>> SCCFinder::find(const Graph& g)
 
 // ── GraphBuilder ────────────────────────────────────────────────────────────
 
-namespace {
-
-// Directory part of a file_id, without the trailing slash. "a.py" -> "".
-std::string dir_of(const std::string& file_id)
-{
-    const std::size_t slash = file_id.find_last_of('/');
-    return slash == std::string::npos ? std::string() : file_id.substr(0, slash);
-}
-
-// Strip `levels` trailing components. Returns false if that would go above the
-// repo root -- `from ..x import y` in a top-level module has nothing to climb to.
-bool climb(std::string& dir, int levels)
-{
-    for (int i = 0; i < levels; ++i) {
-        if (dir.empty()) return false;
-        const std::size_t slash = dir.find_last_of('/');
-        dir = (slash == std::string::npos) ? std::string() : dir.substr(0, slash);
-    }
-    return true;
-}
-
-// "pkg/core" + "mod.sub" -> "pkg/core/mod/sub"; an empty tail keeps the base.
-std::string join_module(const std::string& base, const std::string& dotted)
-{
-    std::string tail = dotted;
-    for (char& c : tail) if (c == '.') c = '/';
-    if (tail.empty()) return base;
-    return base.empty() ? tail : base + "/" + tail;
-}
-
-// A module path resolves to either the module file or the package __init__.
-std::string file_for(const std::string& path,
-                     const std::unordered_set<std::string>& file_ids)
-{
-    if (path.empty()) return {};
-    std::string candidate = path + ".py";
-    if (file_ids.count(candidate)) return candidate;
-    candidate = path + "/__init__.py";
-    if (file_ids.count(candidate)) return candidate;
-    return {};
-}
-
-}  // namespace
-
-std::vector<std::string> inferPackageRoots(const std::unordered_set<std::string>& file_ids,
-                                            int max_depth)
-{
-    static const std::string kInit = "/__init__.py";
-
-    std::unordered_set<std::string> packages;
-    for (const std::string& fid : file_ids) {
-        if (fid.size() > kInit.size() &&
-            fid.compare(fid.size() - kInit.size(), kInit.size(), kInit) == 0)
-            packages.insert(fid.substr(0, fid.size() - kInit.size()));
-    }
-
-    std::unordered_set<std::string> roots{""};
-    for (const std::string& pkg : packages) {
-        const std::string parent = dir_of(pkg);
-        if (parent.empty()) continue;              // already at the repo root
-        if (packages.count(parent)) continue;      // a nested package, not top-level
-        int depth = 1;
-        for (char c : parent) if (c == '/') ++depth;
-        if (depth > max_depth) continue;           // too deep to be a layout root
-        roots.insert(parent + "/");
-    }
-
-    std::vector<std::string> out(roots.begin(), roots.end());
-    // Shortest first so "" wins whenever the repo is root-layout; ties broken
-    // lexicographically to keep the graph reproducible across runs.
-    std::sort(out.begin(), out.end(), [](const std::string& a, const std::string& b) {
-        return a.size() != b.size() ? a.size() < b.size() : a < b;
-    });
-    return out;
-}
-
-std::string resolveModule(const std::string& module,
-                          const std::string& source_file,
-                          const std::unordered_set<std::string>& file_ids,
-                          const std::vector<std::string>& roots)
-{
-    if (module.empty()) return {};
-
-    if (module[0] == '.') {
-        // Relative: resolve against the importing file's own directory, so the
-        // layout roots below play no part -- the anchor is already inside the tree.
-        std::size_t dots = 0;
-        while (dots < module.size() && module[dots] == '.') ++dots;
-
-        std::string base = dir_of(source_file);
-        // One dot is the current package (the directory the file sits in, which
-        // for pkg/__init__.py is pkg itself); each extra dot climbs one level.
-        if (!climb(base, static_cast<int>(dots) - 1)) return {};
-
-        const std::string tail = module.substr(dots);
-        if (tail.empty()) {
-            // `from . import x` -- the target is the package itself.
-            if (base.empty()) return {};
-            const std::string init = base + "/__init__.py";
-            return file_ids.count(init) ? init : std::string();
-        }
-        return file_for(join_module(base, tail), file_ids);
-    }
-
-    // Absolute: try each layout root, shortest first.
-    for (const std::string& root : roots) {
-        std::string hit = file_for(join_module(root.empty() ? std::string()
-                                                            : root.substr(0, root.size() - 1),
-                                               module),
-                                    file_ids);
-        if (!hit.empty()) return hit;
-    }
-    return {};
-}
-
 static void add_edge(Graph& g, const std::string& src, const std::string& tgt, double w = 1.0)
 {
     if (src == tgt) return;
@@ -238,7 +125,7 @@ static double link_type_weight(const char* type, const AlgoConfig& cfg)
     return cfg.edge_w_imports;
 }
 
-// `link` has PRIMARY KEY(source_id, target_id, link_type), so multiplicity only
+// `link` has one row per (source_id, target_id, link_type), so multiplicity only
 // appears once entity ids are collapsed to file ids: `cnt` is the number of
 // distinct entity pairs connecting the two files. Linear scaling lets one hot
 // pair (hundreds of call sites) dominate the whole graph, so log is the default.
@@ -254,13 +141,13 @@ static double count_factor(int cnt, const AlgoConfig& cfg)
 
 // Pass 1: file-level graph
 // CALLS/INHERITS edges: both endpoints are file paths with '::' suffix stripped.
-// IMPORTS edges: target is a Python module name; resolved to file path if possible.
-// External module names that can't be resolved to a project file are excluded.
+// IMPORTS edges: file id -> file id, as the resolver found them; an import of
+// anything that is not a project file adds no edge.
 // All project files are pre-populated as nodes so isolated files appear in the graph.
 // Edge weight = link_type_weight * count_factor(#entity pairs), summed over types.
 void GraphBuilder::build_file_graph(sqlite3* db, Graph& g, const AlgoConfig& cfg)
 {
-    // Load all project file_ids for node pre-population and module resolution.
+    // Load all project file_ids for node pre-population.
     std::unordered_set<std::string> file_ids;
     sqlite3_stmt* file_stmt = nullptr;
     sqlite3_prepare_v2(db, "SELECT file_id FROM file;", -1, &file_stmt, nullptr);
@@ -300,29 +187,28 @@ void GraphBuilder::build_file_graph(sqlite3* db, Graph& g, const AlgoConfig& cfg
         sqlite3_finalize(stmt);
     }
 
-    // IMPORTS: source is a file path; target is a Python module name, absolute
-    // or relative. Relative targets need the source file, so it is passed in.
-    // Unresolvable (external) modules are skipped.
-    const std::vector<std::string> roots = inferPackageRoots(file_ids);
+    // IMPORTS: file id -> file id, one unit of weight per pair however many
+    // specs name it. Read from import_resolution, the view's own source,
+    // because the order matters and only it has the specs: add_edge appends
+    // each new edge to the adjacency lists, Brandes and PageRank sum in that
+    // order, and the link table this view replaced added a file's imports in
+    // module-spec order. Ordering each pair by its first spec keeps that
+    // order, and every score bit for bit; ordering by target id instead flips
+    // betweenness ties at the last bit. After CALLS/INHERITS, as before.
     stmt = nullptr;
     sqlite3_prepare_v2(db,
-        "SELECT"
-        "    substr(source_id, 1, instr(source_id||'::', '::')-1) AS src,"
-        "    target_id AS module_name, COUNT(*) AS cnt"
-        " FROM link"
-        " WHERE link_type = 'IMPORTS'"
-        " GROUP BY src, module_name;",
+        "SELECT file_id, resolved_file_id FROM import_resolution"
+        " WHERE status = 'resolved'"
+        " GROUP BY file_id, resolved_file_id"
+        " ORDER BY file_id, MIN(module_spec);",
         -1, &stmt, nullptr);
     if (stmt) {
         while (sqlite3_step(stmt) == SQLITE_ROW) {
             const char* src = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
-            const char* mod = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
-            const int   cnt = sqlite3_column_int(stmt, 2);
-            if (!src || !mod) continue;
-            if (!file_ids.count(src)) continue;
-            std::string tgt = resolveModule(mod, src, file_ids, roots);
-            if (!tgt.empty())
-                add_edge(g, src, tgt, cfg.edge_w_imports * count_factor(cnt, cfg));
+            const char* tgt = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+            if (!src || !tgt) continue;
+            if (file_ids.count(src) && file_ids.count(tgt))
+                add_edge(g, src, tgt, cfg.edge_w_imports);
         }
         sqlite3_finalize(stmt);
     }
@@ -330,14 +216,36 @@ void GraphBuilder::build_file_graph(sqlite3* db, Graph& g, const AlgoConfig& cfg
 
 // Pass 2: function/class-level graph
 // Nodes: function_id, class_id. Edges: CALLS + INHERITS only.
-// No multiplicity here -- (source_id, target_id, link_type) is the `link` PK --
+// No multiplicity here -- `link` has one row per (source_id, target_id, link_type) --
 // so the weight is purely the link-type weight.
+// Every function and class is pre-populated as a node, as files are in pass 1:
+// an entity with no resolved link (only unresolved calls, or none) would
+// otherwise be missing from the reading sequence altogether. Ordered by id so
+// node numbering, and with it every tie-break, does not depend on row order.
 void GraphBuilder::build_func_graph(sqlite3* db, Graph& g, const AlgoConfig& cfg)
 {
     sqlite3_stmt* stmt = nullptr;
     sqlite3_prepare_v2(db,
-        "SELECT source_id, target_id, link_type FROM link"
-        " WHERE link_type IN ('CALLS', 'INHERITS');",
+        "SELECT function_id FROM function"
+        " UNION SELECT class_id FROM class"
+        " ORDER BY 1;",
+        -1, &stmt, nullptr);
+    if (stmt) {
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            const char* id = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+            if (id) g.get_or_add(id);
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    // The view's CALLS / INHERITS rows, read off ref so that they can be
+    // ordered by ref_id: edges go in in that order, which the scores depend
+    // on (see IMPORTS above). idx_ref_link has them in exactly this order.
+    stmt = nullptr;
+    sqlite3_prepare_v2(db,
+        "SELECT source_id, resolved_id, kind FROM ref"
+        " WHERE emits_link = 1 AND kind IN ('CALLS', 'INHERITS')"
+        " ORDER BY kind, ref_id;",
         -1, &stmt, nullptr);
     if (!stmt) return;
 

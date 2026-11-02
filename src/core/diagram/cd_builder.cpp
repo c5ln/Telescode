@@ -158,11 +158,13 @@ CDGraph BuildCDGraph(sqlite3* db)
     }
     sqlite3_finalize(stmt);
 
-    // ── Step 6: Dependency edges — INHERITS (class→base_class_name) ────────
+    // ── Step 6: Dependency edges — INHERITS (class→base class) ─────────────
+    // The resolver writes INHERITS targets as class ids, so each child gets an
+    // arrow to the one base it means, not to every class of that name.
     sqlite3_prepare_v2(db,
         "SELECT DISTINCT l.source_id, c2.class_id"
         "  FROM link l"
-        "  JOIN class c2 ON c2.class_name = l.target_id"
+        "  JOIN class c2 ON c2.class_id = l.target_id"
         " WHERE l.link_type = 'INHERITS'"
         "   AND l.source_id != c2.class_id;",
         -1, &stmt, nullptr);

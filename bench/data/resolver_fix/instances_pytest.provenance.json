@@ -1,0 +1,38 @@
+{
+  "pin": "93f9cf2",
+  "pinned_from": "commit : 93f9cf2b88a0e7fcb177b8d6adde46f273701bd1\nsubject: feat: update 영향받는 참조만 재해석하는 기능\ndate   : 2026-11-01T17:54:45+09:00\nclean  : git worktree (detached, 0 uncommitted changes)에서 빌드\nbuild  : cmake -DCMAKE_BUILD_TYPE=Release, targets TelescodeHeadless TelescodePPR\n         (c596e15는 bench/tools만 바꿨다 — src/·CMakeLists.txt는 93f9cf2와 동일)\npinned : 2026-11-01 (Stage 6)\nmd5:\n  f1cd721f6f8b5d515566fb1cb99d8f49  TelescodeHeadless\n  44e51f0717e45c99afd1778d7ab25af3  TelescodePPR\nCLI    : TelescodeHeadless scan <repo> <db> / TelescodeHeadless algo <db> / TelescodePPR <db> <seed_csv> <out_csv>\nDB     : PRAGMA user_version 6 형식. link는 ref + import_resolution 위의 VIEW, IMPORTS target은 해석된 file_id\ne2501cb 대비 바뀐 것 (docs/파서 고치기.md 1~5단계):\n  - 이름 해석 개편: 파일 간 CALLS는 import/scope 해석으로만 연결\n    (resolveCrossFileCallTargets 삭제 — 내장 이름 호출이 다른 파일 메서드에 붙던 오연결 제거)\n  - INHERITS target이 class id → 파일 그래프에 상속 간선이 생긴다 (이전 0개)\n  - DECORATES 링크 추가 (변수 데코레이터 포함)\n  - 함수 그래프가 모든 함수·클래스를 노드로 포함 (reading_sequence 누락 해소)\n  - IMPORTS 가중치: (파일, 파일) 쌍마다 1\n  - (PPR CLI 인터페이스는 동일. 그래프 입력이 바뀐다)\n선택   : 기본값 (TELESCODE_BENCH_PIN 미설정 또는 =93f9cf2)",
+  "binaries": {
+    "scanner": {
+      "path": "/home/cheonsh/Telescode/bench/bin/93f9cf2/TelescodeHeadless",
+      "md5": "f1cd721f6f8b5d515566fb1cb99d8f49"
+    },
+    "algo": {
+      "path": "/home/cheonsh/Telescode/bench/bin/93f9cf2/TelescodeHeadless",
+      "md5": "f1cd721f6f8b5d515566fb1cb99d8f49"
+    },
+    "ppr": {
+      "path": "/home/cheonsh/Telescode/bench/bin/93f9cf2/TelescodePPR",
+      "md5": "44e51f0717e45c99afd1778d7ab25af3"
+    }
+  },
+  "features_csv": "bench/data/resolver_fix/features_pytest.csv",
+  "repo": "pytest-dev/pytest",
+  "ppr_seed": {
+    "seed_csv": "bench/data/seed_all/bm25_seed__no_paths.csv",
+    "seed_md5": "4406cbed45952c02d417c0eaef09c9f6",
+    "seed_weight_col": "bm25",
+    "seed_topk": 2,
+    "seed_power": 1.0
+  },
+  "ppr_seed_reemitted": {
+    "by": "bench/scripts/resolver_fix/reemit_provenance.py",
+    "note": "실행 후에 기록. 값은 train 스윕 CSV와 ppr을 대조해 확인했다",
+    "verification": {
+      "config": "topk2_pow1",
+      "rows_checked": 21383,
+      "mismatched_rows": 0,
+      "control_config": "topk1_pow1",
+      "control_mismatched_rows": 4494
+    }
+  }
+}

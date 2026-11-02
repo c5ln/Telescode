@@ -9,6 +9,7 @@
 
 #include "core/AnalysisService.h"
 #include "core/json/AnalysisJson.h"
+#include "db/db.h"
 
 #include <cstdio>
 #include <exception>
@@ -66,6 +67,9 @@ int run(Slice slice, int argc, char* argv[], const char* usage)
         aopts.run_algo = opts.run_algo;
 
         const AnalysisSnapshot snap = AnalysisService::Load(opts.db_path, aopts);
+        // Still a success: the JSON is a true report of an empty database.
+        if (snap.totals.file_count == 0)
+            std::fprintf(stderr, "Telescode: warning: %s: %s\n", opts.db_path.c_str(), kNoFilesWarning);
         return emit(render(slice, snap, opts.pretty), opts.out_path) ? 0 : 1;
     } catch (const std::exception& e) {
         std::fprintf(stderr, "Telescode: %s\n", e.what());

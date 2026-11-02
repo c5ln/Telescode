@@ -1,0 +1,243 @@
+{
+  "inputs": {
+    "features": "bench/data/features_all.csv",
+    "manifest": "bench/data/instances_all.csv",
+    "bm25_seed": "bench/data/seed_all/bm25_seed__no_paths.csv",
+    "embed_seed": null,
+    "rerank_seed": null,
+    "overlap": "bench/data/vocab_overlap.csv",
+    "overlap_condition": "no_paths",
+    "old_features": null,
+    "out": "bench/data/resolver_fix/graphfree_bm25_e2501cb.json"
+  },
+  "identity_check": {
+    "n_rows": 43688,
+    "n_generated_rows": 99,
+    "generated_complexity_all_zero": true,
+    "max_abs_identity_residual": 1.1102230246251565e-16
+  },
+  "metrics": [
+    {
+      "scorer": "full",
+      "segment": "all",
+      "n_instances": 229,
+      "n_gold": 437,
+      "ceiling": 0.986987713255038,
+      "MRR": 0.5939849894924786,
+      "R@1": 0.3450043848942653,
+      "R@5": 0.6507259938340251,
+      "R@10": 0.7739668375419277,
+      "R@20": 0.8799149240102344,
+      "NDCG@10": 0.5967395201460961
+    },
+    {
+      "scorer": "full",
+      "segment": "overlap",
+      "n_instances": 214,
+      "n_gold": 338,
+      "ceiling": 1.0,
+      "MRR": 0.6104885073161035,
+      "R@1": 0.3803348909657321,
+      "R@5": 0.6914441477525591,
+      "R@10": 0.809679572763685,
+      "R@20": 0.9128449043168669,
+      "NDCG@10": 0.628788737875423
+    },
+    {
+      "scorer": "full",
+      "segment": "non_overlap",
+      "n_instances": 40,
+      "n_gold": 85,
+      "ceiling": 1.0,
+      "MRR": 0.21793880184747466,
+      "R@1": 0.04714912280701754,
+      "R@5": 0.24846491228070172,
+      "R@10": 0.42339181286549704,
+      "R@20": 0.6259502923976609,
+      "NDCG@10": 0.21765647821702738
+    },
+    {
+      "scorer": "-graph (run_ltr)",
+      "segment": "all",
+      "n_instances": 229,
+      "n_gold": 437,
+      "ceiling": 0.986987713255038,
+      "MRR": 0.573521414601574,
+      "R@1": 0.3344693373837099,
+      "R@5": 0.6063585487356135,
+      "R@10": 0.7341533537660365,
+      "R@20": 0.847540842803801,
+      "NDCG@10": 0.5716077409740589
+    },
+    {
+      "scorer": "-graph (run_ltr)",
+      "segment": "overlap",
+      "n_instances": 214,
+      "n_gold": 338,
+      "ceiling": 1.0,
+      "MRR": 0.5904276760550978,
+      "R@1": 0.3733644859813084,
+      "R@5": 0.6542946150422786,
+      "R@10": 0.7783266577659101,
+      "R@20": 0.8771695594125501,
+      "NDCG@10": 0.6065371316881522
+    },
+    {
+      "scorer": "-graph (run_ltr)",
+      "segment": "non_overlap",
+      "n_instances": 40,
+      "n_gold": 85,
+      "ceiling": 1.0,
+      "MRR": 0.20925213582108335,
+      "R@1": 0.04583333333333333,
+      "R@5": 0.2192982456140351,
+      "R@10": 0.40124269005847946,
+      "R@20": 0.6599780701754385,
+      "NDCG@10": 0.21289327523821805
+    },
+    {
+      "scorer": "-graph (graph-free)",
+      "segment": "all",
+      "n_instances": 229,
+      "n_gold": 437,
+      "ceiling": 0.986987713255038,
+      "MRR": 0.5833907885623605,
+      "R@1": 0.34645998896995667,
+      "R@5": 0.6065068214489137,
+      "R@10": 0.7105779923512978,
+      "R@20": 0.838417098375329,
+      "NDCG@10": 0.5654166124200571
+    },
+    {
+      "scorer": "-graph (graph-free)",
+      "segment": "overlap",
+      "n_instances": 214,
+      "n_gold": 338,
+      "ceiling": 1.0,
+      "MRR": 0.6015938699406069,
+      "R@1": 0.38068535825545174,
+      "R@5": 0.6671840231419671,
+      "R@10": 0.7673064085447263,
+      "R@20": 0.8721906987093903,
+      "NDCG@10": 0.6044036348924255
+    },
+    {
+      "scorer": "-graph (graph-free)",
+      "segment": "non_overlap",
+      "n_instances": 40,
+      "n_gold": 85,
+      "ceiling": 1.0,
+      "MRR": 0.19759531133224537,
+      "R@1": 0.0638157894736842,
+      "R@5": 0.16513157894736843,
+      "R@10": 0.3067251461988304,
+      "R@20": 0.5649122807017543,
+      "NDCG@10": 0.17939157614448886
+    },
+    {
+      "scorer": "full (complexity_nodeg)",
+      "segment": "all",
+      "n_instances": 229,
+      "n_gold": 437,
+      "ceiling": 0.986987713255038,
+      "MRR": 0.5948802481206202,
+      "R@1": 0.35264630629164523,
+      "R@5": 0.6207717413906896,
+      "R@10": 0.77527688121005,
+      "R@20": 0.8805360420226568,
+      "NDCG@10": 0.5982137247437428
+    },
+    {
+      "scorer": "full (complexity_nodeg)",
+      "segment": "overlap",
+      "n_instances": 214,
+      "n_gold": 338,
+      "ceiling": 1.0,
+      "MRR": 0.6161915008356482,
+      "R@1": 0.38968068535825545,
+      "R@5": 0.6742267467734758,
+      "R@10": 0.8186025812194037,
+      "R@20": 0.9138239875389408,
+      "NDCG@10": 0.6343547687537385
+    },
+    {
+      "scorer": "full (complexity_nodeg)",
+      "segment": "non_overlap",
+      "n_instances": 40,
+      "n_gold": 85,
+      "ceiling": 1.0,
+      "MRR": 0.1956662064240659,
+      "R@1": 0.038815789473684206,
+      "R@5": 0.16513157894736843,
+      "R@10": 0.37339181286549705,
+      "R@20": 0.6288011695906432,
+      "NDCG@10": 0.19154921687050813
+    }
+  ],
+  "tests": {
+    "-graph (run_ltr) - full [all]": {
+      "diff": -0.02046357489090467,
+      "ci_lo": -0.04501261682826084,
+      "ci_hi": 0.002642302691039098,
+      "p_two_sided": 0.074,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "-graph (graph-free) - full [all]": {
+      "diff": -0.010594200930118262,
+      "ci_lo": -0.036281384072601085,
+      "ci_hi": 0.015161797132951465,
+      "p_two_sided": 0.425,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "full (complexity_nodeg) - full [all]": {
+      "diff": 0.0008952586281416593,
+      "ci_lo": -0.015214499691413738,
+      "ci_hi": 0.015610335742000533,
+      "p_two_sided": 0.872,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "-graph (graph-free) - -graph (run_ltr) [all]": {
+      "diff": 0.009869373960786413,
+      "ci_lo": -0.012729863038163586,
+      "ci_hi": 0.03290766712796592,
+      "p_two_sided": 0.377,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "-graph (run_ltr) - full [non_overlap]": {
+      "diff": -0.00868666602639131,
+      "ci_lo": -0.0551786326584792,
+      "ci_hi": 0.033872250516685236,
+      "p_two_sided": 0.731,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "-graph (graph-free) - full [non_overlap]": {
+      "diff": -0.020343490515229296,
+      "ci_lo": -0.06931630547446956,
+      "ci_hi": 0.0367829280292838,
+      "p_two_sided": 0.457,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "full (complexity_nodeg) - full [non_overlap]": {
+      "diff": -0.022272595423408738,
+      "ci_lo": -0.05612006336649869,
+      "ci_hi": 0.00353052475818448,
+      "p_two_sided": 0.109,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "-graph (graph-free) - -graph (run_ltr) [non_overlap]": {
+      "diff": -0.011656824488837989,
+      "ci_lo": -0.05910458616338081,
+      "ci_hi": 0.04201443620099841,
+      "p_two_sided": 0.641,
+      "n_paired": 40,
+      "underpowered": false
+    }
+  }
+}

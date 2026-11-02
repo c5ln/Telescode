@@ -12,6 +12,7 @@ ImportError / AttributeError가 되게 하려는 것이다.
 자세한 내용은 bench/CONTRACT.md 참조.
 """
 
+import os
 from pathlib import Path
 
 
@@ -78,12 +79,41 @@ ALL_COLUMNS = KEY_COLUMNS + [LABEL_COLUMN] + FEATURE_COLUMNS + [C.is_generated, 
 
 # ── 경로 ──────────────────────────────────────────────────────────────────
 BENCH_ROOT = Path(__file__).resolve().parent
-BIN_DIR     = BENCH_ROOT / "bin"      # pin된 바이너리. build/를 직접 부르지 않는다
+BIN_DIR     = BENCH_ROOT / "bin"      # pin된 바이너리 (pin별 하위 폴더). build/를 직접 부르지 않는다
 SCRATCH_DIR = BENCH_ROOT / "scratch"  # 인스턴스별 임시 DB. 추출 직후 삭제
 DATA_DIR    = BENCH_ROOT / "data"     # 산출 매트릭스 (CSV)
 
-SCANNER_BIN = BIN_DIR / "TelescodeScanner"
-ALGO_BIN    = BIN_DIR / "TelescodeAlgo"
+# ── pin된 바이너리 (bench/bin/<pin>/) ─────────────────────────────────────
+# pin마다 폴더 하나. 기본값은 최신 pin이고, 옛 결과를 재현할 때만
+# `TELESCODE_BENCH_PIN=e2501cb`로 고른다. 실험 도중 누가 build/를 다시 빌드해도
+# 알고리즘이 바뀌지 않게 하려는 것이다 (CONTRACT.md §3.5).
+#
+# pin마다 CLI가 다르다. e2501cb는 실행 파일이 따로였고, 93f9cf2부터는
+# `TelescodeHeadless scan|algo` 하나다. 그래서 경로가 아니라 **명령 접두어**를 둔다.
+#   scan: [*SCANNER_CMD, <repo>, <db>]   algo: [*ALGO_CMD, <db>]
+#   ppr : [PPR_BIN, <db>, <seed_csv>, <out_csv>]  (두 pin 모두 같은 인터페이스)
+PINS = {
+    "e2501cb": {"scan": ("TelescodeScanner",),
+                "algo": ("TelescodeAlgo",),
+                "ppr": "TelescodePPR"},
+    "93f9cf2": {"scan": ("TelescodeHeadless", "scan"),
+                "algo": ("TelescodeHeadless", "algo"),
+                "ppr": "TelescodePPR"},
+}
+DEFAULT_PIN = "93f9cf2"
+ACTIVE_PIN = os.environ.get("TELESCODE_BENCH_PIN", DEFAULT_PIN)
+if ACTIVE_PIN not in PINS:
+    raise ImportError(f"TELESCODE_BENCH_PIN={ACTIVE_PIN!r}: 알 수 없는 pin. 가능: {sorted(PINS)}")
+PIN_DIR = BIN_DIR / ACTIVE_PIN
+
+_pin = PINS[ACTIVE_PIN]
+SCANNER_CMD = [str(PIN_DIR / _pin["scan"][0]), *_pin["scan"][1:]]
+ALGO_CMD    = [str(PIN_DIR / _pin["algo"][0]), *_pin["algo"][1:]]
+PPR_BIN     = PIN_DIR / _pin["ppr"]
+# provenance(md5)와 존재 확인용. 이름 → 실제 실행 파일 경로.
+PINNED_BINARIES = {"scanner": Path(SCANNER_CMD[0]),
+                   "algo": Path(ALGO_CMD[0]),
+                   "ppr": PPR_BIN}
 
 
 def normalize_file_id(path: str) -> str:

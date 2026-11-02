@@ -1,0 +1,282 @@
+{
+ "label": "sherlock",
+ "db": "sherlock-base.db",
+ "scanned_path": "repos/sherlock",
+ "scanned_commit": "574aeb4ac527b80c432fd04dd4411eddf3b54471",
+ "binary": {
+  "path": "/tmp/claude-1000/-home-cheonsh-Telescode/7f54ce26-45e3-42c7-b4f6-27eab223d029/scratchpad/stage3-verify/build-base/TelescodeHeadless",
+  "md5": "d4f8983eef9a57b43b064949c5df0873"
+ },
+ "counts": {
+  "files": 16,
+  "classes": 11,
+  "functions": 63,
+  "methods": 31
+ },
+ "projects": {
+  "devel": 2,
+  "sherlock_project": 6,
+  "tests": 8
+ },
+ "links": {
+  "CALLS": {
+   "total": 215,
+   "target_is_id": 23,
+   "target_is_raw_name": 192,
+   "raw_name_dotted": 126,
+   "raw_name_bare": 66,
+   "raw_name_containing_double_colon": 0
+  },
+  "INHERITS": {
+   "total": 4,
+   "target_is_id": 0,
+   "target_is_raw_name": 4,
+   "raw_name_dotted": 0,
+   "raw_name_bare": 4,
+   "raw_name_containing_double_colon": 0
+  },
+  "DECORATES": {
+   "total": 11,
+   "target_is_id": 11,
+   "target_is_raw_name": 0,
+   "raw_name_dotted": 0,
+   "raw_name_bare": 0,
+   "raw_name_containing_double_colon": 0
+  }
+ },
+ "cross_project_links": {
+  "CALLS": {
+   "count": 3,
+   "cross_file": 3,
+   "by_project_pair": [
+    {
+     "source": "tests",
+     "target": "sherlock_project",
+     "count": 3
+    }
+   ],
+   "examples": [
+    {
+     "source_id": "tests/test_probes.py::simple_query",
+     "target_id": "sherlock_project/sherlock.py::sherlock",
+     "source_project": "tests",
+     "target_project": "sherlock_project"
+    },
+    {
+     "source_id": "tests/test_validate_targets.py::false_negative_check",
+     "target_id": "sherlock_project/sherlock.py::sherlock",
+     "source_project": "tests",
+     "target_project": "sherlock_project"
+    },
+    {
+     "source_id": "tests/test_validate_targets.py::false_positive_check",
+     "target_id": "sherlock_project/sherlock.py::sherlock",
+     "source_project": "tests",
+     "target_project": "sherlock_project"
+    }
+   ]
+  },
+  "INHERITS": {
+   "count": 0,
+   "cross_file": 0,
+   "by_project_pair": [],
+   "examples": []
+  },
+  "DECORATES": {
+   "count": 11,
+   "cross_file": 11,
+   "by_project_pair": [
+    {
+     "source": "pytest.mark.parametrize",
+     "target": "tests",
+     "count": 8
+    },
+    {
+     "source": "pytest.fixture",
+     "target": "tests",
+     "count": 3
+    }
+   ],
+   "examples": [
+    {
+     "source_id": "pytest.fixture",
+     "target_id": "tests/conftest.py::remote_schema",
+     "source_project": "pytest.fixture",
+     "target_project": "tests"
+    },
+    {
+     "source_id": "pytest.fixture",
+     "target_id": "tests/conftest.py::sites_info",
+     "source_project": "pytest.fixture",
+     "target_project": "tests"
+    },
+    {
+     "source_id": "pytest.fixture",
+     "target_id": "tests/conftest.py::sites_obj",
+     "source_project": "pytest.fixture",
+     "target_project": "tests"
+    },
+    {
+     "source_id": "pytest.mark.parametrize",
+     "target_id": "tests/test_manifest.py::test_site_list_iterability",
+     "source_project": "pytest.mark.parametrize",
+     "target_project": "tests"
+    },
+    {
+     "source_id": "pytest.mark.parametrize",
+     "target_id": "tests/test_probes.py::TestLiveTargets::test_known_positives_via_message",
+     "source_project": "pytest.mark.parametrize",
+     "target_project": "tests"
+    },
+    {
+     "source_id": "pytest.mark.parametrize",
+     "target_id": "tests/test_probes.py::TestLiveTargets::test_known_positives_via_response_url",
+     "source_project": "pytest.mark.parametrize",
+     "target_project": "tests"
+    },
+    {
+     "source_id": "pytest.mark.parametrize",
+     "target_id": "tests/test_probes.py::TestLiveTargets::test_known_positives_via_status_code",
+     "source_project": "pytest.mark.parametrize",
+     "target_project": "tests"
+    },
+    {
+     "source_id": "pytest.mark.parametrize",
+     "target_id": "tests/test_probes.py::TestLiveTargets::test_likely_negatives_via_message",
+     "source_project": "pytest.mark.parametrize",
+     "target_project": "tests"
+    },
+    {
+     "source_id": "pytest.mark.parametrize",
+     "target_id": "tests/test_probes.py::TestLiveTargets::test_likely_negatives_via_status_code",
+     "source_project": "pytest.mark.parametrize",
+     "target_project": "tests"
+    },
+    {
+     "source_id": "pytest.mark.parametrize",
+     "target_id": "tests/test_ux.py::test_no_usernames_provided",
+     "source_project": "pytest.mark.parametrize",
+     "target_project": "tests"
+    }
+   ]
+  }
+ },
+ "calls_to_method_from_bare_name": {
+  "note": "APPROXIMATION: the DB does not keep the raw call text, so 'bare name call resolved to a method' is estimated by two separate signals: the target method's name is a Python builtin (dir(builtins)), or the target method lives in a different file than the caller.",
+  "python": "3.11.2",
+  "n_builtin_names": 157,
+  "builtin_name": {
+   "count": 0,
+   "cross_project": 0,
+   "top_target_names": [],
+   "examples": []
+  },
+  "other_file": {
+   "count": 0,
+   "cross_project": 0,
+   "top_target_names": [],
+   "examples": []
+  },
+  "either": 0,
+  "calls_id_target_not_in_function_table": 0
+ },
+ "class_diagram_inherits": {
+  "join": "class_name",
+  "inherits_links": 4,
+  "links_matching_any_class": 1,
+  "edges": 1,
+  "edges_to_different_file": 0,
+  "edges_to_different_project": 0,
+  "children_with_multiple_parents": 0,
+  "base_names_matching_multiple_classes": 0,
+  "examples_different_file": [],
+  "examples_multiple_parents": [],
+  "examples_ambiguous_base_name": [],
+  "by_join": {
+   "class_name": {
+    "links_matching_any_class": 1,
+    "edges": 1,
+    "edges_to_different_file": 0,
+    "edges_to_different_project": 0,
+    "children_with_multiple_parents": 0,
+    "base_names_matching_multiple_classes": 0
+   },
+   "class_id": {
+    "links_matching_any_class": 0,
+    "edges": 0,
+    "edges_to_different_file": 0,
+    "edges_to_different_project": 0,
+    "children_with_multiple_parents": 0,
+    "base_names_matching_multiple_classes": 0
+   }
+  }
+ },
+ "file_graph": {
+  "CALLS": {
+   "edges": 7,
+   "links_behind_edges": 23,
+   "self_loops": 5
+  },
+  "INHERITS": {
+   "edges": 0,
+   "links_behind_edges": 0,
+   "self_loops": 0
+  },
+  "CALLS+INHERITS": {
+   "distinct_pairs_excl_self": 2,
+   "cross_project_pairs": 2,
+   "cross_project_ratio": 1.0,
+   "examples_cross_project": [
+    {
+     "src": "tests/test_probes.py",
+     "tgt": "sherlock_project/sherlock.py"
+    },
+    {
+     "src": "tests/test_validate_targets.py",
+     "tgt": "sherlock_project/sherlock.py"
+    }
+   ]
+  },
+  "IMPORTS": null,
+  "all_types": null
+ },
+ "reading_sequence": {
+  "file": {
+   "in_db": 16,
+   "in_reading_sequence": 16,
+   "coverage": 1.0,
+   "examples_missing": []
+  },
+  "class": {
+   "in_db": 11,
+   "in_reading_sequence": 4,
+   "coverage": 0.3636,
+   "examples_missing": [
+    "sherlock_project/notify.py::QueryNotify",
+    "sherlock_project/result.py::QueryResult",
+    "sherlock_project/sites.py::SiteInformation",
+    "sherlock_project/sites.py::SitesInformation",
+    "tests/sherlock_interactives.py::Interactives",
+    "tests/test_probes.py::TestLiveTargets",
+    "tests/test_validate_targets.py::Test_All_Targets"
+   ]
+  },
+  "function": {
+   "in_db": 63,
+   "in_reading_sequence": 54,
+   "coverage": 0.8571,
+   "examples_missing": [
+    "sherlock_project/notify.py::QueryNotify::__init__",
+    "sherlock_project/notify.py::QueryNotify::finish",
+    "sherlock_project/notify.py::QueryNotify::start",
+    "sherlock_project/notify.py::QueryNotify::update",
+    "sherlock_project/result.py::QueryResult::__init__",
+    "sherlock_project/result.py::QueryStatus::__str__",
+    "sherlock_project/sites.py::SiteInformation::__str__",
+    "sherlock_project/sites.py::SitesInformation::__iter__",
+    "tests/test_manifest.py::test_site_list_iterability"
+   ]
+  }
+ },
+ "refs": null
+}

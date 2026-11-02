@@ -1,0 +1,253 @@
+{
+  "inputs": {
+    "features": "bench/data/resolver_fix/features_all_embedppr.csv",
+    "manifest": "bench/data/resolver_fix/instances_all_embedppr.csv",
+    "bm25_seed": "bench/data/seed_all/bm25_seed__no_paths.csv",
+    "embed_seed": "bench/data/seed_all/embed_seed__no_paths.csv",
+    "rerank_seed": "bench/data/seed_all/rerank_seed__no_paths.csv",
+    "overlap": "bench/data/vocab_overlap.csv",
+    "overlap_condition": "no_paths",
+    "old_features": "bench/data/features_all_embedppr.csv",
+    "out": "bench/data/resolver_fix/graphfree_rerank.json"
+  },
+  "identity_check": {
+    "n_rows": 43688,
+    "n_generated_rows": 99,
+    "generated_complexity_all_zero": true,
+    "max_abs_identity_residual": 1.1102230246251565e-16
+  },
+  "old_identity_check": {
+    "n_rows": 43688,
+    "n_generated_rows": 99,
+    "generated_complexity_all_zero": true,
+    "max_abs_identity_residual": 1.1102230246251565e-16
+  },
+  "nodeg_old_vs_new": {
+    "n_rows_joined": 43688,
+    "max_abs_diff": 0.0
+  },
+  "metrics": [
+    {
+      "scorer": "full",
+      "segment": "all",
+      "n_instances": 229,
+      "n_gold": 437,
+      "ceiling": 0.986987713255038,
+      "MRR": 0.7550988570634479,
+      "R@1": 0.5043044291952589,
+      "R@5": 0.8155835525780466,
+      "R@10": 0.8930718670608552,
+      "R@20": 0.9514293851202907,
+      "NDCG@10": 0.7616412494954311
+    },
+    {
+      "scorer": "full",
+      "segment": "overlap",
+      "n_instances": 214,
+      "n_gold": 338,
+      "ceiling": 1.0,
+      "MRR": 0.7631608500533734,
+      "R@1": 0.534351357365376,
+      "R@5": 0.8439085447263017,
+      "R@10": 0.9213729417000445,
+      "R@20": 0.97601246105919,
+      "NDCG@10": 0.7811669152857349
+    },
+    {
+      "scorer": "full",
+      "segment": "non_overlap",
+      "n_instances": 40,
+      "n_gold": 85,
+      "ceiling": 1.0,
+      "MRR": 0.358121519357269,
+      "R@1": 0.14583333333333331,
+      "R@5": 0.5401315789473684,
+      "R@10": 0.6504020467836258,
+      "R@20": 0.8537280701754387,
+      "NDCG@10": 0.40958184074180454
+    },
+    {
+      "scorer": "-graph (run_ltr)",
+      "segment": "all",
+      "n_instances": 229,
+      "n_gold": 437,
+      "ceiling": 0.986987713255038,
+      "MRR": 0.7590674780838889,
+      "R@1": 0.4950744527923187,
+      "R@5": 0.8144371513557008,
+      "R@10": 0.8821833157033461,
+      "R@20": 0.9259355194517526,
+      "NDCG@10": 0.7531267942159645
+    },
+    {
+      "scorer": "-graph (run_ltr)",
+      "segment": "overlap",
+      "n_instances": 214,
+      "n_gold": 338,
+      "ceiling": 1.0,
+      "MRR": 0.7697936074326638,
+      "R@1": 0.5329494882064976,
+      "R@5": 0.8419170004450378,
+      "R@10": 0.9170449488206498,
+      "R@20": 0.9577825990209168,
+      "NDCG@10": 0.7796698790088129
+    },
+    {
+      "scorer": "-graph (run_ltr)",
+      "segment": "non_overlap",
+      "n_instances": 40,
+      "n_gold": 85,
+      "ceiling": 1.0,
+      "MRR": 0.3354790179863709,
+      "R@1": 0.12214912280701755,
+      "R@5": 0.4929093567251462,
+      "R@10": 0.6282529239766081,
+      "R@20": 0.7385964912280703,
+      "NDCG@10": 0.37690857152919455
+    },
+    {
+      "scorer": "-graph (graph-free)",
+      "segment": "all",
+      "n_instances": 229,
+      "n_gold": 437,
+      "ceiling": 0.986987713255038,
+      "MRR": 0.7655514883153243,
+      "R@1": 0.49678998616724085,
+      "R@5": 0.7987894075420182,
+      "R@10": 0.8827551601616536,
+      "R@20": 0.9225148498738778,
+      "NDCG@10": 0.7530864806350189
+    },
+    {
+      "scorer": "-graph (graph-free)",
+      "segment": "overlap",
+      "n_instances": 214,
+      "n_gold": 338,
+      "ceiling": 1.0,
+      "MRR": 0.7776476737360777,
+      "R@1": 0.5408934134401424,
+      "R@5": 0.8403593680462839,
+      "R@10": 0.9209390298175346,
+      "R@20": 0.9538885180240321,
+      "NDCG@10": 0.7843233419893784
+    },
+    {
+      "scorer": "-graph (graph-free)",
+      "segment": "non_overlap",
+      "n_instances": 40,
+      "n_gold": 85,
+      "ceiling": 1.0,
+      "MRR": 0.3276334701323974,
+      "R@1": 0.12214912280701755,
+      "R@5": 0.4109649122807017,
+      "R@10": 0.5629751461988304,
+      "R@20": 0.7350511695906433,
+      "NDCG@10": 0.3515072455448479
+    },
+    {
+      "scorer": "full (complexity_nodeg)",
+      "segment": "all",
+      "n_instances": 229,
+      "n_gold": 437,
+      "ceiling": 0.986987713255038,
+      "MRR": 0.7569037625050974,
+      "R@1": 0.5110445089370474,
+      "R@5": 0.817361468984784,
+      "R@10": 0.8890246548590957,
+      "R@20": 0.9477903749310621,
+      "NDCG@10": 0.7590462876914221
+    },
+    {
+      "scorer": "full (complexity_nodeg)",
+      "segment": "overlap",
+      "n_instances": 214,
+      "n_gold": 338,
+      "ceiling": 1.0,
+      "MRR": 0.7696455608386187,
+      "R@1": 0.5460336003560303,
+      "R@5": 0.8516522029372496,
+      "R@10": 0.9271751223854028,
+      "R@20": 0.9744548286604363,
+      "NDCG@10": 0.786349717804347
+    },
+    {
+      "scorer": "full (complexity_nodeg)",
+      "segment": "non_overlap",
+      "n_instances": 40,
+      "n_gold": 85,
+      "ceiling": 1.0,
+      "MRR": 0.3315985501912275,
+      "R@1": 0.12214912280701755,
+      "R@5": 0.4901315789473684,
+      "R@10": 0.608735380116959,
+      "R@20": 0.8287280701754387,
+      "NDCG@10": 0.37128397790844003
+    }
+  ],
+  "tests": {
+    "-graph (run_ltr) - full [all]": {
+      "diff": 0.003968621020440936,
+      "ci_lo": -0.021692021644480503,
+      "ci_hi": 0.02997493754213623,
+      "p_two_sided": 0.778,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "-graph (graph-free) - full [all]": {
+      "diff": 0.010452631251876393,
+      "ci_lo": -0.01896849240695307,
+      "ci_hi": 0.0406593466325066,
+      "p_two_sided": 0.509,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "full (complexity_nodeg) - full [all]": {
+      "diff": 0.0018049054416495543,
+      "ci_lo": -0.01609172929709569,
+      "ci_hi": 0.020254295967276594,
+      "p_two_sided": 0.801,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "-graph (graph-free) - -graph (run_ltr) [all]": {
+      "diff": 0.006484010231435459,
+      "ci_lo": -0.015700596203283936,
+      "ci_hi": 0.028323634888756173,
+      "p_two_sided": 0.592,
+      "n_paired": 229,
+      "underpowered": false
+    },
+    "-graph (run_ltr) - full [non_overlap]": {
+      "diff": -0.02264250137089806,
+      "ci_lo": -0.07683231382342867,
+      "ci_hi": 0.025130035546031305,
+      "p_two_sided": 0.376,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "-graph (graph-free) - full [non_overlap]": {
+      "diff": -0.03048804922487152,
+      "ci_lo": -0.09023156184616088,
+      "ci_hi": 0.021145393353572503,
+      "p_two_sided": 0.276,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "full (complexity_nodeg) - full [non_overlap]": {
+      "diff": -0.026522969166041455,
+      "ci_lo": -0.07616933697665508,
+      "ci_hi": 0.01794247835684798,
+      "p_two_sided": 0.289,
+      "n_paired": 40,
+      "underpowered": false
+    },
+    "-graph (graph-free) - -graph (run_ltr) [non_overlap]": {
+      "diff": -0.00784554785397345,
+      "ci_lo": -0.0275313952152504,
+      "ci_hi": 0.013903792225795722,
+      "p_two_sided": 0.44,
+      "n_paired": 40,
+      "underpowered": false
+    }
+  }
+}

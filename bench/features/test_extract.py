@@ -1,4 +1,9 @@
-"""`extract.py`의 모듈 해석이 `src/algo/Graph.cpp`와 갈라지지 않는지 지킨다.
+"""`extract.py`의 간선 집합이 `GraphBuilder::build_file_graph`와 갈라지지 않는지 지킨다.
+
+모듈 해석(`resolveModule`/`inferPackageRoots`)은 `src/lang/python/PythonLanguage.cpp`,
+간선 조립은 `src/algo/Graph.cpp`에 있다. 모듈 해석 미러는 예전 형식 DB
+(`link`가 TABLE, IMPORTS target이 모듈명)에서만 쓰인다. 새 형식(`link`가 VIEW,
+IMPORTS target이 file_id)은 아래 "새 형식" 절이 지킨다.
 
 ## 왜 이 파일이 필요한가
 
@@ -29,6 +34,7 @@ import pytest
 
 from bench.features.extract import (
     _file_level_edges,
+    _imports_are_file_ids,
     _infer_package_roots,
     _resolve_module,
     extract,
@@ -254,6 +260,113 @@ def test_edges_are_directed():
     edges = _file_level_edges(conn, set(files))
     assert ("pkg/a.py", "pkg/b.py") in edges
     assert ("pkg/b.py", "pkg/a.py") not in edges
+
+
+def test_legacy_db_is_detected_as_module_names():
+    conn = _db_with(["a.py"], [])
+    assert not _imports_are_file_ids(conn)
+
+
+def test_legacy_edges_resolve_src_layout_and_relative_imports():
+    """예전 형식: 모듈명 target을 PythonLanguage 규칙으로 해석한다."""
+    files = sorted(SRC_LAYOUT)
+    conn = _db_with(files, [
+        ("testing/test_logging.py", "_pytest.logging", "IMPORTS"),  # src/ 루트
+        ("testing/test_logging.py", "pytest", "IMPORTS"),
+        ("src/_pytest/mark/__init__.py", ".structures", "IMPORTS"),
+        ("src/_pytest/logging.py", ".", "IMPORTS"),
+        ("src/_pytest/__init__.py", ".", "IMPORTS"),                # self → 제외
+        ("src/pytest.py", "attr", "IMPORTS"),                       # 외부 → 제외
+        ("src/pytest.py", "mark", "IMPORTS"),                       # 중첩 패키지 → 제외
+        ("not/scanned.py", "_pytest.logging", "IMPORTS"),           # source 미스캔
+    ])
+    assert _file_level_edges(conn, set(files)) == {
+        ("testing/test_logging.py", "src/_pytest/logging.py"),
+        ("testing/test_logging.py", "src/pytest.py"),
+        ("src/_pytest/mark/__init__.py", "src/_pytest/mark/structures.py"),
+        ("src/_pytest/logging.py", "src/_pytest/__init__.py"),
+    }
+
+
+def test_legacy_file_id_target_is_still_treated_as_a_module_name():
+    """예전 형식에서 target을 file_id로 받아주지 않는다 — 받아주면 C++과 갈라진다.
+
+    "pkg/b.py"는 모듈명으로는 "pkg/b/py"를 찾으므로 해석 실패다.
+    """
+    files = ["pkg/__init__.py", "pkg/a.py", "pkg/b.py"]
+    conn = _db_with(files, [("pkg/a.py", "pkg/b.py", "IMPORTS")])
+    assert _file_level_edges(conn, set(files)) == set()
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 새 형식 — `link`가 VIEW, IMPORTS target이 해석된 file_id
+# ══════════════════════════════════════════════════════════════════════════
+
+def _view_db_with(files, links):
+    """`link`가 VIEW인 DB. 실제 VIEW 정의 대신 같은 모양의 행만 재현한다."""
+    conn = sqlite3.connect(":memory:")
+    conn.execute("CREATE TABLE file (file_id TEXT PRIMARY KEY)")
+    conn.execute("CREATE TABLE link_rows (source_id TEXT, target_id TEXT, link_type TEXT)")
+    conn.execute("CREATE VIEW link AS SELECT source_id, target_id, link_type FROM link_rows")
+    conn.executemany("INSERT INTO file VALUES (?)", [(f,) for f in files])
+    conn.executemany("INSERT INTO link_rows VALUES (?,?,?)", links)
+    return conn
+
+
+def test_view_db_is_detected_as_file_ids():
+    assert _imports_are_file_ids(_view_db_with(["a.py"], []))
+
+
+def test_new_format_uses_import_targets_as_file_ids():
+    files = sorted(SRC_LAYOUT)
+    conn = _view_db_with(files, [
+        ("testing/test_logging.py", "src/_pytest/logging.py", "IMPORTS"),
+        ("testing/test_logging.py", "src/pytest.py", "IMPORTS"),
+        ("src/_pytest/mark/__init__.py", "src/_pytest/mark/structures.py", "IMPORTS"),
+        ("src/pytest.py::main", "src/_pytest/config/__init__.py::main", "CALLS"),
+    ])
+    assert _file_level_edges(conn, set(files)) == {
+        ("testing/test_logging.py", "src/_pytest/logging.py"),
+        ("testing/test_logging.py", "src/pytest.py"),
+        ("src/_pytest/mark/__init__.py", "src/_pytest/mark/structures.py"),
+        ("src/pytest.py", "src/_pytest/config/__init__.py"),
+    }
+
+
+def test_new_format_does_not_resolve_module_names_again():
+    """target을 다시 해석하지 않는다. 모듈명 모양의 target은 file_id가 아니므로 버린다.
+
+    다시 해석하면 스캐너의 `import_resolution`과 다른 규칙이 끼어든다.
+    """
+    files = ["pkg/__init__.py", "pkg/a.py", "pkg/b.py"]
+    conn = _view_db_with(files, [
+        ("pkg/a.py", ".b", "IMPORTS"),
+        ("pkg/a.py", "pkg.b", "IMPORTS"),
+    ])
+    assert _file_level_edges(conn, set(files)) == set()
+
+
+def test_new_format_drops_self_imports_and_unscanned_endpoints():
+    files = ["pkg/__init__.py", "pkg/a.py", "pkg/b.py"]
+    conn = _view_db_with(files, [
+        ("pkg/a.py", "pkg/b.py", "IMPORTS"),              # 유지
+        ("pkg/__init__.py", "pkg/__init__.py", "IMPORTS"),  # self (`from . import x`) → 제외
+        ("pkg/a.py", "pkg/gone.py", "IMPORTS"),           # 스캔에 없는 target → 제외
+        ("other/c.py", "pkg/a.py", "IMPORTS"),            # 스캔에 없는 source → 제외
+        ("pkg/a.py", None, "IMPORTS"),                    # NULL target → 제외
+    ])
+    assert _file_level_edges(conn, set(files)) == {("pkg/a.py", "pkg/b.py")}
+
+
+def test_new_format_collapses_import_and_call_to_one_edge():
+    files = ["pkg/a.py", "pkg/b.py"]
+    conn = _view_db_with(files, [
+        ("pkg/a.py", "pkg/b.py", "IMPORTS"),
+        ("pkg/a.py::f", "pkg/b.py::g", "CALLS"),
+        ("pkg/b.py::C", "pkg/a.py::D", "INHERITS"),
+    ])
+    assert _file_level_edges(conn, set(files)) == {
+        ("pkg/a.py", "pkg/b.py"), ("pkg/b.py", "pkg/a.py")}
 
 
 # ══════════════════════════════════════════════════════════════════════════

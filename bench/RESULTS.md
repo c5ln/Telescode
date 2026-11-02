@@ -7,6 +7,8 @@
 
 ## 1. 한 줄 요약
 
+> **2026-11-02 재측정:** 이 절~§12는 옛 해석기(`e2501cb`) 그래프로 잰 값이다. 이름 해석 개편 후 그래프(`93f9cf2`)로 다시 잰 결과와 비교는 **§13**. 요약하면 graph의 "음의 기여"(p=0.046)는 새 그래프에서 유의하지 않고(p=0.778), 그래프를 완전히 뺀 −graph로는 옛 그래프에서도 유의하지 않다(p=0.363). 경계선 결과로 본다. 최종 모델에서 구조의 독립 기여가 없다는 점은 그대로다.
+
 **Hybrid Learning-to-Rank가 MRR 0.753. deterministic baseline(PageRank+Betweenness) 대비 +0.626, BM25 단독 대비 +0.294. 전부 p < 0.001, n = 229.**
 
 그리고 **가설 하나가 기각됐고, 반증이 세 단계에 걸쳐 강해졌다.** 의미 신호를 강화할수록
@@ -494,3 +496,395 @@ bench/.venv/bin/python -m bench.ltr.run_ltr \
   리랭킹은 질의마다 다시 계산해야 하므로 제품에서는 질의당 비용이 된다.
 - 리랭킹 후보 수 N — 현재 50. 상한이 non_overlap 0.869이라 N을 키우면 여지가 있으나
   비용이 선형으로 는다.
+
+---
+
+## 13. 이름 해석 개편 후 재측정
+
+> 측정일 2026-11-01~02 · 바이너리 `93f9cf2` (`bench/bin/93f9cf2/PINNED_FROM.txt`) · 산출물 `bench/data/resolver_fix/`
+> §1~§12는 수정하지 않았다. 옛 수치는 `TELESCODE_BENCH_PIN=e2501cb`로 그대로 재현된다(§13.9).
+> 2026-11-02 평가 감사(WARN) 후속을 반영했다: 그래프 없는 −graph(§13.4b), 해석 수정(§13.3·§13.6·§13.7), provenance(§13.9).
+
+### 13.1 그래프에서 바뀐 것
+
+`docs/파서 고치기.md` 1~5단계. 단독 스캔 기준 (`bench/results/link_baseline/` → `bench/results/link_resolver_fix/`):
+
+| 지표 | pytest | xarray |
+|---|---|---|
+| 내장 이름 → 메서드 CALLS (근사) | 669 → 15 | 768 → 48 |
+| 파일 그래프 INHERITS 간선 | 0 → 46 | 0 → 128 |
+| reading_sequence 함수·클래스 | 5,846/7,023 → 전부 | 8,162/9,041 → 전부 |
+
+인스턴스 매트릭스 기준 (229개, 파일 단위 distinct 간선):
+
+| | xarray | pytest |
+|---|---|---|
+| 인스턴스당 간선 수 평균 | 778.5 → 892.4 | 747.4 → 706.3 |
+| 고립 파일(in+out=0) 비율 | 4.1% → 4.9% | 23.5% → 25.8% |
+
+인스턴스 6개를 두 pin으로 스캔해 간선 종류별로 나눈 결과:
+- **IMPORTS 파일 쌍은 6/6 완전히 같다.**
+- INHERITS 쌍은 0개에서 xarray 42~59개, pytest 16~18개가 됐다. 대부분 IMPORTS 쌍과 겹쳐서, INHERITS로만 새로 생긴 쌍은 2~4개다.
+- 인스턴스당 약 130개 쌍이 사라졌다(129~156). **사라진 쌍은 6/6 전부 CALLS로만 존재하던 쌍이다.** 옛 해석기가 이름만 보고 만든 파일 간 오연결이다.
+- CALLS 쌍은 import·receiver 해석으로 xarray +108~277, pytest +108~112개가 새로 생겼다.
+
+따라서 in_deg/out_deg 변화의 원인은 CALLS 오연결 제거, 올바른 CALLS 추가, INHERITS 추가다.
+
+**피처 단위 변화** (`(instance, file)` 43,688행, 두 매트릭스의 행 집합이 같음):
+
+| 컬럼 | 값이 바뀐 행 |
+|---|---|
+| `pagerank` | 100% |
+| `file_rank` | 91% |
+| `combined` | 82% |
+| `complexity` | **81%** |
+| `out_deg` / `in_deg` | 50% / 19% |
+| `ppr` | 34% |
+| `bc` | 31% |
+| `max_cc` `avg_cc` `max_depth` `avg_depth` `logical_loc` `is_generated` | 0% |
+
+> ⚠ **`complexity`(=`file.complexity_score`)는 그래프에 의존한다.** `Scoring.cpp`가
+> inbound/outbound 차수 가중치(`complexity_w_inbound/outbound`)를 섞기 때문이다. 그래서
+> 이 실험의 "complexity 그룹"과 "-graph 구성"은 그래프와 완전히 독립이 아니다. §1~§12에서도
+> 마찬가지였다. 아래 ablation 해석에서 이 점이 중요해진다(§13.4b).
+>
+> 정확한 분해는 다음과 같다. 가중치는 `AlgoConfig.h`, pct는 인스턴스 안 `is_generated == 0` 파일 기준 백분위다(`Scoring.cpp`).
+> `complexity = 0.30·pct(0.8·max_cc+0.2·avg_cc) + 0.20·pct(0.8·max_depth+0.2·avg_depth) + 0.15·pct(logical_loc) + 0.20·pct(in_deg) + 0.15·pct(out_deg)`
+> 앞의 세 항(`complexity_nodeg`)만 다시 계산하면 이 항등식이 생성 파일이 아닌 43,589행 모두에서 1.1e-16 안에서 성립한다.
+> 옛·새 매트릭스 양쪽에서 그렇다. `complexity_nodeg`는 두 그래프에서 **정확히 같다**(최대 차 0.0).
+> 생성 파일 99행은 바이너리가 채점하지 않아 `complexity = 0.0`이다. `complexity_nodeg`도 0.0으로 둔다.
+> 같은 규약이고 상수라 그래프 정보가 없다(`bench/tools/graphfree_ablation.py`).
+
+### 13.2 PPR seed 샤프닝 재선택 (train fold만)
+
+`ppr_sweep`가 train 176개만 스캔하고 `ppr_select`가 fold 0~4로 고른다. 그리드는 §5와 같은 14개 config다.
+
+| config | BM25 seed 옛 → 새 | embed seed 옛 → 새 |
+|---|---|---|
+| topk1_pow1 | **0.3882** → 0.4058 | **0.3961** → 0.4403 |
+| **topk2_pow1** | 0.3026 → **0.4538** | 0.2976 → **0.5522** |
+| topk3_pow1 | 0.2315 → 0.4466 | 0.2611 → 0.5253 |
+| topk0_pow1 (샤프닝 없음) | 0.1413 → 0.1632 | 0.1231 → 0.1382 |
+
+**두 seed 모두 `topk2_pow1`이 선택됐다(옛 선택은 `topk1_pow1`).** 각각 3/5 fold에서 1위이고, 나머지 fold에서는 `topk3_*`가 1위다.
+선택 기준은 그대로 train CV뿐이다. 다만 **"그래프 변화"와 "config 재선택"이 섞여** 있으므로,
+옛 config(`topk1`)를 새 그래프에 그대로 적용한 **민감도 실행**을 따로 두었다
+(`bench/data/resolver_fix/sens_topk1/`). 이 실행은 헤드라인이 아니라 원인 분해용이다.
+
+> **선택 목적과 최종 목적이 다르다.** config는 "PPR 단독 MRR"로 고른다(§5와 같다). 그런데
+> LTR full은 topk1 쪽이 오히려 낫다: OOF 0.763 vs 0.755, holdout 0.793 vs 0.763.
+> 선택 기준을 LTR 성능으로 바꾸는 것은 이번 범위 밖이고, 헤드라인은 원래 절차(PPR 단독 MRR)를 따랐다.
+>
+> **기존부터 있던 구조:** config는 train 176개로 고르는데, 그 176개는 229개 OOF 평가에도 들어간다.
+> PPR 단독 지표에는 약한 낙관 편향이 생긴다. test 53개만 따로 보면 PPR 단독 MRR은
+> 옛 0.388 → 새 0.600(topk1 민감도 0.471)으로, 229개에서와 같은 방향이다.
+
+### 13.3 단일 피처 baseline (§3 대응, 229, `no_paths`, MRR)
+
+| 피처 | 옛 | 새 | 비고 |
+|---|---|---|---|
+| rerank | 0.651 | 0.651 | 그래프 무관, 동일 |
+| embed | 0.523 | 0.523 | 동일 |
+| bm25 | 0.459 | 0.459 | 동일 |
+| **ppr (embed seed)** | 0.397 | **0.564** | topk1 유지 시 0.449 |
+| ppr (BM25 seed, 초판) | 0.375 | 0.437 | |
+| complexity | 0.263 | 0.261 | |
+| out_deg | 0.222 | 0.198 | |
+| bc | 0.158 | 0.177 | |
+| in_deg | 0.100 | 0.155 | |
+| logical_loc | 0.156 | 0.156 | 동일 |
+| B2 = 0.6·PR + 0.4·BC | 0.128 | 0.154 | |
+| pagerank | 0.116 | 0.134 | |
+| combined | 0.098 | 0.116 | |
+| file_rank | 0.054 | 0.054 | 여전히 최하위 |
+
+**새 그래프에서 `ppr`이 단독으로 embed(0.523)를 넘는다.** 0.564이고, 옛 값은 0.397이었다.
+test 53개만 보면 0.388 → 0.600이다(§13.2 주석).
+
+이 상승을 "그래프 몫 + 재선택 몫"으로 **더해서 나누지 않는다.** 두 요인이 강하게 상호작용하기 때문이다.
+- 옛 그래프에서 topk2는 topk1보다 train CV로 0.10 **나빴다**: 0.396 vs 0.298.
+- 새 그래프에서는 0.11 **좋다**: 0.440 vs 0.552.
+
+즉 이 상승은 "새 그래프에서는 seed 상위 2개 사이의 전파가 쓸모 있어졌다"는 뜻이다.
+옛 그래프의 오연결 아래에서는 두 번째 seed가 1위를 망쳤고, 지금은 1위를 고르는 데 도움이 된다(§13.5).
+
+### 13.4 Hybrid LTR · Ablation (§1·§6 대응)
+
+**§1 세 단계 표, 옛 vs 새** (`-graph − full`, ΔMRR, 95% 부트스트랩 CI, paired):
+
+| 단계 | LTR full 옛 → 새 | `-graph − full` 옛 | `-graph − full` 새 |
+|---|---|---|---|
+| BM25만 | 0.594 → 0.594 | −0.020 [−0.045, +0.003] p=0.074 | **−0.026 [−0.048, −0.004] p=0.017** |
+| + 임베딩 | 0.730 → 0.747 | +0.006 [−0.023, +0.033] p=0.743 | −0.020 [−0.049, +0.007] p=0.172 |
+| **+ 리랭커 (최종)** | **0.753 → 0.755** | **+0.024 [+0.0002, +0.049] p=0.046** | **+0.004 [−0.022, +0.030] p=0.778** |
+| + 리랭커, topk1 민감도 | 0.753 → 0.763 | 〃 | −0.004 [−0.025, +0.018] p=0.720 |
+
+> BM25 단계의 p=0.017은 세 단계에 Holm 보정을 하면 p=0.051이다. 그래프 없는 −graph로 재면 −0.010 p=0.446이다(§13.4b).
+> 이 표의 −graph는 모두 run_ltr 정의(차수가 섞인 `complexity` 포함)다.
+
+**최종 ablation (229, `no_paths`, MRR)**:
+
+| 구성 | 옛 | 새 | 새: full 대비 | 95% CI | p |
+|---|---|---|---|---|---|
+| LTR full | 0.753 | **0.755** | — | — | — |
+| LTR −graph | 0.778 | 0.759 | +0.004 | [−0.022, +0.030] | 0.778 |
+| LTR −ppr | 0.773 | 0.751 | −0.004 | [−0.032, +0.021] | 0.740 |
+| LTR −complexity | 0.745 | 0.735 | −0.020 | [−0.041, +0.000] | 0.051 |
+| LTR −semantic | 0.560 | **0.661** | −0.094 | [−0.133, −0.056] | < 0.001 |
+| semantic only | 0.671 | 0.671 | −0.084 | [−0.122, −0.048] | < 0.001 |
+| graph only | 0.532 | **0.628** | −0.127 | [−0.169, −0.091] | < 0.001 |
+| ppr only | 0.398 | 0.551 | −0.204 | [−0.248, −0.156] | < 0.001 |
+| complexity only | 0.288 | 0.281 | −0.474 | [−0.529, −0.418] | < 0.001 |
+| graph global only (ppr 제외) | 0.272 | 0.243 | −0.512 | [−0.566, −0.460] | < 0.001 |
+
+topk1 민감도 실행에서 `−ppr`은 −0.012 [−0.033, +0.008] p=0.215, `−complexity`는 **−0.033 [−0.055, −0.011] p=0.003**이다.
+
+헤드라인 비교:
+
+| 비교 | 옛 | 새 |
+|---|---|---|
+| LTR − B2 | +0.626 [+0.576, +0.677] | +0.601 [+0.550, +0.654] |
+| LTR − complexity | +0.490 [+0.430, +0.550] | +0.494 [+0.436, +0.556] |
+| LTR − ppr | +0.356 [+0.304, +0.411] | +0.191 [+0.146, +0.234] |
+| LTR − bm25 | +0.294 [+0.240, +0.350] | +0.296 [+0.243, +0.348] |
+
+전부 p < 0.001이다.
+
+**피처 gain 비중** (full): rerank+rerank_rank 55.8% → 55.5%, embed+embed_rank 17.7% → 17.6%. `ppr`은 4.2% → **6.8%**(5위)이고, `file_rank`는 2.2% → 3.6%다.
+
+부차 확인용 pin된 holdout(test 53개, train 176개로 한 번 학습)은 LTR full 0.805 → 0.763이다(−0.042, n=53, 검정하지 않음). topk1 민감도에서는 0.793이다.
+
+**BM25 단계의 추가 수치** (새 그래프, `resolver_fix/ltr_ppr_nopaths_tests.json`):
+- `−ppr − full` [all]은 +0.002 [−0.019, +0.023] p=0.858로 효과가 없다. 같은 단계의 `−graph` 이득(p=0.017)은 PPR이 아니라 **전역 그래프 피처**에서 온다.
+- `−graph − full` [non_overlap]은 **−0.055 [−0.104, −0.016] p=0.001** (n=40)이다.
+- 임베딩 단계의 `−complexity − full` [all]은 **−0.042 [−0.069, −0.014] p=0.001**이다.
+
+옛 그래프의 BM25 단계 산출물(`bench/data/ltr_ppr_nopaths_*`)은 어휘 중첩 라벨이 xarray만 덮던 시점(non_overlap n=17)에 만들어졌다.
+그래서 현재 코드(`--include-init`)와 완전한 라벨로 다시 돌렸다(`resolver_fix/e2501cb_rerun/ltr_ppr_nopaths_*`).
+[all]은 그대로다: full 0.594, −graph −0.020 [−0.045, +0.003] p=0.074, −ppr −0.005 p=0.525.
+non_overlap(n=40)은 −graph −0.009 [−0.055, +0.034] p=0.731이다. 새 그래프의 −0.055 p=0.001과 비교하는 기준이 이 값이다.
+
+### 13.4b 그래프 없는 −graph (감사 후속 A)
+
+`run_ltr`의 −graph는 차수가 섞인 `complexity`를 남긴다(§13.1). 그래서 `complexity`를 `complexity_nodeg`로 바꾼
+**그래프 없는 −graph**를 같은 fold·nested CV·전처리(`--include-init`)로 다시 돌렸다(`bench/tools/graphfree_ablation.py`).
+`full` 재계산은 run_ltr과 같다: 0.7551 / 0.7534 / 0.5938 / 0.5940.
+
+| 단계 · 그래프 | full | −graph (run_ltr) | **−graph (그래프 없음)** | −graph(그래프 없음) − full |
+|---|---|---|---|---|
+| 리랭커 · 새 (93f9cf2) | 0.755 | 0.759 | **0.766** | +0.011 [−0.019, +0.041] p=0.509 |
+| 리랭커 · 옛 (e2501cb) | 0.753 | 0.778 | **0.766** | +0.012 [−0.015, +0.039] p=0.363 |
+| BM25 · 새 | 0.594 | 0.568 | **0.583** | −0.010 [−0.036, +0.016] p=0.446 |
+| BM25 · 옛 | 0.594 | 0.574 | **0.583** | −0.011 [−0.036, +0.015] p=0.425 |
+
+| 같은 표, non_overlap (n=40) | −graph (run_ltr) − full | −graph (그래프 없음) − full |
+|---|---|---|
+| 리랭커 · 새 | −0.023 [−0.077, +0.025] p=0.376 | −0.031 [−0.090, +0.021] p=0.276 |
+| 리랭커 · 옛 | +0.009 [−0.025, +0.054] p=0.704 | −0.004 [−0.034, +0.040] p=0.728 |
+| BM25 · 새 | **−0.055 [−0.104, −0.016] p=0.001** | −0.043 [−0.099, +0.025] p=0.205 |
+| BM25 · 옛 | −0.009 [−0.055, +0.034] p=0.731 | −0.020 [−0.069, +0.037] p=0.457 |
+
+읽는 법:
+- 그래프 없는 −graph는 입력이 두 그래프에서 비트 단위로 같아서 **같은 값(0.766, 0.583)**이 나온다. 그래프가 바뀌면 full 쪽만 움직인다.
+- **어느 단계, 어느 그래프에서도 graph를 완전히 뺀 모델과 full의 차이는 유의하지 않다.**
+  BM25 단계의 p=0.017(전체)과 p=0.001(non_overlap)은 run_ltr −graph에 남아 있던 차수 항까지 함께 볼 때만 나온다.
+  차수를 빼면 −0.010 p=0.446, −0.043 p=0.205로 사라진다.
+  역설적으로 차수를 섞은 `complexity`를 가진 run_ltr −graph(0.568)가 그래프 없는 쪽(0.583)보다 낮다.
+  BM25 단계 결과는 −graph 구성을 어떻게 정의하느냐에 민감하다.
+- 옛 그래프의 −graph 0.778(p=0.046)도 그래프 없는 정의에서는 0.766, +0.012 p=0.363으로 유의하지 않다.
+  같은 옛 그래프에서 그래프 없는 −graph − run_ltr −graph는 −0.012 p=0.223으로 역시 유의하지 않다.
+- 덤으로, `full (complexity_nodeg)`(그래프는 graph 그룹으로만 들어감)는 새 0.757(+0.002 p=0.801), 옛 0.762(+0.008 p=0.415)다.
+
+### 13.5 PPR 메커니즘 (§5 대응)
+
+`bench/tools/ppr_mechanism.py`로 계산했다. 같은 스크립트를 옛 매트릭스에 돌리면 §5의 수치가 그대로 나온다: 0.251/0.615, 0.816/0.697, 0.945/0.933, 88.2%, 17.5%, 0.979.
+
+| 지표 | 옛 (topk1) | 새 (topk2) | 새 그래프 + topk1 |
+|---|---|---|---|
+| corr(ppr, pagerank) 인스턴스별 스피어만 중앙값, xarray / pytest (embed seed) | 0.941 / 0.925 | 0.918 / 0.910 | 0.915 / 0.920 |
+| 〃 BM25 seed (§5 표의 기준) | 0.945 / 0.933 | 0.910 / 0.910 | — |
+| embed seed 최상위 파일이 PPR 1위 | 88.2% | 59.4% | 99.6% |
+| seed 파일 전부가 PPR 맨 앞 \|seed\|칸을 차지 | 88.2% | 66.8% | 99.6% |
+| 두 PPR(embed vs BM25 seed) 순위 상관 | 0.979 | 0.948 | — |
+| BM25·embed top-1 일치 | 17.5% | 17.5% | (seed 무관) |
+
+**§5의 결론("PPR = PageRank 순서 + seed 파일을 맨 앞으로")은 새 그래프에서도 대체로 유지된다.**
+PageRank와의 순위 상관은 여전히 0.91 이상이다. 달라진 점은 topk2에서 seed 파일 두 개의
+**순서를 그래프가 정한다**는 것이다. PPR 1위는 seed 1순위가 59.4%(136), seed 2순위가 24.9%(57)이고, seed가 아닌 파일이 15.7%(36)다.
+229개 기준이고, 산출물은 `resolver_fix/ppr_mechanism.json`의 `ppr_rank1_is`다.
+단독 `ppr`(0.564)이 `embed`(0.523)를 넘는 것은 이 "embed 상위 2개 중 무엇을 1위에 둘지"를
+그래프가 embed 자신보다 잘 고른다는 뜻이다. 그래프가 하는 일이 "1위 한 칸 교체"에서
+"상위 두 칸의 순서 결정"으로 조금 넓어졌을 뿐, 전파가 랭킹을 재편한다는 증거는 아니다.
+
+### 13.6 어휘 비중첩 구간 (§7·§8 대응, n=40 인스턴스 / gold 85)
+
+| 피처 | 옛 | 새 |
+|---|---|---|
+| rerank | 0.375 | 0.375 |
+| embed | 0.263 | 0.263 |
+| **ppr** | 0.215 | **0.295** |
+| combined | 0.191 | 0.217 |
+| bc | 0.196 | 0.212 |
+| in_deg | 0.156 | 0.193 |
+| pagerank | 0.121 | 0.188 |
+| complexity | 0.173 | 0.159 |
+| bm25 | 0.153 | 0.153 |
+
+조합 모델:
+
+| 구성 | 임베딩 단계 옛 → 새 | 리랭커 단계 옛 → 새 |
+|---|---|---|
+| LTR full | 0.308 → 0.328 | 0.332 → 0.358 |
+| LTR −graph | 0.316 → 0.319 | 0.341 → 0.335 |
+| graph only | 0.223 → **0.295** | 0.223 → 0.295 |
+| semantic only | 0.222 → 0.222 | 0.334 → 0.334 |
+
+| 비교 (리랭커 단계, non_overlap) | 옛 | 새 |
+|---|---|---|
+| −graph − full | +0.009 [−0.025, +0.054] p=0.704 | −0.023 [−0.077, +0.025] p=0.376 |
+| semantic only − full | +0.002 [−0.061, +0.075] p=0.980 | −0.024 [−0.093, +0.047] p=0.514 |
+| −semantic − full | −0.128 [−0.206, −0.050] p<0.001 | −0.061 [−0.158, +0.034] p=0.214 |
+| LTR − ppr | +0.117 [+0.023, +0.210] p=0.008 | +0.063 [−0.044, +0.161] p=0.217 |
+
+임베딩 단계 non_overlap에서 `graph only`(0.295)가 `semantic only`(0.222)를 **앞선다.** 옛 값은 0.223 대 0.222로 동률이었다.
+단 **`graph only`와 `−semantic`은 의미 신호가 없는 구성이 아니다.** `ppr`의 teleport가 embed 상위 2개 파일에서 출발하기 때문이다(BM25 단계에서는 BM25 상위 2개).
+ppr을 뺀 `graph global only`는 전체 0.272 → 0.243, non_overlap 0.104 → 0.106으로 좋아지지 않았다.
+**단독 구조 신호의 상승은 전부 `ppr`에서 나왔다.** 즉 의미 seed와 그래프 전파의 결합에서 나왔다.
+리랭커 단계에서는 semantic only가 0.334다. 그래도 **조합 모델의 −graph는 이 구간에서도 유의하지 않다.**
+−semantic이 유의하지 않게 된 것은 −semantic 구성의 `ppr`이 embed seed를 통해 의미 정보를 계속 받기 때문이기도 하다(위 주석).
+n=40이라 CI가 넓다.
+
+크기 통제(§10-5)와 RRF fusion의 결론은 바뀌지 않았다. `complexity − logical_loc` [all]은 +0.107 → +0.105, 잔차 랭킹은 −0.101 → −0.095다. RRF는 여전히 전부 LTR full보다 낮다.
+
+### 13.7 결론 — 그래프 기여에 대한 판정
+
+1. **옛 최종 결과 −graph +0.024 [+0.0002, +0.049] p=0.046은 새 그래프에서 유의하지 않다:** +0.004 [−0.022, +0.030] p=0.778.
+   `−ppr`도 +0.020 p=0.023에서 −0.004 p=0.740이 됐다. 다만 이 변화는 **거의 전부 −graph 쪽에서 났다**(0.778 → 0.759).
+   full은 거의 그대로다(0.753 → 0.755). −graph 쪽에서 바뀐 입력은 `complexity` 안의 차수 항 하나다.
+   여기에 inner CV가 고른 하이퍼파라미터가 달라진 효과가 더해진다.
+   옛 추정과 새 추정은 **통계적으로 양립한다.** CI가 겹치고, 두 추정의 차이 자체는 검정하지 않았다.
+   가장 안전한 해석은 **"p=0.046은 선택 잡음 범위의 경계선 결과였다"**이다.
+   "그래프 오연결이 해를 끼쳤고 수정으로 사라졌다"고 말할 근거는 없다.
+   - 그래프가 전혀 없는 −graph는 옛·새 모두 0.766이고, full과 차이가 없다: 옛 p=0.363, 새 p=0.509(§13.4b).
+   - 깨끗한 holdout(test 53개)의 LTR full은 0.805 → 0.763이다(topk1 민감도 0.793). n=53이라 구분이 어렵다.
+2. **"graph가 독립적으로 기여한다"도 보이지 않는다.**
+   - 최종 단계 full과 −graph는 구별되지 않는다(0.755 vs 0.759, 그래프 없는 정의로는 0.766). non_overlap에서도 그렇다(p=0.376 / 0.276).
+   - BM25 단계의 −graph −0.026 [−0.048, −0.004] p=0.017은 세 단계에 Holm 보정을 하면 **p=0.051**이다.
+   - 그 단계의 `−ppr`은 효과가 없다(+0.002 p=0.858). 이득이 있다면 PPR이 아니라 전역 그래프 피처에서 온다.
+   - 결정적으로 그래프 없는 −graph로 다시 재면 −0.010 p=0.446이다(§13.4b). 이 이득은 −graph 정의(차수가 남은 complexity)에 기대고 있다.
+   - 미리 정하지 않았던 BM25 단계 non_overlap −graph −0.055 p=0.001도 같은 이유로 그래프 없는 정의에서는 −0.043 p=0.205다.
+   - 임베딩 단계 `−complexity` −0.042 p=0.001은 유의한 결과이지만, 그 `complexity`에도 차수가 들어 있다.
+   - 이 모두를 사후 탐색으로 취급한다.
+3. **단독 신호로서의 구조는 좋아졌지만, 그건 의미 seed를 받은 PPR 덕이다.**
+   - ppr은 0.397 → 0.564로 embed를 넘었다. test 53개만 보면 0.388 → 0.600이다.
+   - graph only는 0.532 → 0.628, −semantic은 0.560 → 0.661이다.
+   - 그러나 ppr이 embed 상위 2개에서 출발하므로 graph only와 −semantic은 의미 신호가 없는 구성이 아니다.
+   - ppr을 뺀 전역 구조(`graph global only`)는 0.272 → 0.243으로 좋아지지 않았다.
+   - 이 상승은 "새 그래프에서 seed 상위 2개 사이의 전파가 쓸모 있어졌다"는 뜻이다(§13.3). 리랭커가 있는 최종 모델에서는 의미 신호와 겹친다.
+4. 따라서:
+   - §6의 "**음의 기여**"는 강한 주장으로 쓸 수 없다. 옛 데이터에서도 그래프 없는 정의로는 p=0.363이다.
+   - "**최종 모델에서 구조의 독립 기여 없음**"은 옛·새 그래프, run_ltr·그래프 없는 정의 모두에서 유지된다.
+   - §1 세 단계 표의 "무용 → 유해" 흐름은 "어느 단계에서도 유의한 독립 기여 없음"으로 읽는 것이 맞다.
+   - §9의 "그래프 그룹을 빼는 편이 낫다"도 근거가 약하다. 빼도 넣어도 차이가 나지 않는다.
+
+### 13.8 §10 한계의 변경
+
+- §10-1: "음의 기여(p=0.046)"는 경계선 결과로 본다. 새 그래프에서는 유의하지 않고, 옛 그래프에서도 그래프 없는 −graph로는 p=0.363이다(§13.4b, §13.7).
+- §10-2: PPR의 실질 동작은 "1위 한 칸 교체"에서 "상위 2칸의 순서 결정"으로 바뀌었다(topk2). PageRank와의 순위 상관이 0.91 이상이라는 점은 그대로다.
+- **추가 — 전처리 기본값 변경:** 커밋 `60c4d04` 이후 `bench.ltr.run_ltr`는 기본적으로 `__init__.py`를 후보에서 뺀다.
+  §1~§12는 그 전에 측정됐다. `--include-init` 없이 §11 명령을 다시 돌리면 LTR full이 0.741로 나와 0.753과 달라진다.
+  §13의 모든 LTR은 `--include-init`으로 원래 전처리를 맞췄다.
+- **추가 — `complexity`의 그래프 의존성**(§13.1). 그룹 ablation의 경계가 깨끗하지 않다. 그래프 없는 정의는 §13.4b에 있다.
+- **추가 — PPR이 seed로 의미 신호를 받는다.** `graph only`·`−semantic`은 의미 신호가 없는 구성이 아니다(§13.6).
+- **추가 — PPR config 선택:** PPR 단독 MRR로 고르는데, 최종 LTR 기준으로는 다른 config(topk1)가 낫다. 선택에 쓴 train 176개가 OOF 평가 229개에도 들어간다(§13.2).
+- **추가 — 다중 비교:** §13의 후속 수치(BM25 단계 non_overlap, −complexity 등)는 사후 탐색이다. 세 단계 −graph에 Holm 보정을 하면 최소 p=0.051이다.
+- §10-9와 같은 이유: 임베딩·리랭커 seed는 API를 다시 부르지 않고 저장된 CSV를 재사용했다.
+  파일 집합이 같아서(43,688행 동일) 다시 계산할 필요가 없었다. `seed_all/embed_blobs.npz`는 현재 디스크에 없다.
+  seed CSV만으로 충분했지만, 리랭킹 seed를 다시 만들려면 API가 필요하다.
+
+### 13.9 재현과 무결성 확인
+
+| 확인 | 결과 |
+|---|---|
+| 옛 pin + 현재 bench 코드로 옛 피처 재생성 | xarray·pytest 3개씩, embed·BM25 seed 모두 repo별 CSV(`features_xarray_embedppr.csv`, `features_all.csv`의 해당 행)와 **비트 단위 동일** (extract.py 예전 형식 경로 사용). 합친 `features_all_embedppr.csv`와 비교하면 428행 중 6행의 `bc`가 1 ULP 다르다. 합친 파일 전체로는 repo별 CSV 대비 `bc` 182행, `ppr` 39행이 최대 4.5e-13 다른데, CSV를 다시 쓰면서 생긴 부동소수점 왕복 오차다 |
+| 옛 CSV로 `ltr_rerank` 재실행 (`--include-init`) | `_ablation/_baselines/_fusion/_holdout/_size_control/_size_pairs/_gain.csv` **바이트 동일**. `_tests.json`은 note 한 줄 추가 외 동일 → **LTR full 0.753 재현** |
+| `splits_all.csv` / `splits_all_embedppr.csv` | 옛 것과 바이트 동일 (train 176 / test 53) |
+| 인스턴스별 파일 수, `(instance, file)` 집합, `is_positive` | 옛 것과 동일 |
+| NaN | 옛 매트릭스와 같이 0 |
+| `edges.py` 차수 검증 | 229/229 통과 |
+| BM25 seed 재계산 (full/no_trace/no_paths/long/leakage) | `seed_all/`과 바이트 동일 |
+| `vocab_overlap` / `vocab_segment_eval` / `vocab_definition_sweep` 재계산 | 바이트 동일 |
+| §4 `analyze_embed` | ppr 관련 한 줄(corr(embed, ppr) 0.184 → 0.166)만 다르고 나머지는 동일 |
+| 파이프라인 | 6번(BM25 seed, embed seed, topk1 민감도 × repo 2개) 모두 합계 성공 229 / 실패 0 |
+| PPR seed 설정 provenance | 실행 당시에는 기록되지 않았다. `bench/scripts/resolver_fix/reemit_provenance.py`가 manifest·provenance JSON에 `seed_csv/seed_md5/seed_weight_col/seed_topk/seed_power`를 덧붙였다. 확인 방법: train 인스턴스의 `ppr`이 스윕 CSV의 해당 config와 33,835행 모두 같고, 대조 config와는 4,356~5,952행 다르다. 이후 실행은 `pipeline.py`·`ppr_sweep.py`가 직접 기록한다 |
+| `complexity` 분해 (§13.1) | 생성 파일이 아닌 43,589행에서 잔차 ≤ 1.1e-16. `complexity_nodeg`는 옛 = 새 (차 0.0) |
+| 부트스트랩 p | 2,000회 재표본이라 0이 아닌 p의 최솟값은 0.001이다. 표의 "p<0.001"과 "p=0.000"은 "부트스트랩 분포가 전부 0의 한쪽"이라는 뜻이다 |
+| PPR config 선택 | `ppr_sweep`가 train 176개만 스캔하고 `ppr_select`가 test 혼입 시 중단 (§5와 같은 강제) |
+
+### 13.10 재현 명령 (§11에 추가)
+
+**실제로 돌린 스크립트는 `bench/scripts/resolver_fix/`에 그대로 있다.** 아래는 그 요약이다.
+- `phase1.sh`: 스윕 → 선택 → 파이프라인 → combine
+- `phase2.sh`: 검증 · 로컬 seed · LTR 세 단계
+- `sens.sh`: topk1 민감도
+- `followup_graphfree.sh`: §13.4b와 옛 BM25 단계 재실행
+- `repro_e2501cb.sh`: §13.9의 옛 수치 재현
+- `edge_type_compare.py`: §13.1 간선 분해
+- `link_resolver_fix.sh`: `bench/results/link_resolver_fix/`
+- `reemit_provenance.py`: seed provenance 재기록
+
+```bash
+# pin: 기본은 bench/bin/93f9cf2/. 옛 결과는 앞에 TELESCODE_BENCH_PIN=e2501cb 를 붙인다.
+P=bench/.venv/bin/python; D=bench/data/resolver_fix; SA=bench/data/seed_all
+GRID="0:1,0:2,0:3,50:1,20:1,10:1,5:1,20:2,10:2,1:1,2:1,3:1,3:2,5:2"
+REPOS="--repo pydata/xarray --repo-dir bench/repos/xarray --repo pytest-dev/pytest --repo-dir bench/repos/pytest"
+
+# 1. seed 샤프닝 스윕·선택 (train만). s = bm25 | embed
+$P -m bench.features.ppr_sweep $REPOS --seed $SA/${s}_seed__no_paths.csv --seed-weight-col $s \
+   --splits bench/data/splits_all.csv --grid $GRID --out $D/ppr_sweep_${s}14.csv
+$P -m bench.features.ppr_select --sweep $D/ppr_sweep_${s}14.csv \
+   --splits bench/data/splits_all.csv --manifest bench/data/instances_all.csv      # → topk2_pow1
+
+# 2. 229개 스캔 + PPR (repo마다). embed seed는 출력 접미사 _embedppr
+$P -m bench.collect.pipeline --repo pydata/xarray --repo-dir bench/repos/xarray --split test \
+   --ppr-bin pin --seed-csv $SA/embed_seed__no_paths.csv --seed-weight-col embed \
+   --seed-topk 2 --seed-power 1.0 \
+   --out $D/features_xarray_embedppr.csv --manifest $D/instances_xarray_embedppr.csv
+$P -m bench.features.combine --features $D/features_{xarray,pytest}_embedppr.csv \
+   --manifests $D/instances_{xarray,pytest}_embedppr.csv --out $D/features_all_embedppr.csv \
+   --manifest-out $D/instances_all_embedppr.csv --splits-out $D/splits_all_embedppr.csv
+
+# 3. 검증·로컬 seed (API 호출 없음)
+$P -m bench.features.edges --features $D/features_all_embedppr.csv --manifest $D/instances_all_embedppr.csv \
+   --add-repo pydata/xarray=bench/repos/xarray --add-repo pytest-dev/pytest=bench/repos/pytest \
+   --out $D/file_edges_all.csv
+$P -m bench.seed.run_seed --add-repo ... --features-csv $D/features_all_embedppr.csv --out-dir $D/seed_all
+$P -m bench.seed.run_vocab --add-repo ... --data-dir $D/seed_all --features-csv $D/features_all_embedppr.csv \
+   --seed-long $D/seed_all/bm25_seed_long.csv --sweep
+$P -m bench.tools.ppr_mechanism --embed-ppr $D/features_all_embedppr.csv --bm25-ppr $D/features_all.csv \
+   --embed-seed $SA/embed_seed__no_paths.csv --bm25-seed $SA/bm25_seed__no_paths.csv \
+   --seed-topk 2 --bm25-seed-topk 2 --out $D/ppr_mechanism.json
+
+# 4. LTR (--include-init 필수: §1~§12와 같은 후보 집합)
+$P -m bench.ltr.run_ltr --include-init \
+   --features $D/features_all_embedppr.csv --manifest $D/instances_all_embedppr.csv \
+   --bm25-seed $SA/bm25_seed__no_paths.csv --embed-seed $SA/embed_seed__no_paths.csv \
+   --rerank-seed $SA/rerank_seed__no_paths.csv \
+   --overlap bench/data/vocab_overlap.csv --overlap-condition no_paths \
+   --splits $D/splits_all.csv --out-prefix $D/ltr_rerank
+#   BM25 단계: --features $D/features_all.csv --manifest $D/instances_all.csv, embed/rerank seed 없이 → ltr_ppr_nopaths
+#   임베딩 단계: --rerank-seed 없이 → ltr_embed_seg
+```
+
+| 파일 (`bench/data/resolver_fix/`) | 내용 |
+|---|---|
+| `ppr_sweep_{bm25,embed}14.csv`, `ppr_select_*.log` | §13.2 |
+| `features_all.csv` / `features_all_embedppr.csv` (+ repo별, manifest, provenance) | BM25 seed / embed seed PPR 매트릭스 |
+| `ltr_ppr_nopaths_*` / `ltr_embed_seg_*` / `ltr_rerank_*` | §1 세 단계 대응 |
+| `sens_topk1/` | 새 그래프 + 옛 config(topk1) 민감도 |
+| `file_edges_all.csv`, `edges.log` | 차수 검증 |
+| `seed_all/` | BM25·어휘 중첩 재계산 (원본과 동일) |
+| `ppr_mechanism*.json` | §13.5. `embed_seed_top_placement.ppr_rank1_is` = PPR 1위가 seed 1순위 136 / seed 2순위 57 / seed 아님 36 (229개 중) |
+| `graphfree_{rerank,bm25}{,_e2501cb}.json` / `.log` | §13.4b 그래프 없는 −graph (분해 항등식 검증 포함) |
+| `e2501cb_rerun/ltr_ppr_nopaths_*` | 옛 그래프 BM25 단계, 현재 코드·완전한 어휘 중첩 라벨 |
+| `ppr_sweep_*14.provenance.json`, `instances_*.provenance.json` | seed CSV·md5·topk·power (재기록, §13.9) |

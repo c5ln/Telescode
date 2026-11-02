@@ -1,0 +1,29 @@
+{
+  "pin": "93f9cf2",
+  "sweep_csv": "bench/data/resolver_fix/ppr_sweep_bm2514.csv",
+  "seed": {
+    "seed_csv": "bench/data/seed_all/bm25_seed__no_paths.csv",
+    "seed_md5": "4406cbed45952c02d417c0eaef09c9f6",
+    "seed_weight_col": "bm25"
+  },
+  "grid": [
+    "topk0_pow1",
+    "topk0_pow2",
+    "topk0_pow3",
+    "topk10_pow1",
+    "topk10_pow2",
+    "topk1_pow1",
+    "topk20_pow1",
+    "topk20_pow2",
+    "topk2_pow1",
+    "topk3_pow1",
+    "topk3_pow2",
+    "topk50_pow1",
+    "topk5_pow1",
+    "topk5_pow2"
+  ],
+  "splits_csv": "bench/data/splits_all.csv",
+  "splits_md5": "803844fe849d24ccea6fabd53bd95c7d",
+  "n_instances": 176,
+  "reemitted_by": "bench/scripts/resolver_fix/reemit_provenance.py"
+}
