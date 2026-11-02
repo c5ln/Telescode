@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { AnalysisSnapshot, GraphResponse } from '../bridge'
 import sherlock from '../graph/fixtures/sherlock.graph.json'
-import { buildQuizContext, makeQuestions, type QuestionInput, type QuizSet } from './model'
+import { buildQuizContext, classLines, makeQuestions, type QuestionInput, type QuizSet } from './model'
 import { pickQuiz } from './quiz'
 
 const snapshot: AnalysisSnapshot = { ...(sherlock as GraphResponse), dbPath: 'x.db', readingSequence: [] }
@@ -65,5 +65,15 @@ describe('quiz questions', () => {
     expect(hard.relations.some((r) => r.kind === 'imports')).toBe(true)
     expect(hard.relations.every((r) => ['contains', 'imports'].includes(r.kind) || r.kind.startsWith('class-'))).toBe(true)
     expect(hard.learning).toEqual({ before: [], after: [] })
+  })
+})
+
+describe('classLines', () => {
+  const lines = ['class A:', '    x = 1', '', '    def f(self):', '        return 2', '', 'class AB:', '    pass', 'y = 3']
+
+  it('spans a class from its header to its last indented line', () => {
+    expect(classLines(lines, 'A')).toEqual([0, 4])
+    expect(classLines(lines, 'AB')).toEqual([6, 7])
+    expect(classLines(lines, 'Missing')).toBeNull()
   })
 })

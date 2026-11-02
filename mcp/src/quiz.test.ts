@@ -1,13 +1,13 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile } from 'node:fs/promises'
+import { copyFile, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { TourStore } from './store.ts'
-import { QuizStore, RESPONSES_FILE } from './quiz.ts'
+import { QuizStore, RESPONSES_FILE, sourceReader } from './quiz.ts'
 import { buildQuizContext, type QuestionInput } from '../../frontend/src/quiz/model.ts'
 
 const fixture = fileURLToPath(new URL('../../frontend/src/graph/fixtures/sherlock.graph.json', import.meta.url))
@@ -28,6 +28,60 @@ test('quiz context widens with difficulty and keeps members as facts', () => {
   assert.ok(hard.nodes.every(n => n.hop <= 2))
   assert.deepEqual(hard.learning, { before: [], after: [] }) // No reading sequence in a graph-only snapshot.
   assert.throws(() => buildQuizContext(snapshot, 'member:x', 'easy'), /Unsupported quiz node/)
+  // Questions are about what code does, so sizes, metrics and ranks are not offered.
+  const facts = hard.nodes.flatMap(n => n.facts).join('\n')
+  assert.doesNotMatch(facts, /complexity|lines|rank|imported by|contains \d+/i)
+})
+
+const notify = [
+  'from result import QueryStatus',
+  '',
+  'class QueryNotify:',
+  '    def __init__(self, result=None):',
+  '        self.result = result',
+  '',
+  '    def update(self, result):',
+  '        self.result = result',
+  '',
+  'class QueryNotifyPrint(QueryNotify):',
+  '    def update(self, result):',
+  '        if result.status == QueryStatus.CLAIMED:',
+  '            print(result.site_name)',
+  '',
+  'def helper():',
+  '    return 1',
+].join('\n')
+
+test('quiz context carries numbered source: the class body, then the code it relates to', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'telescode-quiz-source-'))
+  await mkdir(join(root, 'sherlock_project'))
+  await writeFile(join(root, 'sherlock_project/notify.py'), notify)
+  const read = sourceReader(root)!
+
+  const easy = buildQuizContext(snapshot, notifyPrint, 'easy', read)
+  assert.deepEqual(easy.excerpts.map(e => [e.nodeId, e.startLine, e.endLine, e.truncated]), [[notifyPrint, 10, 13, false]])
+  assert.equal(easy.excerpts[0]!.text.split('\n')[0], '   10| class QueryNotifyPrint(QueryNotify):')
+  assert.doesNotMatch(easy.excerpts[0]!.text, /def helper/)
+
+  const medium = buildQuizContext(snapshot, notifyPrint, 'medium', read)
+  assert.ok(medium.excerpts.some(e => e.nodeId === 'class:sherlock_project/notify.py::QueryNotify' || e.nodeId === 'file:sherlock_project/notify.py'))
+  assert.ok(medium.excerpts.reduce((n, e) => n + e.text.length, 0) <= 20_000)
+
+  // Files that are missing or outside the source folder are never read.
+  assert.equal(read('../outside.py'), null)
+  assert.equal(read('sherlock_project/missing.py'), null)
+  assert.deepEqual(buildQuizContext(snapshot, notifyPrint, 'easy').excerpts, [])
+})
+
+test('a database scanned by the app has its source folder found beside it', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'telescode-quiz-db-'))
+  const db = join(dir, 'sherlock.graph.json')
+  await copyFile(fixture, db)
+  const tours = new TourStore(dir)
+  assert.equal((await tours.open(db)).sourceRoot, undefined)
+  await mkdir(join(dir, 'checkout'))
+  await writeFile(`${db}.source`, join(dir, 'checkout'))
+  assert.equal((await tours.open(db)).sourceRoot, join(dir, 'checkout'))
 })
 
 const easy: QuestionInput = { type: 'true_false', difficulty: 'easy', concept: 'Repository layout', question: 'The repository has a tests directory.', answer: 'True', distractors: [], explanation: 'tests is a top-level directory.', evidenceNodeIds: ['root', 'dir:tests'] }

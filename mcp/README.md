@@ -93,22 +93,27 @@ Comprehension quizzes on a tour stop. The desktop app has Claude Code write them
 [`prompts/quiz.md`](prompts/quiz.md), served with the onboarding instructions.
 
 1. `get_quiz_context(projectId, nodeId, difficulty)` is the GraphRAG retrieval step
-   (`frontend/src/quiz/model.ts`). It returns the code-graph nodes, with the facts the
-   analysis reports, and relations within reach: easy covers the node and its children,
+   (`frontend/src/quiz/model.ts`). It returns the code-graph nodes and relations within
+   reach, plus numbered source excerpts of them: easy covers the node and its children,
    medium adds one hop, hard adds two hops plus the reading order around the node
-   (`learning`). Code relations and reading order are kept separate.
+   (`learning`). Code relations and reading order are kept separate, and metrics and
+   counts are left out so questions are about what the code does.
 2. `create_quiz(projectId, tourId, tourRevision, stopIndex, nodeId, questions)` saves
    multiple-choice and true/false questions, 1–3 per difficulty. Each question's
    `evidenceNodeIds` must lie in the context for its difficulty and include the stop's
-   node (easy ≥1, medium ≥2, hard ≥3 nodes); otherwise the question is refused.
+   node (easy ≥1, medium ≥2, hard ≥2 nodes); otherwise the question is refused.
 3. `list_quizzes`, `record_quiz_response` and `list_quiz_responses` are for the app.
    The server grades each answer and appends it to `quiz-responses.jsonl` in the output
    directory with `quizId`, `concept`, `difficulty`, `result`, `selectedAnswer`,
    `attempt`, `tourContext`, `relatedNodes`, `responseTimeMs` and `timestamp`, for a
    later adaptive tour to read.
 
-Snapshots carry no source text, so questions are about structure (declarations,
-signatures, imports, class relations, metrics and reading order), not runtime behaviour.
+Questions are written like interview questions: easy at a newbie level (what the code
+is for and does), medium at a junior level (flow across related code, debugging), hard at
+a senior level (trade-offs, failure modes, extension). Excerpts are read from the source
+folder the desktop shell records beside each scanned database (`<db>.source`), or a
+`source` folder beside it; `open_project` also takes `sourceRoot`. Files outside that
+folder are never read. Without a source folder, excerpts are empty.
 
 ## Artifacts
 

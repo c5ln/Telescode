@@ -41,9 +41,10 @@ fn generation_prompt(db: &Path, target: &QuizTarget) -> String {
          revision {revision}, for the repository analyzed in the database {db}.\n\
          Use the telescode MCP tools: open_project with exactly that path, then get_quiz_context for \
          the node at each difficulty (easy, medium, hard), and save with create_quiz. Write two \
-         questions per difficulty where the context supports them, mixing multiple choice and \
-         true/false. Follow the server's quiz instructions on grounding, and write the questions \
-         in English.\n\
+         interview-style questions per difficulty where the source supports them: easy at a newbie \
+         level, medium at a junior level, hard at a senior level, about what the code does and \
+         why, never counts or metrics. Follow the server's quiz instructions on question style and \
+         grounding, and write the questions in English.\n\
          Only save the quiz. Reply with the quiz set ID.",
         stop = target.stop_index,
         node = target.node_id,

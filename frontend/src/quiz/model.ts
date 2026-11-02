@@ -1,18 +1,23 @@
 // Comprehension quizzes on a tour step.
 //
-// The quiz is grounded in the code graph the core already computed, never in
-// anything the model was not shown. This module does the retrieval half of
-// GraphRAG: from the step's node it collects the nodes, relations and learning
-// order a question of a given difficulty may draw on (`buildQuizContext`). An
-// agent writes the questions from that context through the Telescode MCP
-// server, which checks them against it again (`makeQuestions`) before saving.
+// The quiz is grounded in the code graph the core already computed and in the
+// source it was computed from, never in anything the model was not shown. This
+// module does the retrieval half of GraphRAG: from the step's node it collects
+// the nodes, relations, source excerpts and learning order a question of a
+// given difficulty may draw on (`buildQuizContext`). An agent writes the
+// questions from that context through the Telescode MCP server, which checks
+// them against it again (`makeQuestions`) before saving.
+//
+// The context leaves out the core's metrics and counts on purpose: questions
+// are about what the code does and why, not how big it is.
 //
 // Two graphs are kept apart. `relations` is the code graph: containment,
 // imports and class edges, as the core reports them. `learning` is reading
 // order, from the core's reading sequence: what to understand before what. An
 // import is not a prerequisite, and the context never presents it as one.
 //
-// Shared with mcp/: plain data in and out, no browser or Node APIs.
+// Shared with mcp/: plain data in and out, no browser or Node APIs. Source
+// text comes through a reader the caller supplies.
 
 import type { AnalysisSnapshot, ClassNode } from '../bridge/models'
 import { buildGraphModel, type GraphModel, type GraphNode } from '../graph/model'
@@ -27,11 +32,12 @@ export type QuestionType = 'multiple_choice' | 'true_false'
  * asks of the reader (reasoning depth, graph hops, abstraction), not who the
  * reader is: easy stays on the node, medium adds what it is directly
  * connected to, hard reaches two hops and the reading order around it.
+ * `excerpts` and `sourceChars` bound how much source comes with it.
  */
-export const SCOPE: Record<Difficulty, { hops: number; maxNodes: number; minEvidence: number }> = {
-  easy: { hops: 0, maxNodes: 12, minEvidence: 1 },
-  medium: { hops: 1, maxNodes: 24, minEvidence: 2 },
-  hard: { hops: 2, maxNodes: 40, minEvidence: 3 },
+export const SCOPE: Record<Difficulty, { hops: number; maxNodes: number; minEvidence: number; excerpts: number; sourceChars: number }> = {
+  easy: { hops: 0, maxNodes: 12, minEvidence: 1, excerpts: 2, sourceChars: 10_000 },
+  medium: { hops: 1, maxNodes: 24, minEvidence: 2, excerpts: 4, sourceChars: 20_000 },
+  hard: { hops: 2, maxNodes: 40, minEvidence: 2, excerpts: 6, sourceChars: 32_000 },
 }
 
 export type RelationKind = 'contains' | 'imports' | 'class-dependency' | 'class-association' | 'class-unknown'
@@ -52,11 +58,28 @@ export interface ContextRelation {
   kind: RelationKind
 }
 
+/** Source of a file or class in the context, with line numbers. */
+export interface SourceExcerpt {
+  nodeId: string
+  fileId: string
+  startLine: number
+  endLine: number
+  /** Each line prefixed with its number, e.g. "  12| return x". */
+  text: string
+  /** Cut short to fit the context; the code goes on past `endLine`. */
+  truncated: boolean
+}
+
+/** A file's text by its repo-relative fileId, or null when it cannot be read. */
+export type SourceReader = (fileId: string) => string | null
+
 export interface QuizContext {
   nodeId: string
   difficulty: Difficulty
   nodes: ContextNode[]
   relations: ContextRelation[]
+  /** The step's code first, then what it is related to. Empty without a source reader. */
+  excerpts: SourceExcerpt[]
   /**
    * Hard questions only: the reading order around the node. `before` are
    * nodes read earlier that the node is directly related to, the likely
@@ -69,6 +92,69 @@ export interface QuizContext {
 const MAX_MEMBER_FACTS = 20
 const MAX_RELATIONS = 120
 
+const numbered = (lines: string[], start: number) =>
+  lines.map((line, i) => `${String(start + i).padStart(5)}| ${line}`).join('\n')
+
+/**
+ * The lines of a Python class: from its `class` line to the last line indented
+ * under it. The core parses Python only; null when the class is not found.
+ */
+export function classLines(lines: string[], className: string): [number, number] | null {
+  const name = className.replace(/[.*+?^$()|[\]\\{}]/g, '\\$&')
+  const header = new RegExp(`^(\\s*)class\\s+${name}\\b`)
+  const start = lines.findIndex((l) => header.test(l))
+  if (start === -1) return null
+  const indent = header.exec(lines[start]!)![1]!.length
+  let end = start
+  for (let i = start + 1; i < lines.length; i++) {
+    const line = lines[i]!
+    if (!line.trim()) continue
+    if (line.length - line.trimStart().length <= indent) break
+    end = i
+  }
+  return [start, end]
+}
+
+/** Source excerpts for the context's file and class nodes, within the difficulty's budget. */
+function excerptsFor(snapshot: AnalysisSnapshot, model: GraphModel, nodeIds: string[], difficulty: Difficulty, read: SourceReader): SourceExcerpt[] {
+  const { excerpts: max, sourceChars } = SCOPE[difficulty]
+  let budget = sourceChars
+  const out: SourceExcerpt[] = []
+  const whole = new Set<string>()
+  const files = new Map<string, string[] | null>()
+  const linesOf = (fileId: string) => {
+    if (!files.has(fileId)) files.set(fileId, read(fileId)?.split(/\r?\n/) ?? null)
+    return files.get(fileId)!
+  }
+  for (const nodeId of nodeIds) {
+    if (out.length >= max || budget <= 0) break
+    const node = model.byId.get(nodeId)
+    if (node?.kind !== 'file' && node?.kind !== 'class') continue
+    const cls = node.kind === 'class' ? snapshot.classes.find((c) => `class:${c.classId}` === nodeId) : undefined
+    const fileId = cls?.fileId ?? nodeId.slice('file:'.length)
+    if (whole.has(fileId)) continue
+    const lines = linesOf(fileId)
+    if (!lines) continue
+    const range = cls ? classLines(lines, cls.className) : ([0, lines.length - 1] as [number, number])
+    if (!range) continue
+    let [start, end] = range
+    // Keep whole lines within the budget.
+    let size = 0
+    let last = start - 1
+    for (let i = start; i <= end && size + lines[i]!.length + 8 <= budget; i++) {
+      size += lines[i]!.length + 8
+      last = i
+    }
+    if (last < start) break
+    const truncated = last < end
+    end = last
+    budget -= size
+    if (!cls && !truncated) whole.add(fileId)
+    out.push({ nodeId, fileId, startLine: start + 1, endLine: end + 1, text: numbered(lines.slice(start, end + 1), start + 1), truncated })
+  }
+  return out
+}
+
 function classFacts(cls: ClassNode): string[] {
   const facts = [`Defined in ${cls.fileId}`]
   if (cls.package) facts.push(`Package ${cls.package}`)
@@ -76,35 +162,21 @@ function classFacts(cls: ClassNode): string[] {
   const fields = cls.fields.map((f) => `Field ${f.access} ${f.name}`)
   const members = [...methods, ...fields]
   facts.push(...members.slice(0, MAX_MEMBER_FACTS))
-  if (members.length > MAX_MEMBER_FACTS) facts.push(`… and ${members.length - MAX_MEMBER_FACTS} more members`)
-  if (members.length === 0) facts.push('No methods or fields')
+  if (members.length > MAX_MEMBER_FACTS) facts.push(`… and more members`)
   return facts
 }
 
 function nodeFacts(snapshot: AnalysisSnapshot, node: GraphNode): string[] {
-  if (node.kind === 'root' || node.kind === 'dir') {
-    return [`Contains ${node.fileCount} files and ${node.classCount} classes`]
-  }
   if (node.kind === 'class') {
     const cls = snapshot.classes.find((c) => `class:${c.classId}` === node.id)
-    const facts = cls ? classFacts(cls) : []
-    const rank = snapshot.readingSequence.find((s) => s.entityType === 'class' && `class:${s.entityId}` === node.id)
-    if (rank?.localRank != null) facts.push(`Reading rank within its file: ${rank.localRank}`)
-    return facts
+    return cls ? classFacts(cls) : []
   }
   if (node.kind === 'file') {
     const fileId = node.id.slice('file:'.length)
     const file = snapshot.files.find((f) => f.fileId === fileId)
-    const graph = snapshot.fileGraph.nodes.find((f) => f.fileId === fileId)
-    const rank = snapshot.readingSequence.find((s) => s.entityType === 'file' && s.fileId === fileId)
     const facts = [`Path ${fileId}`]
-    if (file) {
-      facts.push(`Language ${file.language}`, `${file.metrics.rawLoc} lines`, `Max cyclomatic complexity ${file.metrics.maxCyclomaticComplexity}`)
-      if (file.metrics.complexityScore != null) facts.push(`Complexity score ${file.metrics.complexityScore.toFixed(2)}`)
-    }
-    if (graph) facts.push(`Imported by ${graph.inbound} files`, `Imports ${graph.outbound} files`)
-    if (rank?.fileRank != null) facts.push(`Reading rank ${rank.fileRank}`)
-    facts.push(`Declares ${node.children.length} classes`)
+    if (file) facts.push(`Language ${file.language}`)
+    if (node.children.length) facts.push(`Declares ${node.children.map((c) => c.label).join(', ')}`)
     return facts
   }
   return []
@@ -133,7 +205,7 @@ function codeRelations(snapshot: AnalysisSnapshot, model: GraphModel): ContextRe
  * The context a question of `difficulty` about `nodeId` may draw on: the
  * nodes within reach, nearest first, and the relations among them.
  */
-export function buildQuizContext(snapshot: AnalysisSnapshot, nodeId: string, difficulty: Difficulty): QuizContext {
+export function buildQuizContext(snapshot: AnalysisSnapshot, nodeId: string, difficulty: Difficulty, read?: SourceReader): QuizContext {
   const scope = SCOPE[difficulty]
   if (!scope) throw new Error(`Unknown difficulty: ${String(difficulty)}`)
   const model = buildGraphModel(snapshot, 'Repository')
@@ -206,7 +278,8 @@ export function buildQuizContext(snapshot: AnalysisSnapshot, nodeId: string, dif
     learning.before = path.slice(0, at).filter((id) => linked.has(id) && inScope.has(id))
     learning.after = path.slice(at + 1, at + 4)
   }
-  return { nodeId, difficulty, nodes, relations, learning }
+  const excerpts = read ? excerptsFor(snapshot, model, kept, difficulty, read) : []
+  return { nodeId, difficulty, nodes, relations, excerpts, learning }
 }
 
 /** What the agent submits for one question. */
@@ -287,6 +360,7 @@ function shuffled<T>(items: T[], seed: string): T[] {
  * the questions about this code.
  */
 export function makeQuestions(snapshot: AnalysisSnapshot, setId: string, nodeId: string, inputs: QuestionInput[]): QuizQuestion[] {
+  // Evidence is checked against the nodes in reach, which do not depend on source text.
   if (!Array.isArray(inputs) || inputs.length < 1 || inputs.length > DIFFICULTIES.length * MAX_QUESTIONS_PER_DIFFICULTY) {
     throw new Error(`A quiz requires 1–${DIFFICULTIES.length * MAX_QUESTIONS_PER_DIFFICULTY} questions`)
   }
@@ -310,7 +384,7 @@ export function makeQuestions(snapshot: AnalysisSnapshot, setId: string, nodeId:
     const min = SCOPE[input.difficulty].minEvidence
     if (evidenceIds.length < min) throw new Error(`${where}: ${input.difficulty} questions rest on at least ${min} nodes`)
 
-    const answer = text(input.answer, `${where} answer`, 200)
+    const answer = text(input.answer, `${where} answer`, 300)
     let choices: string[]
     let distractors: string[]
     if (input.type === 'true_false') {
@@ -321,7 +395,7 @@ export function makeQuestions(snapshot: AnalysisSnapshot, setId: string, nodeId:
       if (!Array.isArray(input.distractors) || input.distractors.length < 2 || input.distractors.length > 4) {
         throw new Error(`${where}: multiple choice needs 2–4 distractors`)
       }
-      distractors = input.distractors.map((d, j) => text(d, `${where} distractor ${j + 1}`, 200))
+      distractors = input.distractors.map((d, j) => text(d, `${where} distractor ${j + 1}`, 300))
       const all = [answer, ...distractors]
       if (new Set(all.map((c) => c.toLowerCase())).size !== all.length) throw new Error(`${where}: choices must all differ`)
       choices = shuffled(all, `${setId}:${i}`)
@@ -334,11 +408,11 @@ export function makeQuestions(snapshot: AnalysisSnapshot, setId: string, nodeId:
       type: input.type,
       difficulty: input.difficulty,
       concept: text(input.concept, `${where} concept`, 80),
-      question: text(input.question, `${where} question`, 400),
+      question: text(input.question, `${where} question`, 500),
       answer,
       distractors,
       choices,
-      explanation: text(input.explanation, `${where} explanation`, 600),
+      explanation: text(input.explanation, `${where} explanation`, 900),
       evidence: evidenceIds.map((id) => ({ nodeId: id, title: titles.get(id)! })),
     }
   })

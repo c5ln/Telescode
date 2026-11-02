@@ -1,8 +1,26 @@
 import { randomUUID } from 'node:crypto'
+import { readFileSync, statSync } from 'node:fs'
 import { appendFile, mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { resolve, sep } from 'node:path'
 import type { Project, TourStore } from './store.ts'
-import { feedbackFor, makeQuestions, type QuestionInput, type QuizFeedback, type QuizResponse, type QuizSet, type TourContext } from '../../frontend/src/quiz/model.ts'
+import { feedbackFor, makeQuestions, type QuestionInput, type SourceReader, type QuizFeedback, type QuizResponse, type QuizSet, type TourContext } from '../../frontend/src/quiz/model.ts'
+
+/** Files larger than this are left out of excerpts: they are rarely hand-written code. */
+const MAX_SOURCE_BYTES = 1024 * 1024
+
+/** Reads repo-relative files under `root`, refusing any path that leaves it. */
+export function sourceReader(root: string | undefined): SourceReader | undefined {
+  if (!root) return undefined
+  const base = resolve(root)
+  return fileId => {
+    const path = resolve(base, fileId)
+    if (!path.startsWith(base + sep)) return null
+    try {
+      if (statSync(path).size > MAX_SOURCE_BYTES) return null
+      return readFileSync(path, 'utf8')
+    } catch { return null }
+  }
+}
 
 /** Responses are appended, never rewritten: the log is the record a later tour adapts from. */
 export const RESPONSES_FILE = 'quiz-responses.jsonl'

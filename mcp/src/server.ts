@@ -6,7 +6,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
 import { TourStore } from './store.ts'
-import { QuizStore } from './quiz.ts'
+import { QuizStore, sourceReader } from './quiz.ts'
 import { startHttp } from './http.ts'
 import { renderTour } from './render.ts'
 import { chromium } from './browser.ts'
@@ -34,9 +34,9 @@ function tool(name: string, description: string, schema: z.ZodRawShape, readOnly
     } catch (error) { return { isError: true, content: [{ type: 'text', text: String(error) }] } }
   })
 }
-tool('open_project', 'Open an existing SQLite analysis DB or graph/analyze JSON snapshot. Does not scan, clone, or modify the project.', { path: z.string(), headlessPath: z.string().optional() }, false, async ({ path, headlessPath }) => {
-  const project = await store.open(path, headlessPath)
-  return { projectId: project.id, snapshotHash: project.hash, totals: project.snapshot.totals }
+tool('open_project', 'Open an existing SQLite analysis DB or graph/analyze JSON snapshot. Does not scan, clone, or modify the project. The source folder is found beside a DB scanned by the app, or given as sourceRoot.', { path: z.string(), headlessPath: z.string().optional(), sourceRoot: z.string().optional() }, false, async ({ path, headlessPath, sourceRoot }) => {
+  const project = await store.open(path, headlessPath, sourceRoot)
+  return { projectId: project.id, snapshotHash: project.hash, totals: project.snapshot.totals, hasSource: project.sourceRoot !== undefined }
 })
 tool('get_project_overview', 'Read repository totals, directories, and file reading ranks. Missing ranking data is reported explicitly.', { projectId: z.string() }, true, ({ projectId }) => {
   const p = store.project(projectId)
@@ -100,7 +100,10 @@ tool('render_approved_tour', 'Start local Chromium/FFmpeg MP4 (or WebM via TELES
   }).finally(payload.dispose).catch(error => console.error('Could not persist render result:', error))
   return { tourId, jobId: d.jobId, state: d.state }
 })
-tool('get_quiz_context', 'GraphRAG retrieval for a quiz on one tour stop: the code-graph nodes (with the facts the analysis reports), relations and, for hard, reading order a question of this difficulty may draw on. Questions may only cite these nodes.', { projectId: z.string(), nodeId: z.string(), difficulty }, true, ({ projectId, nodeId, difficulty }) => buildQuizContext(store.project(projectId).snapshot, nodeId, difficulty))
+tool('get_quiz_context', 'GraphRAG retrieval for a quiz on one tour stop: the code-graph nodes, relations, numbered source excerpts and, for hard, reading order a question of this difficulty may draw on. Questions may only cite these nodes.', { projectId: z.string(), nodeId: z.string(), difficulty }, true, ({ projectId, nodeId, difficulty }) => {
+  const project = store.project(projectId)
+  return buildQuizContext(project.snapshot, nodeId, difficulty, sourceReader(project.sourceRoot))
+})
 tool('create_quiz', `Save comprehension questions for one stop of a saved tour (1–${MAX_QUESTIONS_PER_DIFFICULTY} per difficulty). Each question's evidenceNodeIds must come from get_quiz_context for its difficulty and include the stop's node.`, { projectId: z.string(), tourId: z.string(), tourRevision: z.number().int(), stopIndex: z.number().int().min(0), nodeId: z.string(), language: z.enum(['ko', 'en']).default('en'), questions: z.array(question).min(1).max(DIFFICULTIES.length * MAX_QUESTIONS_PER_DIFFICULTY) }, false, async ({ projectId, tourId, tourRevision, stopIndex, nodeId, language, questions }) => {
   const set = await quizzes.create(store.project(projectId), { tourId, tourRevision, stopIndex, nodeId }, language, questions)
   return { quizSetId: set.id, questions: set.questions.map(q => ({ id: q.id, difficulty: q.difficulty, concept: q.concept })) }
