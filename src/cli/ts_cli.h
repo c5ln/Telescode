@@ -24,6 +24,7 @@ int CmdAlgo  (int argc, char* argv[]);   // algo     <db_path>
 int CmdGraph (int argc, char* argv[]);   // graph    <db_path> [options]
 int CmdSequence(int argc, char* argv[]); // sequence <db_path> [options]
 int CmdAnalyze (int argc, char* argv[]); // analyze  <db_path> [options]
+int CmdRank (int argc, char* argv[]);    // rank --model <dir> --features <csv> --output <csv>
 
 // ── Shared options for the JSON-emitting commands ────────────────────────────
 

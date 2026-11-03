@@ -6,6 +6,10 @@
 ## 조사와 순서
 
 1. `get_project_overview`와 `get_reading_tour_order`로 reading sequence 결과를 확인한다.
+   DB를 열면 기본 온보딩 질의로 피처를 생성하고 C++ LambdaRank 점수순으로 파일 순위를
+   계산한다. `ranking`의 모델·질의와 `scores.lambdarank`를 확인한다. 클래스 `localRank`는
+   기존 분석 순서다. JSON 스냅샷을 열 때는 그 스냅샷에 기록된 순서를 사용한다.
+   순위 계산 오류가 발생하면 그대로 알리고 파일 순서를 임의로 대체하지 않는다.
 2. 파일은 `fileRank` 오름차순으로 방문한다. 클래스는 해당 파일 뒤에서 `localRank` 순서로 방문한다. 함수/멤버/소스 줄은 방문하지 않는다.
 3. 시간에 맞춰 상위 항목 일부를 선정하되 결과의 상대 순서를 바꾸지 않는다. 시작과 끝의 repository 개요는 허용한다. 디렉터리는 필요한 위치 맥락만 제공한다.
 4. reading sequence가 없으면 임의의 파일 순서를 만들지 말고 분석 알고리즘 실행 후 `analyze` 스냅샷을 요청한다. 클래스 local rank가 없다면 해당 파일의 맥락에서만 설명한다.

@@ -58,6 +58,26 @@ target_include_directories(sqlite3 PUBLIC
 )
 set_target_properties(sqlite3 PROPERTIES C_STANDARD 11)
 
+# Native inference links the LightGBM C ABI. An existing Python wheel can
+# supply the shared library at build time; inference never invokes Python.
+file(GLOB TS_LIGHTGBM_HINTS
+    "${CMAKE_SOURCE_DIR}/bench/.venv/lib/python*/site-packages/lightgbm/lib"
+    "${CMAKE_SOURCE_DIR}/.venv/lib/python*/site-packages/lightgbm/lib")
+find_library(TS_LIGHTGBM_LIBRARY NAMES _lightgbm lightgbm lib_lightgbm
+    HINTS ${TS_LIGHTGBM_HINTS}
+          "${CMAKE_SOURCE_DIR}/bench/.venv/Lib/site-packages/lightgbm/lib")
+if(NOT TS_LIGHTGBM_LIBRARY)
+    message(FATAL_ERROR "LightGBM C library required: set -DTS_LIGHTGBM_LIBRARY=/path/to/lib_lightgbm.so")
+endif()
+add_library(LightGBM::C UNKNOWN IMPORTED)
+set_target_properties(LightGBM::C PROPERTIES IMPORTED_LOCATION "${TS_LIGHTGBM_LIBRARY}")
+add_library(ranking STATIC src/ranking/LambdaRankModel.cpp)
+target_include_directories(ranking PUBLIC src)
+target_link_libraries(ranking PUBLIC sqlite3 LightGBM::C Threads::Threads)
+if(MSVC)
+    target_compile_options(ranking PRIVATE /utf-8)
+endif()
+
 # ── Telescode core (headless) ─────────────────────────────────────────────────
 # Parser, database, analysis and serialization. Nothing in this target or
 # anything it links needs a graphical environment, so any frontend can sit on
@@ -104,8 +124,9 @@ add_library(telescode_cli STATIC
     src/cli/update_main.cpp
     src/cli/algo_main.cpp
     src/cli/json_cmds.cpp
+    src/cli/rank_main.cpp
 )
-target_link_libraries(telescode_cli PUBLIC telescode_core)
+target_link_libraries(telescode_cli PUBLIC telescode_core ranking)
 if(MSVC)
     target_compile_options(telescode_cli PRIVATE /utf-8)
 endif()
@@ -272,6 +293,21 @@ if(TS_RESOLVE_TEST_SRC)
         target_compile_options(ResolverTests PRIVATE /utf-8)
     endif()
     add_test(NAME ResolverTests COMMAND ResolverTests)
+endif()
+
+ts_test_sources(TS_RANKING_TEST_SRC
+    tests/ranking/test_lambdarank.cpp
+)
+if(TS_RANKING_TEST_SRC)
+    add_executable(RankingTests ${TS_RANKING_TEST_SRC})
+    target_link_libraries(RankingTests PRIVATE telescode_core ranking GTest::gtest_main)
+    target_compile_definitions(RankingTests PRIVATE
+        TS_LTR_ARTIFACT="${CMAKE_SOURCE_DIR}/ltr/models/lambdarank-v1"
+        TS_LTR_FIXTURE="${CMAKE_SOURCE_DIR}/tests/fixtures/ltr")
+    if(MSVC)
+        target_compile_options(RankingTests PRIVATE /utf-8)
+    endif()
+    add_test(NAME RankingTests COMMAND RankingTests)
 endif()
 
 ts_test_sources(TS_LAYOUT_TEST_SRC

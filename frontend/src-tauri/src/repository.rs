@@ -274,7 +274,7 @@ fn remove_if_present(path: &Path) -> Result<(), BridgeError> {
 
 /// Scans `source` into a fresh database at `db` and computes its reading order.
 fn scan(sidecar: &Path, source: &Path, db: &Path, name: &str) -> Result<(), BridgeError> {
-    for suffix in ["", "-wal", "-shm"] {
+    for suffix in ["", "-wal", "-shm", ".source"] {
         let mut path = db.as_os_str().to_owned();
         path.push(suffix);
         remove_if_present(Path::new(&path))?;
@@ -608,6 +608,19 @@ mod tests {
         assert_eq!(parsed_file_count("[scan] Parsed 0 files.\n[scan] Inserted"), Some(0));
         assert_eq!(parsed_file_count("[scan] Parsed 42 files.\n"), Some(42));
         assert_eq!(parsed_file_count("something else"), None);
+    }
+
+    #[test]
+    fn scan_records_source_root_for_tour_feature_generation() {
+        let dir = std::env::temp_dir().join(format!("telescode-tour-source-{}", std::process::id()));
+        fs::create_dir_all(dir.join("source")).unwrap();
+        fs::write(dir.join("source/main.py"), "def main():\n    return 1\n").unwrap();
+        let sidecar = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../build/TelescodeHeadless");
+        let db = dir.join("project.db");
+        scan(&sidecar, &dir.join("source"), &db, "project").unwrap();
+        assert_eq!(fs::read_to_string(source_record(&db)).unwrap(), dir.join("source").to_str().unwrap());
+        assert!(!dir.join("project.db.source.json").exists());
+        let _ = fs::remove_dir_all(&dir);
     }
 
     // Downloads and scans a real repository when both variables are set, e.g.

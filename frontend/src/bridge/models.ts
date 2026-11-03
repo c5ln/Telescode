@@ -2,7 +2,8 @@
 //
 // Mirrors src/core/json/AnalysisJson.cpp (schemaVersion 1) field for field.
 // These are shapes only: every value is computed by the C++ core, and nothing
-// in the frontend derives, recomputes or reinterprets it.
+// in the frontend derives, recomputes or reinterprets it. Tour snapshots can
+// overlay model ranks and add the optional LambdaRank score through the MCP service.
 //
 // Floating-point fields are `number | null` because the core writes NaN and
 // infinity as null (see JsonWriter.cpp).
@@ -106,6 +107,8 @@ export interface ReadingSequenceScores {
   pagerank: number | null
   betweenness: number | null
   combined: number | null
+  /** Present in a tour's ranked snapshot; baseline core metrics are preserved. */
+  lambdarank?: number | null
 }
 
 export interface ReadingSequenceEntry {

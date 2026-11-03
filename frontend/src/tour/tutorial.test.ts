@@ -35,6 +35,22 @@ describe('pickTutorial', () => {
     const broken = { ...tour('t', ['file:a.py']), plan: { stops: [{ nodeId: 'file:a.py' }] } } as unknown as SavedTour
     expect(pickTutorial([broken, tour('empty', [])], onMap, 'h')).toBeNull()
   })
+
+  it('matches a ranked tour to its source snapshot, including root-only tours', () => {
+    const ranked = { ...tour('ranked', ['root'], 'ranked-hash', 3), sourceSnapshotHash: 'source-hash' }
+    expect(pickTutorial([ranked], onMap, 'source-hash')?.plan.id).toBe('ranked')
+    expect(pickTutorial([ranked], onMap, 'other-source')).toBeNull()
+    expect(pickTutorial([tour('base', ['root'], 'source-hash', 1), ranked], onMap, 'source-hash')?.plan.id).toBe('ranked')
+    const fileTour = { ...ranked, plan: { ...ranked.plan, stops: [stop('file:a.py')] } }
+    expect(pickTutorial([fileTour], onMap, 'different-repository-with-same-files')).toBeNull()
+  })
+
+  it('can require model order so desktop onboarding regenerates legacy tours', () => {
+    const legacy = tour('legacy', ['file:a.py'], 'source-hash', 10)
+    const ranked = { ...tour('ranked', ['file:a.py'], 'ranked-hash', 1), sourceSnapshotHash: 'source-hash' }
+    expect(pickTutorial([legacy], onMap, 'source-hash', true)).toBeNull()
+    expect(pickTutorial([legacy, ranked], onMap, 'source-hash', true)?.plan.id).toBe('ranked')
+  })
 })
 
 describe('stepDurationMs', () => {

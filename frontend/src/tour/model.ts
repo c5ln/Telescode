@@ -89,6 +89,7 @@ export function inspectNode(snapshot: AnalysisSnapshot, nodeId: string) {
       add('Containing file rank', rank?.fileRank)
     } else {
       add('Reading rank', rank?.fileRank)
+      add('LambdaRank score', rank?.scores.lambdarank)
       add('Inbound imports', graph?.inbound)
       add('Outbound imports', graph?.outbound)
       add('Complexity score', file?.metrics.complexityScore)

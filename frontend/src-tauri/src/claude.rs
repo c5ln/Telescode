@@ -7,6 +7,7 @@
 
 use serde::Serialize;
 use std::ffi::OsString;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
@@ -100,9 +101,13 @@ pub fn command(claude: &Path) -> Command {
 
 /// Runs `cmd` to completion, stopping it after `timeout`.
 pub fn run(mut cmd: Command, timeout: Duration, what: &str) -> Result<(), BridgeError> {
-    let mut child = cmd.stdout(Stdio::null()).stderr(Stdio::piped()).spawn().map_err(|e| {
+    let mut child = cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|e| {
         BridgeError::TourGenerationFailed { message: format!("Could not start Claude Code: {e}") }
     })?;
+    // Claude reports API failures on stdout. Drain both pipes while it runs so
+    // verbose output cannot fill a pipe and prevent the process from exiting.
+    let stdout = capture_tail(child.stdout.take().expect("piped stdout"));
+    let stderr = capture_tail(child.stderr.take().expect("piped stderr"));
     let started = Instant::now();
     let status = loop {
         if let Some(status) = child.try_wait().map_err(|e| BridgeError::Internal {
@@ -117,20 +122,41 @@ pub fn run(mut cmd: Command, timeout: Duration, what: &str) -> Result<(), Bridge
         }
         std::thread::sleep(Duration::from_millis(250));
     };
+    let stdout = stdout.join().unwrap_or_default();
+    let stderr = stderr.join().unwrap_or_default();
     if status.success() {
         return Ok(());
     }
-    let mut stderr = String::new();
-    if let Some(mut pipe) = child.stderr.take() {
-        let _ = std::io::Read::read_to_string(&mut pipe, &mut stderr);
-    }
-    let stderr = stderr.trim();
+    let details = [stderr, stdout].into_iter().filter(|s| !s.is_empty()).collect::<Vec<_>>().join("\n");
     Err(BridgeError::TourGenerationFailed {
-        message: if stderr.is_empty() {
+        message: if details.is_empty() {
             format!("{what} failed ({status}).")
         } else {
-            format!("{what} failed ({status}): {stderr}")
+            format!("{what} failed ({status}): {details}")
         },
+    })
+}
+
+/// Keep bounded error context while draining arbitrarily long process output.
+fn capture_tail(mut reader: impl Read + Send + 'static) -> std::thread::JoinHandle<String> {
+    std::thread::spawn(move || {
+        const LIMIT: usize = 8192;
+        let mut tail = Vec::new();
+        let mut buffer = [0u8; LIMIT];
+        loop {
+            match reader.read(&mut buffer) {
+                Ok(0) => break,
+                Ok(n) => {
+                    tail.extend_from_slice(&buffer[..n]);
+                    if tail.len() > LIMIT {
+                        tail.drain(..tail.len() - LIMIT);
+                    }
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+                Err(_) => break,
+            }
+        }
+        String::from_utf8_lossy(&tail).trim().to_owned()
     })
 }
 
@@ -193,6 +219,58 @@ pub async fn claude_sign_in() -> Result<(), BridgeError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    fn shell(script: &str) -> Command {
+        let mut cmd = Command::new("/bin/sh");
+        cmd.args(["-c", script]);
+        cmd
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn failure_reports_diagnostics_from_stdout() {
+        let error = run(shell("printf 'Account quota reached'; exit 1"), Duration::from_secs(3), "Claude Code").unwrap_err();
+        let BridgeError::TourGenerationFailed { message } = error else { panic!("unexpected error") };
+        assert!(message.contains("Account quota reached"), "{message}");
+        assert!(message.contains("exit status: 1"), "{message}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn failure_reports_both_output_streams() {
+        let error = run(shell("printf 'Model request rejected'; printf 'Backend details' >&2; exit 1"), Duration::from_secs(3), "Claude Code").unwrap_err();
+        let BridgeError::TourGenerationFailed { message } = error else { panic!("unexpected error") };
+        assert!(message.contains("Model request rejected"), "{message}");
+        assert!(message.contains("Backend details"), "{message}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn drains_large_output_without_deadlock_and_keeps_bounded_diagnostics() {
+        let script = "i=0; while [ \"$i\" -lt 8192 ]; do printf 'stdout chunk %s\\n' \"$i\"; printf 'stderr chunk %s\\n' \"$i\" >&2; i=$((i+1)); done; printf 'final diagnostic' >&2; exit 1";
+        let error = run(shell(script), Duration::from_secs(3), "Claude Code").unwrap_err();
+        let BridgeError::TourGenerationFailed { message } = error else { panic!("unexpected error") };
+        assert!(message.contains("final diagnostic"), "{message}");
+        assert!(!message.contains("did not finish in time"), "{message}");
+        assert!(message.len() < 20_000, "diagnostic length: {}", message.len());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn successful_command_with_output_still_succeeds() {
+        assert!(run(shell("printf 'A saved tour'; printf 'Progress' >&2"), Duration::from_secs(3), "Claude Code").is_ok());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn command_timeout_stops_the_child() {
+        let started = Instant::now();
+        let error = run(shell("exec sleep 10"), Duration::from_millis(50), "Claude Code").unwrap_err();
+        let BridgeError::TourGenerationFailed { message } = error else { panic!("unexpected error") };
+        assert!(message.contains("did not finish in time"), "{message}");
+        assert!(started.elapsed() < Duration::from_secs(2));
+    }
 
     #[test]
     fn looks_on_path_first_then_installers_then_the_newest_extension() {

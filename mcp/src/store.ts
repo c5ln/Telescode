@@ -6,12 +6,13 @@ import { dirname, resolve } from 'node:path'
 import type { AnalysisSnapshot } from '../../frontend/src/bridge/models.ts'
 import { parseAnalysis, parseGraph } from '../../frontend/src/bridge/parse.ts'
 import { makeStops, type StopInput, type TourPlan } from '../../frontend/src/tour/model.ts'
+import { defaultHeadless, rankProject, type RankingContext } from './ranking.ts'
 
 export interface Project {
-  id: string
-  snapshot: AnalysisSnapshot
-  hash: string
-  /** Where the analyzed source is, for quiz excerpts; absent for snapshots without one. */
+  id: string; snapshot: AnalysisSnapshot; hash: string
+  sourceSnapshotHash?: string
+  ranking?: RankingContext
+  /** Source folder shared by live ranking and quiz excerpts. */
   sourceRoot?: string
 }
 export interface Draft {
@@ -61,17 +62,25 @@ export class TourStore {
       try {
         const draft = JSON.parse(await readFile(path, 'utf8')) as Draft
         if (!draft.plan || typeof draft.project?.hash !== 'string') return []
-        return [{ plan: draft.plan, snapshotHash: draft.project.hash, state: draft.state, updatedMs: Math.round((await stat(path)).mtimeMs) }]
+        return [{ plan: draft.plan, snapshotHash: draft.project.hash,
+          sourceSnapshotHash: draft.project.sourceSnapshotHash, ranking: draft.project.ranking,
+          state: draft.state, updatedMs: Math.round((await stat(path)).mtimeMs) }]
       } catch { return [] }
     }))
     return tours.flat()
   }
-  async open(path: string, headless?: string, sourceRoot?: string) {
+  async open(path: string, headless = defaultHeadless(), sourceRoot?: string) {
     const absolute = resolve(path)
-    const raw = absolute.toLowerCase().endsWith('.json') ? await readFile(absolute, 'utf8')
-      : (await promisify(execFile)(headless ?? process.env.TELESCODE_HEADLESS ?? 'TelescodeHeadless', ['analyze', absolute], { maxBuffer: 128 * 1024 * 1024 })).stdout
+    const isSnapshot = absolute.toLowerCase().endsWith('.json')
+    const raw = isSnapshot ? await readFile(absolute, 'utf8')
+      : (await promisify(execFile)(headless, ['analyze', absolute], { maxBuffer: 128 * 1024 * 1024 })).stdout
     const snapshot = 'readingSequence' in JSON.parse(raw) ? parseAnalysis(raw) : { ...parseGraph(raw), readingSequence: [] }
-    const project: Project = { id: randomUUID(), snapshot, hash: createHash('sha256').update(JSON.stringify(snapshot)).digest('hex'), sourceRoot: sourceRoot ? resolve(sourceRoot) : await recordedSource(absolute) }
+    const source = sourceRoot ? resolve(sourceRoot) : await recordedSource(absolute)
+    const sourceSnapshotHash = createHash('sha256').update(JSON.stringify(snapshot)).digest('hex')
+    const ranked = isSnapshot ? { snapshot } : await rankProject(snapshot, absolute, headless, source)
+    const project: Project = { id: randomUUID(), ...ranked, sourceRoot: source,
+      hash: createHash('sha256').update(JSON.stringify(ranked.snapshot)).digest('hex'),
+      ...(!isSnapshot ? { sourceSnapshotHash } : {}) }
     this.projects.set(project.id, project)
     return project
   }

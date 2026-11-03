@@ -19,6 +19,7 @@ void PrintCoreUsage(std::FILE* out)
         "  Telescode graph    <db_path> [--json] [--pretty] [--algo] [-o <file>]\n"
         "  Telescode sequence <db_path> [--json] [--pretty] [--algo] [-o <file>]\n"
         "  Telescode analyze  <db_path> [--json] [--pretty] [--algo] [-o <file>]\n"
+        "  Telescode rank     --model <dir> --features <csv> --output <csv>\n"
         "\n"
         "graph / sequence / analyze read an existing database and print JSON.\n"
         "Run `scan` first to create one. --algo recomputes the reading sequence\n"
@@ -125,6 +126,7 @@ bool DispatchCoreCommand(int argc, char* argv[], int& exit_code)
     if (std::strcmp(cmd, "graph")    == 0) { exit_code = CmdGraph   (sub_argc, sub_argv); return true; }
     if (std::strcmp(cmd, "sequence") == 0) { exit_code = CmdSequence(sub_argc, sub_argv); return true; }
     if (std::strcmp(cmd, "analyze")  == 0) { exit_code = CmdAnalyze (sub_argc, sub_argv); return true; }
+    if (std::strcmp(cmd, "rank")     == 0) { exit_code = CmdRank    (sub_argc, sub_argv); return true; }
 
     return false;
 }

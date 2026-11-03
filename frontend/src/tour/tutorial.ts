@@ -16,6 +16,8 @@ export interface SavedTour {
   plan: TourPlan
   /** SHA-256 of the snapshot the tour was written against. */
   snapshotHash: string
+  /** Baseline analysis hash before query-specific ranking was applied. */
+  sourceSnapshotHash?: string
   state: string
   updatedMs: number
 }
@@ -28,6 +30,8 @@ export interface AgentStatus {
 
 export interface TourLibrary {
   list(): Promise<SavedTour[]>
+  /** Live desktop onboarding regenerates tours made before model integration. */
+  requireRankedOrder?: boolean
   /** Have a tour written for the repository analyzed in `dbPath`; resolves once it is saved. */
   generate?(dbPath: string): Promise<void>
   /** Whether the agent is installed and signed in. Asked only when a tour must be written. */
@@ -56,6 +60,7 @@ const generating = new Map<string, Promise<void>>()
  * the server attached.
  */
 export const tauriTourLibrary: TourLibrary = {
+  requireRankedOrder: true,
   list: () => invokeTours<SavedTour[]>('list_tours'),
   agentStatus: () => invokeTours<AgentStatus>('claude_status'),
   signIn: () => invokeTours<void>('claude_sign_in'),
@@ -90,14 +95,19 @@ export function pickTutorial(
   tours: readonly SavedTour[],
   hasNode: (id: string) => boolean,
   snapshotHash: string | null,
+  requireRankedOrder = false,
 ): SavedTour | null {
+  const matches = (t: SavedTour) => snapshotHash !== null &&
+    (t.snapshotHash === snapshotHash || t.sourceSnapshotHash === snapshotHash)
   const playable = tours.filter((t) => {
+    if (requireRankedOrder && !t.sourceSnapshotHash) return false
     const stops: unknown = t.plan?.stops
     if (!Array.isArray(stops) || stops.length === 0 || !stops.every(isStop)) return false
     if (!stops.every((s) => hasNode(s.nodeId))) return false
-    return t.snapshotHash === snapshotHash || stops.some((s) => s.nodeId !== 'root')
+    if (t.sourceSnapshotHash) return matches(t)
+    return matches(t) || stops.some((s) => s.nodeId !== 'root')
   })
-  const exact = (t: SavedTour) => (t.snapshotHash === snapshotHash ? 1 : 0)
+  const exact = (t: SavedTour) => (matches(t) ? 1 : 0)
   return playable.sort((a, b) => exact(b) - exact(a) || b.updatedMs - a.updatedMs)[0] ?? null
 }
 

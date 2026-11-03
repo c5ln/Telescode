@@ -34,13 +34,14 @@ function tool(name: string, description: string, schema: z.ZodRawShape, readOnly
     } catch (error) { return { isError: true, content: [{ type: 'text', text: String(error) }] } }
   })
 }
-tool('open_project', 'Open an existing SQLite analysis DB or graph/analyze JSON snapshot. Does not scan, clone, or modify the project. The source folder is found beside a DB scanned by the app, or given as sourceRoot.', { path: z.string(), headlessPath: z.string().optional(), sourceRoot: z.string().optional() }, false, async ({ path, headlessPath, sourceRoot }) => {
-  const project = await store.open(path, headlessPath, sourceRoot)
-  return { projectId: project.id, snapshotHash: project.hash, totals: project.snapshot.totals, hasSource: project.sourceRoot !== undefined }
+tool('open_project', 'Open a DB with LambdaRank onboarding order, or an existing JSON snapshot. Source for ranking and quizzes is found beside a DB scanned by the app, or given as sourceRoot (repoPath is an alias). Does not scan, clone, or modify the project.', { path: z.string(), headlessPath: z.string().optional(), sourceRoot: z.string().min(1).optional(), repoPath: z.string().min(1).optional() }, false, async ({ path, headlessPath, sourceRoot, repoPath }) => {
+  if (sourceRoot && repoPath && resolve(sourceRoot) !== resolve(repoPath)) throw new Error('sourceRoot and repoPath must name the same source directory')
+  const project = await store.open(path, headlessPath, sourceRoot ?? repoPath)
+  return { projectId: project.id, snapshotHash: project.hash, sourceSnapshotHash: project.sourceSnapshotHash, ranking: project.ranking, totals: project.snapshot.totals, hasSource: project.sourceRoot !== undefined }
 })
 tool('get_project_overview', 'Read repository totals, directories, and file reading ranks. Missing ranking data is reported explicitly.', { projectId: z.string() }, true, ({ projectId }) => {
   const p = store.project(projectId)
-  return { totals: p.snapshot.totals, directories: buildGraphModel(p.snapshot, 'Repository').nodes.filter(n => n.kind === 'dir').map(n => ({ nodeId: n.id, title: n.label, files: n.fileCount, classes: n.classCount })), readingSequence: p.snapshot.readingSequence.filter(s => s.entityType === 'file').slice(0, 20), hasReadingSequence: p.snapshot.readingSequence.length > 0 }
+  return { totals: p.snapshot.totals, ranking: p.ranking, directories: buildGraphModel(p.snapshot, 'Repository').nodes.filter(n => n.kind === 'dir').map(n => ({ nodeId: n.id, title: n.label, files: n.fileCount, classes: n.classCount })), readingSequence: p.snapshot.readingSequence.filter(s => s.entityType === 'file').slice(0, 20), hasReadingSequence: p.snapshot.readingSequence.length > 0 }
 })
 tool('search_nodes', 'Find repository, directory, file and class IDs by case-insensitive text; use these IDs in tour stops.', { projectId: z.string(), query: z.string(), limit: z.number().int().min(1).max(100).default(30) }, true, ({ projectId, query, limit }) => {
   const model = buildGraphModel(store.project(projectId).snapshot, 'Repository')

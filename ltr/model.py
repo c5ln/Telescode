@@ -73,13 +73,10 @@ class LambdaRankModel:
         if frame.empty:
             raise ValueError("training data is empty")
 
-        ordered = frame.sort_values(group_column, kind="stable").reset_index(drop=True)
         normalization = "per_query_minmax" if normalize else "none"
-        X = model_matrix(ordered, feature_columns, group_column, normalization)
-        labels = ordered[label_column].to_numpy(dtype=int)
-        groups = ordered.groupby(group_column, sort=False).size().to_numpy()
         chosen = dict(params or {})
-        ranker = fit_ranker(X, labels, groups, chosen)
+        # Validate before training: LightGBM rewrites some feature names,
+        # which would leave the saved model inconsistent with its metadata.
         spec = ArtifactSpec(
             feature_columns=tuple(feature_columns),
             group_column=group_column,
@@ -87,6 +84,11 @@ class LambdaRankModel:
             candidate_policy=candidate_policy,
             training_parameters={**DEFAULT_PARAMS, **chosen},
         )
+        ordered = frame.sort_values(group_column, kind="stable").reset_index(drop=True)
+        X = model_matrix(ordered, feature_columns, group_column, normalization)
+        labels = ordered[label_column].to_numpy(dtype=int)
+        groups = ordered.groupby(group_column, sort=False).size().to_numpy()
+        ranker = fit_ranker(X, labels, groups, chosen)
         return cls(ranker.booster_, spec)
 
     def predict(self, frame: pd.DataFrame) -> np.ndarray:
@@ -115,4 +117,6 @@ class LambdaRankModel:
             raise ValueError(
                 "model feature count does not match artifact metadata: "
                 f"{booster.num_feature()} != {len(spec.feature_columns)}")
+        if booster.feature_name() != list(spec.feature_columns):
+            raise ValueError("model feature names/order do not match artifact metadata")
         return cls(booster, spec)
