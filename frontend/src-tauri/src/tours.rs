@@ -2,17 +2,17 @@
 //!
 //! Tours are kept by the Telescode MCP server (`mcp/`). The shell lists them
 //! through the server's `list_tours` tool, and has one written by running
-//! Claude Code headless with that server attached: the server never calls a
-//! model itself, so an agent writes the captions, with the user's own Claude
-//! Code sign-in.
+//! the selected CLI agent headless with that server attached: the server never calls a
+//! model itself, so an agent writes the captions, with the user's CLI sign-in.
 
 use serde_json::{json, Value};
+#[cfg(test)]
 use std::ffi::OsString;
 use std::path::Path;
 use std::time::Duration;
 
 use crate::bridge::{validate_db_path, BridgeError};
-use crate::{claude, mcp};
+use crate::{agent, mcp};
 
 /// Longest a generation may run before it is stopped.
 const GENERATION_TIMEOUT: Duration = Duration::from_secs(15 * 60);
@@ -49,19 +49,15 @@ fn generation_prompt(db: &Path) -> String {
 
 /// The arguments for `claude`: print mode, only the Telescode server, and
 /// only its drafting tools allowed (print mode denies everything else).
+#[cfg(test)]
 fn claude_args(db: &Path, server: &mcp::ServerCommand) -> Vec<OsString> {
-    let mut args = mcp::claude_config_args(server, AGENT_TOOLS);
-    args.splice(0..0, ["-p".into(), generation_prompt(db).into()]);
-    args
+    agent::generation_args(agent::Provider::Claude, &generation_prompt(db), server, AGENT_TOOLS)
 }
 
-/// Runs Claude Code until it has saved a tour for `db_path`, or fails.
-fn generate(db_path: &str) -> Result<(), BridgeError> {
+/// Runs the selected agent until it has saved a tour for `db_path`, or fails.
+fn generate(db_path: &str, provider: agent::Provider) -> Result<(), BridgeError> {
     let db = validate_db_path(db_path)?;
-    let server = mcp::server_command()?;
-    let mut cmd = claude::command(&claude::find().ok_or_else(claude::not_installed)?);
-    cmd.args(claude_args(&db, &server));
-    claude::run(cmd, GENERATION_TIMEOUT, "Claude Code")
+    agent::generate(provider, &generation_prompt(&db), AGENT_TOOLS, GENERATION_TIMEOUT)
 }
 
 /// IPC entry point: `invoke("list_tours")`. Every tour the server has saved;
@@ -76,10 +72,10 @@ pub async fn list_tours() -> Result<Value, BridgeError> {
 }
 
 /// IPC entry point: `invoke("generate_tour", { dbPath })`. Resolves once
-/// Claude Code has finished; the new tour is then in `list_tours`.
+/// The agent has finished; the new tour is then in `list_tours`.
 #[tauri::command]
-pub async fn generate_tour(db_path: String) -> Result<(), BridgeError> {
-    tauri::async_runtime::spawn_blocking(move || generate(&db_path))
+pub async fn generate_tour(db_path: String, provider: Option<agent::Provider>) -> Result<(), BridgeError> {
+    tauri::async_runtime::spawn_blocking(move || generate(&db_path, provider.unwrap_or_default()))
         .await
         .map_err(|e| BridgeError::Internal {
             message: format!("Tour worker failed: {e}"),
@@ -128,7 +124,7 @@ mod tests {
         };
         let db = db.into_string().unwrap();
         let before = mcp::call("list_tours", json!({})).unwrap().as_array().unwrap().len();
-        generate(&db).unwrap();
+        generate(&db, agent::Provider::Claude).unwrap();
         let tours = mcp::call("list_tours", json!({})).unwrap();
         assert_eq!(tours.as_array().unwrap().len(), before + 1);
     }

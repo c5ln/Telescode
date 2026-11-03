@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode, type Ref } from 'react'
 
 import styles from './Dropdown.module.css'
+import { CheckIcon } from './icons'
 
 export type DropdownItem =
   | {
@@ -20,6 +21,15 @@ export type DropdownItem =
       /** Muted text on the right, e.g. a shortcut. */
       hint?: string
       /** Full text shown on hover when the label is truncated. */
+      title?: string
+    }
+  | {
+      type: 'radio'
+      id: string
+      label: ReactNode
+      checked: boolean
+      onSelect: () => void
+      disabled?: boolean
       title?: string
     }
   | {
@@ -68,9 +78,14 @@ export function Dropdown({ trigger, items, align = 'start', label }: DropdownPro
     if (returnFocus) triggerRef.current?.focus()
   }, [])
 
-  // Focus the first item on open.
+  // Focus the selected radio item, or the first enabled action.
   useEffect(() => {
-    if (open) enabledItems()[0]?.focus()
+    if (open) {
+      const items = enabledItems()
+      const selected = items.find(item => item.getAttribute('role') === 'menuitemradio' && item.getAttribute('aria-checked') === 'true')
+      const target = selected ?? items[0]
+      target?.focus()
+    }
   }, [open])
 
   // Close on a press outside.
@@ -158,7 +173,8 @@ export function Dropdown({ trigger, items, align = 'start', label }: DropdownPro
               <button
                 key={item.id}
                 type="button"
-                role="menuitem"
+                role={item.type === 'radio' ? 'menuitemradio' : 'menuitem'}
+                aria-checked={item.type === 'radio' ? item.checked : undefined}
                 tabIndex={-1}
                 disabled={item.disabled}
                 title={item.title}
@@ -169,7 +185,9 @@ export function Dropdown({ trigger, items, align = 'start', label }: DropdownPro
                 }}
               >
                 <span className={styles.label}>{item.label}</span>
-                {item.hint && <span className={styles.hint}>{item.hint}</span>}
+                {item.type === 'radio' ? (
+                  <CheckIcon className={styles.check} />
+                ) : item.hint && <span className={styles.hint}>{item.hint}</span>}
               </button>
             ),
           )}

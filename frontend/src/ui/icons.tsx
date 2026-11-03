@@ -70,6 +70,18 @@ export const ChevronLeftIcon = (p: IconProps) => (
   </Icon>
 )
 
+export const ChevronDownIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="m4 6 4 4 4-4" />
+  </Icon>
+)
+
+export const CheckIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="m3.5 8 3 3 6-6" />
+  </Icon>
+)
+
 export const PlayIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M5 3.25v9.5L12.5 8 5 3.25Z" />

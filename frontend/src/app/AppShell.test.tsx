@@ -78,7 +78,7 @@ const canvasButtons = () =>
   within(screen.getByRole('toolbar', { name: 'Canvas' })).getAllByRole('button') as HTMLButtonElement[]
 
 describe('AppShell', () => {
-  it('has only breadcrumbs, search, the tutorial button and an overflow menu in the top bar, and no sidebar', () => {
+  it('has breadcrumbs, search, agent selection, tutorial and overflow controls in the top bar, and no sidebar', () => {
     render(<AppShell api={deferredApi().api} allowLocalFolder />)
     const bar = screen.getByRole('banner')
 
@@ -86,6 +86,7 @@ describe('AppShell', () => {
     expect(within(bar).getByRole('search')).toBeTruthy()
     expect(within(bar).getByPlaceholderText('Search files, classes, functions…')).toBeTruthy()
     expect(within(bar).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual([
+      'AI agent',
       'Tutorial',
       'More actions',
     ])

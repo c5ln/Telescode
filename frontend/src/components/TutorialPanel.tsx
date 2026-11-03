@@ -4,6 +4,7 @@
 
 import type { KeyboardEvent } from 'react'
 
+import { agents, installCommand, type AgentProvider } from '../agent'
 import type { Quiz } from '../app/useQuiz'
 import type { SetupPhase, Tutorial } from '../app/useTutorial'
 import { formatEvidenceValue } from '../tour/model'
@@ -15,32 +16,27 @@ import { Spinner } from '../ui/Spinner'
 import { QuizCard } from './QuizCard'
 import styles from './TutorialPanel.module.css'
 
-const SETUP_TITLES: Record<SetupPhase, (repository: string) => string> = {
+const SETUP_TITLES: Record<SetupPhase, (repository: string, account: string, name: string) => string> = {
   generating: (r) => `Generating a tutorial for ${r}`,
-  'signing-in': (r) => `Sign in to Claude to generate a tutorial for ${r}`,
-  'not-installed': () => 'Claude Code is needed to generate tutorials',
-}
-
-/** Claude Code's official one-line installer for this platform. */
-function installCommand(): string {
-  return /Windows/i.test(navigator.userAgent)
-    ? 'irm https://claude.ai/install.ps1 | iex'
-    : 'curl -fsSL https://claude.ai/install.sh | bash'
+  'signing-in': (r, account) => `Sign in to ${account} to generate a tutorial for ${r}`,
+  'not-installed': (_r, _account, name) => `${name} is needed to generate tutorials`,
 }
 
 interface TutorialPanelProps {
+  provider?: AgentProvider
   tutorial: Tutorial
   quiz: Quiz
   repositoryName: string
 }
 
-export function TutorialPanel({ tutorial, quiz, repositoryName }: TutorialPanelProps) {
+export function TutorialPanel({ tutorial, quiz, repositoryName, provider = 'claude' }: TutorialPanelProps) {
+  const { name, account } = agents[provider]
   const { state } = tutorial
   if (state.status === 'off') return null
 
   if (state.status === 'playing' && quiz.state.status !== 'off') {
     const stop = state.tour.plan.stops[quiz.state.at.stopIndex]
-    return <QuizCard quiz={quiz} stepTitle={stop?.title || quiz.state.at.nodeId} />
+    return <QuizCard provider={provider} quiz={quiz} stepTitle={stop?.title || quiz.state.at.nodeId} />
   }
 
   const exit = () => {
@@ -96,13 +92,13 @@ export function TutorialPanel({ tutorial, quiz, repositoryName }: TutorialPanelP
           </>
         ) : (
           <>
-            <h2 className={styles.title}>{SETUP_TITLES[state.phase](repositoryName)}</h2>
+            <h2 className={styles.title}>{SETUP_TITLES[state.phase](repositoryName, account, name)}</h2>
             {state.phase === 'not-installed' ? (
               <>
                 <p className={styles.text}>
-                  Tutorials are written by Claude Code with your Claude account. Install it, then press ▷ again:
+                  Tutorials are written by {name} with your {account} account. Install it, then press ▷ again:
                 </p>
-                <code className={styles.command}>{installCommand()}</code>
+                <code className={styles.command}>{installCommand(provider)}</code>
               </>
             ) : error ? (
               <p className={styles.error}>Cannot generate the tutorial: {error}</p>
@@ -110,7 +106,7 @@ export function TutorialPanel({ tutorial, quiz, repositoryName }: TutorialPanelP
               <p className={styles.waiting} role="status">
                 <Spinner />
                 {state.phase === 'signing-in'
-                  ? 'Finish signing in to Claude in your browser. The tutorial is generated right after.'
+                  ? `Finish signing in to ${account} in your browser. The tutorial is generated right after.`
                   : 'Generating… It appears here as soon as it is ready.'}
               </p>
             )}

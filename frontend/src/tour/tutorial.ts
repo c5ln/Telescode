@@ -7,6 +7,8 @@
 // repository.
 
 import { invoke, isTauri } from '@tauri-apps/api/core'
+import { agentStatus, signIn, type AgentProvider, type AgentStatus } from '../agent'
+export type { AgentStatus } from '../agent'
 
 import type { AnalysisSnapshot } from '../bridge'
 import { TelescodeError, fromNativeError } from '../bridge/errors'
@@ -20,12 +22,6 @@ export interface SavedTour {
   sourceSnapshotHash?: string
   state: string
   updatedMs: number
-}
-
-/** Whether the agent that writes tours, Claude Code, can run. */
-export interface AgentStatus {
-  installed: boolean
-  signedIn: boolean
 }
 
 export interface TourLibrary {
@@ -51,28 +47,32 @@ async function invokeTours<T>(command: string, args?: Record<string, unknown>): 
   }
 }
 
-/** Generations under way, by database: asking again joins the one already running. */
+/** Generations under way, by provider and database: asking again joins the one already running. */
 const generating = new Map<string, Promise<void>>()
 
 /**
  * Tours kept by the Telescode MCP server, through the desktop shell: it lists
- * them with the server's tools, and has new ones written by Claude Code with
+ * them with the server's tools, and has new ones written by the selected CLI agent with
  * the server attached.
  */
-export const tauriTourLibrary: TourLibrary = {
-  requireRankedOrder: true,
-  list: () => invokeTours<SavedTour[]>('list_tours'),
-  agentStatus: () => invokeTours<AgentStatus>('claude_status'),
-  signIn: () => invokeTours<void>('claude_sign_in'),
-  generate(dbPath) {
-    let run = generating.get(dbPath)
-    if (!run) {
-      run = invokeTours<void>('generate_tour', { dbPath }).finally(() => generating.delete(dbPath))
-      generating.set(dbPath, run)
-    }
-    return run
-  },
+export function createTourLibrary(provider: AgentProvider): TourLibrary {
+  return {
+    requireRankedOrder: true,
+    list: () => invokeTours<SavedTour[]>('list_tours'),
+    agentStatus: () => agentStatus(provider),
+    signIn: () => signIn(provider),
+    generate(dbPath) {
+      const key = `${provider}\n${dbPath}`
+      let run = generating.get(key)
+      if (!run) {
+        run = invokeTours<void>('generate_tour', { dbPath, provider }).finally(() => generating.delete(key))
+        generating.set(key, run)
+      }
+      return run
+    },
+  }
 }
+export const tauriTourLibrary = createTourLibrary('claude')
 
 /** The step's node, a caption and at least the fields the player shows. */
 function isStop(s: unknown): s is TourStop {

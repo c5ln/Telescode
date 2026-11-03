@@ -119,3 +119,8 @@ ltr/models/*
 !ltr/models/lambdarank-v1/artifact.json
 
 __pycache__
+
+
+# markdown
+*.md
+!README.md

@@ -6,6 +6,7 @@
 
 import type { RefObject } from 'react'
 
+import type { AgentProvider } from '../agent'
 import type { RepositorySource, TelescodeErrorCode } from '../bridge'
 import type { Quiz } from '../app/useQuiz'
 import type { Tutorial } from '../app/useTutorial'
@@ -36,6 +37,7 @@ interface WorkspaceCanvasProps {
   complexity: boolean
   tutorial: Tutorial
   quiz: Quiz
+  provider?: AgentProvider
 }
 
 const ERROR_TITLES: Partial<Record<TelescodeErrorCode, string>> = {
@@ -77,6 +79,7 @@ export function WorkspaceCanvas({
   complexity,
   tutorial,
   quiz,
+  provider,
 }: WorkspaceCanvasProps) {
   return (
     <main className={styles.canvas} aria-label="Workspace" aria-busy={state.status === 'loading'}>
@@ -124,7 +127,7 @@ export function WorkspaceCanvas({
       )}
 
       {state.status === 'ready' && (
-        <TutorialPanel tutorial={tutorial} quiz={quiz} repositoryName={workspaceName(state)} />
+        <TutorialPanel provider={provider} tutorial={tutorial} quiz={quiz} repositoryName={workspaceName(state)} />
       )}
 
       <CanvasControls

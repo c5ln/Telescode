@@ -15,7 +15,7 @@ export type TutorialState =
   /** Looking for a saved tour after the user asked for the tutorial. */
   | { status: 'searching' }
   /**
-   * No tour yet, so one is made: Claude Code is checked, signed in if needed
+   * No tour yet, so one is made: The selected agent is checked, signed in if needed
    * (`signing-in`), then writes it (`generating`). `ready` once it is saved,
    * `error` if a step failed.
    */
@@ -99,7 +99,7 @@ export function useTutorial(
       if (!current()) return
       if (tour) return play(tour)
       if (!library.generate || !dbPath) return setup('generating')
-      // Claude Code is only looked at now, when a tutorial has to be written.
+      // The selected agent is only looked at now, when a tutorial has to be written.
       const agent = (await library.agentStatus?.()) ?? { installed: true, signedIn: true }
       if (!current()) return
       if (!agent.installed) return setup('not-installed')

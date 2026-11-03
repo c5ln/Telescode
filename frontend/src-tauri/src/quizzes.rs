@@ -1,19 +1,20 @@
 //! Comprehension quizzes on a tutorial step.
 //!
 //! Like tours, quizzes are kept by the Telescode MCP server (`mcp/`), and
-//! written by Claude Code running headless with that server attached: the
+//! written by the selected CLI agent running headless with that server attached: the
 //! server builds the graph context each question may use and refuses
 //! questions that cite anything outside it. Answers are graded and recorded
 //! by the server too; the shell only passes them on.
 
 use serde::Deserialize;
 use serde_json::{json, Value};
+#[cfg(test)]
 use std::ffi::OsString;
 use std::path::Path;
 use std::time::Duration;
 
 use crate::bridge::{validate_db_path, BridgeError};
-use crate::{claude, mcp};
+use crate::{agent, mcp};
 
 /// Longest a generation may run before it is stopped.
 const GENERATION_TIMEOUT: Duration = Duration::from_secs(10 * 60);
@@ -56,18 +57,14 @@ fn generation_prompt(db: &Path, target: &QuizTarget) -> String {
 
 /// The arguments for `claude`: print mode, only the Telescode server, and
 /// only its quiz tools allowed.
+#[cfg(test)]
 fn claude_args(db: &Path, target: &QuizTarget, server: &mcp::ServerCommand) -> Vec<OsString> {
-    let mut args = mcp::claude_config_args(server, AGENT_TOOLS);
-    args.splice(0..0, ["-p".into(), generation_prompt(db, target).into()]);
-    args
+    agent::generation_args(agent::Provider::Claude, &generation_prompt(db, target), server, AGENT_TOOLS)
 }
 
-fn generate(target: &QuizTarget) -> Result<(), BridgeError> {
+fn generate(target: &QuizTarget, provider: agent::Provider) -> Result<(), BridgeError> {
     let db = validate_db_path(&target.db_path)?;
-    let server = mcp::server_command()?;
-    let mut cmd = claude::command(&claude::find().ok_or_else(claude::not_installed)?);
-    cmd.args(claude_args(&db, target, &server));
-    claude::run(cmd, GENERATION_TIMEOUT, "Claude Code")
+    agent::generate(provider, &generation_prompt(&db, target), AGENT_TOOLS, GENERATION_TIMEOUT)
 }
 
 async fn blocking<T: Send + 'static>(f: impl FnOnce() -> Result<T, BridgeError> + Send + 'static) -> Result<T, BridgeError> {
@@ -84,10 +81,10 @@ pub async fn list_quizzes() -> Result<Value, BridgeError> {
 }
 
 /// IPC entry point: `invoke("generate_quiz", { target })`. Resolves once
-/// Claude Code has finished; the new quiz is then in `list_quizzes`.
+/// The agent has finished; the new quiz is then in `list_quizzes`.
 #[tauri::command]
-pub async fn generate_quiz(target: QuizTarget) -> Result<(), BridgeError> {
-    blocking(move || generate(&target)).await
+pub async fn generate_quiz(target: QuizTarget, provider: Option<agent::Provider>) -> Result<(), BridgeError> {
+    blocking(move || generate(&target, provider.unwrap_or_default())).await
 }
 
 /// IPC entry point: `invoke("record_quiz_response", { ... })`. The server
