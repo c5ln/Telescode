@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { TourStore } from './store.ts'
 import { readingTourOrder, durationMs, toVtt, type StopInput } from '../../frontend/src/tour/model.ts'
 
-// Materialize an agent-authored plan against actual core results; never inject ranks.
+// Materialize an agent-authored plan against native model ranks.
 const root = fileURLToPath(new URL('../..', import.meta.url))
 const specPath = resolve(process.argv[2] ?? resolve(root, 'mcp/tours/sherlock-onboarding.json'))
 const dbPath = resolve(process.argv[3] ?? resolve(root, 'mcp/artifacts/onboarding-source/sherlock-reading.db'))
@@ -13,7 +13,7 @@ const spec = JSON.parse(await readFile(specPath, 'utf8')) as {
   stops: (StopInput & { sourceReferences: string[] })[]
 }
 const store = new TourStore(resolve(root, 'mcp/artifacts'))
-const project = await store.open(dbPath, resolve(root, 'build/TelescodeHeadless'))
+const project = await store.open(dbPath, resolve(root, 'build/TelescodeHeadless'), process.argv[4])
 const inputs = spec.stops.map(({ nodeId, caption, transitionMs, holdMs }) => ({ nodeId, caption, transitionMs, holdMs }))
 const draft = await store.create(project.id, spec.title, spec.language, inputs)
 const output = resolve(store.outputRoot, draft.plan.id, 'draft')

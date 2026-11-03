@@ -70,7 +70,7 @@ export function useTutorial(
       const kind = model.byId.get(id)?.kind
       return kind !== undefined && kind !== 'member'
     }
-    return pickTutorial(tours, onMap, hash)
+    return pickTutorial(tours, onMap, hash, library.requireRankedOrder)
   }, [library, snapshot])
 
   const play = useCallback(

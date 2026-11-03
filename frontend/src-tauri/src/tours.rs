@@ -37,6 +37,8 @@ fn generation_prompt(db: &Path) -> String {
         "Create a Telescode onboarding tutorial for the repository analyzed in the database {db}.\n\
          Use the telescode MCP tools: open_project with exactly that path, then get_project_overview, \
          get_reading_tour_order and inspect_node, and save the tour with create_tour_draft. \
+         Opening the DB computes the LambdaRank onboarding order using the default onboarding query. \
+         Use that returned order. If ranking fails, report the error instead of inventing a reading order. \
          Follow the server's onboarding instructions for the reading order and captions, \
          and write the title and captions in English.\n\
          Only save the draft. Do not preview frames, render a video, or wait for approval: \

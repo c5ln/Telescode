@@ -274,7 +274,7 @@ fn remove_if_present(path: &Path) -> Result<(), BridgeError> {
 
 /// Scans `source` into a fresh database at `db` and computes its reading order.
 fn scan(sidecar: &Path, source: &Path, db: &Path, name: &str) -> Result<(), BridgeError> {
-    for suffix in ["", "-wal", "-shm"] {
+    for suffix in ["", "-wal", "-shm", ".source.json"] {
         let mut path = db.as_os_str().to_owned();
         path.push(suffix);
         remove_if_present(Path::new(&path))?;
@@ -287,6 +287,15 @@ fn scan(sidecar: &Path, source: &Path, db: &Path, name: &str) -> Result<(), Brid
         });
     }
     bridge::run_sidecar(sidecar, &[OsStr::new("algo"), db.as_os_str()])?;
+    let repo = fs::canonicalize(source).map_err(|e| BridgeError::Internal {
+        message: format!("Could not resolve the repository source: {e}"),
+    })?;
+    let mut metadata_path = db.as_os_str().to_owned();
+    metadata_path.push(".source.json");
+    let metadata = serde_json::json!({ "version": 1, "repoPath": repo });
+    fs::write(Path::new(&metadata_path), metadata.to_string()).map_err(|e| BridgeError::Internal {
+        message: format!("Could not save the repository source location for tours: {e}"),
+    })?;
     Ok(())
 }
 
@@ -581,6 +590,22 @@ mod tests {
         assert_eq!(parsed_file_count("[scan] Parsed 0 files.\n[scan] Inserted"), Some(0));
         assert_eq!(parsed_file_count("[scan] Parsed 42 files.\n"), Some(42));
         assert_eq!(parsed_file_count("something else"), None);
+    }
+
+    #[test]
+    fn scan_records_source_root_for_tour_feature_generation() {
+        let dir = std::env::temp_dir().join(format!("telescode-tour-source-{}", std::process::id()));
+        fs::create_dir_all(dir.join("source")).unwrap();
+        fs::write(dir.join("source/main.py"), "def main():\n    return 1\n").unwrap();
+        let sidecar = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../build/TelescodeHeadless");
+        let db = dir.join("project.db");
+        scan(&sidecar, &dir.join("source"), &db, "project").unwrap();
+        let metadata: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(dir.join("project.db.source.json")).unwrap(),
+        ).unwrap();
+        assert_eq!(metadata["version"], 1);
+        assert_eq!(metadata["repoPath"], fs::canonicalize(dir.join("source")).unwrap().to_str().unwrap());
+        let _ = fs::remove_dir_all(&dir);
     }
 
     // Downloads and scans a real repository when both variables are set, e.g.

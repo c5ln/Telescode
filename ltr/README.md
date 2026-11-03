@@ -113,3 +113,21 @@ float parsing so both commands retain split-boundary precision.
 Validation on Linux with LightGBM 4.7.0: 27 native ranking cases, 17 Python/native
 oracle and CLI cases, 289 Python tests overall, and 390 C++ tests across seven
 targets passed. The pre-existing LayoutTests target remains excluded.
+
+## Onboarding tour integration
+
+The existing MCP/desktop tour workflow now calls `python -m ltr.tour_rank` when
+opening a DB. This combines live feature generation with **native C++** ranking
+and returns JSON scores. The service applies those file ranks to a tour-specific
+analysis snapshot and preserves class/function local ranks and baseline metrics.
+It leaves the source DB unchanged, including `file_rank` used as a model feature.
+
+For now, `DEFAULT_ONBOARDING_QUERY` supplies the text features. No user query UI
+is required. `rank_repository(..., query=...)` accepts explicit text for a future
+query-driven entry point. This connection verifies pipeline behavior and model
+parity; it does not establish generic onboarding ranking quality.
+
+The desktop records the source root beside each newly scanned DB; external DBs
+can pass `repoPath` to MCP `open_project`. See
+[`mcp/README.md`](../mcp/README.md#lambdarank-onboarding-order) for runtime setup,
+source metadata, snapshot matching and existing-tour regeneration behavior.

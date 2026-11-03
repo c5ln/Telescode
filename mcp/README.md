@@ -63,9 +63,46 @@ are missing. The reading path uses fileRank, then class localRank within each fi
 The built frontend is served by the MCP process, so Vite and Tauri do not need to
 run. Rebuild `frontend` after modifying tour UI code.
 
+## LambdaRank onboarding order
+
+Opening an analysis **DB** now generates the released model's 19 features and
+runs `TelescodeHeadless rank`. Files follow descending model score; classes keep
+their existing local ranks. The default onboarding query is defined in
+[`ltr/tour_rank.py`](../ltr/tour_rank.py). There is no query input in the desktop
+UI yet. Its internal `rank_repository(..., query=...)` API is ready for that
+extension. A generic onboarding query's ranking quality has not been evaluated
+as a separate training task.
+
+Build `TelescodeHeadless` and `TelescodePPR`, and use a Python environment with
+the dependencies in `bench/requirements.txt`. The service discovers
+`bench/.venv` or `.venv` under this repository. Override `TELESCODE_LTR_PYTHON`
+and `TELESCODE_PPR` when those executables live elsewhere. Native inference
+also needs the linked LightGBM shared library at runtime.
+
+The desktop writes `<database>.source.json` after a successful scan/algo pass,
+containing `{ "version": 1, "repoPath": "/absolute/source/root" }`. Reopen the
+folder or GitHub URL once for databases created before this change. An external
+DB can be opened directly with `open_project(path, repoPath)`; `repoPath` is the
+source directory matching its latest scan/update and algo pass.
+
+Ranking changes only the tour snapshot. Baseline DB ranks and scores remain
+available for feature generation. The project exposes `ranking` (model, query,
+query ID), and file evidence includes its LambdaRank score. Invalid or failed
+ranking does not fall back to a different ordering. Initializer files and their
+contained entities are excluded from the tour reading path under the v1 model
+policy. JSON inputs continue to use their recorded reading sequence.
+
+Saved tours retain both the ranked snapshot hash and the original analysis hash,
+so the desktop can find and play the tour against its original repository map.
+Desktop onboarding regenerates tours made before model integration; existing
+saved drafts remain available through MCP. Ranked tours are matched to their
+source hash rather than unrelated repositories sharing the same file names.
+
 ## Agent workflow
 
-1. `open_project(path)` opens a DB or snapshot; it does not clone or scan.
+1. `open_project(path)` opens a DB with default LambdaRank onboarding order or
+   opens a JSON snapshot as recorded; it does not clone or scan. For external
+   DBs without source metadata, also pass `repoPath`.
 2. `get_project_overview`, `get_reading_tour_order`, `search_nodes`, `inspect_node` provide existing data
    and valid node IDs. Use these to support factual captions.
 3. `create_tour_draft(projectId, title, language, stops)` accepts explicit
