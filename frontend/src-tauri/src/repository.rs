@@ -274,7 +274,7 @@ fn remove_if_present(path: &Path) -> Result<(), BridgeError> {
 
 /// Scans `source` into a fresh database at `db` and computes its reading order.
 fn scan(sidecar: &Path, source: &Path, db: &Path, name: &str) -> Result<(), BridgeError> {
-    for suffix in ["", "-wal", "-shm", ".source.json"] {
+    for suffix in ["", "-wal", "-shm", ".source"] {
         let mut path = db.as_os_str().to_owned();
         path.push(suffix);
         remove_if_present(Path::new(&path))?;
@@ -287,16 +287,23 @@ fn scan(sidecar: &Path, source: &Path, db: &Path, name: &str) -> Result<(), Brid
         });
     }
     bridge::run_sidecar(sidecar, &[OsStr::new("algo"), db.as_os_str()])?;
-    let repo = fs::canonicalize(source).map_err(|e| BridgeError::Internal {
-        message: format!("Could not resolve the repository source: {e}"),
-    })?;
-    let mut metadata_path = db.as_os_str().to_owned();
-    metadata_path.push(".source.json");
-    let metadata = serde_json::json!({ "version": 1, "repoPath": repo });
-    fs::write(Path::new(&metadata_path), metadata.to_string()).map_err(|e| BridgeError::Internal {
-        message: format!("Could not save the repository source location for tours: {e}"),
-    })?;
-    Ok(())
+    record_source(db, source)
+}
+
+/// `<db>.source`: where the scanned source is, for the Telescode MCP server
+/// to read code excerpts from when it writes quizzes. The database itself
+/// keeps only paths relative to it.
+pub fn source_record(db: &Path) -> PathBuf {
+    let mut path = db.as_os_str().to_owned();
+    path.push(".source");
+    PathBuf::from(path)
+}
+
+fn record_source(db: &Path, source: &Path) -> Result<(), BridgeError> {
+    let source = std::path::absolute(source).unwrap_or_else(|_| source.to_path_buf());
+    fs::write(source_record(db), source.to_string_lossy().as_bytes()).map_err(|e| BridgeError::Internal {
+        message: format!("Could not record the source folder of {}: {e}", db.display()),
+    })
 }
 
 /// One lock per cache directory, so two opens of the same repository never
@@ -456,6 +463,17 @@ pub async fn open_repository(app: tauri::AppHandle, url: String) -> Result<Strin
 mod tests {
     use super::*;
 
+    #[test]
+    fn records_the_source_folder_beside_the_database() {
+        let dir = std::env::temp_dir().join(format!("telescode-source-record-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let db = dir.join("repo.db");
+        record_source(&db, &dir.join("source")).unwrap();
+        assert_eq!(source_record(&db), dir.join("repo.db.source"));
+        assert_eq!(fs::read_to_string(source_record(&db)).unwrap(), dir.join("source").to_string_lossy());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
     fn repo(owner: &str, name: &str) -> RepositoryRef {
         RepositoryRef { owner: owner.into(), name: name.into() }
     }
@@ -600,11 +618,8 @@ mod tests {
         let sidecar = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../build/TelescodeHeadless");
         let db = dir.join("project.db");
         scan(&sidecar, &dir.join("source"), &db, "project").unwrap();
-        let metadata: serde_json::Value = serde_json::from_str(
-            &fs::read_to_string(dir.join("project.db.source.json")).unwrap(),
-        ).unwrap();
-        assert_eq!(metadata["version"], 1);
-        assert_eq!(metadata["repoPath"], fs::canonicalize(dir.join("source")).unwrap().to_str().unwrap());
+        assert_eq!(fs::read_to_string(source_record(&db)).unwrap(), dir.join("source").to_str().unwrap());
+        assert!(!dir.join("project.db.source.json").exists());
         let _ = fs::remove_dir_all(&dir);
     }
 

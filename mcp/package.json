@@ -7,7 +7,7 @@
     "start": "tsx src/server.ts",
     "install:browser": "tsx src/install-browser.ts",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "tsx --test src/tour.test.ts src/protocol.test.ts src/ranking.test.ts",
+    "test": "tsx --test src/tour.test.ts src/protocol.test.ts src/ranking.test.ts src/quiz.test.ts",
     "smoke": "tsx src/smoke.ts"
   },
   "dependencies": {

@@ -50,31 +50,9 @@ fn generation_prompt(db: &Path) -> String {
 /// The arguments for `claude`: print mode, only the Telescode server, and
 /// only its drafting tools allowed (print mode denies everything else).
 fn claude_args(db: &Path, server: &mcp::ServerCommand) -> Vec<OsString> {
-    let env: serde_json::Map<String, Value> = server
-        .env
-        .iter()
-        .map(|(k, v)| (k.clone(), Value::from(v.to_string_lossy().into_owned())))
-        .collect();
-    let config = json!({
-        "mcpServers": {
-            "telescode": {
-                "type": "stdio",
-                "command": server.program.to_string_lossy(),
-                "args": server.args.iter().map(|a| a.to_string_lossy()).collect::<Vec<_>>(),
-                "env": env,
-            }
-        }
-    });
-    let allowed = AGENT_TOOLS.iter().map(|t| format!("mcp__telescode__{t}")).collect::<Vec<_>>().join(",");
-    vec![
-        "-p".into(),
-        generation_prompt(db).into(),
-        "--mcp-config".into(),
-        config.to_string().into(),
-        "--strict-mcp-config".into(),
-        "--allowedTools".into(),
-        allowed.into(),
-    ]
+    let mut args = mcp::claude_config_args(server, AGENT_TOOLS);
+    args.splice(0..0, ["-p".into(), generation_prompt(db).into()]);
+    args
 }
 
 /// Runs Claude Code until it has saved a tour for `db_path`, or fails.

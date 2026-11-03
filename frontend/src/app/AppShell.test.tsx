@@ -7,6 +7,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { TelescodeError, type AnalysisSnapshot, type GraphResponse, type RepositorySource, type TelescodeApi } from '../bridge'
 import sherlock from '../graph/fixtures/sherlock.graph.json'
 import type { GraphRenderer } from '../graph/renderer'
+import type { QuizQuestion, QuizSet } from '../quiz/model'
+import type { QuizLibrary } from '../quiz/quiz'
 import type { TourStop } from '../tour/model'
 import type { SavedTour, TourLibrary } from '../tour/tutorial'
 import { AppShell } from './AppShell'
@@ -524,6 +526,151 @@ describe('AppShell', () => {
       const panel = await screen.findByRole('region', { name: 'Tutorial' })
       expect(await within(panel).findByText('Cannot generate the tutorial: No MCP server.')).toBeTruthy()
       expect(generate).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('quizzes on a tutorial step', () => {
+    const ready = { status: 'ready' as const, dbPath: 'C:/x/project.db', snapshot }
+    const question = (n: number, over: Partial<QuizQuestion>): QuizQuestion => ({
+      id: `q1:${n}`,
+      type: 'multiple_choice',
+      difficulty: 'easy',
+      concept: 'Repository layout',
+      question: 'Which directory holds the tests?',
+      answer: 'tests',
+      distractors: ['devel', 'sherlock_project'],
+      choices: ['devel', 'tests', 'sherlock_project'],
+      explanation: 'tests is a top-level directory of the repository.',
+      evidence: [
+        { nodeId: 'root', title: 'Repository' },
+        { nodeId: 'dir:tests', title: 'tests' },
+      ],
+      ...over,
+    })
+    const quizSet: QuizSet = {
+      schemaVersion: 1,
+      id: 'q1',
+      tourId: 't1',
+      tourRevision: 1,
+      stopIndex: 0,
+      nodeId: 'root',
+      language: 'en',
+      snapshotHash: 'x',
+      createdMs: 1,
+      questions: [
+        question(1, {}),
+        question(2, { type: 'true_false', question: 'devel holds the package.', answer: 'False', distractors: ['True'], choices: ['True', 'False'], concept: 'Packages' }),
+        question(3, { difficulty: 'medium', question: 'What does sherlock_project contain?', concept: 'Packages' }),
+      ],
+      }
+
+    /** Quizzes graded like the server does, keeping every answer. */
+    function quizzes(...lists: QuizSet[][]) {
+      let call = 0
+      const answers: { quizId: string; selectedIndex: number; responseTimeMs: number | null }[] = []
+      const quizLibrary = {
+        list: vi.fn(async () => lists[Math.min(call++, lists.length - 1)]!),
+        respond: vi.fn(async ({ quizSetId, quizId, selectedIndex, responseTimeMs }: Parameters<QuizLibrary['respond']>[0]) => {
+          const q = lists.flat().find((s) => s.id === quizSetId)!.questions.find((x) => x.id === quizId)!
+          answers.push({ quizId, selectedIndex, responseTimeMs })
+          const correct = q.choices[selectedIndex] === q.answer
+          const attempt = answers.filter((a) => a.quizId === quizId).length
+          return {
+            response: {} as never,
+            feedback: { correct, answer: q.answer, explanation: q.explanation, evidence: q.evidence, attempt },
+          }
+        }),
+      } satisfies QuizLibrary
+      return { library: quizLibrary, answers }
+    }
+
+    async function openQuiz() {
+      await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+      const tutorial = await screen.findByRole('region', { name: 'Tutorial' })
+      await userEvent.click(within(tutorial).getByRole('button', { name: 'Quiz on this step' }))
+      return screen.findByRole('region', { name: 'Quiz' })
+    }
+
+    it('asks the step’s questions, records each answer and explains the result', async () => {
+      const { library: quizLibrary, answers } = quizzes([quizSet])
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={library([sherlockTour(60_000)])} quizzes={quizLibrary} />)
+      const panel = await openQuiz()
+      await within(panel).findByText('Which directory holds the tests?')
+      expect(within(panel).getByText('Quiz · root')).toBeTruthy()
+      expect(within(panel).getByText('Question 1 of 2 · Repository layout')).toBeTruthy()
+      const difficulty = (name: string) => within(within(panel).getByRole('group', { name: 'Difficulty' })).getByRole('button', { name })
+      expect(difficulty('Easy').getAttribute('aria-pressed')).toBe('true')
+      expect((difficulty('Hard') as HTMLButtonElement).disabled).toBe(true)
+
+      const check = within(panel).getByRole('button', { name: 'Check answer' }) as HTMLButtonElement
+      expect(check.disabled).toBe(true)
+      await userEvent.click(within(panel).getByRole('radio', { name: 'devel' }))
+      await userEvent.click(check)
+      expect(await within(panel).findByText('Not quite. The answer is “tests”.')).toBeTruthy()
+      expect(within(panel).getByText('tests is a top-level directory of the repository.')).toBeTruthy()
+      expect(answers).toEqual([{ quizId: 'q1:1', selectedIndex: 0, responseTimeMs: expect.any(Number) }])
+      expect(within(panel).getByRole('radio', { name: 'tests' }).matches(':disabled')).toBe(true)
+
+      // The nodes an answer rests on can be looked at on the map.
+      await userEvent.click(within(panel).getByRole('button', { name: 'tests' }))
+      expect(renderer().selected?.id).toBe('dir:tests')
+
+      // Trying again is a new attempt at the same question.
+      await userEvent.click(within(panel).getByRole('button', { name: 'Try again' }))
+      await userEvent.click(within(panel).getByRole('radio', { name: 'tests' }))
+      await userEvent.click(within(panel).getByRole('button', { name: 'Check answer' }))
+      expect(await within(panel).findByText('Correct.')).toBeTruthy()
+      expect(within(panel).queryByRole('button', { name: 'Try again' })).toBeNull()
+      expect(answers.map((a) => [a.quizId, a.selectedIndex])).toEqual([['q1:1', 0], ['q1:1', 1]])
+
+      await userEvent.click(within(panel).getByRole('button', { name: 'Next question' }))
+      expect(within(panel).getByText('devel holds the package.')).toBeTruthy()
+      await userEvent.click(difficulty('Medium'))
+      expect(within(panel).getByText('What does sherlock_project contain?')).toBeTruthy()
+      expect(within(panel).queryByRole('button', { name: 'Next question' })).toBeNull()
+
+      // Back to the tutorial: the same step, paused, with the map on it again.
+      await userEvent.click(within(panel).getByRole('button', { name: 'Back to tutorial' }))
+      const tutorial = screen.getByRole('region', { name: 'Tutorial' })
+      expect(within(tutorial).getByText('1 / 3')).toBeTruthy()
+      expect(within(tutorial).getByRole('button', { name: 'Play' })).toBeTruthy()
+      // The root step selects nothing, as in the tutorial itself.
+      expect(renderer().selected).toBeNull()
+    })
+
+    it('writes a quiz when the step has none, then asks it', async () => {
+      let finish!: () => void
+      const { library: quizLibrary } = quizzes([], [quizSet])
+      const generate = vi.fn(() => new Promise<void>((resolve) => (finish = resolve)))
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={library([sherlockTour(60_000)])} quizzes={{ ...quizLibrary, generate }} />)
+      const panel = await openQuiz()
+      await within(panel).findByText('Writing a quiz on this step')
+      expect(generate).toHaveBeenCalledWith({ tourId: 't1', tourRevision: 1, stopIndex: 0, nodeId: 'root', dbPath: 'C:/x/project.db' })
+      await act(async () => finish())
+      expect(await within(panel).findByText('Which directory holds the tests?')).toBeTruthy()
+    })
+
+    it('reports an answer that could not be recorded, and lets the user answer again', async () => {
+      const { library: quizLibrary } = quizzes([quizSet])
+      quizLibrary.respond.mockRejectedValueOnce(new TelescodeError('tours_unavailable', 'The Telescode MCP server stopped.'))
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={library([sherlockTour(60_000)])} quizzes={quizLibrary} />)
+      const panel = await openQuiz()
+      await userEvent.click(await within(panel).findByRole('radio', { name: 'tests' }))
+      await userEvent.click(within(panel).getByRole('button', { name: 'Check answer' }))
+      expect(await within(panel).findByText('Cannot record the answer: The Telescode MCP server stopped.')).toBeTruthy()
+      await userEvent.click(within(panel).getByRole('button', { name: 'Check answer' }))
+      expect(await within(panel).findByText('Correct.')).toBeTruthy()
+    })
+
+    it('closes with the tutorial', async () => {
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={library([sherlockTour(60_000)])} quizzes={quizzes([quizSet]).library} />)
+      const panel = await openQuiz()
+      await within(panel).findByText('Which directory holds the tests?')
+      await userEvent.click(screen.getByRole('button', { name: 'Exit tutorial', pressed: true }))
+      expect(screen.queryByRole('region', { name: 'Quiz' })).toBeNull()
+      await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+      expect(await screen.findByRole('region', { name: 'Tutorial' })).toBeTruthy()
+      expect(screen.queryByRole('region', { name: 'Quiz' })).toBeNull()
     })
   })
 })

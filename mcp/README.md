@@ -79,11 +79,13 @@ the dependencies in `bench/requirements.txt`. The service discovers
 and `TELESCODE_PPR` when those executables live elsewhere. Native inference
 also needs the linked LightGBM shared library at runtime.
 
-The desktop writes `<database>.source.json` after a successful scan/algo pass,
-containing `{ "version": 1, "repoPath": "/absolute/source/root" }`. Reopen the
-folder or GitHub URL once for databases created before this change. An external
-DB can be opened directly with `open_project(path, repoPath)`; `repoPath` is the
-source directory matching its latest scan/update and algo pass.
+The desktop writes the absolute source directory to `<database>.source` after
+a successful scan/algo pass. This is the same source record used by quizzes.
+Reopen the folder or GitHub URL once for databases without this record. An
+external DB can be opened directly with `open_project(path, sourceRoot)`;
+`sourceRoot` is the source directory matching its latest scan/update and algo
+pass. The earlier LambdaRank `repoPath` argument remains an alias. Downloaded
+repositories can also use the existing `source` directory beside their DB.
 
 Ranking changes only the tour snapshot. Baseline DB ranks and scores remain
 available for feature generation. The project exposes `ranking` (model, query,
@@ -102,7 +104,7 @@ source hash rather than unrelated repositories sharing the same file names.
 
 1. `open_project(path)` opens a DB with default LambdaRank onboarding order or
    opens a JSON snapshot as recorded; it does not clone or scan. For external
-   DBs without source metadata, also pass `repoPath`.
+   DBs without source metadata, also pass `sourceRoot` (`repoPath` is an alias).
 2. `get_project_overview`, `get_reading_tour_order`, `search_nodes`, `inspect_node` provide existing data
    and valid node IDs. Use these to support factual captions.
 3. `create_tour_draft(projectId, title, language, stops)` accepts explicit
@@ -122,6 +124,35 @@ does not deploy a public server. Drafts and snapshots persist in the output
 directory and are restored on restart. An interrupted render is marked failed;
 revise and approve again to retry. Review/player URLs change port on restart;
 get a fresh URL from `get_tour_status`.
+
+## Tour quizzes
+
+Comprehension quizzes on a tour stop. The desktop app has Claude Code write them
+(`src-tauri/src/quizzes.rs`) with only the tools below; guidance is in
+[`prompts/quiz.md`](prompts/quiz.md), served with the onboarding instructions.
+
+1. `get_quiz_context(projectId, nodeId, difficulty)` is the GraphRAG retrieval step
+   (`frontend/src/quiz/model.ts`). It returns the code-graph nodes and relations within
+   reach, plus numbered source excerpts of them: easy covers the node and its children,
+   medium adds one hop, hard adds two hops plus the reading order around the node
+   (`learning`). Code relations and reading order are kept separate, and metrics and
+   counts are left out so questions are about what the code does.
+2. `create_quiz(projectId, tourId, tourRevision, stopIndex, nodeId, questions)` saves
+   multiple-choice and true/false questions, 1–3 per difficulty. Each question's
+   `evidenceNodeIds` must lie in the context for its difficulty and include the stop's
+   node (easy ≥1, medium ≥2, hard ≥2 nodes); otherwise the question is refused.
+3. `list_quizzes`, `record_quiz_response` and `list_quiz_responses` are for the app.
+   The server grades each answer and appends it to `quiz-responses.jsonl` in the output
+   directory with `quizId`, `concept`, `difficulty`, `result`, `selectedAnswer`,
+   `attempt`, `tourContext`, `relatedNodes`, `responseTimeMs` and `timestamp`, for a
+   later adaptive tour to read.
+
+Questions are written like interview questions: easy at a newbie level (what the code
+is for and does), medium at a junior level (flow across related code, debugging), hard at
+a senior level (trade-offs, failure modes, extension). Excerpts are read from the source
+folder the desktop shell records beside each scanned database (`<db>.source`), or a
+`source` folder beside it; `open_project` also takes `sourceRoot`. Files outside that
+folder are never read. Without a source folder, excerpts are empty.
 
 ## Artifacts
 

@@ -128,6 +128,7 @@ query-driven entry point. This connection verifies pipeline behavior and model
 parity; it does not establish generic onboarding ranking quality.
 
 The desktop records the source root beside each newly scanned DB; external DBs
-can pass `repoPath` to MCP `open_project`. See
+can pass `sourceRoot` to MCP `open_project` (`repoPath` remains an alias). Ranking
+and quizzes share the desktop's `<db>.source` record and source discovery. See
 [`mcp/README.md`](../mcp/README.md#lambdarank-onboarding-order) for runtime setup,
 source metadata, snapshot matching and existing-tour regeneration behavior.

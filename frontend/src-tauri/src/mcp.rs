@@ -79,6 +79,34 @@ pub fn server_command() -> Result<ServerCommand, BridgeError> {
     })
 }
 
+/// The `claude` arguments that attach only this server and allow only
+/// `tools` from it (print mode denies everything else).
+pub fn claude_config_args(server: &ServerCommand, tools: &[&str]) -> Vec<OsString> {
+    let env: serde_json::Map<String, Value> = server
+        .env
+        .iter()
+        .map(|(k, v)| (k.clone(), Value::from(v.to_string_lossy().into_owned())))
+        .collect();
+    let config = json!({
+        "mcpServers": {
+            "telescode": {
+                "type": "stdio",
+                "command": server.program.to_string_lossy(),
+                "args": server.args.iter().map(|a| a.to_string_lossy()).collect::<Vec<_>>(),
+                "env": env,
+            }
+        }
+    });
+    let allowed = tools.iter().map(|t| format!("mcp__telescode__{t}")).collect::<Vec<_>>().join(",");
+    vec![
+        "--mcp-config".into(),
+        config.to_string().into(),
+        "--strict-mcp-config".into(),
+        "--allowedTools".into(),
+        allowed.into(),
+    ]
+}
+
 /// A running server and the client end of its stdio.
 pub struct McpServer {
     child: Child,

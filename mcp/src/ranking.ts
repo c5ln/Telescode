@@ -1,7 +1,6 @@
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { readFile } from 'node:fs/promises'
-import { dirname, isAbsolute, join, resolve } from 'node:path'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import type { AnalysisSnapshot } from '../../frontend/src/bridge/models.ts'
@@ -49,21 +48,9 @@ export function applyRanking(snapshot: AnalysisSnapshot, ranking: RankingResult)
   return { ...snapshot, totals: { ...snapshot.totals, sequenceCount: readingSequence.length }, readingSequence }
 }
 
-async function sourceRoot(db: string, explicit?: string) {
-  if (explicit) return resolve(explicit)
-  let metadata
-  try { metadata = JSON.parse(await readFile(`${db}.source.json`, 'utf8')) }
-  catch (error) {
-    throw new Error(`Source root unavailable for LambdaRank: reopen the repository folder/URL or pass repoPath to open_project. ${String(error)}`)
-  }
-  if (metadata?.version !== 1) throw new Error('Unsupported source metadata version; reopen the repository')
-  if (typeof metadata.repoPath !== 'string' || !isAbsolute(metadata.repoPath)) throw new Error('Invalid source metadata repoPath; reopen the repository')
-  return metadata.repoPath as string
-}
-
 /** Existing DB opening uses onboarding; a future query UI can pass context here. */
 export async function rankProject(snapshot: AnalysisSnapshot, db: string, headless: string, repoPath?: string) {
-  const repo = await sourceRoot(db, repoPath)
+  if (!repoPath) throw new Error('Source root unavailable for LambdaRank: reopen the repository folder/URL or pass sourceRoot to open_project')
   const python = process.env.TELESCODE_LTR_PYTHON ?? [
     join(root, 'bench/.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python'),
     join(root, '.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python'),
@@ -74,7 +61,7 @@ export async function rankProject(snapshot: AnalysisSnapshot, db: string, headle
   ].find(existsSync) ?? join(root, `build/TelescodePPR${extension}`)
   try {
     const { stdout } = await promisify(execFile)(python, [
-      '-m', 'ltr.tour_rank', '--repo', repo, '--db', db,
+      '-m', 'ltr.tour_rank', '--repo', repoPath, '--db', db,
       '--headless-bin', headless, '--ppr-bin', ppr,
       '--model', join(root, 'ltr/models/lambdarank-v1'),
     ], { cwd: root, timeout: 240000, maxBuffer: 128 * 1024 * 1024 })

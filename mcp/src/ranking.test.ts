@@ -69,13 +69,14 @@ async function project() {
 test('DB open runs native ranking, validates draft order and restores the ranked snapshot', async () => {
   const p = await project()
   try {
-    await writeFile(`${p.db}.source.json`, JSON.stringify({ version: 1, repoPath: p.repo }))
+    await writeFile(`${p.db}.source`, p.repo)
     const before = await readFile(p.db)
     const source = parseAnalysis((await run(headless, ['analyze', p.db])).stdout)
     const store = new TourStore(join(p.dir, 'tours'))
     const opened = await store.open(p.db, headless)
     assert.equal(opened.ranking?.model, 'lambdarank-v1')
     assert.ok(opened.ranking?.query)
+    assert.equal(opened.sourceRoot, p.repo)
     assert.equal(opened.sourceSnapshotHash, createHash('sha256').update(JSON.stringify(source)).digest('hex'))
     assert.notEqual(opened.hash, opened.sourceSnapshotHash)
     const order = readingTourOrder(opened.snapshot).filter(n => n.localRank === null)
@@ -118,12 +119,17 @@ test('MCP DB workflow exposes native order and saves only tours following that o
       assert.ok(!response.isError, JSON.stringify(response))
       return JSON.parse((response.content as { type: string; text: string }[]).find(c => c.type === 'text')!.text)
     }
-    const opened = await call('open_project', { path: p.db, repoPath: p.repo })
+    const opened = await call('open_project', { path: p.db, sourceRoot: p.repo })
     assert.equal(opened.ranking.model, 'lambdarank-v1')
+    assert.equal(opened.hasSource, true)
+    const ambiguous = await client.callTool({ name: 'open_project', arguments: { path: p.db, sourceRoot: p.repo, repoPath: p.dir } })
+    assert.equal(ambiguous.isError, true)
+    assert.match(JSON.stringify(ambiguous.content), /same source directory/)
     const overview = await call('get_project_overview', { projectId: opened.projectId })
     assert.equal(overview.ranking.query, opened.ranking.query)
     assert.ok(overview.readingSequence.every((s: any) => Number.isFinite(s.scores.lambdarank)))
-    const order = (await call('get_reading_tour_order', { projectId: opened.projectId })).filter((n: any) => n.localRank === null)
+    const fullOrder = await call('get_reading_tour_order', { projectId: opened.projectId })
+    const order = fullOrder.filter((n: any) => n.localRank === null)
     assert.deepEqual(order.map((n: any) => n.title), overview.readingSequence.map((s: any) => s.fileId))
     const stops = order.map((n: any) => ({ nodeId: n.nodeId, caption: 'Verified component.', transitionMs: 0, holdMs: 2000 }))
     const rejected = await client.callTool({ name: 'create_tour_draft', arguments: { projectId: opened.projectId, title: 'Wrong order', stops: stops.toReversed() } })
@@ -135,6 +141,19 @@ test('MCP DB workflow exposes native order and saves only tours following that o
     assert.equal(saved[0].sourceSnapshotHash, opened.sourceSnapshotHash)
     const status = await call('get_tour_status', { tourId: draft.plan.id })
     assert.equal(status.state, 'draft')
+    const context = await call('get_quiz_context', { projectId: opened.projectId, nodeId: stops[0].nodeId, difficulty: 'hard' })
+    assert.ok(context.excerpts.some((e: any) => /def (transform|load_dataset)/.test(e.text)), 'quiz context must read source used by ranking')
+    assert.deepEqual(context.learning.after, fullOrder.slice(1, 4).map((n: any) => n.nodeId))
+    const quiz = await call('create_quiz', { projectId: opened.projectId, tourId: draft.plan.id, tourRevision: 1, stopIndex: 0, nodeId: stops[0].nodeId, questions: [{
+      type: 'true_false', difficulty: 'easy', concept: 'Component behavior',
+      question: stops[0].nodeId === 'file:main.py' ? 'load_dataset calls Application.run.' : 'transform returns application data configuration.',
+      answer: 'True', explanation: 'The function body in the source excerpt shows this behavior.', evidenceNodeIds: [stops[0].nodeId],
+    }] })
+    const quizzes = await call('list_quizzes', {})
+    const savedQuiz = quizzes.find((q: any) => q.id === quiz.quizSetId)
+    assert.equal(savedQuiz.snapshotHash, opened.snapshotHash)
+    const response = await call('record_quiz_response', { quizSetId: savedQuiz.id, quizId: savedQuiz.questions[0].id, selectedIndex: 0 })
+    assert.equal(response.feedback.correct, true)
     const frames: string[] = []
     for (const timeMs of [0, 2000]) {
       const preview = await client.callTool({ name: 'preview_tour_frame', arguments: { tourId: draft.plan.id, timeMs } })
@@ -157,7 +176,7 @@ test('external databases accept an explicit source root; missing roots reject wi
     assert.equal(store.projects.size, 0)
     const opened = await store.open(p.db, headless, p.repo)
     assert.equal(opened.ranking?.model, 'lambdarank-v1')
-    await writeFile(`${p.db}.source.json`, JSON.stringify({ version: 999, repoPath: p.repo }))
-    await assert.rejects(store.open(p.db, headless), /version/i)
+    await writeFile(`${p.db}.source`, join(p.dir, 'missing-source'))
+    await assert.rejects(store.open(p.db, headless), /source|reopen/i)
   } finally { await rm(p.dir, { recursive: true, force: true }) }
 })

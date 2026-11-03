@@ -10,8 +10,10 @@ import type { GraphHandle } from '../graph/GraphCanvas'
 import type { GraphNode } from '../graph/model'
 import type { Crumb } from '../ui/Breadcrumbs'
 import type { DropdownItem } from '../ui/Dropdown'
+import { tauriQuizLibrary, type QuizLibrary } from '../quiz/quiz'
 import { tauriTourLibrary, type TourLibrary } from '../tour/tutorial'
 import styles from './AppShell.module.css'
+import { useQuiz } from './useQuiz'
 import { useTutorial } from './useTutorial'
 import { sourceLocation, useWorkspace, workspaceName, type WorkspaceState } from './useWorkspace'
 
@@ -25,6 +27,8 @@ interface AppShellProps {
   allowLocalFolder?: boolean
   /** Where saved code tours are read from, for tutorial mode. */
   tours?: TourLibrary
+  /** Where quizzes on tutorial steps are read, written and answered. */
+  quizzes?: QuizLibrary
   /** Scans a repository, from its URL or folder, into a database. */
   repositories?: RepositoryOpener
 }
@@ -34,6 +38,7 @@ export function AppShell({
   initialState,
   allowLocalFolder = false,
   tours = tauriTourLibrary,
+  quizzes = tauriQuizLibrary,
   repositories,
 }: AppShellProps) {
   const workspace = useWorkspace(api, initialState, repositories)
@@ -41,6 +46,7 @@ export function AppShell({
   const graphRef = useRef<GraphHandle | null>(null)
   const ready = state.status === 'ready' ? state : null
   const tutorial = useTutorial(tours, ready?.snapshot ?? null, ready?.dbPath ?? null, graphRef)
+  const quiz = useQuiz(quizzes, ready?.snapshot ?? null, ready?.dbPath ?? null, graphRef)
   /** Where the user is in the map, below the repository. */
   const [trail, setTrail] = useState<Crumb[]>([])
   /** Complexity mode: on by default, kept across repositories. */
@@ -89,7 +95,13 @@ export function AppShell({
         tutorial={{
           active: tutorial.state.status !== 'off',
           disabled: state.status !== 'ready',
-          onToggle: tutorial.state.status === 'off' ? tutorial.start : tutorial.exit,
+          onToggle:
+            tutorial.state.status === 'off'
+              ? tutorial.start
+              : () => {
+                  quiz.close()
+                  tutorial.exit()
+                },
         }}
       />
       <WorkspaceCanvas
@@ -103,6 +115,7 @@ export function AppShell({
         onContextChange={onContextChange}
         complexity={complexity}
         tutorial={tutorial}
+        quiz={quiz}
       />
     </div>
   )

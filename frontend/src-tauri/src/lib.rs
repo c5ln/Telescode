@@ -1,6 +1,7 @@
 mod bridge;
 mod claude;
 mod mcp;
+mod quizzes;
 mod repository;
 mod tours;
 
@@ -17,7 +18,7 @@ pub fn run() {
       }
       Ok(())
     })
-    .invoke_handler(tauri::generate_handler![bridge::run_headless, repository::open_repository, repository::open_folder, tours::list_tours, tours::generate_tour, claude::claude_status, claude::claude_sign_in])
+    .invoke_handler(tauri::generate_handler![bridge::run_headless, repository::open_repository, repository::open_folder, tours::list_tours, tours::generate_tour, claude::claude_status, claude::claude_sign_in, quizzes::list_quizzes, quizzes::generate_quiz, quizzes::record_quiz_response])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
