@@ -111,6 +111,30 @@ describe('Dropdown', () => {
     expect(screen.queryByRole('menu')).toBeNull()
   })
 
+  it('marks the selected radio item and supports choosing another with the keyboard', async () => {
+    const onSelect = vi.fn()
+    render(
+      <Dropdown
+        label="AI agent"
+        items={[
+          { type: 'radio', id: 'claude', label: 'Claude Code', checked: false, onSelect },
+          { type: 'radio', id: 'codex', label: 'Codex', checked: true, onSelect: vi.fn() },
+        ]}
+        trigger={props => <button {...props} type="button">AI agent</button>}
+      />,
+    )
+    const trigger = screen.getByRole('button', { name: 'AI agent' })
+    await userEvent.click(trigger)
+    expect(document.activeElement).toBe(screen.getByRole('menuitemradio', { name: 'Codex', checked: true }))
+    const claude = screen.getByRole('menuitemradio', { name: 'Claude Code', checked: false })
+    await userEvent.keyboard('{ArrowUp}')
+    expect(document.activeElement).toBe(claude)
+    await userEvent.keyboard('{Enter}')
+    expect(onSelect).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(document.activeElement).toBe(trigger)
+  })
+
   it('flips a toggle item in place and keeps the menu open', async () => {
     const onChange = vi.fn()
     const { rerender } = render(

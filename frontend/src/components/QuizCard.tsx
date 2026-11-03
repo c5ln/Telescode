@@ -4,6 +4,7 @@
 
 import type { KeyboardEvent } from 'react'
 
+import { agents, type AgentProvider } from '../agent'
 import { questionsOf, type Quiz } from '../app/useQuiz'
 import type { SetupPhase } from '../app/useTutorial'
 import { DIFFICULTIES, type Difficulty } from '../quiz/model'
@@ -14,21 +15,23 @@ import { Spinner } from '../ui/Spinner'
 import styles from './QuizCard.module.css'
 import panel from './TutorialPanel.module.css'
 
-const SETUP_TITLES: Record<SetupPhase, string> = {
-  generating: 'Writing a quiz on this step',
-  'signing-in': 'Sign in to Claude to write a quiz on this step',
-  'not-installed': 'Claude Code is needed to write quizzes',
+const SETUP_TITLES: Record<SetupPhase, (account: string, name: string) => string> = {
+  generating: () => 'Writing a quiz on this step',
+  'signing-in': (account) => `Sign in to ${account} to write a quiz on this step`,
+  'not-installed': (_account, name) => `${name} is needed to write quizzes`,
 }
 
 const LABELS: Record<Difficulty, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' }
 
 interface QuizCardProps {
+  provider?: AgentProvider
   quiz: Quiz
   /** The step's title, for the eyebrow. */
   stepTitle: string
 }
 
-export function QuizCard({ quiz, stepTitle }: QuizCardProps) {
+export function QuizCard({ quiz, stepTitle, provider = 'claude' }: QuizCardProps) {
+  const { name, account } = agents[provider]
   const { state } = quiz
   if (state.status === 'off') return null
 
@@ -63,16 +66,16 @@ export function QuizCard({ quiz, stepTitle }: QuizCardProps) {
     return (
       <section className={panel.panel} aria-label="Quiz" onKeyDown={onKeyDown}>
         {header}
-        <h2 className={panel.title}>{SETUP_TITLES[state.phase]}</h2>
+        <h2 className={panel.title}>{SETUP_TITLES[state.phase](account, name)}</h2>
         {state.phase === 'not-installed' ? (
-          <p className={panel.text}>Quizzes are written by Claude Code with your Claude account. Install it, then try again.</p>
+          <p className={panel.text}>Quizzes are written by {name} with your {account} account. Install it, then try again.</p>
         ) : state.error ? (
           <p className={panel.error}>Cannot write the quiz: {state.error}</p>
         ) : (
           <p className={panel.waiting} role="status">
             <Spinner />
             {state.phase === 'signing-in'
-              ? 'Finish signing in to Claude in your browser. The quiz is written right after.'
+              ? `Finish signing in to ${account} in your browser. The quiz is written right after.`
               : 'Writing questions from the code map… They appear here when ready.'}
           </p>
         )}

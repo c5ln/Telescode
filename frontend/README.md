@@ -122,6 +122,43 @@ Re-run it after rebuilding the C++ core so the app picks up the new binary.
 `npm run desktop:build` produces a release bundle under
 `src-tauri/target/release/bundle/` with the sidecar included.
 
+## Tutorial and quiz agents
+
+Choose **Claude Code** or **Codex** in the top bar's **AI agent** selector.
+Claude is the default; the choice is saved locally and applies to both tutorials
+and quizzes. The app checks installation/login only when new content is needed.
+Existing tutorials and quizzes work with either selection. The selector is
+locked while signing in or generating, including when the panel is closed.
+
+Both integrations run the installed CLI with the Telescode MCP server. CLI
+credentials stay with the CLI. Install Codex with `npm install -g @openai/codex`
+and sign in with `codex login`, or let the app start login when needed.
+`TELESCODE_CLAUDE` and `TELESCODE_CODEX` override the corresponding executable
+paths. Codex discovery also checks supported editor extension binaries.
+Codex must support `exec --ignore-user-config` and `--ephemeral`; verified on
+`0.164.0-alpha.11.1`. It uses a read-only CLI sandbox and the task's MCP tool
+allow list; the MCP server saves the generated artifacts.
+
+The existing MCP setup requirements still apply (`npm --prefix mcp install`,
+Node.js, the built core, and ranking dependencies). Use `TELESCODE_NODE` when the
+desktop's PATH does not contain the required Node executable, and
+`TELESCODE_MCP_DIR` for the MCP directory in a release installation.
+
+The app UI tests cover selection, login, generation/playback, quizzes/answers,
+missing installation and generation errors. To test the **real app IPC handler**
+with the saved Codex account (uses model quota), run alone from `frontend/src-tauri`:
+
+```bash
+TELESCODE_HEADLESS=/absolute/path/to/build/TelescodeHeadless \
+TELESCODE_NODE=/absolute/path/to/node \
+cargo test --lib app_tests::codex_generates_and_grades_through_app_ipc -- --ignored --exact --nocapture --test-threads=1
+```
+
+This test shares the desktop command registration, generates a tutorial and
+quiz through IPC, lists the saved artifacts through IPC and submits an answer
+through IPC. Only the webview runtime is mocked; the CLI, MCP server and core
+are real. Artifacts are kept in a printed temporary directory for inspection.
+
 ## Checks
 
 ```bash

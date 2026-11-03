@@ -1,8 +1,9 @@
 // Top bar over a full-bleed canvas. No sidebar: orientation comes from the
 // breadcrumbs, which follow where the user is in the code map.
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 
+import { savedAgent, saveAgent } from '../agent'
 import type { RepositoryOpener, RepositorySource, TelescodeApi } from '../bridge'
 import { TopBar } from '../components/TopBar'
 import { WorkspaceCanvas } from '../components/WorkspaceCanvas'
@@ -10,8 +11,8 @@ import type { GraphHandle } from '../graph/GraphCanvas'
 import type { GraphNode } from '../graph/model'
 import type { Crumb } from '../ui/Breadcrumbs'
 import type { DropdownItem } from '../ui/Dropdown'
-import { tauriQuizLibrary, type QuizLibrary } from '../quiz/quiz'
-import { tauriTourLibrary, type TourLibrary } from '../tour/tutorial'
+import { createQuizLibrary, type QuizLibrary } from '../quiz/quiz'
+import { createTourLibrary, type TourLibrary } from '../tour/tutorial'
 import styles from './AppShell.module.css'
 import { useQuiz } from './useQuiz'
 import { useTutorial } from './useTutorial'
@@ -37,16 +38,31 @@ export function AppShell({
   api,
   initialState,
   allowLocalFolder = false,
-  tours = tauriTourLibrary,
-  quizzes = tauriQuizLibrary,
+  tours,
+  quizzes,
   repositories,
 }: AppShellProps) {
+  const [provider, setProvider] = useState(savedAgent)
+  const [pending, setPending] = useState(0)
+  const libraries = useMemo(() => {
+    // Capture the provider for the whole request, even if the panel is closed.
+    const track = <T,>(work: () => Promise<T>): Promise<T> => {
+      setPending(count => count + 1)
+      return work().finally(() => setPending(count => count - 1))
+    }
+    const tour = createTourLibrary(provider)
+    const quiz = createQuizLibrary(provider)
+    return {
+      tour: { ...tour, signIn: () => track(tour.signIn!), generate: (dbPath: string) => track(() => tour.generate!(dbPath)) },
+      quiz: { ...quiz, signIn: () => track(quiz.signIn!), generate: (target: Parameters<NonNullable<QuizLibrary['generate']>>[0]) => track(() => quiz.generate!(target)) },
+    }
+  }, [provider])
   const workspace = useWorkspace(api, initialState, repositories)
   const { state } = workspace
   const graphRef = useRef<GraphHandle | null>(null)
   const ready = state.status === 'ready' ? state : null
-  const tutorial = useTutorial(tours, ready?.snapshot ?? null, ready?.dbPath ?? null, graphRef)
-  const quiz = useQuiz(quizzes, ready?.snapshot ?? null, ready?.dbPath ?? null, graphRef)
+  const tutorial = useTutorial(tours ?? libraries.tour, ready?.snapshot ?? null, ready?.dbPath ?? null, graphRef)
+  const quiz = useQuiz(quizzes ?? libraries.quiz, ready?.snapshot ?? null, ready?.dbPath ?? null, graphRef)
   /** Where the user is in the map, below the repository. */
   const [trail, setTrail] = useState<Crumb[]>([])
   /** Complexity mode: on by default, kept across repositories. */
@@ -90,6 +106,8 @@ export function AppShell({
     <div className={styles.shell}>
       <TopBar
         crumbs={crumbs}
+        agent={{ provider, disabled: pending > 0 || tutorial.state.status === 'searching' || quiz.state.status === 'searching',
+          onChange: (next) => { saveAgent(next); setProvider(next) } }}
         onNavigate={(crumb) => graphRef.current?.navigate(crumb.id)}
         menuItems={menuItems}
         tutorial={{
@@ -116,6 +134,7 @@ export function AppShell({
         complexity={complexity}
         tutorial={tutorial}
         quiz={quiz}
+        provider={provider}
       />
     </div>
   )

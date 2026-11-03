@@ -5,14 +5,16 @@
 //! user asks for a tutorial, starts its browser sign-in. Nothing here runs
 //! until then.
 
-use serde::Serialize;
 use std::ffi::OsString;
-use std::io::Read;
+use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
-use std::time::{Duration, Instant};
+use std::process::Stdio;
+use std::time::Duration;
 
 use crate::bridge::BridgeError;
+use crate::agent::{command, run, newest_first, Status};
+#[cfg(test)]
+use crate::agent::version;
 
 /// The Claude Code executable, when the one found automatically is not the one to use.
 pub const CLAUDE_ENV: &str = "TELESCODE_CLAUDE";
@@ -61,125 +63,18 @@ fn candidates(path: Option<OsString>, home: Option<&Path>) -> Vec<PathBuf> {
     out
 }
 
-/// Subdirectories of `dir` named `<prefix><version>...`, highest version first.
-fn newest_first(dir: &Path, prefix: &str) -> Vec<PathBuf> {
-    let Ok(entries) = std::fs::read_dir(dir) else { return Vec::new() };
-    let mut found: Vec<(Vec<u64>, PathBuf)> = entries
-        .flatten()
-        .filter_map(|e| {
-            let name = e.file_name().to_string_lossy().into_owned();
-            let rest = name.strip_prefix(prefix)?;
-            Some((version(rest), e.path()))
-        })
-        .collect();
-    found.sort_by(|a, b| b.0.cmp(&a.0));
-    found.into_iter().map(|(_, p)| p).collect()
-}
-
-/// The leading `1.2.3` of a name, as numbers, so 2.1.10 sorts above 2.1.9.
-fn version(s: &str) -> Vec<u64> {
-    s.split(|c: char| !c.is_ascii_digit() && c != '.')
-        .next()
-        .unwrap_or_default()
-        .split('.')
-        .map_while(|n| n.parse().ok())
-        .collect()
-}
-
-pub fn command(claude: &Path) -> Command {
-    let mut cmd = Command::new(claude);
-    // Away from any project, so no project settings or files come into play.
-    cmd.current_dir(std::env::temp_dir()).stdin(Stdio::null());
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        cmd.creation_flags(CREATE_NO_WINDOW);
-    }
-    cmd
-}
-
-/// Runs `cmd` to completion, stopping it after `timeout`.
-pub fn run(mut cmd: Command, timeout: Duration, what: &str) -> Result<(), BridgeError> {
-    let mut child = cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|e| {
-        BridgeError::TourGenerationFailed { message: format!("Could not start Claude Code: {e}") }
-    })?;
-    // Claude reports API failures on stdout. Drain both pipes while it runs so
-    // verbose output cannot fill a pipe and prevent the process from exiting.
-    let stdout = capture_tail(child.stdout.take().expect("piped stdout"));
-    let stderr = capture_tail(child.stderr.take().expect("piped stderr"));
-    let started = Instant::now();
-    let status = loop {
-        if let Some(status) = child.try_wait().map_err(|e| BridgeError::Internal {
-            message: format!("Lost track of Claude Code: {e}"),
-        })? {
-            break status;
-        }
-        if started.elapsed() > timeout {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err(BridgeError::TourGenerationFailed { message: format!("{what} did not finish in time.") });
-        }
-        std::thread::sleep(Duration::from_millis(250));
-    };
-    let stdout = stdout.join().unwrap_or_default();
-    let stderr = stderr.join().unwrap_or_default();
-    if status.success() {
-        return Ok(());
-    }
-    let details = [stderr, stdout].into_iter().filter(|s| !s.is_empty()).collect::<Vec<_>>().join("\n");
-    Err(BridgeError::TourGenerationFailed {
-        message: if details.is_empty() {
-            format!("{what} failed ({status}).")
-        } else {
-            format!("{what} failed ({status}): {details}")
-        },
-    })
-}
-
-/// Keep bounded error context while draining arbitrarily long process output.
-fn capture_tail(mut reader: impl Read + Send + 'static) -> std::thread::JoinHandle<String> {
-    std::thread::spawn(move || {
-        const LIMIT: usize = 8192;
-        let mut tail = Vec::new();
-        let mut buffer = [0u8; LIMIT];
-        loop {
-            match reader.read(&mut buffer) {
-                Ok(0) => break,
-                Ok(n) => {
-                    tail.extend_from_slice(&buffer[..n]);
-                    if tail.len() > LIMIT {
-                        tail.drain(..tail.len() - LIMIT);
-                    }
-                }
-                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
-                Err(_) => break,
-            }
-        }
-        String::from_utf8_lossy(&tail).trim().to_owned()
-    })
-}
-
-/// Whether Claude Code can write a tutorial right now.
-#[derive(Debug, Serialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct Status {
-    installed: bool,
-    signed_in: bool,
-}
-
 /// `loggedIn` from `claude auth status --json`; anything unreadable counts as signed out.
 fn signed_in(json: &[u8]) -> bool {
     serde_json::from_slice::<serde_json::Value>(json).is_ok_and(|v| v["loggedIn"] == true)
 }
 
-fn status() -> Status {
+pub fn status() -> Status {
     let Some(claude) = find() else { return Status { installed: false, signed_in: false } };
     let output = command(&claude).args(["auth", "status", "--json"]).stderr(Stdio::null()).output();
     Status { installed: true, signed_in: output.is_ok_and(|o| signed_in(&o.stdout)) }
 }
 
-fn sign_in() -> Result<(), BridgeError> {
+pub fn sign_in() -> Result<(), BridgeError> {
     let claude = find().ok_or_else(not_installed)?;
     let mut cmd = command(&claude);
     // A Claude subscription, not API billing: the same sign-in as `claude` itself.
@@ -198,79 +93,9 @@ pub fn not_installed() -> BridgeError {
     }
 }
 
-/// IPC entry point: `invoke("claude_status")`. Called only when a tutorial
-/// is asked for and none exists.
-#[tauri::command]
-pub async fn claude_status() -> Result<Status, BridgeError> {
-    tauri::async_runtime::spawn_blocking(status).await.map_err(|e| BridgeError::Internal {
-        message: format!("Claude Code worker failed: {e}"),
-    })
-}
-
-/// IPC entry point: `invoke("claude_sign_in")`. Opens Claude Code's sign-in
-/// in the browser and resolves once the user is signed in.
-#[tauri::command]
-pub async fn claude_sign_in() -> Result<(), BridgeError> {
-    tauri::async_runtime::spawn_blocking(sign_in).await.map_err(|e| BridgeError::Internal {
-        message: format!("Claude Code worker failed: {e}"),
-    })?
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[cfg(unix)]
-    fn shell(script: &str) -> Command {
-        let mut cmd = Command::new("/bin/sh");
-        cmd.args(["-c", script]);
-        cmd
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn failure_reports_diagnostics_from_stdout() {
-        let error = run(shell("printf 'Account quota reached'; exit 1"), Duration::from_secs(3), "Claude Code").unwrap_err();
-        let BridgeError::TourGenerationFailed { message } = error else { panic!("unexpected error") };
-        assert!(message.contains("Account quota reached"), "{message}");
-        assert!(message.contains("exit status: 1"), "{message}");
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn failure_reports_both_output_streams() {
-        let error = run(shell("printf 'Model request rejected'; printf 'Backend details' >&2; exit 1"), Duration::from_secs(3), "Claude Code").unwrap_err();
-        let BridgeError::TourGenerationFailed { message } = error else { panic!("unexpected error") };
-        assert!(message.contains("Model request rejected"), "{message}");
-        assert!(message.contains("Backend details"), "{message}");
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn drains_large_output_without_deadlock_and_keeps_bounded_diagnostics() {
-        let script = "i=0; while [ \"$i\" -lt 8192 ]; do printf 'stdout chunk %s\\n' \"$i\"; printf 'stderr chunk %s\\n' \"$i\" >&2; i=$((i+1)); done; printf 'final diagnostic' >&2; exit 1";
-        let error = run(shell(script), Duration::from_secs(3), "Claude Code").unwrap_err();
-        let BridgeError::TourGenerationFailed { message } = error else { panic!("unexpected error") };
-        assert!(message.contains("final diagnostic"), "{message}");
-        assert!(!message.contains("did not finish in time"), "{message}");
-        assert!(message.len() < 20_000, "diagnostic length: {}", message.len());
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn successful_command_with_output_still_succeeds() {
-        assert!(run(shell("printf 'A saved tour'; printf 'Progress' >&2"), Duration::from_secs(3), "Claude Code").is_ok());
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn command_timeout_stops_the_child() {
-        let started = Instant::now();
-        let error = run(shell("exec sleep 10"), Duration::from_millis(50), "Claude Code").unwrap_err();
-        let BridgeError::TourGenerationFailed { message } = error else { panic!("unexpected error") };
-        assert!(message.contains("did not finish in time"), "{message}");
-        assert!(started.elapsed() < Duration::from_secs(2));
-    }
 
     #[test]
     fn looks_on_path_first_then_installers_then_the_newest_extension() {
@@ -318,4 +143,32 @@ mod tests {
         let expect_signed_out = std::env::var_os("CLAUDE_CONFIG_DIR").is_some();
         assert_eq!(status.signed_in, !expect_signed_out);
     }
+}
+
+/// The `claude` arguments that attach only this server and allow only
+/// `tools` from it (print mode denies everything else).
+pub fn config_args(server: &crate::mcp::ServerCommand, tools: &[&str]) -> Vec<OsString> {
+    let env: serde_json::Map<String, Value> = server
+        .env
+        .iter()
+        .map(|(k, v)| (k.clone(), Value::from(v.to_string_lossy().into_owned())))
+        .collect();
+    let config = json!({
+        "mcpServers": {
+            "telescode": {
+                "type": "stdio",
+                "command": server.program.to_string_lossy(),
+                "args": server.args.iter().map(|a| a.to_string_lossy()).collect::<Vec<_>>(),
+                "env": env,
+            }
+        }
+    });
+    let allowed = tools.iter().map(|t| format!("mcp__telescode__{t}")).collect::<Vec<_>>().join(",");
+    vec![
+        "--mcp-config".into(),
+        config.to_string().into(),
+        "--strict-mcp-config".into(),
+        "--allowedTools".into(),
+        allowed.into(),
+    ]
 }

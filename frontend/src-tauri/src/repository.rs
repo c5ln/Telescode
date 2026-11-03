@@ -434,7 +434,7 @@ fn open_folder_in(cache: &Path, path: &str) -> Result<PathBuf, BridgeError> {
 /// IPC entry point: `invoke("open_folder", { path })`. Resolves with the path
 /// of the scanned database, ready for `run_headless`.
 #[tauri::command]
-pub async fn open_folder(app: tauri::AppHandle, path: String) -> Result<String, BridgeError> {
+pub async fn open_folder<R: tauri::Runtime>(app: tauri::AppHandle<R>, path: String) -> Result<String, BridgeError> {
     let cache = app.path().app_cache_dir().map_err(|e| BridgeError::Internal {
         message: format!("Cannot locate the app's cache directory: {e}"),
     })?;
@@ -448,7 +448,7 @@ pub async fn open_folder(app: tauri::AppHandle, path: String) -> Result<String, 
 /// IPC entry point: `invoke("open_repository", { url })`. Resolves with the
 /// path of the scanned database, ready for `run_headless`.
 #[tauri::command]
-pub async fn open_repository(app: tauri::AppHandle, url: String) -> Result<String, BridgeError> {
+pub async fn open_repository<R: tauri::Runtime>(app: tauri::AppHandle<R>, url: String) -> Result<String, BridgeError> {
     let cache = app.path().app_cache_dir().map_err(|e| BridgeError::Internal {
         message: format!("Cannot locate the app's cache directory: {e}"),
     })?;

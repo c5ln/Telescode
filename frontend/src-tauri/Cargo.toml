@@ -23,3 +23,6 @@ tauri-plugin-log = "2"
 flate2 = { version = "1.1.10", features = ["rust_backend"] }
 ureq = "3"
 tar = { version = "0.4.46", default-features = false }
+
+[dev-dependencies]
+tauri = { version = "2.11.6", features = ["test"] }
