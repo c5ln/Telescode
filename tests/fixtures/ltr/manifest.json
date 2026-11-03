@@ -1,0 +1,40 @@
+{
+  "generator": "python -m ltr.tests.generate_cpp_rank_fixture",
+  "input_rows": 10,
+  "candidate_rows": 7,
+  "boundary_rows": 5,
+  "feature_columns": [
+    "pagerank",
+    "bc",
+    "combined",
+    "file_rank",
+    "in_deg",
+    "out_deg",
+    "ppr",
+    "complexity",
+    "max_cc",
+    "avg_cc",
+    "max_depth",
+    "avg_depth",
+    "logical_loc",
+    "bm25",
+    "bm25_rank",
+    "def_match",
+    "str_match",
+    "nbr_bm25_max",
+    "nbr_bm25_mean"
+  ],
+  "sha256": {
+    "ltr/models/lambdarank-v1/artifact.json": "586271fdd65e8b798efb1865603addba86ddb86e5e9ed7dfe994cb4a52172253",
+    "ltr/models/lambdarank-v1/model.txt": "e14de189effe5c57fda20c9b92e9728fd0f5db94afc3e3bcaecda05305489530",
+    "tests/fixtures/ltr/input.csv": "9f63caa0865e2f1b50faf57bac3783999dceffb3c9bccb58b10e04f6a091e851",
+    "tests/fixtures/ltr/prepared.csv": "c5aa8c35157495932714d8bf0f025f1fdc2f908fae050f192e668d15eb7805a4",
+    "tests/fixtures/ltr/ranked.csv": "f810297b1d017850872bbd5a2774d90b250ceb3b11501a932b4c8c36f5ff18a1",
+    "tests/fixtures/ltr/none_prepared.csv": "e8da49ccc260a4912c8fe3b3237069526d5b650f73f8a51d63499edab1753c65",
+    "tests/fixtures/ltr/none_ranked.csv": "cc49de2ad395479f6193bb7d935633acf3fcefee18b75e3d45ea834a3177e8f0",
+    "tests/fixtures/ltr/boundary_input.csv": "f6e4d2439f2ab724c1e5a5b95e10263c067122259b31a74ceaf416a2a80cb72c",
+    "tests/fixtures/ltr/boundary_prepared.csv": "5357d9ab191eba13e79f46301f951a7311317c978fe3407e9b5e5f3385112ac2",
+    "tests/fixtures/ltr/boundary_ranked.csv": "6e005e01433158a463e237b26ea1c55e8530e5462d9207b1d1717423953e325e",
+    "tests/fixtures/ltr/boundary.json": "f78ebdee6caf62578feeac3cae4a0fa5a9934be0e1a6157ec48b9f5f3ad56132"
+  }
+}

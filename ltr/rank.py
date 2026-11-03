@@ -86,6 +86,7 @@ def main(argv: list[str] | None = None) -> int:
             # Converters preserve identifiers such as "NA" and "0001".
             # Numeric feature columns still use pandas' normal NaN handling.
             frame = pd.read_csv(features,
+                                float_precision="round_trip",
                                 converters={model.spec.group_column: str, "file_id": str})
         out = rank_files(model, frame)
         out.to_csv(args.output, index=False)

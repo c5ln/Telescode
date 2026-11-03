@@ -1,0 +1,6 @@
+instance_id,file_id,nbr_bm25_mean,nbr_bm25_max,str_match,def_match,bm25_rank,bm25,logical_loc,avg_depth,max_depth,avg_cc,max_cc,complexity,ppr,out_deg,in_deg,file_rank,combined,bc,pagerank
+precision,high.py,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1
+precision,above.py,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0.00026708752344280879
+precision,below.py,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0.00026708752344280868
+precision,at.py,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0.00026708752344280874
+precision,low.py,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0

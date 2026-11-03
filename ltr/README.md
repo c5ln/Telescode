@@ -17,7 +17,7 @@ model.txt       # LightGBM's portable text format
 artifact.json   # feature order, normalization, candidate policy, parameters
 ```
 
-The text model is intended to be loadable later through the LightGBM C API.
+The native ranker loads the text model through the LightGBM C API.
 The JSON sidecar must be validated first so C++ supplies features in exactly
 the training order and applies the same per-query min-max normalization.
 
@@ -50,8 +50,8 @@ strings such as `NA` and `0001` are preserved while missing numeric features
 remain NaN. Feature names containing whitespace are rejected before training
 because LightGBM can rename them and break model/metadata agreement.
 
-This command consumes features; C++ model inference is a subsequent integration
-step. The staged work is tracked in
+This command consumes features and serves as the native implementation's
+reference. The staged work is tracked in
 [`docs/10-runtime-integration.md`](docs/10-runtime-integration.md).
 
 ## Generate features for a live query
@@ -83,3 +83,33 @@ Output must be outside the source repository. Feature generation uses neither
 benchmark datasets/labels nor external APIs. It reads the working tree, so callers
 must update the database after editing source; matching existing file paths alone
 cannot establish that the stored metrics are fresh.
+
+## Native inference
+
+The headless binary now ranks an existing raw feature CSV directly:
+
+```sh
+cmake -S . -B build -DFETCHCONTENT_FULLY_DISCONNECTED=ON
+cmake --build build --target TelescodeHeadless RankingTests -j4
+build/TelescodeHeadless rank --model ltr/models/lambdarank-v1 --features /tmp/features.csv --output /tmp/ranked_cpp.csv
+```
+
+CMake searches the system and the local `.venv` / `bench/.venv` wheel locations
+for the LightGBM C library. For another installation, pass
+`-DTS_LIGHTGBM_LIBRARY=/absolute/path/to/lib_lightgbm.so` when configuring.
+The linked shared library and its normal platform dependencies must remain
+available when running the binary. Python is not invoked by native inference;
+the current feature-generation command still uses Python.
+
+`TS::LambdaRankModel` owns/frees the booster, validates feature count and names,
+and exposes `prepare` and `rank`. It uses float64 inputs, preserves NaN, supports
+`per_query_minmax` and `none`, and sorts ties by file ID. The JSON metadata reader
+uses the already bundled SQLite JSON functions in memory. The private C ABI
+declarations follow the [official LightGBM C API](https://lightgbm.readthedocs.io/en/stable/C-API.html).
+CSV IDs retain strings/quoting, and output is committed only after successful
+validation, inference and writing. The Python CSV ranker also uses round-trip
+float parsing so both commands retain split-boundary precision.
+
+Validation on Linux with LightGBM 4.7.0: 27 native ranking cases, 17 Python/native
+oracle and CLI cases, 289 Python tests overall, and 390 C++ tests across seven
+targets passed. The pre-existing LayoutTests target remains excluded.
