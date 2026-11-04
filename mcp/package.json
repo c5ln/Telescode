@@ -7,7 +7,8 @@
     "start": "tsx src/server.ts",
     "install:browser": "tsx src/install-browser.ts",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "tsx --test src/tour.test.ts src/protocol.test.ts src/ranking.test.ts src/quiz.test.ts",
+    "test": "tsx --test src/tour.test.ts src/protocol.test.ts src/ranking.test.ts src/quiz.test.ts src/learning-core.test.ts src/learning-store.test.ts src/learning-protocol.test.ts src/learning-eval.test.ts src/learning-context.test.ts",
+    "eval:learning": "tsx src/learning-eval-cli.ts",
     "smoke": "tsx src/smoke.ts"
   },
   "dependencies": {

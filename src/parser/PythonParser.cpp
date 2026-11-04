@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <stdexcept>
 #include <unordered_map>
+#include <unordered_set>
 #include <map>
 #include <set>
 #include <iostream>
@@ -1219,7 +1220,17 @@ std::vector<ParseResult> PythonParser::parseDirectory(
         const auto& entry = *it;
 
         if (entry.is_symlink()) continue;
-        if (entry.is_directory()) continue;
+        if (entry.is_directory()) {
+            // Installed environments and caches are not repository code: don't descend.
+            // A venv with any other name is recognised by its pyvenv.cfg marker.
+            static const std::unordered_set<std::string> kSkipDirs = {
+                ".venv", "venv", "site-packages", "__pycache__", "node_modules", ".git", ".tox", ".mypy_cache"};
+            std::error_code venvEc;
+            if (kSkipDirs.count(entry.path().filename().string()) ||
+                fs::exists(entry.path() / "pyvenv.cfg", venvEc))
+                it.disable_recursion_pending();
+            continue;
+        }
         if (!entry.is_regular_file()) continue;
         if (entry.path().extension() != ".py") continue;
 

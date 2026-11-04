@@ -7,6 +7,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
 import { TourStore } from './store.ts'
 import { QuizStore, sourceReader } from './quiz.ts'
+import { LEARNING_INSTRUCTIONS, registerLearningTools } from './learning-tools.ts'
 import { startHttp } from './http.ts'
 import { renderTour } from './render.ts'
 import { chromium } from './browser.ts'
@@ -21,11 +22,12 @@ const quizzes = new QuizStore(store.outputRoot, store)
 const http = await startHttp(store, resolve(root, 'frontend/dist'))
 const progress = new Map<string, { frame: number; total: number }>()
 const server = new McpServer({ name: 'telescode', version: '0.1.0' }, {
-  instructions: [await readFile(new URL('../prompts/onboarding.md', import.meta.url), 'utf8'), await readFile(new URL('../prompts/quiz.md', import.meta.url), 'utf8')].join('\n\n'),
+  instructions: [await readFile(new URL('../prompts/onboarding.md', import.meta.url), 'utf8'), await readFile(new URL('../prompts/quiz.md', import.meta.url), 'utf8'), LEARNING_INSTRUCTIONS].join('\n\n'),
 })
 const difficulty = z.enum(DIFFICULTIES)
 const question = z.object({ type: z.enum(['multiple_choice', 'true_false']), difficulty, concept: z.string(), question: z.string(), answer: z.string(), distractors: z.array(z.string()).default([]), explanation: z.string(), evidenceNodeIds: z.array(z.string()).min(1) })
 const stop = z.object({ nodeId: z.string(), caption: z.string().min(1).max(300), transitionMs: z.number().int().min(0), holdMs: z.number().int().min(2000) })
+registerLearningTools(server, store, quizzes)
 function tool(name: string, description: string, schema: z.ZodRawShape, readOnly: boolean, handler: (args: any) => unknown | Promise<unknown>) {
   server.registerTool(name, { description, inputSchema: schema, annotations: { readOnlyHint: readOnly, destructiveHint: false, openWorldHint: false } }, async args => {
     try {
