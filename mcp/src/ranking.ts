@@ -49,7 +49,8 @@ export function applyRanking(snapshot: AnalysisSnapshot, ranking: RankingResult)
 }
 
 /** Existing DB opening uses onboarding; a future query UI can pass context here. */
-export async function rankProject(snapshot: AnalysisSnapshot, db: string, headless: string, repoPath?: string) {
+export async function rankProject(snapshot: AnalysisSnapshot, db: string, headless: string, repoPath?: string, query?: string) {
+  if (query !== undefined && (!query.trim() || query.length > 4000)) throw new Error('Query must contain 1–4000 characters')
   if (!repoPath) throw new Error('Source root unavailable for LambdaRank: reopen the repository folder/URL or pass sourceRoot to open_project')
   const python = process.env.TELESCODE_LTR_PYTHON ?? [
     join(root, 'bench/.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python'),
@@ -64,11 +65,12 @@ export async function rankProject(snapshot: AnalysisSnapshot, db: string, headle
       '-m', 'ltr.tour_rank', '--repo', repoPath, '--db', db,
       '--headless-bin', headless, '--ppr-bin', ppr,
       '--model', join(root, 'ltr/models/lambdarank-v1'),
+      ...(query !== undefined ? ['--query', query] : []),
     ], { cwd: root, timeout: 240000, maxBuffer: 128 * 1024 * 1024 })
     const result: RankingResult = JSON.parse(stdout)
     const ranked = applyRanking(snapshot, result)
-    const { model, query, queryId } = result
-    return { snapshot: ranked, ranking: { model, query, queryId } }
+    const { model, query: rankedQuery, queryId } = result
+    return { snapshot: ranked, ranking: { model, query: rankedQuery, queryId } }
   } catch (error) {
     const stderr = (error as { stderr?: string }).stderr
     throw new Error(`LambdaRank tour ranking failed: ${stderr?.trim() || String(error)}`)

@@ -19,6 +19,7 @@ issue-conditioned Learning-to-Rank 모델로 발전한 과정을 시간순으로
 | 7 | 2026-09-15 | [`07-cost-free-ranking.md`](07-cost-free-ranking.md) | 무료 모델 선택 보고서 | 코드 어휘 피처, weighted sum, non-overlap 분석과 LambdaMART ablation. 19개 피처 base 모델 MRR 0.6488 선택 근거 | 현재 `lambdarank-v1`의 직접적인 실험 근거 |
 | 8 | 2026-09-19 이후 | [`08-production-model-contract.md`](08-production-model-contract.md) | 제품 모델 계약 | 최종 학습·저장·로드·추론 책임, `model.txt`와 `artifact.json`, C++ LightGBM 연동 원칙 | 현재 제품화 인터페이스 |
 | 9 | 2026-10-03 | [`09-lambdarank-v1-artifact.md`](09-lambdarank-v1-artifact.md) | 릴리스 모델 계약 | 19개 피처 순서, query별 min-max, `all_no_init`, LambdaRank 하이퍼파라미터 | C++ 구현이 검증해야 하는 최종 실행 계약 |
+| 10 | 2026-11-02 | [`10-runtime-integration.md`](10-runtime-integration.md) | 제품 연결 단계 | 입력 계약·Python 기준 추론, 질의 피처 생성, C++ 연결, 새 그래프 평가 | 1·2·3단계 완료, 다음은 새 그래프의 모델 품질 평가 |
 
 ## 현재 기준과 역사적 결과 구분
 

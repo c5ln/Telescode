@@ -10,6 +10,8 @@ import type { AgentProvider } from '../agent'
 import type { RepositorySource, TelescodeErrorCode } from '../bridge'
 import type { Quiz } from '../app/useQuiz'
 import type { Tutorial } from '../app/useTutorial'
+import type { Learning } from '../app/useLearning'
+import { LearningPanel } from './LearningPanel'
 import { baseName, sourceLabel, workspaceName, type WorkspaceState } from '../app/useWorkspace'
 import type { GraphHandle } from '../graph/GraphCanvas'
 import type { GraphNode } from '../graph/model'
@@ -38,6 +40,7 @@ interface WorkspaceCanvasProps {
   tutorial: Tutorial
   quiz: Quiz
   provider?: AgentProvider
+  learning?: Learning
 }
 
 const ERROR_TITLES: Partial<Record<TelescodeErrorCode, string>> = {
@@ -80,6 +83,7 @@ export function WorkspaceCanvas({
   tutorial,
   quiz,
   provider,
+  learning,
 }: WorkspaceCanvasProps) {
   return (
     <main className={styles.canvas} aria-label="Workspace" aria-busy={state.status === 'loading'}>
@@ -127,7 +131,8 @@ export function WorkspaceCanvas({
       )}
 
       {state.status === 'ready' && (
-        <TutorialPanel provider={provider} tutorial={tutorial} quiz={quiz} repositoryName={workspaceName(state)} />
+        learning && learning.state.status !== 'off' ? <LearningPanel learning={learning} /> :
+          <TutorialPanel provider={provider} tutorial={tutorial} quiz={quiz} repositoryName={workspaceName(state)} learning={learning} />
       )}
 
       <CanvasControls

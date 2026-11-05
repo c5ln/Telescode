@@ -14,6 +14,9 @@ export interface Project {
   ranking?: RankingContext
   /** Source folder shared by live ranking and quiz excerpts. */
   sourceRoot?: string
+  databasePath?: string
+  baselineSnapshot?: AnalysisSnapshot
+  headlessPath?: string
 }
 export interface Draft {
   plan: TourPlan
@@ -29,6 +32,7 @@ export interface Draft {
 export class TourStore {
   projects = new Map<string, Project>()
   drafts = new Map<string, Draft>()
+  private rankingCache = new Map<string, Promise<Project>>()
   constructor(readonly outputRoot: string) {}
   async restore() {
     await mkdir(this.outputRoot, { recursive: true })
@@ -69,7 +73,7 @@ export class TourStore {
     }))
     return tours.flat()
   }
-  async open(path: string, headless = defaultHeadless(), sourceRoot?: string) {
+  private async load(path: string, headless: string, sourceRoot: string | undefined, rankOnOpen: boolean) {
     const absolute = resolve(path)
     const isSnapshot = absolute.toLowerCase().endsWith('.json')
     const raw = isSnapshot ? await readFile(absolute, 'utf8')
@@ -77,17 +81,37 @@ export class TourStore {
     const snapshot = 'readingSequence' in JSON.parse(raw) ? parseAnalysis(raw) : { ...parseGraph(raw), readingSequence: [] }
     const source = sourceRoot ? resolve(sourceRoot) : await recordedSource(absolute)
     const sourceSnapshotHash = createHash('sha256').update(JSON.stringify(snapshot)).digest('hex')
-    const ranked = isSnapshot ? { snapshot } : await rankProject(snapshot, absolute, headless, source)
+    const ranked = isSnapshot || !rankOnOpen ? { snapshot } : await rankProject(snapshot, absolute, headless, source)
     const project: Project = { id: randomUUID(), ...ranked, sourceRoot: source,
+      ...(!isSnapshot ? { databasePath: absolute, baselineSnapshot: snapshot, headlessPath: headless } : {}),
       hash: createHash('sha256').update(JSON.stringify(ranked.snapshot)).digest('hex'),
       ...(!isSnapshot ? { sourceSnapshotHash } : {}) }
     this.projects.set(project.id, project)
     return project
   }
+  async open(path: string, headless = defaultHeadless(), sourceRoot?: string) { return this.load(path, headless, sourceRoot, true) }
+  async openAnalysis(path: string, headless = defaultHeadless(), sourceRoot?: string) { return this.load(path, headless, sourceRoot, false) }
   project(id: string) {
     const project = this.projects.get(id)
     if (!project) throw new Error('Project not found; call open_project first')
     return project
+  }
+  /** Query overlays do not change the analysis, prior projects, or baseline DB. */
+  async rank(projectId: string, query: string): Promise<Project> {
+    if (typeof query !== 'string' || !query.trim() || query.length > 4000) throw new Error('Invalid ranking query')
+    const original = this.project(projectId)
+    if (!original.databasePath || !original.baselineSnapshot) throw new Error('Query ranking requires a database-backed analysis')
+    const key = JSON.stringify([original.sourceRoot, original.sourceSnapshotHash, query])
+    let work = this.rankingCache.get(key)
+    if (!work) {
+      work = rankProject(original.baselineSnapshot, original.databasePath, original.headlessPath ?? defaultHeadless(), original.sourceRoot, query).then(ranked => {
+        const project: Project = { ...original, ...ranked, id: randomUUID(), hash: createHash('sha256').update(JSON.stringify(ranked.snapshot)).digest('hex') }
+        this.projects.set(project.id, project)
+        return project
+      }).finally(() => { this.rankingCache.delete(key) })
+      this.rankingCache.set(key, work)
+    }
+    return work
   }
   draft(id: string) {
     const draft = this.drafts.get(id)

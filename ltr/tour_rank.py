@@ -1,7 +1,7 @@
 """Rank a live repository for the existing onboarding tour workflow.
 
 Python generates raw features; TelescodeHeadless performs model inference.
-The optional query parameter is internal for now: desktop tours use the default.
+The desktop onboarding flow uses the default; adaptive learning passes an explicit query.
 """
 
 from __future__ import annotations
@@ -49,10 +49,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--headless-bin", required=True, type=Path)
     parser.add_argument("--ppr-bin", required=True, type=Path)
     parser.add_argument("--model", type=Path, default=ARTIFACT)
+    parser.add_argument("--query", default=DEFAULT_ONBOARDING_QUERY)
     args = parser.parse_args(argv)
     try:
         result = rank_repository(args.repo, args.db, headless_bin=args.headless_bin,
-                                 ppr_bin=args.ppr_bin, model_dir=args.model)
+                                 ppr_bin=args.ppr_bin, model_dir=args.model, query=args.query)
     except (ValueError, KeyError, OSError) as exc:
         parser.exit(1, f"tour ranking failed: {exc}\n")
     print(json.dumps(result, ensure_ascii=False, allow_nan=False))

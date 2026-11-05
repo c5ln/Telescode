@@ -694,3 +694,35 @@ TEST(ExtractionImports, EverySpecOfEveryImportIsListed)
         "t.py|x|.|2",
     }));
 }
+
+TEST(ExtractionWalk, VirtualEnvironmentsAndCachesAreNotParsed)
+{
+    // A repository's own code is parsed; an installed environment inside it is not.
+    // An environment is recognised by its pyvenv.cfg marker, whatever its name.
+    const fs::path dir = fs::temp_directory_path() / "ts_parser_test_walk";
+    fs::remove_all(dir);
+    for (const char* sub : {"pkg", ".venv/lib/python3.11/site-packages/requests", "venv/lib",
+                            "env311/lib", "pkg/__pycache__", "node_modules/x", "Lib/venv"})
+        fs::create_directories(dir / sub);
+    std::ofstream(dir / "pkg/app.py") << "x = 1\n";
+    std::ofstream(dir / "pkg/vendor_like.py") << "y = 2\n";
+    std::ofstream(dir / ".venv/lib/python3.11/site-packages/requests/api.py") << "z = 3\n";
+    std::ofstream(dir / ".venv/pyvenv.cfg") << "home = /usr/bin\n";
+    std::ofstream(dir / "venv/pyvenv.cfg") << "home = /usr/bin\n";
+    std::ofstream(dir / "venv/lib/a.py") << "a = 1\n";
+    // A package named venv (CPython's Lib/venv) is repository source, not an environment.
+    std::ofstream(dir / "Lib/venv/__init__.py") << "e = 1\n";
+    std::ofstream(dir / "env311/pyvenv.cfg") << "home = /usr/bin\n";
+    std::ofstream(dir / "env311/lib/b.py") << "b = 1\n";
+    std::ofstream(dir / "pkg/__pycache__/c.py") << "c = 1\n";
+    std::ofstream(dir / "node_modules/x/d.py") << "d = 1\n";
+
+    PythonParser parser;
+    const auto results = parser.parseDirectory(dir.string(), dir.string());
+    fs::remove_all(dir);
+
+    std::vector<std::string> ids;
+    for (const auto& r : results) ids.push_back(r.file.file_id);
+    std::sort(ids.begin(), ids.end());
+    EXPECT_EQ(ids, (std::vector<std::string>{"Lib/venv/__init__.py", "pkg/app.py", "pkg/vendor_like.py"}));
+}

@@ -333,6 +333,15 @@ export interface QuizSet extends TourContext {
 const TRUE_FALSE = ['True', 'False']
 export const MAX_QUESTIONS_PER_DIFFICULTY = 3
 
+/** Limits `makeQuestions` enforces, published so a question writer can follow them up front. */
+export const QUESTION_LIMITS = {
+  perDifficulty: MAX_QUESTIONS_PER_DIFFICULTY,
+  minEvidence: Object.fromEntries(DIFFICULTIES.map((d) => [d, SCOPE[d].minEvidence])) as Record<Difficulty, number>,
+  distractors: { min: 2, max: 4 },
+  trueFalseAnswers: TRUE_FALSE,
+  chars: { concept: 80, question: 500, answer: 300, distractor: 300, explanation: 900 },
+} as const
+
 function text(value: unknown, what: string, max: number): string {
   if (typeof value !== 'string' || !value.trim() || value.length > max || [...value].some((c) => c.charCodeAt(0) < 9)) {
     throw new Error(`${what} must contain 1–${max} characters`)
@@ -381,10 +390,11 @@ export function makeQuestions(snapshot: AnalysisSnapshot, setId: string, nodeId:
     const outside = evidenceIds.filter((id) => !titles.has(id))
     if (outside.length) throw new Error(`${where}: evidence outside the ${input.difficulty} context: ${outside.join(', ')}`)
     if (!evidenceIds.includes(nodeId)) throw new Error(`${where}: evidence must include the step's node ${nodeId}`)
-    const min = SCOPE[input.difficulty].minEvidence
+    const min = QUESTION_LIMITS.minEvidence[input.difficulty]
     if (evidenceIds.length < min) throw new Error(`${where}: ${input.difficulty} questions rest on at least ${min} nodes`)
 
-    const answer = text(input.answer, `${where} answer`, 300)
+    const { chars, distractors: range } = QUESTION_LIMITS
+    const answer = text(input.answer, `${where} answer`, chars.answer)
     let choices: string[]
     let distractors: string[]
     if (input.type === 'true_false') {
@@ -392,10 +402,10 @@ export function makeQuestions(snapshot: AnalysisSnapshot, setId: string, nodeId:
       distractors = TRUE_FALSE.filter((c) => c !== answer)
       choices = TRUE_FALSE
     } else if (input.type === 'multiple_choice') {
-      if (!Array.isArray(input.distractors) || input.distractors.length < 2 || input.distractors.length > 4) {
-        throw new Error(`${where}: multiple choice needs 2–4 distractors`)
+      if (!Array.isArray(input.distractors) || input.distractors.length < range.min || input.distractors.length > range.max) {
+        throw new Error(`${where}: multiple choice needs ${range.min}–${range.max} distractors`)
       }
-      distractors = input.distractors.map((d, j) => text(d, `${where} distractor ${j + 1}`, 300))
+      distractors = input.distractors.map((d, j) => text(d, `${where} distractor ${j + 1}`, chars.distractor))
       const all = [answer, ...distractors]
       if (new Set(all.map((c) => c.toLowerCase())).size !== all.length) throw new Error(`${where}: choices must all differ`)
       choices = shuffled(all, `${setId}:${i}`)
@@ -407,12 +417,12 @@ export function makeQuestions(snapshot: AnalysisSnapshot, setId: string, nodeId:
       id: `${setId}:${i + 1}`,
       type: input.type,
       difficulty: input.difficulty,
-      concept: text(input.concept, `${where} concept`, 80),
-      question: text(input.question, `${where} question`, 500),
+      concept: text(input.concept, `${where} concept`, chars.concept),
+      question: text(input.question, `${where} question`, chars.question),
       answer,
       distractors,
       choices,
-      explanation: text(input.explanation, `${where} explanation`, 900),
+      explanation: text(input.explanation, `${where} explanation`, chars.explanation),
       evidence: evidenceIds.map((id) => ({ nodeId: id, title: titles.get(id)! })),
     }
   })

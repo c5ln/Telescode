@@ -16,6 +16,8 @@ import { createTourLibrary, type TourLibrary } from '../tour/tutorial'
 import styles from './AppShell.module.css'
 import { useQuiz } from './useQuiz'
 import { useTutorial } from './useTutorial'
+import { createLearningLibrary, type LearningLibrary } from '../learning/api'
+import { useLearning } from './useLearning'
 import { sourceLocation, useWorkspace, workspaceName, type WorkspaceState } from './useWorkspace'
 
 interface AppShellProps {
@@ -32,6 +34,7 @@ interface AppShellProps {
   quizzes?: QuizLibrary
   /** Scans a repository, from its URL or folder, into a database. */
   repositories?: RepositoryOpener
+  learning?: LearningLibrary
 }
 
 export function AppShell({
@@ -41,6 +44,7 @@ export function AppShell({
   tours,
   quizzes,
   repositories,
+  learning: providedLearning,
 }: AppShellProps) {
   const [provider, setProvider] = useState(savedAgent)
   const [pending, setPending] = useState(0)
@@ -52,9 +56,12 @@ export function AppShell({
     }
     const tour = createTourLibrary(provider)
     const quiz = createQuizLibrary(provider)
+    const learning = createLearningLibrary(provider)
     return {
       tour: { ...tour, signIn: () => track(tour.signIn!), generate: (dbPath: string) => track(() => tour.generate!(dbPath)) },
       quiz: { ...quiz, signIn: () => track(quiz.signIn!), generate: (target: Parameters<NonNullable<QuizLibrary['generate']>>[0]) => track(() => quiz.generate!(target)) },
+      learning: { ...learning, start: (input: Parameters<LearningLibrary['start']>[0]) => track(() => learning.start(input)),
+        prepare: (input: Parameters<LearningLibrary['prepare']>[0]) => track(() => learning.prepare(input)) },
     }
   }, [provider])
   const workspace = useWorkspace(api, initialState, repositories)
@@ -63,6 +70,7 @@ export function AppShell({
   const ready = state.status === 'ready' ? state : null
   const tutorial = useTutorial(tours ?? libraries.tour, ready?.snapshot ?? null, ready?.dbPath ?? null, graphRef)
   const quiz = useQuiz(quizzes ?? libraries.quiz, ready?.snapshot ?? null, ready?.dbPath ?? null, graphRef)
+  const learning = useLearning(providedLearning ?? libraries.learning, ready?.snapshot ?? null, ready?.dbPath ?? null, graphRef)
   /** Where the user is in the map, below the repository. */
   const [trail, setTrail] = useState<Crumb[]>([])
   /** Complexity mode: on by default, kept across repositories. */
@@ -118,6 +126,7 @@ export function AppShell({
               ? tutorial.start
               : () => {
                   quiz.close()
+                  learning.close()
                   tutorial.exit()
                 },
         }}
@@ -135,6 +144,7 @@ export function AppShell({
         tutorial={tutorial}
         quiz={quiz}
         provider={provider}
+        learning={learning}
       />
     </div>
   )

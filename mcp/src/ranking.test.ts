@@ -31,6 +31,55 @@ const ranked: RankingResult = { model: 'lambdarank-v1', query: 'onboarding', que
   { fileId: ids[1], score: 0.4, rank: 1 }, { fileId: ids[0], score: -0.2, rank: 2 },
 ] }
 
+test('explicit query reranks an opened analysis independently without replacing the prior project', async () => {
+  const p = await project()
+  try {
+    const store = new TourStore(join(p.dir, 'tours'))
+    const opened = await store.open(p.db, headless, p.repo)
+    const frozen = structuredClone(opened)
+    const dbBefore = await readFile(p.db)
+    const one = await store.rank(opened.id, 'transform helper')
+    assert.equal(one.ranking?.query, 'transform helper')
+    assert.notEqual(one.id, opened.id)
+    const two = await store.rank(opened.id, 'Application run load_dataset')
+    assert.equal(two.ranking?.query, 'Application run load_dataset')
+    assert.equal(two.sourceSnapshotHash, opened.sourceSnapshotHash)
+    assert.deepEqual(store.project(opened.id), frozen)
+    assert.deepEqual(await readFile(p.db), dbBefore)
+    await assert.rejects(store.rank(opened.id, '  '), /query/i)
+  } finally { await rm(p.dir, { recursive: true, force: true }) }
+})
+
+test('a settled ranking result is not reused after source-only text changes', async () => {
+  const p = await project()
+  try {
+    const store = new TourStore(join(p.dir, 'tours'))
+    const opened = await store.open(p.db, headless, p.repo)
+    const first = await store.rank(opened.id, 'configuration')
+    assert.equal(first.ranking?.query, 'configuration')
+    await writeFile(join(p.repo, 'helper.py'), 'def transform():\n    return "request retry timeout"\n')
+    await assert.rejects(store.rank(opened.id, 'configuration'), /BM25|query/i,
+      'reranking must observe that the sole matching source text was removed')
+  } finally { await rm(p.dir, { recursive: true, force: true }) }
+})
+
+test('explicit goal ranking can start when the default onboarding query has no source match', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'telescode-query-only-'))
+  try {
+    const repo = join(dir, 'source'); await mkdir(repo)
+    await writeFile(join(repo, 'zygote.py'), 'class Zygote:\n    pass\n')
+    const db = join(dir, 'project.db')
+    await run(headless, ['scan', repo, db]); await run(headless, ['algo', db])
+    const store = new TourStore(join(dir, 'tours'))
+    await assert.rejects(store.open(db, headless, repo), /BM25|query/i)
+    const analysis = await store.openAnalysis(db, headless, repo)
+    assert.equal(analysis.ranking, undefined)
+    const ranked = await store.rank(analysis.id, 'Zygote')
+    assert.equal(ranked.ranking?.query, 'Zygote')
+    assert.equal(ranked.snapshot.readingSequence.find(s => s.entityType === 'file')?.fileId, 'zygote.py')
+  } finally { await rm(dir, { recursive: true, force: true }) }
+})
+
 test('model order replaces file ranks while preserving local order and baseline scores', () => {
   const before = structuredClone(snapshot)
   const result = applyRanking(snapshot, ranked)

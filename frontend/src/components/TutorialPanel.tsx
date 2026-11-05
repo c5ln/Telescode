@@ -6,6 +6,7 @@ import type { KeyboardEvent } from 'react'
 
 import { agents, installCommand, type AgentProvider } from '../agent'
 import type { Quiz } from '../app/useQuiz'
+import type { Learning } from '../app/useLearning'
 import type { SetupPhase, Tutorial } from '../app/useTutorial'
 import { formatEvidenceValue } from '../tour/model'
 import { stepDurationMs } from '../tour/tutorial'
@@ -27,9 +28,10 @@ interface TutorialPanelProps {
   tutorial: Tutorial
   quiz: Quiz
   repositoryName: string
+  learning?: Learning
 }
 
-export function TutorialPanel({ tutorial, quiz, repositoryName, provider = 'claude' }: TutorialPanelProps) {
+export function TutorialPanel({ tutorial, quiz, repositoryName, provider = 'claude', learning }: TutorialPanelProps) {
   const { name, account } = agents[provider]
   const { state } = tutorial
   if (state.status === 'off') return null
@@ -147,6 +149,11 @@ export function TutorialPanel({ tutorial, quiz, repositoryName, provider = 'clau
           </dl>
         )}
       </div>
+      {learning && <div className={styles.actions}><Button onClick={() => {
+        if (state.playing && !state.finished) tutorial.togglePlaying()
+        quiz.close()
+        void learning.start()
+      }}>Learn adaptively</Button></div>}
       <footer className={styles.footer}>
         <div className={styles.controls} role="toolbar" aria-label="Tutorial playback">
           <IconButton label="Previous step" tooltip="top" tooltipAlign="start" disabled={state.index === 0} onClick={() => tutorial.goTo(state.index - 1)}>
