@@ -377,8 +377,14 @@ export class LearningStore {
       const s = this.load(sessionId), job = this.job(result.id)
       const cached = this.db.prepare('SELECT data FROM learning_material_cache WHERE key=?').get(this.materialKey(s, job))
       if (cached) {
-        await this.prepare(sessionId, job.revision, JSON.parse(cached.data as string), job.id)
-        return { ...job, status: 'ready', shouldRun: false }
+        try {
+          await this.prepare(sessionId, job.revision, JSON.parse(cached.data as string), job.id)
+          return { ...job, status: 'ready', shouldRun: false }
+        } catch {
+          // The job is already reserved for this caller; an unusable cache entry must not strand it.
+          // Drop the entry and let the CLI generate fresh material for the same job.
+          this.db.prepare('DELETE FROM learning_material_cache WHERE key=?').run(this.materialKey(s, job))
+        }
       }
     }
     return result

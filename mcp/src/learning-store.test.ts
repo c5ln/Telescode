@@ -504,3 +504,20 @@ test('a session can end without a current step and invalidates unfinished genera
     await assert.rejects(f.store.saveJobCurriculum(job.id, curriculum()), /stale|revision|job/i)
   } finally { f.store.close() }
 })
+
+test('a cached material that no longer applies falls back to an AI run instead of leaving a running job', async () => {
+  const f = await fixture()
+  try {
+    const first = await f.store.requestPreparation(f.started.session.id, f.started.session.revision, 'codex', process.pid)
+    await f.store.saveJobCurriculum(first.id, curriculum())
+    // A cache entry the store can no longer apply (here: it fails curriculum validation).
+    f.store.db.prepare('UPDATE learning_material_cache SET data=?').run(JSON.stringify({ ...curriculum(), items: [] }))
+    const next = await f.store.start(f.project, { ...f.goal, goalId: 'cache-cannot-apply' })
+    const job = await f.store.requestPreparation(next.session.id, next.session.revision, 'codex', process.pid)
+    assert.equal(job.shouldRun, true, 'the CLI must run when the cached material cannot be applied')
+    assert.equal(job.status, 'running')
+    assert.equal(f.store.db.prepare('SELECT COUNT(*) AS n FROM learning_material_cache').get()!.n, 0, 'the unusable cache entry is dropped')
+    await f.store.saveJobCurriculum(job.id, curriculum())
+    assert.equal((await f.store.get(next.session.id)).session.status, 'active')
+  } finally { f.store.close() }
+})

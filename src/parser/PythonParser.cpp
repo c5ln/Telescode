@@ -1222,9 +1222,10 @@ std::vector<ParseResult> PythonParser::parseDirectory(
         if (entry.is_symlink()) continue;
         if (entry.is_directory()) {
             // Installed environments and caches are not repository code: don't descend.
-            // A venv with any other name is recognised by its pyvenv.cfg marker.
+            // An environment is recognised by its pyvenv.cfg marker, not by its name:
+            // a package can be called venv (CPython's Lib/venv).
             static const std::unordered_set<std::string> kSkipDirs = {
-                ".venv", "venv", "site-packages", "__pycache__", "node_modules", ".git", ".tox", ".mypy_cache"};
+                "site-packages", "__pycache__", "node_modules", ".git", ".tox", ".mypy_cache"};
             std::error_code venvEc;
             if (kSkipDirs.count(entry.path().filename().string()) ||
                 fs::exists(entry.path() / "pyvenv.cfg", venvEc))
