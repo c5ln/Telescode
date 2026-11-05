@@ -123,7 +123,7 @@ export function AppShell({
           disabled: state.status !== 'ready',
           onToggle:
             tutorial.state.status === 'off'
-              ? tutorial.start
+              ? tutorial.open
               : () => {
                   quiz.close()
                   learning.close()

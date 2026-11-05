@@ -94,6 +94,7 @@ async function chooseCodex() {
 
 async function startTutorial() {
   await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+  await userEvent.click(within(await screen.findByRole('region', { name: 'Start tutorial' })).getByRole('button', { name: 'Start tour' }))
   return screen.findByRole('region', { name: 'Tutorial' })
 }
 

@@ -3,7 +3,7 @@
 // wait for it. The map itself is only steered through the graph handle, so leaving the
 // tutorial puts back the view the user had.
 
-import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 
 import type { AnalysisSnapshot } from '../bridge'
 import type { GraphHandle, MapView } from '../graph/GraphCanvas'
@@ -12,6 +12,7 @@ import { pickTutorial, snapshotHash, stepDurationMs, type SavedTour, type TourLi
 
 export type TutorialState =
   | { status: 'off' }
+  | { status: 'choosing' }
   /** Looking for a saved tour after the user asked for the tutorial. */
   | { status: 'searching' }
   /**
@@ -27,6 +28,8 @@ export type SetupPhase = 'generating' | 'signing-in' | 'not-installed'
 
 export interface Tutorial {
   state: TutorialState
+  /** Choose default onboarding or enter requirements before any generation. */
+  open: () => void
   /** Play the saved tour, or generate one when there is none. */
   start: () => void
   /** Play a tour found during the generation flow. */
@@ -61,6 +64,11 @@ export function useTutorial(
   const remaining = useRef<{ index: number; ms: number } | null>(null)
   // Answers to an earlier search are dropped once the tutorial moves on.
   const searchId = useRef(0)
+  useLayoutEffect(() => {
+    const invalidate = () => { searchId.current++ }
+    invalidate(); savedView.current = null; remaining.current = null
+    return invalidate
+  }, [snapshot])
 
   const find = useCallback(async (): Promise<SavedTour | null> => {
     if (!snapshot) return null
@@ -128,6 +136,12 @@ export function useTutorial(
     setState(OFF)
   }, [state.status, graphRef, setState])
 
+  const open = useCallback(() => {
+    if (!snapshot) return
+    searchId.current++
+    setState({ status: 'choosing' })
+  }, [snapshot, setState])
+
   const goTo = useCallback(
     (index: number) => {
       if (state.status !== 'playing') return
@@ -188,7 +202,7 @@ export function useTutorial(
     return () => clearInterval(timer)
   }, [waiting, find, setState])
 
-  return { state, start, play, goTo, togglePlaying, exit }
+  return { state, open, start, play, goTo, togglePlaying, exit }
 }
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e))
