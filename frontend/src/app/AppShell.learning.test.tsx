@@ -46,10 +46,18 @@ function library() {
 const renderer = () => (window as { __telescode?: GraphRenderer }).__telescode!
 beforeEach(() => localStorage.clear())
 afterEach(cleanup)
-async function begin(learning: ReturnType<typeof library>, api?: TelescodeApi) {
+async function submitRequirements(requirements: string) {
+  const start = await screen.findByRole('region', { name: 'Start tutorial' })
+  if (requirements) await userEvent.type(within(start).getByRole('textbox', { name: /requirements/i }), requirements)
+  await userEvent.click(within(start).getByRole('button', { name: 'Start tour' }))
+}
+
+async function begin(learning: ReturnType<typeof library>, api?: TelescodeApi, requirements = '') {
   const rendered = render(<AppShell api={api} initialState={ready} tours={{ list: async () => [tour] }} learning={learning} />)
   renderer().resize(1200, 750)
   await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+  await submitRequirements(requirements)
+  if (requirements) return rendered
   const tutorial = await screen.findByRole('region', { name: 'Tutorial' })
   await within(tutorial).findByText('Understand how the application works.')
   await userEvent.click(within(tutorial).getByRole('button', { name: 'Learn adaptively' }))
@@ -58,14 +66,14 @@ async function begin(learning: ReturnType<typeof library>, api?: TelescodeApi) {
 
 it('starts with an explicit goal, prepares once and moves code only when the user advances', async () => {
   const learning = library()
-  await begin(learning)
+  const requirements = 'Explain how notification consumers receive results'
+  await begin(learning, undefined, requirements)
   const panel = await screen.findByRole('region', { name: 'Adaptive learning' })
   await within(panel).findByText('Why preserve the result before notifying?')
   expect(learning.start).toHaveBeenCalledTimes(1)
   const input = learning.start.mock.calls[0]![0] as unknown as { dbPath: string; goal: { rawQuery: string; retrievalQuery: string; targetConcepts: unknown[] } }
   expect(input.dbPath).toBe(dbPath)
-  expect(input.goal.rawQuery.trim().length).toBeGreaterThan(0)
-  expect(input.goal.retrievalQuery.trim().length).toBeGreaterThan(0)
+  expect(input.goal.rawQuery).toBe(requirements)
   expect(input.goal.targetConcepts.length).toBeGreaterThan(0)
   expect(learning.prepare).toHaveBeenCalledTimes(1)
   expect(renderer().selected?.id).toBe(nodeA)
@@ -78,6 +86,39 @@ it('starts with an explicit goal, prepares once and moves code only when the use
   await userEvent.click(within(panel).getByRole('button', { name: 'Continue learning' }))
   expect(learning.advance).toHaveBeenCalledWith(expect.objectContaining({ sessionId: 'session', revision: 3, stopId: 'stop-A', outcome: 'continue' }))
   expect(renderer().selected?.id).toBe(nodeB)
+})
+
+it('separates requirements sessions and resumes the original requirements after switching back', async () => {
+  const learning = library()
+  await begin(learning, undefined, 'Explain notifications')
+  await screen.findByRole('button', { name: 'Check answer' })
+  await userEvent.click(screen.getByRole('button', { name: 'Back to tutorial' }))
+  await submitRequirements('Explain search results')
+  await screen.findByRole('button', { name: 'Check answer' })
+
+  expect(learning.start).toHaveBeenCalledTimes(2)
+  const goals = learning.start.mock.calls.map(call => (call[0] as { goal: { goalId: string } }).goal)
+  expect(goals[0]!.goalId).not.toBe(goals[1]!.goalId)
+  expect(learning.get).not.toHaveBeenCalled()
+
+  await userEvent.click(screen.getByRole('button', { name: 'Back to tutorial' }))
+  await submitRequirements('  Explain   notifications  ')
+  await screen.findByRole('button', { name: 'Check answer' })
+  expect(learning.start).toHaveBeenCalledTimes(2)
+  expect(learning.get).toHaveBeenCalledExactlyOnceWith('session')
+})
+
+it('retries failed requirements startup with the same goal', async () => {
+  const learning = library()
+  learning.start.mockRejectedValueOnce(new Error('Connection lost'))
+  await begin(learning, undefined, 'Explain notifications')
+  expect((await screen.findByRole('alert')).textContent).toContain('Connection lost')
+
+  await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
+  await screen.findByRole('button', { name: 'Check answer' })
+  expect(learning.start).toHaveBeenCalledTimes(2)
+  expect(learning.start.mock.calls[1]).toEqual(learning.start.mock.calls[0])
+  expect(learning.prepare).toHaveBeenCalledTimes(1)
 })
 
 it('retries transport failure with the identical submission and selected answer', async () => {
@@ -107,6 +148,7 @@ it('drops preparation that finishes after the workspace changes', async () => {
   await act(async () => finish(view()))
   expect(screen.queryByRole('region', { name: 'Adaptive learning' })).toBeNull()
   await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+  await userEvent.click(within(await screen.findByRole('region', { name: 'Start tutorial' })).getByRole('button', { name: 'Start tour' }))
   const nextTutorial = await screen.findByRole('region', { name: 'Tutorial' })
   await within(nextTutorial).findByText('Understand how the application works.')
   await userEvent.click(within(nextTutorial).getByRole('button', { name: 'Learn adaptively' }))

@@ -9,11 +9,14 @@ import quiz from './QuizCard.module.css'
 export function LearningPanel({ learning }: { learning: Learning }) {
   const { state } = learning
   if (state.status === 'off') return null
-  const close = <IconButton label="Back to tutorial" onClick={learning.close}><CloseIcon /></IconButton>
+  const close = <IconButton label="Back to tutorial" tooltipAlign="end" onClick={learning.close}><CloseIcon /></IconButton>
   if (state.status === 'loading') return <section className={panel.panel} aria-label="Adaptive learning">
     <header className={panel.header}><p className={panel.eyebrow}>Adaptive learning</p>{close}</header>
     {state.error ? <p className={panel.error} role="alert">{state.error}</p> : <p className={panel.waiting}><Spinner /> Preparing a learning path…</p>}
-    {state.pending && <Button onClick={() => learning.advance('stop')}>End session</Button>}
+    {(state.pending || state.error) && <div className={panel.actions}>
+      {state.pending && <Button onClick={() => learning.advance('stop')}>End session</Button>}
+      {state.error && <Button variant="primary" onClick={learning.retry}>Try again</Button>}
+    </div>}
   </section>
   const { session, concepts, knowledge } = state.view
   const step = session.current
@@ -52,8 +55,10 @@ export function LearningPanel({ learning }: { learning: Learning }) {
     </>}
     {!step && session.status === 'generation-needed' && <>
       <p className={panel.text}>More independent material is needed. Your answers and remaining budget are saved.</p>
-      <Button disabled={state.busy} onClick={learning.prepareMore}>Prepare more material</Button>
-      <Button disabled={state.busy} onClick={() => learning.advance('stop')}>End session</Button>
+      <div className={panel.actions}>
+        <Button disabled={state.busy} onClick={() => learning.advance('stop')}>End session</Button>
+        <Button variant="primary" disabled={state.busy} onClick={learning.prepareMore}>Prepare more material</Button>
+      </div>
     </>}
     {!step && session.status === 'preparing' && <p className={panel.waiting}><Spinner /> Preparing learning material…</p>}
     {!step && ['finished', 'budget-exhausted', 'stopped'].includes(session.status) && <>

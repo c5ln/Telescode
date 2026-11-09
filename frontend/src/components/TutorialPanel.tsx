@@ -15,6 +15,7 @@ import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, PauseIcon, PlayIcon, Quiz
 import { IconButton } from '../ui/IconButton'
 import { Spinner } from '../ui/Spinner'
 import { QuizCard } from './QuizCard'
+import { TourStartPanel } from './TourStartPanel'
 import styles from './TutorialPanel.module.css'
 
 const SETUP_TITLES: Record<SetupPhase, (repository: string, account: string, name: string) => string> = {
@@ -45,6 +46,11 @@ export function TutorialPanel({ tutorial, quiz, repositoryName, provider = 'clau
     quiz.close()
     tutorial.exit()
   }
+
+  if (state.status === 'choosing') return <TourStartPanel onClose={exit} onStart={requirements => {
+    if (requirements && learning) void learning.start(requirements)
+    else tutorial.start()
+  }} />
 
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Escape') exit()
@@ -103,7 +109,10 @@ export function TutorialPanel({ tutorial, quiz, repositoryName, provider = 'clau
                 <code className={styles.command}>{installCommand(provider)}</code>
               </>
             ) : error ? (
-              <p className={styles.error}>Cannot generate the tutorial: {error}</p>
+              <>
+                <p className={styles.error}>Cannot generate the tutorial: {error}</p>
+                <div className={styles.actions}><Button onClick={tutorial.start}>Try again</Button></div>
+              </>
             ) : (
               <p className={styles.waiting} role="status">
                 <Spinner />

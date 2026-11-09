@@ -4,10 +4,8 @@ import type { GraphHandle, MapView } from '../graph/GraphCanvas'
 import type { GoalSeed, LearningLibrary } from '../learning/api'
 import type { LearningAnswer, LearningResult, LearningView } from '../learning/contracts'
 import { snapshotHash } from '../tour/tutorial'
+import { defaultGoal, requirementsGoal } from '../learning/goal'
 
-const DEFAULT_QUERY = 'Understand the application architecture, main entry points, core modules, configuration, dependencies, and how to load, process and return data.'
-const defaultGoal = (): GoalSeed => ({ goalId: 'repository-onboarding', goalRevision: 1, rawQuery: DEFAULT_QUERY, retrievalQuery: DEFAULT_QUERY,
-  targetConcepts: [{ conceptId: 'goal:architecture', level: 'easy', weight: 1 }], budget: 12 })
 type State = { status: 'off' } | { status: 'loading'; error?: string; pending?: LearningView } | { status: 'ready'; view: LearningView;
   question: LearningView['question']; selected: number | null; result: LearningResult | null; busy: boolean; error: string | null }
 const message = (e: unknown) => e instanceof Error ? e.message : String(e)
@@ -18,12 +16,14 @@ export function useLearning(library: LearningLibrary, snapshot: AnalysisSnapshot
   const context = useRef(snapshot)
   const sequence = useRef(0), busy = useRef(false)
   const request = useRef<LearningAnswer | null>(null)
+  const lastGoal = useRef<GoalSeed | string | null>(null)
   const ending = useRef(false)
   const savedView = useRef<MapView | null>(null)
   useLayoutEffect(() => {
+    const invalidate = () => { sequence.current++ }
     context.current = snapshot
-    sequence.current++; busy.current = false; ending.current = false; request.current = null; savedView.current = null
-    return () => { sequence.current++ }
+    invalidate(); busy.current = false; ending.current = false; request.current = null; savedView.current = null; lastGoal.current = null
+    return invalidate
   }, [snapshot])
   const setState = (state: State) => setOwned({ snapshot, state })
   const show = (view: LearningView, move = true) => {
@@ -32,13 +32,16 @@ export function useLearning(library: LearningLibrary, snapshot: AnalysisSnapshot
     if (move && view.session.current) graph.current?.spotlight(view.session.current.nodeId)
   }
   const current = (id: number) => id === sequence.current && context.current === snapshot
-  const start = async (goal = defaultGoal()) => {
+  const start = async (input: GoalSeed | string = defaultGoal()) => {
     if (!snapshot || !dbPath || busy.current) return
     const id = ++sequence.current; busy.current = true
     savedView.current = graph.current?.saveView() ?? null
+    lastGoal.current = input
     setState({ status: 'loading' })
     try {
+      const goal = typeof input === 'string' ? await requirementsGoal(input) : input
       const hash = await snapshotHash(snapshot)
+      if (!current(id)) return
       const key = `telescode.learning.${JSON.stringify([dbPath, hash, goal])}`
       let sessionId: string | null = null
       try { sessionId = localStorage.getItem(key) } catch { /* Optional local resume pointer. */ }
@@ -47,6 +50,7 @@ export function useLearning(library: LearningLibrary, snapshot: AnalysisSnapshot
         const saved = await library.get(sessionId)
         if (saved.session.goal.sourceSnapshotHash === hash && ['active', 'preparing', 'generation-needed'].includes(saved.session.status)) view = saved
       } catch { /* Deleted sessions can be started again. */ }
+      if (!current(id)) return
       if (!view) view = await library.start({ dbPath, goal })
       if (!current(id)) return
       try { localStorage.setItem(key, view.session.id) } catch { /* State is also persisted by the server. */ }
@@ -61,6 +65,9 @@ export function useLearning(library: LearningLibrary, snapshot: AnalysisSnapshot
     sequence.current++; busy.current = false; request.current = null
     if (context.current === snapshot && savedView.current) graph.current?.restoreView(savedView.current)
     savedView.current = null; setState({ status: 'off' })
+  }
+  const retry = () => {
+    if (state.status === 'loading' && state.error && lastGoal.current !== null) void start(lastGoal.current)
   }
   const select = (selected: number) => {
     if (state.status !== 'ready' || busy.current || state.result || request.current) return
@@ -112,6 +119,6 @@ export function useLearning(library: LearningLibrary, snapshot: AnalysisSnapshot
       if (current(id)) show(view)
     } catch (e) { if (current(id)) { busy.current = false; setState({ ...state, busy: false, error: message(e) }) } }
   }
-  return { state, start, close, select, submit, advance, prepareMore, showNode: (nodeId: string) => graph.current?.spotlight(nodeId) }
+  return { state, start, close, retry, select, submit, advance, prepareMore, showNode: (nodeId: string) => graph.current?.spotlight(nodeId) }
 }
 export type Learning = ReturnType<typeof useLearning>
