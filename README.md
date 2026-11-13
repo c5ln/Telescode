@@ -2,116 +2,102 @@
 
 > A telescope for your codebase.
 
-## Problem
+Open a Python repository and see it as a zoomable map. An AI agent then walks you through it in a sensible order and quizzes you on what you read.
 
-AI generates code faster than humans can comprehend it. Developers ship features rapidly using AI tools, but often lose sight of how their own codebase is structured.
+![Telescode showing the wikiKI repository as a code map, with a tutorial step on coordinator.py and its import arrows](.github/readme/code-map-tutorial.png)
 
-**Pain points:** Redundant code, misusing functions, fear of refactoring, slow debugging, over-reliance on AI tools
+## Why
 
-**What Telescode delivers:** Faster onboarding, faster debugging, better architectural decisions, improved maintainability, more efficient use of AI tools
+AI writes code faster than people can understand it. The bottleneck is no longer writing code but understanding it: where to start, what depends on what, and which parts are hard. Telescode answers those questions visually and turns them into a guided reading path.
 
-## What is Telescode?
+## Features
 
-Google Earth for your codebase. A zoomable interface that lets you seamlessly navigate from high-level dependency graphs down to individual lines of code.
+- **Code map.** Folders are regions and files are boxes sized by their line count. Darker boxes are more complex. Zoom in and files open into classes, fields and methods. Select a file to see only its own connections.
+- **Reading order.** A LambdaRank model ranks files by what to read first. It combines graph centrality (PageRank, betweenness, personalized PageRank), complexity metrics and how well each file matches your goal (BM25).
+- **AI tutorial.** Claude Code or Codex writes a guided tour along that order. Each step moves the map to a folder, file or class and explains why it matters.
+- **Quizzes.** Any tutorial step can quiz you at easy, medium or hard. Questions are grounded in the code, and every answer comes with an explanation and the files it is based on.
+- **Adaptive learning.** Describe what you want to learn, such as a feature or a code flow. The session estimates your understanding from your answers (Bayesian knowledge tracing) and picks the next step.
 
-## Key Features
+| Ask for a tour, or describe what to learn | Check your understanding |
+|---|---|
+| ![The "What would you like to learn?" panel](.github/readme/tutorial-start.png) | ![A quiz question answered correctly, with its explanation and evidence files](.github/readme/quiz.png) |
 
-### 1. Zoomable Code Map
+## How it works
 
-Adjust the abstraction level freely with the scroll wheel — continuously zoom between dependency graphs, class diagrams, and source code. Includes node rendering, connection rendering, and node layout algorithms, with interactions such as zoom in/out, panning, and a sidebar.
-
-### 2. Code Complexity Estimation
-
-Analyzes complexity along two axes.
-
-**File-Level Complexity Matrix:**
-
-- **Logical Density Analysis** — Measures the ratio of actual logic (conditionals, loops, etc.) to total lines in a file. Higher density indicates concentrated complex logic.
-- **Cyclomatic Complexity** — Counts the number of independent execution paths through the code. More branch points (if, for, while, switch) mean higher values, indicating greater effort needed to test and understand.
-- **Nesting Depth** — Measures how deeply conditionals and loops are nested. Deeper nesting increases cognitive load.
-- **Resource Weight** — Measures the volume of external resources (modules, libraries) a file imports or depends on. More dependencies mean more background knowledge is required to understand the file's context.
-- **Lines of Code** — Total line count of a file. Not an accurate complexity indicator on its own, but serves as foundational data when combined with other metrics.
-
-**File Relationship Analysis:** Dependency mapping with In-Bound and Out-Bound link counting.
-
-### 3. Reading Sequence Recommendation
-
-Uses PageRank and Betweenness Centrality to determine module importance and recommend an optimal reading order.
-
-- **PageRank** — Assigns higher scores to modules that are more frequently referenced (imported/called) by other modules, identifying core modules in the codebase.
-- **Betweenness Centrality** — This metric measures how many shortest paths between all pairs of nodes pass through a given node. Intuitively, it answers the question: "Can other modules be reached without going through this one?" This is similar to a "hub" person in a company who must be involved in every new client acquisition. The time complexity is O(VE) for V vertices and E edges, so vertex sampling is used for approximation on large codebases.
-
-These two metrics are combined to recommend the reading order that allows developers to grasp the codebase most efficiently — answering "which module should I read first?"
-
-### 4. Code Parsing
-
-Performs multi-layer parsing based on Tree-sitter.
-
-- **File Layer** — Parses and stores file names and dependency information.
-- **Class Layer** — Parses and stores class names, method names, and internal class structure.
-- **Function Layer** — Parses and stores function names, input/output types, and inter-function dependencies.
-- **Code Layer** — Stores function-level code with positional information.
-
-## Future Directions
-
-- **AI-powered Code Explanation** — Generate natural language descriptions of code via Claude API integration.
-
-## Workflow
-
-1. User inputs a GitHub repository URL into Telescode.
-2. Telescode parses the code, estimates complexity, and recommends a reading sequence.
-3. User explores the codebase through the zoomable interface.
-
-## Tech Stack
-
-| Area | Technology |
-|------|------------|
-| Language | C++17 |
-| Build | CMake 3.20+ (FetchContent) |
-| Code Parsing | Tree-sitter v0.25.3, tree-sitter-python v0.23.6 |
-| Data Storage | SQLite3 (bundled amalgamation, WAL mode) |
-| Frontend | React 19, TypeScript, Vite |
-| Desktop Shell | Tauri 2 (C++ core runs as a sidecar) |
-
-## Build
-
-```bash
-git clone https://github.com/<your-repo>/Telescode.git
-cd Telescode
-mkdir build && cd build
-cmake ..
-cmake --build .
+```text
+GitHub URL or local folder
+  │
+  ▼  C++ core (TelescodeHeadless)
+  │    parse with Tree-sitter → SQLite → complexity, dependency graph, centrality
+  ▼  LambdaRank (ltr/)
+  │    rank files for onboarding or for your goal
+  ▼  MCP server (mcp/) ◀── Claude Code / Codex writes tours, quizzes and learning material
+  │
+  ▼  Desktop app (Tauri + React)
+       draws the map and plays tours, quizzes and learning sessions on it
 ```
 
-All external dependencies are automatically downloaded via CMake FetchContent — no manual installation required. SQLite3 amalgamation source is included in `third_party/sqlite/`.
+The MCP server never calls a model itself. The agent CLI you already use does the writing, with your own sign-in.
 
-## Desktop App
+## Quick start
 
-The desktop UI lives in [`frontend/`](frontend/): React + TypeScript (Vite) in a Tauri shell. It runs the C++ core as the `TelescodeHeadless` sidecar. With the core built as above and Node.js and Rust installed:
+**Prerequisites:** CMake 3.20+ and a C++17 compiler, Python 3.11, Node.js 22+, Rust, and [Claude Code](https://claude.com/claude-code) or [Codex](https://github.com/openai/codex) for tutorials and quizzes.
 
 ```bash
+# 1. Python environment for ranking (the C++ build also links its LightGBM)
+python3.11 -m venv bench/.venv
+bench/.venv/bin/pip install -r bench/requirements.txt
+
+# 2. C++ core
+cmake -S . -B build
+cmake --build build --config Release --target TelescodeHeadless TelescodePPR
+
+# 3. MCP server
+npm --prefix mcp install
+
+# 4. Desktop app
 cd frontend
 npm install
 npm run desktop
 ```
 
-See [frontend/README.md](frontend/README.md) for prerequisites, creating a database, and how the bridge works.
+Paste a public GitHub repository URL and press **Analyze**. Then press the play button in the top bar to start a tutorial. Choose Claude Code or Codex in the top bar; the app asks you to sign in only when it needs to generate something.
 
+**Supported today:** public GitHub repositories and Python source. Development builds can also open a local folder. Generated tutorials are written in English.
 
----
+## Repository layout
 
-## Branching Convention
+| Path | What it is |
+|---|---|
+| [`src/`](src/) | C++ core: parsing, SQLite storage, metrics, reading order, JSON output |
+| [`frontend/`](frontend/) | Desktop app: Tauri shell and React UI, including the code map |
+| [`mcp/`](mcp/) | MCP server for tours, quizzes and adaptive learning |
+| [`ltr/`](ltr/) | LambdaRank model, feature extraction and runtime ranking |
+| [`bench/`](bench/) | Ranking experiments and evaluation data |
+| [`tests/`](tests/) | C++ tests (GoogleTest) |
 
-This project follows [GitHub Flow](https://docs.github.com/en/get-started/using-github/github-flow).
+Each part has its own README with setup details and checks:
+[frontend](frontend/README.md) · [mcp](mcp/README.md) · [ltr](ltr/README.md).
 
-Branch format: `<type>/<issue-id>-<description>` (e.g., `feat/26-add-zoom`)
+## Tech stack
 
-| Type        | Purpose               |
-| ----------- | --------------------- |
-| `feat/`     | New features          |
-| `fix/`      | Bug fixes             |
-| `refactor/` | Code refactoring      |
-| `docs/`     | Documentation changes |
-| `chore/`    | Miscellaneous tasks   |
+| Area | Technology |
+|---|---|
+| Core | C++17, CMake, Tree-sitter, SQLite |
+| Ranking | LightGBM LambdaRank (Python training, native C++ inference) |
+| Desktop | Tauri 2, React 19, TypeScript, Vite |
+| AI | MCP server (Node.js), Claude Code or Codex CLI |
+
+## Contributing
+
+This project follows [GitHub Flow](https://docs.github.com/en/get-started/using-github/github-flow). Name branches `<type>/<issue-id>-<description>`, for example `feat/26-add-zoom`.
+
+| Type | Purpose |
+|---|---|
+| `feat/` | New features |
+| `fix/` | Bug fixes |
+| `refactor/` | Code refactoring |
+| `docs/` | Documentation changes |
+| `chore/` | Miscellaneous tasks |
 
 All PRs require a code review before merging.
