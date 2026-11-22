@@ -816,140 +816,49 @@
   "concepts": [
    {
     "id": "goal:requirements:1a64802736edc5c3203280350b2e1842dc0877af7cf554d15780afd6e7bfb360",
-    "name": "From HTTPie command line to printed HTTP exchange",
-    "definition": "How an HTTPie terminal command turns into an HTTP request and how the response is formatted and printed. In the grounded code this covers: the `http`/`https` commands (which send requests) versus the `httpie` manager command (which only manages plugins and the CLI); the cookie policy that decides which stored cookies go out with a request; the transport adapter that builds the response object while keeping repeated headers; and the order in which request and response parts (headers, body, separators, metadata) appear in the printed output.",
-    "version": 1
+    "name": "HTTPie request/response handling",
+    "definition": "How HTTPie customizes the HTTP layer between a command line and the printed result: its adapter keeps repeated response headers intact, and its cookie policy decides when cookies are sent.",
+    "version": 2
    }
   ],
   "items": [
    {
-    "id": "manager-vs-http",
-    "kind": "explain",
-    "nodeId": "file:httpie/manager/core.py",
-    "conceptId": "goal:requirements:1a64802736edc5c3203280350b2e1842dc0877af7cf554d15780afd6e7bfb360",
-    "level": "easy",
-    "caption": "Start at the entry you type. `httpie/manager/core.py` belongs to the `httpie` manager command. It only sends `plugins` and `cli` subcommands to tasks (lines 26-42). If you type `httpie` with no subcommand, it stops with a message telling you to send requests with `http`/`https` instead (lines 9-23, 34-35). So a request is built only when you start with `http` or `https`.",
-    "questions": [
-     {
-      "type": "multiple_choice",
-      "difficulty": "easy",
-      "concept": "Request command vs manager command",
-      "question": "A frontend developer types just `httpie` in the terminal and presses Enter, hoping to try a request. What does this code do?",
-      "answer": "It stops with an error that lists the valid subcommands and shows an example using `http POST pie.dev/post hello=world`",
-      "distractors": [
-       "It sends a GET request to a default host and prints the response",
-       "It opens an interactive prompt that asks for the method and URL",
-       "It prints the installed plugin list and exits successfully"
-      ],
-      "explanation": "When `args.action` is None, `program` calls `parser.error(MSG_NAKED_INVOCATION)` (httpie/manager/core.py:34-35). That message combines the list of subcommands with a hint to use `http`/`https` (httpie/manager/core.py:9-23). Nothing here builds a request or opens a prompt.",
-      "evidenceNodeIds": [
-       "file:httpie/manager/core.py"
-      ]
-     },
-     {
-      "type": "true_false",
-      "difficulty": "easy",
-      "concept": "Request command vs manager command",
-      "question": "Running `httpie plugins list` turns its arguments into an HTTP request and sends it, just like `http` does.",
-      "answer": "False",
-      "distractors": [],
-      "explanation": "For `plugins`, `program` hands off to `dispatch_cli_task`, which looks up a task in `CLI_TASKS` and runs it (httpie/manager/core.py:26-30, 37-38). It builds no request. The help text says this command is only for managing plugins (httpie/manager/core.py:9-11).",
-      "evidenceNodeIds": [
-       "file:httpie/manager/core.py"
-      ]
-     }
-    ]
-   },
-   {
-    "id": "localhost-secure-cookies",
-    "kind": "diagnose",
-    "nodeId": "file:httpie/cookies.py",
-    "conceptId": "goal:requirements:1a64802736edc5c3203280350b2e1842dc0877af7cf554d15780afd6e7bfb360",
-    "level": "easy",
-    "caption": "Before a request goes out, HTTPie decides which stored cookies to attach. `HTTPieCookiePolicy` extends the standard library cookie policy. A cookie marked Secure is normally sent only over a secure protocol. HTTPie also treats `localhost` and any `*.localhost` host as secure, the way Chrome and Firefox do (httpie/cookies.py:9-25). This matters if you test a local dev server over plain http.",
-    "questions": [
-     {
-      "type": "multiple_choice",
-      "difficulty": "easy",
-      "concept": "Secure cookies on localhost",
-      "question": "Your dev server at http://localhost:3000 set a cookie marked Secure. On the next plain-http request to the same server, does this policy allow HTTPie to send that cookie?",
-      "answer": "Yes, because the policy counts the host `localhost` as a secure location even without https",
-      "distractors": [
-       "No, because Secure cookies are only ever sent over https",
-       "Only if the URL uses 127.0.0.1 instead of the name localhost",
-       "Only after the cookie is copied into a named session file"
-      ],
-      "explanation": "If the parent check fails because the protocol is not secure, `return_ok_secure` falls back to `_is_local_host` (httpie/cookies.py:12-20). That check returns True for the host `localhost` (httpie/cookies.py:25). The code matches host names only, so 127.0.0.1 is not treated this way.",
-      "evidenceNodeIds": [
-       "file:httpie/cookies.py",
-       "class:httpie/cookies.py::HTTPieCookiePolicy"
-      ]
-     },
-     {
-      "type": "multiple_choice",
-      "difficulty": "easy",
-      "concept": "Secure cookies on localhost",
-      "question": "Which plain-http host would this policy NOT treat as a secure place to send a Secure cookie?",
-      "answer": "app.localhost.example.com",
-      "distractors": [
-       "localhost",
-       "api.localhost",
-       "dev.app.localhost"
-      ],
-      "explanation": "`_is_local_host` accepts only the exact name `localhost` or a name that ends with `.localhost` (httpie/cookies.py:4-5, 25). `app.localhost.example.com` ends with `.example.com`, so the check fails. The other three hosts all pass.",
-      "evidenceNodeIds": [
-       "file:httpie/cookies.py",
-       "class:httpie/cookies.py::HTTPieCookiePolicy"
-      ]
-     },
-     {
-      "type": "true_false",
-      "difficulty": "easy",
-      "concept": "Secure cookies on localhost",
-      "question": "For an https URL, the policy still runs the localhost name check before deciding whether a Secure cookie may be sent.",
-      "answer": "False",
-      "distractors": [],
-      "explanation": "`return_ok_secure` calls the parent check first and returns True right away if the protocol is secure (httpie/cookies.py:12-14). The localhost check on line 20 runs only when that first check fails.",
-      "evidenceNodeIds": [
-       "file:httpie/cookies.py",
-       "class:httpie/cookies.py::HTTPieCookiePolicy"
-      ]
-     }
-    ]
-   },
-   {
-    "id": "response-headers-adapter",
+    "id": "act-adapter-easy",
     "kind": "read",
     "nodeId": "file:httpie/adapters.py",
     "conceptId": "goal:requirements:1a64802736edc5c3203280350b2e1842dc0877af7cf554d15780afd6e7bfb360",
     "level": "easy",
-    "caption": "When the server replies, the `requests` library builds a response object. HTTPie plugs in its own transport adapter, `HTTPieHTTPAdapter`. It lets `requests` do the normal work, then swaps the headers for an `HTTPHeadersDict`. That keeps every header that appears more than once, such as several Set-Cookie lines, so all of them can be printed (httpie/adapters.py:5-13).",
+    "caption": "Read HTTPieHTTPAdapter.build_response: it lets the requests library build the Response, then swaps the headers for HTTPie's own multi-value header dictionary.",
     "questions": [
      {
       "type": "multiple_choice",
       "difficulty": "easy",
-      "concept": "Keeping repeated response headers",
-      "question": "A server sends back two separate `Set-Cookie` headers. Why does HTTPie's adapter replace the response headers with an `HTTPHeadersDict`?",
-      "answer": "So that both headers with the same name are kept instead of being merged into one",
+      "concept": "Preserving repeated headers",
+      "question": "Why does HTTPieHTTPAdapter.build_response replace response.headers with an HTTPHeadersDict?",
+      "answer": "So that multiple headers sharing the same name are all kept",
       "distractors": [
-       "So that header names are sorted alphabetically before colored printing",
-       "So that header names are lowercased before the next request is sent",
-       "So that hop-by-hop headers are removed from the printed response"
+       "So that header names are sorted alphabetically for display",
+       "So that header names are converted to lowercase",
+       "So that duplicate headers are merged into a single value"
       ],
-      "explanation": "The docstring says the wrapper exists 'to preserve multiple headers that have the same name' (httpie/adapters.py:8-9). Line 12 builds `HTTPHeadersDict` from the raw response headers. The code does no sorting, lowercasing or filtering.",
+      "explanation": "The docstring says the wrapper exists to preserve multiple headers with the same name (httpie/adapters.py:8-9). The other options describe behaviors the code never states.",
       "evidenceNodeIds": [
        "file:httpie/adapters.py",
        "class:httpie/adapters.py::HTTPieHTTPAdapter"
       ]
      },
      {
-      "type": "true_false",
+      "type": "multiple_choice",
       "difficulty": "easy",
-      "concept": "Keeping repeated response headers",
-      "question": "HTTPieHTTPAdapter replaces the whole response-building step, so HTTPie's own code builds the status and body instead of the requests library.",
-      "answer": "False",
-      "distractors": [],
-      "explanation": "`build_response` first calls `super().build_response(req, resp)`, so `requests` still builds the response (httpie/adapters.py:11). HTTPie then replaces only `response.headers` (httpie/adapters.py:12).",
+      "concept": "Response post-processing",
+      "question": "After calling the parent build_response, what does the override do with the Response before returning it?",
+      "answer": "It replaces the headers attribute with an HTTPHeadersDict built from the raw response's headers",
+      "distractors": [
+       "It returns it unchanged",
+       "It re-encodes the response body",
+       "It discards it and builds a new Response from scratch"
+      ],
+      "explanation": "The code calls super().build_response, assigns response.headers from the raw resp headers, then returns the same object (httpie/adapters.py:11-13).",
       "evidenceNodeIds": [
        "file:httpie/adapters.py",
        "class:httpie/adapters.py::HTTPieHTTPAdapter"
@@ -958,61 +867,223 @@
     ]
    },
    {
-    "id": "printed-output-order",
-    "kind": "compare",
-    "nodeId": "file:tests/utils/matching/tokens.py",
+    "id": "act-cookie-easy",
+    "kind": "read",
+    "nodeId": "file:httpie/cookies.py",
     "conceptId": "goal:requirements:1a64802736edc5c3203280350b2e1842dc0877af7cf554d15780afd6e7bfb360",
     "level": "easy",
-    "caption": "This test helper describes the shape of HTTPie's printed output as a sequence of tokens: request headers, response headers, response metadata, body and separator. Compare the raw sequences with the terminal ones. Terminal output adds a separator after each message, and the `_META` variant adds response metadata at the very end (tests/utils/matching/tokens.py:4-52).",
+    "caption": "Read HTTPieCookiePolicy.return_ok_secure and _is_local_host: localhost is treated as a secure location like in modern browsers.",
     "questions": [
      {
       "type": "multiple_choice",
       "difficulty": "easy",
-      "concept": "Order of the printed exchange",
-      "question": "According to `TERMINAL_EXCHANGE`, in what order do the parts appear when HTTPie prints both the request and the response to the terminal?",
-      "answer": "Request headers, request body, separator, response headers, response body, separator",
+      "concept": "Cookie secure check",
+      "question": "A Secure cookie is considered for a plain-HTTP request to the host 'localhost'. What does return_ok_secure return?",
+      "answer": "True, because the fallback treats localhost as a secure location",
       "distractors": [
-       "Response headers, response body, separator, request headers, request body, separator",
-       "Request headers, response headers, separator, request body, response body, separator",
-       "Request headers, request body, response headers, response body, with no separators"
+       "False, because the protocol is not https",
+       "False, because Secure cookies are never sent over HTTP",
+       "It depends on the cookie's domain attribute, not the host"
       ],
-      "explanation": "`TERMINAL_EXCHANGE` is `TERMINAL_REQUEST` followed by `TERMINAL_RESPONSE` (tests/utils/matching/tokens.py:45-48). Each of those is headers, then body, then a separator (tests/utils/matching/tokens.py:21-28, 37-44). The request always comes before the response, and the headers and body of one message stay together.",
+      "explanation": "If the parent check fails, the method returns _is_local_host for the request host, which is True for 'localhost' (httpie/cookies.py:12-25).",
       "evidenceNodeIds": [
-       "file:tests/utils/matching/tokens.py",
-       "class:tests/utils/matching/tokens.py::ExpectSequence",
-       "class:tests/utils/matching/tokens.py::Expect"
-      ]
-     },
-     {
-      "type": "multiple_choice",
-      "difficulty": "easy",
-      "concept": "Raw vs terminal output",
-      "question": "What separates the expected raw exchange (`RAW_EXCHANGE`) from the terminal exchange (`TERMINAL_EXCHANGE`)?",
-      "answer": "Raw output has one separator, between request and response; terminal output ends each message with a separator",
-      "distractors": [
-       "Raw output leaves out the bodies and keeps only headers",
-       "Terminal output leaves out the request headers",
-       "Raw output always ends with the response metadata"
-      ],
-      "explanation": "`RAW_EXCHANGE` puts a single `SEPARATOR` between the request and the response (tests/utils/matching/tokens.py:29-33). The terminal versions add a `SEPARATOR` after each message (tests/utils/matching/tokens.py:37-48). Both include headers and bodies, and only `TERMINAL_EXCHANGE_META` adds `RESPONSE_META` (tests/utils/matching/tokens.py:49-52).",
-      "evidenceNodeIds": [
-       "file:tests/utils/matching/tokens.py",
-       "class:tests/utils/matching/tokens.py::ExpectSequence",
-       "class:tests/utils/matching/tokens.py::Expect"
+       "file:httpie/cookies.py",
+       "class:httpie/cookies.py::HTTPieCookiePolicy"
       ]
      },
      {
       "type": "true_false",
       "difficulty": "easy",
-      "concept": "Response metadata placement",
-      "question": "In `TERMINAL_EXCHANGE_META`, the response metadata is printed before the response headers.",
+      "concept": "Localhost detection",
+      "question": "True or false: _is_local_host returns True for the hostname 'example.localhost.com'.",
       "answer": "False",
-      "distractors": [],
-      "explanation": "`TERMINAL_EXCHANGE_META` is the full `TERMINAL_EXCHANGE` with `Expect.RESPONSE_META` added at the end (tests/utils/matching/tokens.py:49-52). So the metadata comes after the response headers, body and separator.",
+      "distractors": [
+       "True"
+      ],
+      "explanation": "It only matches the exact name 'localhost' or names ending in '.localhost'; 'example.localhost.com' ends in '.com' (httpie/cookies.py:25).",
       "evidenceNodeIds": [
-       "file:tests/utils/matching/tokens.py",
-       "class:tests/utils/matching/tokens.py::ExpectSequence",
-       "class:tests/utils/matching/tokens.py::Expect"
+       "file:httpie/cookies.py",
+       "class:httpie/cookies.py::HTTPieCookiePolicy"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "act-adapter-medium",
+    "kind": "explain",
+    "nodeId": "file:httpie/adapters.py",
+    "conceptId": "goal:requirements:1a64802736edc5c3203280350b2e1842dc0877af7cf554d15780afd6e7bfb360",
+    "level": "medium",
+    "caption": "Follow the header data: raw response headers flow through the adapter's override into a new container on the Response.",
+    "questions": [
+     {
+      "type": "multiple_choice",
+      "difficulty": "medium",
+      "concept": "Header data flow",
+      "question": "Where does the data for the new HTTPHeadersDict come from, and what happens if the raw response has no headers attribute?",
+      "answer": "It is built from the raw resp's headers, falling back to an empty dict when the attribute is missing",
+      "distractors": [
+       "It is copied from the parent Response's headers, and a missing attribute raises AttributeError",
+       "It is built from the request object, falling back to the default headers",
+       "It is read from a config file, falling back to an empty dict"
+      ],
+      "explanation": "The override passes getattr(resp, 'headers', {}) to HTTPHeadersDict (httpie/adapters.py:12), so the source is the raw resp and the default is {}.",
+      "evidenceNodeIds": [
+       "file:httpie/adapters.py",
+       "class:httpie/adapters.py::HTTPieHTTPAdapter"
+      ]
+     },
+     {
+      "type": "multiple_choice",
+      "difficulty": "medium",
+      "concept": "Debugging duplicated headers",
+      "question": "A server sends two headers with the same name, but only one appears in the printed output. Which part should be suspected first?",
+      "answer": "Whether the headers pass through the build_response override that wraps them in HTTPHeadersDict",
+      "distractors": [
+       "The cookie policy's secure-host check",
+       "The localhost detection helper",
+       "The parent class's constructor arguments"
+      ],
+      "explanation": "The override exists to keep same-named headers (httpie/adapters.py:8-12); the cookie policy only decides which cookies are sent and does not touch response headers.",
+      "evidenceNodeIds": [
+       "file:httpie/adapters.py",
+       "class:httpie/adapters.py::HTTPieHTTPAdapter"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "act-cookie-medium",
+    "kind": "diagnose",
+    "nodeId": "file:httpie/cookies.py",
+    "conceptId": "goal:requirements:1a64802736edc5c3203280350b2e1842dc0877af7cf554d15780afd6e7bfb360",
+    "level": "medium",
+    "caption": "Trace how return_ok_secure combines the inherited check with the localhost fallback.",
+    "questions": [
+     {
+      "type": "multiple_choice",
+      "difficulty": "medium",
+      "concept": "Extending inherited behavior",
+      "question": "Why does return_ok_secure call super() first and only then check for localhost?",
+      "answer": "To keep the default secure-protocol result and add localhost as an extra allowed case",
+      "distractors": [
+       "To replace the default check entirely with the localhost check",
+       "To make the localhost check run before any protocol check",
+       "To cache the default result for later requests"
+      ],
+      "explanation": "If super() returns True the method returns True immediately; only otherwise does it fall back to _is_local_host (httpie/cookies.py:12-20), so it widens but never narrows the default.",
+      "evidenceNodeIds": [
+       "file:httpie/cookies.py",
+       "class:httpie/cookies.py::HTTPieCookiePolicy"
+      ]
+     },
+     {
+      "type": "multiple_choice",
+      "difficulty": "medium",
+      "concept": "Debugging cookie sending",
+      "question": "A Secure cookie is sent to http://localhost:8000 but not to http://myapp.test over plain HTTP. What explains this?",
+      "answer": "Only 'localhost' and '*.localhost' hosts get the fallback; 'myapp.test' fails both the protocol and host checks",
+      "distractors": [
+       "The cookie policy treats every .test name as local",
+       "Plain HTTP is always rejected, so localhost must be sent through another code path",
+       "The port number in the URL decides whether the cookie is allowed"
+      ],
+      "explanation": "The fallback compares only the request host to 'localhost' or the '.localhost' suffix (httpie/cookies.py:20-25), so 'myapp.test' returns False.",
+      "evidenceNodeIds": [
+       "file:httpie/cookies.py",
+       "class:httpie/cookies.py::HTTPieCookiePolicy"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "act-adapter-hard",
+    "kind": "compare",
+    "nodeId": "file:httpie/adapters.py",
+    "conceptId": "goal:requirements:1a64802736edc5c3203280350b2e1842dc0877af7cf554d15780afd6e7bfb360",
+    "level": "hard",
+    "caption": "Judge the design: what the adapter override buys, and where new response handling would fit.",
+    "questions": [
+     {
+      "type": "multiple_choice",
+      "difficulty": "hard",
+      "concept": "Removing an abstraction",
+      "question": "If the build_response override were removed, what would be lost?",
+      "answer": "Responses would no longer carry HTTPHeadersDict, so same-named headers could not be preserved as intended",
+      "distractors": [
+       "Responses could no longer be built at all",
+       "Cookies would stop being stored",
+       "Request headers would be sent twice"
+      ],
+      "explanation": "The override's only job is wrapping the raw headers in HTTPHeadersDict (httpie/adapters.py:8-13), imported from httpie.cli.dicts (httpie/adapters.py:1). Without it, the stock container is used.",
+      "evidenceNodeIds": [
+       "file:httpie/adapters.py",
+       "class:httpie/adapters.py::HTTPieHTTPAdapter",
+       "file:httpie/cli/dicts.py",
+       "class:httpie/cli/dicts.py::HTTPHeadersDict"
+      ]
+     },
+     {
+      "type": "multiple_choice",
+      "difficulty": "hard",
+      "concept": "Extension point",
+      "question": "A new feature needs extra processing on every Response before it is printed. Which placement fits the existing design with the least intrusion?",
+      "answer": "Extend build_response in the adapter subclass, after the super().build_response call",
+      "distractors": [
+       "Edit the installed requests library's HTTPAdapter",
+       "Replace HTTPHeadersDict with a plain dict",
+       "Add the processing to the cookie policy class"
+      ],
+      "explanation": "The adapter subclass is already the point where each Response is constructed and customized (httpie/adapters.py:5-13). The cookie policy only governs cookie sending.",
+      "evidenceNodeIds": [
+       "file:httpie/adapters.py",
+       "class:httpie/adapters.py::HTTPieHTTPAdapter",
+       "file:httpie/cli/dicts.py"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "act-cookie-hard",
+    "kind": "compare",
+    "nodeId": "file:httpie/cookies.py",
+    "conceptId": "goal:requirements:1a64802736edc5c3203280350b2e1842dc0877af7cf554d15780afd6e7bfb360",
+    "level": "hard",
+    "caption": "Weigh the trade-offs of the localhost exception in the cookie policy.",
+    "questions": [
+     {
+      "type": "multiple_choice",
+      "difficulty": "hard",
+      "concept": "Impact of removing an override",
+      "question": "If HTTPieCookiePolicy were replaced by the default policy, what would a developer notice when testing against http://localhost?",
+      "answer": "Secure cookies would not be sent back over plain HTTP, breaking cookie-based flows in local development",
+      "distractors": [
+       "All cookies would be sent to every host",
+       "Secure cookies would be sent only to https hosts that also match localhost",
+       "Nothing, since the default policy already treats localhost as secure"
+      ],
+      "explanation": "The override exists because the original method only considers secure protocols (httpie/cookies.py:16-20); the localhost fallback is the added behavior.",
+      "evidenceNodeIds": [
+       "file:httpie/cookies.py",
+       "class:httpie/cookies.py::HTTPieCookiePolicy",
+       "dir:httpie"
+      ]
+     },
+     {
+      "type": "multiple_choice",
+      "difficulty": "hard",
+      "concept": "Security trade-off",
+      "question": "What would go wrong if _is_local_host used hostname.endswith('localhost') without the leading dot?",
+      "answer": "A host such as 'evillocalhost' would be treated as local and receive Secure cookies over plain HTTP",
+      "distractors": [
+       "The real 'localhost' would stop matching",
+       "Only hosts with ports would match",
+       "Nothing, because the equality check already covers all cases"
+      ],
+      "explanation": "The leading dot in '.localhost' restricts matches to true subdomains (httpie/cookies.py:5,25). Dropping it would match unrelated names ending in 'localhost'.",
+      "evidenceNodeIds": [
+       "file:httpie/cookies.py",
+       "class:httpie/cookies.py::HTTPieCookiePolicy"
       ]
      }
     ]

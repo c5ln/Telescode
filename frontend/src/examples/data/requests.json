@@ -856,55 +856,32 @@
   "concepts": [
    {
     "id": "goal:requirements:637236e6c89a016c6e336e0d07a45a4c568175d6648d9b2c2b16f82ff9603cbc",
-    "name": "Path of requests.get() through Session to adapter",
-    "definition": "requests.get(url, params, **kwargs) in api.py forwards to request('get', ...), which opens a short-lived sessions.Session() in a with-block and delegates to session.request(); the session is closed afterwards. A Session is the object meant to persist settings (cookies, auth, proxies) across requests, sends PreparedRequest objects and gets back Response objects, and sessions.py imports HTTPAdapter, the transport-level component that works on prepared requests.",
-    "version": 1
-   },
-   {
-    "id": "concept:session-setting-merge",
-    "name": "Merging session and per-request settings",
-    "definition": "sessions.merge_setting(request_setting, session_setting) decides the effective value of a setting: if either side is None the other is used; if both are not mappings the per-request value wins; if both are mappings they are merged with request keys overriding session keys, and keys whose merged value is None are removed.",
-    "version": 1
-   },
-   {
-    "id": "concept:adapter-prepared-request",
-    "name": "Adapters work on prepared requests",
-    "definition": "An HTTPAdapter operates on a PreparedRequest (a Request after .prepare()), not on the raw arguments to requests.get(). For example, HTTPAdapter.request_url(prepared, {}) derives the path portion of the prepared URL, keeping a leading '//' intact, as shown in tests/test_adapters.py.",
-    "version": 1
+    "name": "requests.get() to HTTP request, sessions and adapters",
+    "definition": "How a top-level call such as requests.get() is routed through the api module into a Session, how Session merges per-request and session-level settings, and where adapters fit in the sending path.",
+    "version": 2
    }
   ],
   "items": [
    {
-    "id": "item-api-get-flow",
+    "id": "a-easy-api",
     "kind": "read",
     "nodeId": "file:src/requests/api.py",
     "conceptId": "goal:requirements:637236e6c89a016c6e336e0d07a45a4c568175d6648d9b2c2b16f82ff9603cbc",
     "level": "easy",
-    "caption": "Start in src/requests/api.py. get() (line 74) does no HTTP work itself: it calls request(\"get\", url, params=params, **kwargs) (line 87). request() then opens a fresh sessions.Session() inside a with-block and returns session.request(...) (lines 70-71). The comment on lines 67-69 explains the with-block: closing the session avoids leaving sockets open. So every module-level call creates and closes its own Session.",
+    "caption": "Read api.py: get() is a thin wrapper, and request() owns a short-lived Session.",
     "questions": [
      {
       "type": "multiple_choice",
       "difficulty": "easy",
-      "concept": "Module-level get() delegates to a temporary Session",
-      "question": "You call requests.get(url, params={'q': 'x'}) without creating any session yourself. What does the library do with that call before any network work happens?",
-      "answer": "Forwards it to request() with method 'get', which creates a new Session in a with-block and delegates to session.request()",
+      "concept": "get() delegation",
+      "question": "What does requests.get(url, params=...) actually do with the call?",
+      "answer": "It forwards to request() with the method string \"get\" and the same params and kwargs.",
       "distractors": [
-       "get() builds the HTTP request bytes itself and writes them straight to a socket",
-       "get() hands the call to one global Session that every module-level call shares",
-       "get() creates an HTTPAdapter directly and bypasses Session entirely"
+       "It opens a socket itself and writes the GET line directly.",
+       "It builds a Response object by itself without any other function.",
+       "It looks up a cached Session shared by all module-level calls."
       ],
-      "explanation": "get() just calls request(\"get\", url, params=params, **kwargs) (src/requests/api.py:87), and request() does `with sessions.Session() as session: return session.request(...)` (src/requests/api.py:70-71). There is no shared global session, and get() never touches sockets or adapters directly.",
-      "evidenceNodeIds": [
-       "file:src/requests/api.py"
-      ]
-     },
-     {
-      "type": "true_false",
-      "difficulty": "easy",
-      "concept": "Session lifetime of module-level calls",
-      "question": "True or false: two consecutive requests.get() calls share the same underlying Session object, so state from the first call is still there for the second.",
-      "answer": "False",
-      "explanation": "Each call goes through request(), which constructs a new sessions.Session() in a with-block and closes it when the block ends (src/requests/api.py:70-71). The second call therefore gets a brand-new Session; thinking they are shared confuses module-level calls with an explicitly reused Session.",
+      "explanation": "get() ends with `return request(\"get\", url, params=params, **kwargs)`, so it only delegates. The other options attribute work to get() that it does not do.",
       "evidenceNodeIds": [
        "file:src/requests/api.py"
       ]
@@ -912,15 +889,15 @@
      {
       "type": "multiple_choice",
       "difficulty": "easy",
-      "concept": "Why request() uses a with-block",
-      "question": "Why does request() wrap the Session in a `with` statement instead of just creating it and calling session.request()?",
-      "answer": "So the session is guaranteed to be closed, avoiding open sockets that can cause ResourceWarnings or look like memory leaks",
+      "concept": "Session lifetime in request()",
+      "question": "Why does request() use a `with sessions.Session() as session:` block?",
+      "answer": "So the session is closed when the call finishes, avoiding leftover open sockets and ResourceWarnings.",
       "distractors": [
-       "So the request is automatically retried if the first attempt raises an exception",
-       "So the session is locked and the call becomes thread-safe",
-       "So the Response is cached and reused by the next call with the same URL"
+       "So the session's cookies are saved for the next top-level call.",
+       "So the request is sent asynchronously in the background.",
+       "So redirects are disabled for the call."
       ],
-      "explanation": "The comment directly above the with-block says it ensures the session is closed to avoid leaving sockets open, which can trigger a ResourceWarning or look like a memory leak (src/requests/api.py:67-71). Nothing in this code retries, locks, or caches.",
+      "explanation": "The comment at api.py:67-69 says the with statement ensures the session is closed to avoid open sockets. Nothing there persists state or changes redirects.",
       "evidenceNodeIds": [
        "file:src/requests/api.py"
       ]
@@ -928,81 +905,84 @@
     ]
    },
    {
-    "id": "item-session-role",
+    "id": "a-easy-sessions",
     "kind": "explain",
     "nodeId": "file:src/requests/sessions.py",
     "conceptId": "goal:requirements:637236e6c89a016c6e336e0d07a45a4c568175d6648d9b2c2b16f82ff9603cbc",
     "level": "easy",
-    "caption": "Next, src/requests/sessions.py. Its docstring (lines 5-6) says a Session manages and persists settings across requests: cookies, auth, proxies. It imports HTTPAdapter from .adapters (line 21), and SessionRedirectMixin declares send(request: PreparedRequest) -> Response (line 132). So a Session sends already-prepared requests and receives Response objects.",
+    "caption": "Read merge_setting in sessions.py: how a request's settings combine with the session's.",
     "questions": [
      {
       "type": "multiple_choice",
       "difficulty": "easy",
-      "concept": "Session as holder of persistent settings",
-      "question": "Your backend service calls the same API many times and needs the same cookies, auth and proxy configuration on every call. Based on sessions.py, which component is designed to carry those settings across requests?",
-      "answer": "A Session object that you create once and reuse",
+      "concept": "merge_setting fallback",
+      "question": "A session has a timeout-like setting configured, but a particular request passes None for it. What does merge_setting return?",
+      "answer": "The session's setting.",
       "distractors": [
-       "The HTTPAdapter, which stores per-user cookies and auth",
-       "Each PreparedRequest, which remembers settings from the previous request",
-       "The module-level requests.get() function, which keeps settings between calls"
+       "None, because the request value wins.",
+       "An empty OrderedDict.",
+       "It raises an error because the values conflict."
       ],
-      "explanation": "The sessions module docstring states it provides a Session object to manage and persist settings across requests (cookies, auth, proxies) (src/requests/sessions.py:5-6). The adapter is imported as a separate transport component (src/requests/sessions.py:21), and nothing here says a PreparedRequest or module function persists state.",
+      "explanation": "`if request_setting is None: return session_setting` (sessions.py:87-88). The request value only takes priority when it is not None.",
       "evidenceNodeIds": [
-       "file:src/requests/sessions.py",
-       "class:src/requests/sessions.py::Session"
+       "file:src/requests/sessions.py"
       ]
      },
      {
       "type": "multiple_choice",
       "difficulty": "easy",
-      "concept": "Session sends prepared requests",
-      "question": "SessionRedirectMixin declares `send(self, request: PreparedRequest, **kwargs) -> Response`. What does this tell you about what a Session's send step works with?",
-      "answer": "It takes a request that has already been prepared into its final form and returns a Response object",
+      "concept": "merge_setting dict merge",
+      "question": "Session headers and request headers are both mappings. How does merge_setting combine them?",
+      "answer": "It copies the session's items, then updates them with the request's items so request values override on the same key.",
       "distractors": [
-       "It takes the raw url and keyword arguments exactly as passed to requests.get()",
-       "It returns raw socket bytes that the caller must parse into a response",
-       "It takes a Response and converts it into the next redirect request"
+       "It returns only the request headers and drops the session ones.",
+       "It returns only the session headers and ignores the request ones.",
+       "It concatenates values of the same key into one string."
       ],
-      "explanation": "The declared signature accepts a PreparedRequest and returns a Response (src/requests/sessions.py:132), and both types are imported from models (src/requests/sessions.py:39-45). Raw get() arguments are handled earlier, and the result is a Response object rather than bytes.",
+      "explanation": "Lines 96-97 build a dict from session_setting and call update with request_setting, so request wins on collisions while other session keys remain.",
       "evidenceNodeIds": [
-       "file:src/requests/sessions.py",
-       "class:src/requests/sessions.py::SessionRedirectMixin"
+       "file:src/requests/sessions.py"
       ]
      }
     ]
    },
    {
-    "id": "item-get-vs-session-diagnose",
-    "kind": "diagnose",
+    "id": "a-medium-api",
+    "kind": "explain",
     "nodeId": "file:src/requests/api.py",
     "conceptId": "goal:requirements:637236e6c89a016c6e336e0d07a45a4c568175d6648d9b2c2b16f82ff9603cbc",
     "level": "medium",
-    "caption": "Put api.py and sessions.py together: module-level helpers create a throwaway Session per call (api.py:70-71), while a Session is what persists cookies, auth and proxies across requests (sessions.py:5-6). Whether you reuse a Session changes what carries over between calls.",
+    "caption": "Follow requests.get() into Session: what the module-level call creates and returns.",
     "questions": [
      {
       "type": "multiple_choice",
       "difficulty": "medium",
-      "concept": "Lost state between module-level calls",
-      "question": "A script logs in with requests.post(login_url, ...) and the server sets a session cookie. The next call, requests.get(profile_url), is rejected as unauthenticated. What should you suspect first?",
-      "answer": "Each module-level call uses its own new Session that is closed afterwards, so the login cookie is not carried to the next call; reuse one Session",
+      "concept": "get() call flow",
+      "question": "Trace requests.get(url): which sequence matches the code?",
+      "answer": "get() calls request(\"get\", ...), which creates a Session and calls session.request(method=..., url=..., **kwargs), returning its Response.",
       "distractors": [
-       "CaseInsensitiveDict lowercases the cookie name so the server no longer recognizes it",
-       "HTTPAdapter strips all cookies from GET requests before sending them",
-       "merge_setting deletes the cookie because the GET call did not pass cookies"
+       "get() calls Session.get on a module-level Session created at import time.",
+       "get() builds a PreparedRequest itself and hands it to an adapter.",
+       "get() calls session.send directly and request() is only used for POST."
       ],
-      "explanation": "request() creates `sessions.Session()` in a with-block for every call (src/requests/api.py:70-71), while persisting cookies across requests is exactly the Session's job (src/requests/sessions.py:5-6). The other options blame components for behaviour not shown in the code.",
+      "explanation": "api.py:87 delegates to request, and api.py:70-71 creates a Session and returns session.request(...). Preparing and sending happen inside the session, not in api.py.",
       "evidenceNodeIds": [
        "file:src/requests/api.py",
        "file:src/requests/sessions.py"
       ]
      },
      {
-      "type": "true_false",
+      "type": "multiple_choice",
       "difficulty": "medium",
-      "concept": "Module calls vs reused Session",
-      "question": "True or false: replacing repeated requests.get() calls in a loop with one Session reused for every call makes no difference to which cookies, auth and proxy settings carry over between iterations.",
-      "answer": "False",
-      "explanation": "Module-level calls build and close a fresh Session each time (src/requests/api.py:70-71), whereas one reused Session persists cookies, auth and proxies across its requests (src/requests/sessions.py:5-6). So reusing the Session does change what persists.",
+      "concept": "No state across top-level calls",
+      "question": "A developer calls requests.get(a) then requests.get(b) expecting cookies set by the first response to be sent with the second. What explains why that is not guaranteed by this code?",
+      "answer": "Each top-level call creates and closes its own Session, and sessions are what persist cookies, auth and proxies.",
+      "distractors": [
+       "get() strips cookies from every response before returning it.",
+       "Cookies are only supported for POST requests.",
+       "The api module keeps a single global Session but resets it after each call."
+      ],
+      "explanation": "The sessions module docstring says Session persists settings such as cookies across requests, while api.py:70 makes a new Session per call inside a with block.",
       "evidenceNodeIds": [
        "file:src/requests/api.py",
        "file:src/requests/sessions.py"
@@ -1011,123 +991,138 @@
     ]
    },
    {
-    "id": "item-merge-setting",
+    "id": "a-medium-sessions",
     "kind": "diagnose",
     "nodeId": "file:src/requests/sessions.py",
-    "conceptId": "concept:session-setting-merge",
-    "level": "easy",
-    "caption": "merge_setting() in src/requests/sessions.py (lines 76-105) combines a per-request value with the session's value. A None on one side means use the other; non-mapping values (like verify) take the request's value; for two mappings the request's keys override the session's, then any key whose value is None is deleted.",
+    "conceptId": "goal:requirements:637236e6c89a016c6e336e0d07a45a4c568175d6648d9b2c2b16f82ff9603cbc",
+    "level": "medium",
+    "caption": "Why merge_hooks exists next to merge_setting, and how non-mapping settings are handled.",
     "questions": [
      {
       "type": "multiple_choice",
-      "difficulty": "easy",
-      "concept": "Dropping a session header with None",
-      "question": "The session setting is {'Accept': 'application/json', 'X-Trace': '1'} and the request setting is {'X-Trace': None}. What does merge_setting(request_setting, session_setting) return?",
-      "answer": "{'Accept': 'application/json'} - X-Trace is removed and Accept is kept",
+      "difficulty": "medium",
+      "concept": "merge_hooks purpose",
+      "question": "Why does merge_hooks return one side early when the other has an empty 'response' list, instead of always calling merge_setting?",
+      "answer": "Because merging {'response': []} through merge_setting would break the session's hooks, so the non-empty side is returned directly.",
       "distractors": [
-       "{'Accept': 'application/json', 'X-Trace': '1'} because the session value wins",
-       "{'X-Trace': None} because the request mapping replaces the session mapping entirely",
-       "{'Accept': 'application/json', 'X-Trace': ''} because None becomes an empty value"
+       "Because hooks must never be merged, only the session's hooks are ever used.",
+       "Because empty lists are invalid and raise an error in merge_setting.",
+       "Because merge_hooks must always prefer the request hooks over session hooks."
       ],
-      "explanation": "Both are mappings, so the session items are copied and then updated with the request items, making X-Trace None (src/requests/sessions.py:96-97); keys whose value is None are then deleted (src/requests/sessions.py:101-103). Accept survives because the request did not override it.",
+      "explanation": "The docstring at sessions.py:113-116 states that when request_hooks == {'response': []} the merge breaks Session hooks entirely, hence the early returns.",
       "evidenceNodeIds": [
+       "file:src/requests/sessions.py",
+       "file:src/requests/hooks.py"
+      ]
+     },
+     {
+      "type": "multiple_choice",
+      "difficulty": "medium",
+      "concept": "merge_setting non-dict values",
+      "question": "A session sets verify to one value and a request sets a different non-mapping value. What does merge_setting return, and why?",
+      "answer": "The request's value, because the merge is bypassed when either side is not a Mapping.",
+      "distractors": [
+       "The session's value, because session settings are authoritative.",
+       "A dict containing both values.",
+       "None, because the two values conflict."
+      ],
+      "explanation": "Lines 90-94 return request_setting if the two are not both Mappings (the comment mentions verify). Only dict-like settings are merged key by key.",
+      "evidenceNodeIds": [
+       "file:src/requests/sessions.py",
+       "file:src/requests/utils.py"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "a-hard-api",
+    "kind": "compare",
+    "nodeId": "file:src/requests/api.py",
+    "conceptId": "goal:requirements:637236e6c89a016c6e336e0d07a45a4c568175d6648d9b2c2b16f82ff9603cbc",
+    "level": "hard",
+    "caption": "Design trade-off: a fresh Session per top-level call versus a shared one.",
+    "questions": [
+     {
+      "type": "multiple_choice",
+      "difficulty": "hard",
+      "concept": "Per-call Session trade-off",
+      "question": "Suppose api.request were changed to reuse one module-level Session for all requests.get() calls. Which consequence follows from the Session's role shown in the code?",
+      "answer": "Cookies, auth and other settings persisted on that Session would leak between unrelated calls, and the closing guarantee of the with block would be lost.",
+      "distractors": [
+       "Nothing would change, since Session stores no state between requests.",
+       "Per-request keyword arguments would stop being merged with session settings.",
+       "get() would no longer be able to return a Response object."
+      ],
+      "explanation": "sessions.py documents that Session persists cookies, auth and proxies, and api.py:67-71 uses a with block per call to close it. A shared session would carry state across callers and never be closed per call.",
+      "evidenceNodeIds": [
+       "file:src/requests/api.py",
        "file:src/requests/sessions.py"
       ]
      },
      {
       "type": "multiple_choice",
-      "difficulty": "easy",
-      "concept": "Non-mapping settings: request wins",
-      "question": "A Session-level setting is False and the same setting passed on one request is True (both plain booleans, e.g. verify). What does merge_setting return?",
-      "answer": "True, because for non-mapping values the per-request value is returned",
+      "difficulty": "hard",
+      "concept": "Shared code path for verb helpers",
+      "question": "get() and options() both end by calling request(). What design benefit does this give when a new keyword such as a new transport option must be supported?",
+      "answer": "It needs to be handled only in the request path through Session, and every verb helper that forwards **kwargs picks it up.",
       "distractors": [
-       "False, because the session setting always takes priority",
-       "An OrderedDict containing both values",
-       "None, because the two values conflict"
+       "Each verb helper must be edited separately to forward it.",
+       "Only get() can accept it because it has an explicit params argument.",
+       "It must be added to the Response class so helpers can return it."
       ],
-      "explanation": "Neither value is None, and since they are not both Mappings the function returns request_setting directly; the comment names verify as the example (src/requests/sessions.py:90-94). Dict merging only happens when both sides are mappings (src/requests/sessions.py:96).",
+      "explanation": "api.py:87 and api.py:99 both forward **kwargs to request(), which forwards them to session.request, so helpers share one path rather than duplicating logic.",
       "evidenceNodeIds": [
-       "file:src/requests/sessions.py"
-      ]
-     },
-     {
-      "type": "true_false",
-      "difficulty": "easy",
-      "concept": "None falls back to the other side",
-      "question": "True or false: if a request passes None for a setting while the session has a value for it, merge_setting returns None and the session value is ignored.",
-      "answer": "False",
-      "explanation": "When request_setting is None the function returns session_setting (src/requests/sessions.py:87-88); likewise a None session setting returns the request value (src/requests/sessions.py:84-85). None at the top level means 'not specified', not 'clear it'.",
-      "evidenceNodeIds": [
+       "file:src/requests/api.py",
        "file:src/requests/sessions.py"
       ]
      }
     ]
    },
    {
-    "id": "item-adapter-prepared",
-    "kind": "read",
-    "nodeId": "file:tests/test_adapters.py",
-    "conceptId": "concept:adapter-prepared-request",
-    "level": "easy",
-    "caption": "tests/test_adapters.py shows the adapter layer in isolation: a Request is built and .prepare()d into a PreparedRequest, then HTTPAdapter().request_url(p, {}) is asked for the URL to use. For http://127.0.0.1:10000//v:h it must return '//v:h' (issue #6643), i.e. the path part with the leading '//' kept.",
+    "id": "a-hard-sessions",
+    "kind": "diagnose",
+    "nodeId": "file:src/requests/sessions.py",
+    "conceptId": "goal:requirements:637236e6c89a016c6e336e0d07a45a4c568175d6648d9b2c2b16f82ff9603cbc",
+    "level": "hard",
+    "caption": "What would break if merge_hooks lacked its guards, and how None unsets session defaults.",
     "questions": [
      {
       "type": "multiple_choice",
-      "difficulty": "easy",
-      "concept": "Adapter input is a prepared request",
-      "question": "In this test, what has to happen to the Request before HTTPAdapter.request_url can work with it?",
-      "answer": "It is converted with .prepare() into a PreparedRequest, which is what the adapter receives",
+      "difficulty": "hard",
+      "concept": "Removing merge_hooks guards",
+      "question": "If the early-return guards in merge_hooks were removed and it always called merge_setting, what would happen when the session has {'response': [hook]} and the request passes {'response': []}?",
+      "answer": "The request's empty list would overwrite the session's 'response' key, so the session's hook would silently not run.",
       "distractors": [
-       "It is passed to the adapter as a plain Request with only method and url set",
-       "It must first be sent through a Session, which returns the object the adapter uses",
-       "It is turned into a dict of method, url and headers for the adapter"
+       "The two lists would be concatenated so the hook runs once.",
+       "merge_setting would raise a TypeError for list values.",
+       "The session's hook would run twice."
       ],
-      "explanation": "The test builds `requests.Request(method=\"GET\", url=...).prepare()` and passes that prepared object to `a.request_url(p, {})` (tests/test_adapters.py:6-8). No Session is involved, and the adapter receives the prepared object, not a dict.",
+      "explanation": "merge_setting copies session items then updates with request items (sessions.py:96-97), so the same key from the request replaces the session's value, which is the breakage described at lines 115-116.",
       "evidenceNodeIds": [
-       "file:tests/test_adapters.py"
+       "file:src/requests/sessions.py",
+       "file:src/requests/structures.py"
       ]
      },
      {
       "type": "multiple_choice",
-      "difficulty": "easy",
-      "concept": "What request_url derives",
-      "question": "For the prepared URL http://127.0.0.1:10000//v:h the test expects request_url to return '//v:h'. What behaviour is the test protecting?",
-      "answer": "The adapter extracts the path part of the URL and keeps the leading '//' instead of collapsing it or reading it as a host",
+      "difficulty": "hard",
+      "concept": "None as unset marker",
+      "question": "What capability does the loop that deletes keys whose value is None in merge_setting give callers?",
+      "answer": "A request can pass None for a key to suppress a default that the session would otherwise send.",
       "distractors": [
-       "The adapter returns the full absolute URL including scheme, host and port",
-       "The adapter normalizes '//' to a single '/' before the request is sent",
-       "The adapter returns the host and port to connect to, here 127.0.0.1:10000"
+       "It lets the session delete its own defaults permanently.",
+       "It prevents the request from overriding any session key.",
+       "It converts None values into empty strings."
       ],
-      "explanation": "The assertion is `\"//v:h\" == a.request_url(p, {})` (tests/test_adapters.py:8), so the result is only the path with its leading double slash intact; the test name refers to handling leading path separators (tests/test_adapters.py:4). A full URL, a collapsed '/v:h', or a host:port would all fail this assertion.",
+      "explanation": "After merging, keys with None values are removed (sessions.py:99-103), so a per-request None overrides the session value and then drops the key from the merged result.",
       "evidenceNodeIds": [
-       "file:tests/test_adapters.py"
+       "file:src/requests/sessions.py",
+       "file:src/requests/utils.py"
       ]
      }
     ]
    }
   ],
-  "relations": [
-   {
-    "from": "concept:session-setting-merge",
-    "to": "goal:requirements:637236e6c89a016c6e336e0d07a45a4c568175d6648d9b2c2b16f82ff9603cbc",
-    "kind": "prerequisite",
-    "reason": "Knowing how session-level and per-request settings are merged (sessions.py merge_setting) explains what a Session contributes to a call made through requests.get().",
-    "evidenceNodeIds": [
-     "file:src/requests/sessions.py",
-     "file:src/requests/api.py"
-    ]
-   },
-   {
-    "from": "concept:adapter-prepared-request",
-    "to": "goal:requirements:637236e6c89a016c6e336e0d07a45a4c568175d6648d9b2c2b16f82ff9603cbc",
-    "kind": "prerequisite",
-    "reason": "sessions.py imports HTTPAdapter and the Session's send step works on PreparedRequest objects; understanding that adapters operate on prepared requests locates the adapter in the requests.get() path.",
-    "evidenceNodeIds": [
-     "file:src/requests/sessions.py",
-     "file:tests/test_adapters.py",
-     "file:src/requests/adapters.py"
-    ]
-   }
-  ]
+  "relations": []
  }
 }

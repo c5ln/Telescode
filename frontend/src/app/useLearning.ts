@@ -109,7 +109,8 @@ export function useLearning(library: LearningLibrary, snapshot: AnalysisSnapshot
       if (!view) view = await library.start({ dbPath, goal })
       if (!current(id)) return
       try { localStorage.setItem(key, view.session.id) } catch { /* State is also persisted by the server. */ }
-      if (view.session.status === 'preparing') {
+      // A session whose first preparation failed has no material at all: it is prepared again, not shown as used up.
+      if (view.session.status === 'preparing' || (view.session.status === 'generation-needed' && !view.concepts.length)) {
         const pending = view
         let activity = startActivity()
         setState({ status: 'loading', pending, activity })

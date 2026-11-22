@@ -3,8 +3,13 @@
 // curriculum, and a learner who answers every question right, or every one
 // wrong, reaches an end the panel can show (finished, the step budget, or the
 // prepared material used up, which the panel ends with End session). The
+// example's material is the whole level ladder, so a learner who answers every
+// question right climbs easy, medium and hard and finishes. The
 // tries share one store, as in the app, each as its own learner as the
 // example wrapper starts them, so trying an example again still gets questions.
+// Before them, the store has learned from the example's previously committed
+// material, as an app that ran an earlier version has: a concept whose
+// definition changed since then must carry a new version to be accepted.
 //
 // Run it after regenerating the example data (build-examples.ts) or changing
 // the learning server's validation. It downloads and scans each pinned
@@ -64,7 +69,7 @@ type Call = (tool: string, input: Record<string, unknown>) => Promise<any>
 
 /** learning.rs prepare_learning_session with bundled material. */
 async function prepare(call: Call, view: any, curriculum: any) {
-  const job = await call('request_learning_preparation', { sessionId: view.session.id, revision: view.session.revision, provider: 'claude', ownerPid: process.pid })
+  const job = await call('request_learning_preparation', { sessionId: view.session.id, revision: view.session.revision, provider: 'claude', ownerPid: process.pid, useCache: false })
   // A goal prepared before reuses its saved material: nothing to run, as in learning.rs.
   if (!job.shouldRun) {
     if (job.status === 'failed') throw new Error(`The preparation failed: ${job.error ?? ''}`)
@@ -120,6 +125,11 @@ async function play(example: ExampleRepository, db: string, data: any, answers: 
       view = await call('advance_learning_session', { sessionId: view.session.id, revision: view.session.revision, stopId: view.session.current?.id ?? s.current.id, outcome: 'continue' })
     }
     if (!ENDS.includes(view.session.status)) throw new Error(`The path stopped at ${view.session.status}`)
+    if (answers === 'right') {
+      if (view.session.status !== 'finished') throw new Error(`All right answers ended at ${view.session.status}, not finished: the material does not climb to hard`)
+      const levels = new Set(view.answers.map((a: any) => a.level))
+      if (!levels.has('hard')) throw new Error('All right answers never reached hard')
+    }
     // The end summary's counts.
     const counted = view.answers.reduce((n: number, a: any) => n + a.asked, 0)
     const countedRight = view.answers.reduce((n: number, a: any) => n + a.correct, 0)
@@ -136,6 +146,44 @@ async function play(example: ExampleRepository, db: string, data: any, answers: 
   }
 }
 
+/** The example's material as last committed, if it differs from the current one. */
+function previous(example: ExampleRepository, current: any): Promise<any | null> {
+  return new Promise((done) => {
+    const child = spawn('git', ['show', `HEAD:frontend/src/examples/data/${example.name}.json`], { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] })
+    let text = ''
+    child.stdout.on('data', (d) => (text += d))
+    child.on('close', (code) => {
+      if (code !== 0) return done(null)
+      const data = JSON.parse(text)
+      done(JSON.stringify(data.curriculum) === JSON.stringify(current.curriculum) ? null : data)
+    })
+  })
+}
+
+/** One session prepared with `data`'s material in `output`, as an earlier app version would have left it. */
+async function learnFrom(example: ExampleRepository, db: string, data: any, output: string) {
+  const client = new Client({ name: 'telescode-check-examples', version: '1' })
+  await client.connect(new StdioClientTransport({
+    command: process.execPath,
+    args: ['--import', join(root, 'mcp/node_modules/tsx/dist/loader.mjs'), join(root, 'mcp/src/server.ts')],
+    env: { ...process.env, TELESCODE_TOUR_OUTPUT: output, TELESCODE_HEADLESS: headless } as Record<string, string>,
+    cwd: root,
+    stderr: 'ignore',
+  }))
+  const call: Call = async (tool, input) => {
+    const result = await client.callTool({ name: tool, arguments: input })
+    const text = (result.content as { text: string }[])[0]?.text ?? ''
+    if (result.isError) throw new Error(`${tool}: ${text}`)
+    return JSON.parse(text)
+  }
+  try {
+    const view = await call('start_learning_session', { path: db, goal: await requirementsGoal(example.requirements), learnerId: `previous-${randomUUID()}` })
+    await prepare(call, view, data.curriculum)
+  } finally {
+    await client.close()
+  }
+}
+
 const names = process.argv.slice(2)
 const chosen = EXAMPLE_REPOSITORIES.filter((e) => !names.length || names.includes(e.name))
 let failed = false
@@ -143,6 +191,15 @@ for (const example of chosen) {
   const data = JSON.parse(await readFile(join(frontend, 'src/examples/data', `${example.name}.json`), 'utf8'))
   const db = await database(example)
   const output = await mkdtemp(join(tmpdir(), 'telescode-check-'))
+  const earlier = await previous(example, data)
+  if (earlier) {
+    try {
+      await learnFrom(example, db, earlier, output)
+      console.log(`[${example.name}] learned from the previously committed material first`)
+    } catch (e) {
+      console.log(`[${example.name}] the previously committed material no longer loads (${(e as Error).message.slice(0, 80)}); checking without it`)
+    }
+  }
   for (const [label, answers] of [['all right', 'right'], ['all wrong', 'wrong'], ['again, all right', 'right']] as const) {
     try {
       console.log(`[${example.name}] ${label}: ${await play(example, db, data, answers, output)}`)

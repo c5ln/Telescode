@@ -14,6 +14,10 @@
 //
 // Rerun after changing the examples, their commits, or the core's analysis:
 // the tours refer to the map's node IDs at that commit.
+//
+// With --curriculum-only, only the learning path is written again; the tour
+// and quizzes already in src/examples/data are kept. Then check the result:
+//   npm run check:examples
 
 import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -130,6 +134,15 @@ Only save the quiz. Reply with the quiz set ID.`
   return (await artifactsOf(artifacts, '.quiz.json')).sort((a, b) => a.stopIndex - b.stopIndex)
 }
 
+/**
+ * What the agent is asked for an example's learning path. The app writes a
+ * small start and then the next levels while the learner answers; an example
+ * runs no agent, so its curriculum is the whole level ladder at once.
+ */
+function ladderPrompt(jobId: string) {
+  return `Prepare Telescode adaptive learning job ${jobId} for an example repository that ships with the app. No more material is written while its learners answer, so write the complete curriculum now. Call get_learning_preparation_context with exactly this job ID, inspect its grounded code excerpts and immutable goal, then save_learning_curriculum with the same job ID. For each goal concept in rules.start.concepts write two actions at each of the easy, medium and hard levels, each with two independent questions, so a learner who answers wrongly still has another question at that level. Keep to at most rules.start.maxConcepts concepts. Pick each action's nodeId from the context whose evidence lists the nodes its questions cite: a question may cite only evidence[level] of the context whose nodeId is the action's nodeId, and must include that nodeId. Follow the server's adaptive learning instructions, except the limit of rules.start to its levels and two questions: this curriculum is the complete one. Use the requested target levels and existing concept definitions exactly. Save only material; never answer or advance a learner session. Reply with the job ID.`
+}
+
 /** The curriculum the agent proposes for the example's goal, as it passed it to save_learning_curriculum. */
 async function writeCurriculum(db: string, artifacts: string, requirements: string) {
   const { command, args, env } = server(artifacts)
@@ -144,7 +157,7 @@ async function writeCurriculum(db: string, artifacts: string, requirements: stri
   try {
     const view = await call('start_learning_session', { path: db, goal: await requirementsGoal(requirements) })
     const job = await call('request_learning_preparation', { sessionId: view.session.id, revision: view.session.revision, provider: 'claude', ownerPid: process.pid })
-    const prompt = `Prepare Telescode adaptive learning job ${job.id}. Call get_learning_preparation_context with exactly this job ID, inspect its grounded code excerpts and immutable goal, then save_learning_curriculum with the same job ID. Follow the server's adaptive learning instructions. Prepare at least two independent scenario questions per target when supported. Use the requested target levels and existing concept definitions exactly. Save only material; never answer or advance a learner session. Reply with the job ID.`
+    const prompt = ladderPrompt(job.id)
     const stream = await agent(prompt, artifacts, LEARNING_TOOLS, [...LIGHT_MODEL, '--output-format', 'stream-json', '--verbose'])
     await call('finish_learning_preparation', { jobId: job.id })
     // The last save the server accepted wins; earlier ones may have been rejected and retried.
@@ -201,8 +214,38 @@ async function build(example: ExampleRepository) {
   log('done')
 }
 
-const names = process.argv.slice(2)
+/**
+ * `curriculum` with each concept whose definition differs from `previous`'s
+ * carrying a newer version. The learning server keeps every definition it has
+ * seen per repository and refuses a changed one under the same version, so an
+ * app that learned from the earlier material would otherwise reject the new.
+ */
+function versioned(curriculum: { concepts: { id: string; version: number; definition: string }[] }, previous?: { concepts: { id: string; version: number; definition: string }[] }) {
+  return { ...curriculum, concepts: curriculum.concepts.map((c) => {
+    const before = previous?.concepts.find((p) => p.id === c.id)
+    return before && before.definition !== c.definition ? { ...c, version: Math.max(c.version, before.version + 1) } : c
+  }) }
+}
+
+/** Writes only the example's learning path again, keeping its tour and quizzes. */
+async function rebuildCurriculum(example: ExampleRepository) {
+  const file = join(out, `${example.name}.json`)
+  const data = JSON.parse(await readFile(file, 'utf8'))
+  if (data.commit !== example.commit) throw new Error(`${example.name} moved to another commit; build it in full`)
+  const dir = await cacheDir(example)
+  await mkdir(dir, { recursive: true })
+  const log = (step: string) => console.log(`[${example.owner}/${example.name}] ${step}`)
+  log('scanning the pinned commit')
+  const db = await prepareRepository(example, dir)
+  log('preparing the learning path for the suggested goal')
+  const curriculum = versioned(await writeCurriculum(db, join(dir, 'learning'), example.requirements) as Parameters<typeof versioned>[0], data.curriculum)
+  await writeFile(file, JSON.stringify({ ...data, curriculum }, null, 1) + '\n')
+  log('done')
+}
+
+const curriculumOnly = process.argv.includes('--curriculum-only')
+const names = process.argv.slice(2).filter((a) => !a.startsWith('--'))
 const chosen = EXAMPLE_REPOSITORIES.filter((e) => !names.length || names.includes(e.name))
-const results = await Promise.allSettled(chosen.map(build))
+const results = await Promise.allSettled(chosen.map(curriculumOnly ? rebuildCurriculum : build))
 for (const [i, r] of results.entries()) if (r.status === 'rejected') console.error(`[${chosen[i]!.name}] failed:`, r.reason)
 process.exit(results.some((r) => r.status === 'rejected') ? 1 : 0)

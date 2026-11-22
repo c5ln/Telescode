@@ -29,7 +29,9 @@ const ready = (v: LearningView): Learning['state'] => ({ status: 'ready', view: 
 
 describe('LearningPanel', () => {
   it("ends an example's path with End session once its prepared material is used up", async () => {
-    const l = learning(ready(view('requirements:example')), 'requirements:example')
+    const used = view('requirements:example')
+    used.concepts = [{ id: 'goal', name: 'Path of requests.get()', definition: 'd', version: 2 }]
+    const l = learning(ready(used), 'requirements:example')
     render(<LearningPanel learning={l} />)
     expect(screen.getByText(/every question prepared for this example/)).toBeTruthy()
     expect(screen.getByText('6 steps done')).toBeTruthy()
@@ -50,6 +52,11 @@ describe('LearningPanel', () => {
     const items = screen.getAllByRole('listitem').map((li) => li.textContent)
     expect(items).toEqual(['Path of requests.get(): Understood (3 of 3 answers about it correct)', 'Adapters: Not confirmed yet (1 of 3 answers about it correct)'])
     expect(screen.queryByText(/of up to 12/)).toBeNull()
+  })
+
+  it('never calls a session with no material at all used up', () => {
+    render(<LearningPanel learning={learning(ready(view('requirements:example')), 'requirements:example')} />)
+    expect(screen.queryByText(/every question prepared/)).toBeNull()
   })
 
   it('offers more material, written by the agent, for any other goal', () => {

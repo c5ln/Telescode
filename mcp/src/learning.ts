@@ -401,7 +401,8 @@ export class LearningStore {
       g.goalRevision, g.targetConcepts, g.budget, job.provider, 'learning-prompt-v1', job.baseVersion]))
   }
   /** `ownerPid` is the app process that will run the CLI when `shouldRun`; a crashed owner's job is expired rather than joined. */
-  async requestPreparation(sessionId: string, revision: number, provider: string, ownerPid: number): Promise<PreparationJob> {
+  /** With `useCache: false` the caller saves material of its own (an example's), so no cached curriculum stands in for it. */
+  async requestPreparation(sessionId: string, revision: number, provider: string, ownerPid: number, options: { useCache?: boolean } = {}): Promise<PreparationJob> {
     if (!Number.isSafeInteger(ownerPid) || ownerPid <= 0) throw new Error('Invalid preparation owner pid')
     const result = this.transaction<PreparationJob>(() => {
       const s = this.load(sessionId)
@@ -431,7 +432,7 @@ export class LearningStore {
       this.saveJob(job); this.save(s, { type: 'generation-requested', jobId: job.id })
       return job
     })
-    if (result.shouldRun) {
+    if (result.shouldRun && options.useCache !== false) {
       const s = this.load(sessionId), job = this.job(result.id)
       const cached = this.db.prepare('SELECT data FROM learning_material_cache WHERE key=?').get(this.materialKey(s, job))
       if (cached) {

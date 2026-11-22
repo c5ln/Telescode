@@ -73,7 +73,7 @@ export function LearningPanel({ learning, provider = 'claude', onSwitchAgent }: 
         <Button variant="primary" disabled={state.busy || Boolean(state.question && !state.result)} onClick={() => learning.advance('continue')}>Continue learning</Button>
       </div>
     </>}
-    {!step && session.status === 'generation-needed' && learning.isPrepared(session.goal.goalId) && <>
+    {!step && session.status === 'generation-needed' && learning.isPrepared(session.goal.goalId) && concepts.length > 0 && <>
       <p className={panel.text}>You have answered every question prepared for this example. End the session to see how it went.</p>
       <div className={panel.actions}>
         <Button variant="primary" disabled={state.busy} onClick={() => learning.advance('stop')}>End session</Button>

@@ -75,7 +75,8 @@ pub async fn prepare_learning_session<R: tauri::Runtime>(
         // Includes reservation so queued duplicates observe the first worker's saved materials.
         let serial = PREPARATION.lock().unwrap_or_else(|e| e.into_inner());
         let provider = provider.unwrap_or_default();
-        let job = mcp::call("request_learning_preparation", json!({"sessionId":session_id,"revision":revision,"provider":provider,"ownerPid":std::process::id()}))?;
+        // Material the app brings (an example's) is saved as is, never replaced by a cached curriculum.
+        let job = mcp::call("request_learning_preparation", json!({"sessionId":session_id,"revision":revision,"provider":provider,"ownerPid":std::process::id(),"useCache":curriculum.is_none()}))?;
         let job_id = job["id"].as_str().unwrap_or_default();
         if let (true, Some(bundled)) = (job["shouldRun"] == true, curriculum.as_ref()) {
             // The server takes the version after the session's current one,

@@ -703,134 +703,75 @@
   "concepts": [
    {
     "id": "goal:requirements:1b894454e51c84da664b7374cd2403f30556a9e7fb0f02d62f2fecead2e19647",
-    "name": "How a request reaches a Flask view",
-    "definition": "An incoming WSGI request is handled by the Flask application object, which holds the registry of URL rules and view functions. Routing results (matched rule, view arguments or a routing exception) are stored on the Request object, the application context provides per-context state such as g, and the matched view function (or a class-based view's dispatch_request) is called with the URL variables.",
-    "version": 1
-   },
-   {
-    "id": "flask-app-object",
-    "name": "The Flask app object",
-    "definition": "Flask (src/flask/app.py) subclasses the I/O-free App (src/flask/sansio/app.py). It implements the WSGI application and acts as the central registry for view functions, URL rules and template configuration; its first argument (import name) is used to locate resources.",
-    "version": 1
-   },
-   {
-    "id": "request-routing-results",
-    "name": "Routing results on the Request",
-    "definition": "Flask's Request (src/flask/wrappers.py) extends Werkzeug's Request and remembers the outcome of URL matching: url_rule (the matched Rule), view_args (matched URL variables, None on failure) and routing_exception (the error, usually NotFound, when matching fails). It also reads per-request limits from the current app's config.",
-    "version": 1
-   },
-   {
-    "id": "app-context-g",
-    "name": "Application context and g",
-    "definition": "Creating an application context creates an _AppCtxGlobals namespace object exposed as the g proxy (src/flask/ctx.py). It stores data for the duration of the context; helpers like after_this_request work only inside a request.",
-    "version": 1
-   },
-   {
-    "id": "class-based-view-dispatch",
-    "name": "Class-based view dispatch",
-    "definition": "View.as_view (src/flask/views.py) converts a View subclass into a view function. The generated function passes URL variables as keyword arguments to dispatch_request, creating a new instance per request unless init_every_request is False, and applies the class's decorators list to the generated function.",
-    "version": 1
+    "name": "Request to view function flow",
+    "definition": "How an incoming request reaches a Flask view function: the Flask app object as central registry, the Request object that records routing results, the application context and its g namespace, and class-based views that are resolved through current_app.",
+    "version": 2
    }
   ],
   "items": [
    {
-    "id": "target-app-registry",
-    "kind": "explain",
-    "nodeId": "file:src/flask/app.py",
-    "conceptId": "goal:requirements:1b894454e51c84da664b7374cd2403f30556a9e7fb0f02d62f2fecead2e19647",
-    "level": "easy",
-    "caption": "Start with src/flask/app.py. The Flask class (line 108) is the WSGI application and the central registry for view functions and URL rules. Every request enters here first, and the app object decides which view handles it.",
-    "questions": [
-     {
-      "type": "multiple_choice",
-      "difficulty": "easy",
-      "concept": "App as the routing registry",
-      "question": "A request for /hello arrives from the WSGI server. Why is the Flask app object, and not the view function, the part that decides which code runs?",
-      "answer": "The app object holds the registry of URL rules and view functions, so it can map the URL to a view",
-      "distractors": [
-       "Each view function scans incoming URLs itself and claims the ones it recognises",
-       "The WSGI server reads the decorators and calls the matching view directly",
-       "The Request object stores all URL rules and picks a view on its own"
-      ],
-      "explanation": "The Flask docstring says it implements a WSGI application and acts as the central registry for view functions and URL rules (src/flask/app.py:109-112). Views don't scan URLs and the WSGI server doesn't read decorators. The app owns the mapping.",
-      "evidenceNodeIds": [
-       "file:src/flask/app.py",
-       "class:src/flask/app.py::Flask"
-      ]
-     },
-     {
-      "type": "true_false",
-      "difficulty": "easy",
-      "concept": "Flask builds on a base App",
-      "question": "True or false: Flask in src/flask/app.py contains all of its own logic and has no base application class.",
-      "answer": "False",
-      "explanation": "Flask is declared as class Flask(App) (src/flask/app.py:108), and App is imported from .sansio.app (src/flask/app.py:43). The WSGI-facing Flask class builds on that shared base, so it doesn't carry all of its own logic.",
-      "evidenceNodeIds": [
-       "file:src/flask/app.py",
-       "class:src/flask/app.py::Flask"
-      ]
-     }
-    ]
-   },
-   {
-    "id": "target-request-carries-match",
-    "kind": "explain",
+    "id": "easy-1",
+    "kind": "read",
     "nodeId": "file:src/flask/wrappers.py",
     "conceptId": "goal:requirements:1b894454e51c84da664b7374cd2403f30556a9e7fb0f02d62f2fecead2e19647",
     "level": "easy",
-    "caption": "Next, open src/flask/wrappers.py. After routing, the Request object remembers which rule matched and what the URL variables were (url_rule, view_args). If matching failed, it keeps the error in routing_exception instead.",
+    "caption": "Flask's Request subclasses Werkzeug's request and records the routing outcome: the matched rule, the view arguments and any routing exception.",
     "questions": [
      {
       "type": "multiple_choice",
       "difficulty": "easy",
-      "concept": "Request remembers the match",
-      "question": "After Flask matches /users/42 to a rule with an id variable, where can a before-request handler find both the matched rule and the extracted id?",
-      "answer": "On the Request object, in request.url_rule and request.view_args",
+      "concept": "Request object responsibility",
+      "question": "What does Flask's own Request class add on top of the Werkzeug request it inherits from?",
+      "answer": "It remembers routing results such as the matched URL rule, the view arguments and any routing exception.",
       "distractors": [
-       "On the Response object, which is created before routing",
-       "Only inside the view function's local variables",
-       "In the app config under a ROUTING key"
+       "It re-implements HTTP header parsing from scratch.",
+       "It stores the user's session cookie contents.",
+       "It selects which WSGI server runs the application."
       ],
-      "explanation": "The Request docstring says it remembers the matched endpoint and view arguments (src/flask/wrappers.py:19-20), and these are stored in url_rule and view_args (src/flask/wrappers.py:43-47). They aren't kept only in the view's local variables or in the config.",
+      "explanation": "Request subclasses Werkzeug's Request and adds url_rule, view_args and routing_exception attributes (`src/flask/wrappers.py:18`, `src/flask/wrappers.py:43`). Parsing is inherited, and sessions are not stored here.",
       "evidenceNodeIds": [
        "file:src/flask/wrappers.py",
        "class:src/flask/wrappers.py::Request"
       ]
      },
      {
-      "type": "true_false",
+      "type": "multiple_choice",
       "difficulty": "easy",
-      "concept": "Method mismatch keeps the request unbound",
-      "question": "True or false: if a URL matches a rule but the HTTP method isn't allowed, request.url_rule is still set to that rule so handlers can read its methods.",
-      "answer": "False",
-      "explanation": "The comment explains that when the method is invalid for the rule, the allowed methods are found on routing_exception.valid_methods instead, because the request was never internally bound (src/flask/wrappers.py:35-40). So url_rule isn't the place to look in that case.",
+      "concept": "Routing failure state",
+      "question": "A request arrives for a URL that matches no rule. What do the Request attributes hold?",
+      "answer": "view_args is None and routing_exception holds the error, usually a NotFound.",
+      "distractors": [
+       "view_args is an empty dict and routing_exception is None.",
+       "view_args holds the NotFound exception and url_rule is the 404 rule.",
+       "No Request object is created until a rule matches."
+      ],
+      "explanation": "The comments say view_args is None if matching raised, and routing_exception holds the exception such as NotFound (`src/flask/wrappers.py:45`, `src/flask/wrappers.py:49`).",
       "evidenceNodeIds": [
-       "file:src/flask/wrappers.py",
-       "class:src/flask/wrappers.py::Request"
+       "file:src/flask/wrappers.py"
       ]
      }
     ]
    },
    {
-    "id": "target-context-state",
-    "kind": "explain",
+    "id": "easy-2",
+    "kind": "read",
     "nodeId": "file:src/flask/ctx.py",
     "conceptId": "goal:requirements:1b894454e51c84da664b7374cd2403f30556a9e7fb0f02d62f2fecead2e19647",
     "level": "easy",
-    "caption": "src/flask/ctx.py holds the context objects that run alongside a request. Creating an app context also creates a namespace object, exposed as g. Helpers like after_this_request attach behaviour to the current request only.",
+    "caption": "_AppCtxGlobals is the plain namespace object that backs g inside an application context.",
     "questions": [
      {
       "type": "multiple_choice",
       "difficulty": "easy",
-      "concept": "g comes from the app context",
-      "question": "A view reads g.user even though g was never passed to it as an argument. Why does this work?",
-      "answer": "Creating the app context creates an _AppCtxGlobals object, which g exposes for that context",
+      "concept": "g namespace",
+      "question": "What is the purpose of the _AppCtxGlobals object?",
+      "answer": "It is a plain namespace for storing arbitrary data during an application context, exposed as g.",
       "distractors": [
-       "g is a plain module-level dict shared by every request in the process",
-       "Flask injects g into each view as a hidden keyword argument",
-       "g is an attribute copied from the Response object after the view returns"
+       "It caches the compiled URL rules for the app.",
+       "It holds the application's configuration values.",
+       "It builds the response returned by a view."
       ],
-      "explanation": "The _AppCtxGlobals docstring says creating an app context automatically creates this object, and it is made available as the g proxy (src/flask/ctx.py:31-35). It isn't injected as an argument or taken from the Response.",
+      "explanation": "The docstring says it is a namespace for data during an application context, made available as the g proxy (`src/flask/ctx.py:30`).",
       "evidenceNodeIds": [
        "file:src/flask/ctx.py",
        "class:src/flask/ctx.py::_AppCtxGlobals"
@@ -839,15 +780,15 @@
      {
       "type": "multiple_choice",
       "difficulty": "easy",
-      "concept": "Per-request after hook",
-      "question": "Inside one view, a developer decorates add_header(response) with @after_this_request. Which requests does add_header affect?",
-      "answer": "Only the current request; it runs after this request and can modify its response",
+      "concept": "Attribute access behavior",
+      "question": "What happens when code reads an attribute from g that was never set?",
+      "answer": "An AttributeError is raised.",
       "distractors": [
-       "Every future request, exactly like app.after_request",
-       "Only requests that come after the current one",
-       "None; it only runs if registered during app setup"
+       "None is returned silently.",
+       "A KeyError is raised.",
+       "The attribute is created with an empty value."
       ],
-      "explanation": "after_this_request behaves like Flask.after_request, but only for the current request rather than every request, and it must be used inside a request context, not during setup (src/flask/ctx.py:121-124). The example adds a header to that one response (src/flask/ctx.py:128-135).",
+      "explanation": "__getattr__ looks in __dict__ and converts a KeyError into AttributeError (`src/flask/ctx.py:53`). Use g.get(name, default) for a fallback (`src/flask/ctx.py:68`).",
       "evidenceNodeIds": [
        "file:src/flask/ctx.py"
       ]
@@ -855,350 +796,182 @@
     ]
    },
    {
-    "id": "app-ctx-wrapper",
-    "kind": "read",
-    "nodeId": "file:src/flask/app.py",
-    "conceptId": "flask-app-object",
-    "level": "easy",
-    "caption": "At the top of app.py, two helpers, remove_ctx and add_ctx (lines 84-105), adapt method calls so they work whether or not an AppContext is passed in as the first argument.",
-    "questions": [
-     {
-      "type": "multiple_choice",
-      "difficulty": "easy",
-      "concept": "add_ctx supplies the current context",
-      "question": "A method wrapped with add_ctx is called with ordinary arguments and no AppContext. What does the wrapper do before calling the method?",
-      "answer": "It puts the current app context object in front of the arguments",
-      "distractors": [
-       "It raises an error because the context argument is missing",
-       "It drops the first argument and calls the method with the rest",
-       "It creates a brand-new AppContext just for this call"
-      ],
-      "explanation": "add_ctx checks whether args[0] is an AppContext and, if not, builds args as (app_ctx._get_current_object(), *args) (src/flask/app.py:96-103). Dropping the first argument is what remove_ctx does (src/flask/app.py:84-89), so that distractor mixes up the two helpers.",
-      "evidenceNodeIds": [
-       "file:src/flask/app.py"
-      ]
-     },
-     {
-      "type": "multiple_choice",
-      "difficulty": "easy",
-      "concept": "remove_ctx strips the context",
-      "question": "Other code calls an overridden method wrapped with remove_ctx and passes an AppContext first. What does the overridden method receive?",
-      "answer": "The remaining arguments, with the AppContext removed",
-      "distractors": [
-       "All the arguments, with the AppContext still first",
-       "Only the AppContext, with the other arguments discarded",
-       "The current app context swapped in for whatever was passed"
-      ],
-      "explanation": "remove_ctx strips args[0] when it's an AppContext and calls the method with the remaining arguments (src/flask/app.py:84-89). Swapping in the current context is the opposite helper, add_ctx (src/flask/app.py:96-103).",
-      "evidenceNodeIds": [
-       "file:src/flask/app.py"
-      ]
-     }
-    ]
-   },
-   {
-    "id": "sansio-app-base",
-    "kind": "compare",
-    "nodeId": "file:src/flask/sansio/app.py",
-    "conceptId": "flask-app-object",
-    "level": "easy",
-    "caption": "src/flask/sansio/app.py defines App, the base class that Flask extends. 'Sans-IO' means without input/output handling. App brings in Werkzeug's routing Map and Rule, and its first argument tells Flask what belongs to your application.",
-    "questions": [
-     {
-      "type": "true_false",
-      "difficulty": "easy",
-      "concept": "Import name locates resources",
-      "question": "True or false: the first argument passed when creating the app, such as __name__, is only a display label and doesn't affect where resources are found.",
-      "answer": "False",
-      "explanation": "The App docstring says the package name is used to resolve resources inside the package or the module's folder (src/flask/sansio/app.py:66-69). It also says this name is used to find resources on the filesystem (src/flask/sansio/app.py:81-84).",
-      "evidenceNodeIds": [
-       "file:src/flask/sansio/app.py",
-       "class:src/flask/sansio/app.py::App"
-      ]
-     },
-     {
-      "type": "multiple_choice",
-      "difficulty": "easy",
-      "concept": "Where the URL rule table comes from",
-      "question": "App imports Map and Rule from werkzeug.routing. For an app's routing, what role do these Werkzeug types play?",
-      "answer": "They describe the URL rules the app registers and matches requests against",
-      "distractors": [
-       "They store per-request values the way g does",
-       "They render templates for the matched view",
-       "They serialise view return values to JSON"
-      ],
-      "explanation": "App imports Werkzeug's routing Map and Rule (src/flask/sansio/app.py:15-16) and describes itself as the central registry for view functions and URL rules (src/flask/sansio/app.py:61-64). Per-request storage is _AppCtxGlobals, also imported here (src/flask/sansio/app.py:24), and JSON goes through the separate JSON provider (src/flask/sansio/app.py:27-28).",
-      "evidenceNodeIds": [
-       "file:src/flask/sansio/app.py",
-       "class:src/flask/sansio/app.py::App"
-      ]
-     }
-    ]
-   },
-   {
-    "id": "request-routing-failure",
-    "kind": "diagnose",
-    "nodeId": "file:src/flask/wrappers.py",
-    "conceptId": "request-routing-results",
-    "level": "easy",
-    "caption": "Look at what Request records when routing fails: view_args becomes None, and routing_exception holds the error that will be raised.",
-    "questions": [
-     {
-      "type": "multiple_choice",
-      "difficulty": "easy",
-      "concept": "State after a failed match",
-      "question": "A client requests /nope and no URL rule matches. What do request.view_args and request.routing_exception hold?",
-      "answer": "view_args is None and routing_exception holds the error, usually NotFound",
-      "distractors": [
-       "view_args is an empty dict and routing_exception stays None",
-       "Both are None because the error is raised before a Request exists",
-       "view_args holds partial values from the closest rule"
-      ],
-      "explanation": "view_args is None if an exception happened during matching (src/flask/wrappers.py:45-47), and routing_exception holds the exception, usually NotFound, when matching fails (src/flask/wrappers.py:49-53). An empty dict or partial values would hide the failure.",
-      "evidenceNodeIds": [
-       "file:src/flask/wrappers.py",
-       "class:src/flask/wrappers.py::Request"
-      ]
-     },
-     {
-      "type": "multiple_choice",
-      "difficulty": "easy",
-      "concept": "Reading allowed methods",
-      "question": "In a before-request handler on a successfully matched request, you want the HTTP methods the matched URL accepts. Where do you look?",
-      "answer": "request.url_rule.methods",
-      "distractors": [
-       "request.view_args['methods']",
-       "request.routing_exception.valid_methods",
-       "The Allow header of the Response object"
-      ],
-      "explanation": "The url_rule comment suggests request.url_rule.methods for inspecting allowed methods from a before/after handler (src/flask/wrappers.py:33-35). routing_exception.valid_methods is only for the case where the method was invalid and the request was never bound (src/flask/wrappers.py:36-40).",
-      "evidenceNodeIds": [
-       "file:src/flask/wrappers.py",
-       "class:src/flask/wrappers.py::Request"
-      ]
-     }
-    ]
-   },
-   {
-    "id": "request-reads-app-config",
-    "kind": "diagnose",
-    "nodeId": "file:src/flask/wrappers.py",
-    "conceptId": "request-routing-results",
-    "level": "easy",
-    "caption": "Request.max_content_length (lines 59-90) shows the request reading settings from the current app. It checks a per-request override first, then the app's config, and falls back to Werkzeug's default when no app is active.",
-    "questions": [
-     {
-      "type": "multiple_choice",
-      "difficulty": "easy",
-      "concept": "Per-request override wins",
-      "question": "The app config has MAX_CONTENT_LENGTH of 10 MB, but one view sets request.max_content_length = 1024. Which limit applies to that request?",
-      "answer": "1024 bytes, because the per-request value is checked first",
-      "distractors": [
-       "10 MB, because the app config always overrides the request",
-       "No limit, because setting it on the request disables the config",
-       "Werkzeug's built-in default, because Flask ignores both values"
-      ],
-      "explanation": "The getter returns _max_content_length first when it isn't None (src/flask/wrappers.py:80-81), and the setter stores the per-request value (src/flask/wrappers.py:88-90). The config is used only when no per-request value is set (src/flask/wrappers.py:86).",
-      "evidenceNodeIds": [
-       "file:src/flask/wrappers.py",
-       "class:src/flask/wrappers.py::Request"
-      ]
-     },
-     {
-      "type": "multiple_choice",
-      "difficulty": "easy",
-      "concept": "Fallback without an active app",
-      "question": "A Flask Request is used when there is no current app, and no per-request limit was set. Where does max_content_length come from?",
-      "answer": "From the Werkzeug base Request's own max_content_length",
-      "distractors": [
-       "From the MAX_CONTENT_LENGTH config of the last app that ran",
-       "It raises an error because current_app is required",
-       "It returns 0, so no request body is read"
-      ],
-      "explanation": "When current_app is falsy, the property returns super().max_content_length, Werkzeug's base behaviour (src/flask/wrappers.py:83-84). Only with an active app does it read current_app.config['MAX_CONTENT_LENGTH'] (src/flask/wrappers.py:86).",
-      "evidenceNodeIds": [
-       "file:src/flask/wrappers.py",
-       "class:src/flask/wrappers.py::Request"
-      ]
-     }
-    ]
-   },
-   {
-    "id": "g-namespace-behaviour",
-    "kind": "read",
-    "nodeId": "file:src/flask/ctx.py",
-    "conceptId": "app-context-g",
-    "level": "easy",
-    "caption": "_AppCtxGlobals (lines 30-115) is a simple namespace object. Attribute access, get, pop and setdefault behave much like a dict, with a few differences in how missing names are handled.",
-    "questions": [
-     {
-      "type": "multiple_choice",
-      "difficulty": "easy",
-      "concept": "Missing attribute on g",
-      "question": "A view reads g.user, but no code set g.user during this context. What happens?",
-      "answer": "An AttributeError is raised",
-      "distractors": [
-       "It returns None",
-       "A KeyError reaches the view",
-       "g.user is created with an empty value"
-      ],
-      "explanation": "__getattr__ looks the name up in __dict__ and turns a KeyError into AttributeError(name) (src/flask/ctx.py:53-57), so missing names behave like normal missing attributes. Getting None needs g.get('user') (src/flask/ctx.py:68-77).",
-      "evidenceNodeIds": [
-       "file:src/flask/ctx.py",
-       "class:src/flask/ctx.py::_AppCtxGlobals"
-      ]
-     },
-     {
-      "type": "multiple_choice",
-      "difficulty": "easy",
-      "concept": "pop without a default",
-      "question": "Teardown code calls g.pop('db') with no default, but 'db' was never stored on g. What happens?",
-      "answer": "A KeyError is raised, like dict.pop without a default",
-      "distractors": [
-       "None is returned silently",
-       "An AttributeError is raised, like reading g.db",
-       "Nothing happens and the call is ignored"
-      ],
-      "explanation": "pop uses a sentinel default; when no default is given it calls self.__dict__.pop(name), which raises KeyError for a missing key (src/flask/ctx.py:79-91). Passing a default such as g.pop('db', None) avoids the error.",
-      "evidenceNodeIds": [
-       "file:src/flask/ctx.py",
-       "class:src/flask/ctx.py::_AppCtxGlobals"
-      ]
-     }
-    ]
-   },
-   {
-    "id": "view-dispatch-args",
+    "id": "medium-1",
     "kind": "explain",
-    "nodeId": "file:src/flask/views.py",
-    "conceptId": "class-based-view-dispatch",
-    "level": "easy",
-    "caption": "src/flask/views.py shows how a class becomes a view. as_view creates a function that the app can register for a route. When a request arrives, that function calls dispatch_request with the URL variables.",
+    "nodeId": "file:src/flask/wrappers.py",
+    "conceptId": "goal:requirements:1b894454e51c84da664b7374cd2403f30556a9e7fb0f02d62f2fecead2e19647",
+    "level": "medium",
+    "caption": "Request limits come from per-request overrides first, then from the current app's config.",
     "questions": [
      {
       "type": "multiple_choice",
-      "difficulty": "easy",
-      "concept": "URL variables reach dispatch_request",
-      "question": "Hello.as_view('hello') is registered for /hello/<name>, and a request for /hello/ada arrives. How does 'ada' reach Hello's code?",
-      "answer": "The generated view function gets it as a keyword argument and passes it to dispatch_request",
+      "difficulty": "medium",
+      "concept": "Request and app config link",
+      "question": "Where does Request.max_content_length get its value when no per-request value has been set and an app context is active?",
+      "answer": "From current_app.config[\"MAX_CONTENT_LENGTH\"].",
       "distractors": [
-       "dispatch_request reads it from g.name, set during routing",
-       "It is passed to Hello's __init__ through class_args",
-       "The view must read it from request.args by itself"
+       "From a constant hard-coded inside the Request class.",
+       "From the matched URL rule's options.",
+       "From the session stored for the user."
       ],
-      "explanation": "The generated view(**kwargs) calls self.dispatch_request(**kwargs) (src/flask/views.py:106-110), and the docstring says URL rule variables are passed as keyword arguments (src/flask/views.py:78-81). class_args are the fixed arguments given to as_view, not URL values (src/flask/views.py:98-99).",
+      "explanation": "The property returns the per-request value if set, otherwise reads the app config through current_app (`src/flask/wrappers.py:80`, `src/flask/wrappers.py:86`). current_app comes from globals (`src/flask/wrappers.py:11`).",
       "evidenceNodeIds": [
-       "file:src/flask/views.py",
-       "class:src/flask/views.py::View"
+       "file:src/flask/wrappers.py",
+       "file:src/flask/globals.py"
       ]
      },
      {
       "type": "multiple_choice",
-      "difficulty": "easy",
-      "concept": "Shared instance and request data",
-      "question": "A View subclass sets init_every_request = False and stores the current user on self.user inside dispatch_request. What is the risk?",
-      "answer": "One instance is shared across requests, so self.user can leak between requests; g should be used",
+      "difficulty": "medium",
+      "concept": "Request limit precedence",
+      "question": "A view sets request.max_content_length = 1000 while the app config says None. Which limit applies to that request, and why?",
+      "answer": "1000, because a value set on the request is checked before the config is consulted.",
       "distractors": [
-       "None, because a fresh instance is still created for each request",
-       "Flask raises an error when attributes are set on self",
-       "self.user is cleared after each request, so it's always safe"
+       "None, because the app config always overrides the request.",
+       "1000 only if no app context is active.",
+       "Whichever is larger, because the two are combined."
       ],
-      "explanation": "With init_every_request False, the same instance is used for every request, so storing data on self is no longer safe and g should be used instead (src/flask/views.py:66-76). The code creates the instance once outside the view function (src/flask/views.py:112-113).",
+      "explanation": "The setter stores _max_content_length, and the getter returns it first when it is not None before consulting current_app (`src/flask/wrappers.py:80`, `src/flask/wrappers.py:90`).",
       "evidenceNodeIds": [
-       "file:src/flask/views.py",
-       "class:src/flask/views.py::View"
+       "file:src/flask/wrappers.py",
+       "file:src/flask/app.py"
       ]
      }
     ]
    },
    {
-    "id": "view-misconfig",
-    "kind": "diagnose",
-    "nodeId": "file:src/flask/views.py",
-    "conceptId": "class-based-view-dispatch",
-    "level": "easy",
-    "caption": "Two common mistakes with class-based views: forgetting to override dispatch_request, and decorating the class itself instead of using the decorators attribute.",
+    "id": "medium-2",
+    "kind": "explain",
+    "nodeId": "file:src/flask/ctx.py",
+    "conceptId": "goal:requirements:1b894454e51c84da664b7374cd2403f30556a9e7fb0f02d62f2fecead2e19647",
+    "level": "medium",
+    "caption": "ctx.py and app.py depend on each other, so imports are arranged to avoid a runtime cycle; g's repr consults the current app context variable.",
     "questions": [
      {
       "type": "multiple_choice",
-      "difficulty": "easy",
-      "concept": "Missing dispatch_request override",
-      "question": "A developer subclasses View, registers it with as_view, but never overrides dispatch_request. A request hits the route. What happens?",
-      "answer": "The base dispatch_request raises NotImplementedError",
+      "difficulty": "medium",
+      "concept": "Context variable lookup",
+      "question": "What does repr(g) do when no application context is active?",
+      "answer": "It falls back to the default object repr instead of raising.",
       "distractors": [
-       "Flask returns an empty 200 response",
-       "Flask returns 405 Method Not Allowed",
-       "It falls back to a get method if one is defined"
+       "It raises a RuntimeError about working outside the app context.",
+       "It creates a new application context first.",
+       "It prints the app name as None."
       ],
-      "explanation": "View.dispatch_request just raises NotImplementedError, and subclasses must override it (src/flask/views.py:78-83). Dispatching to methods like get is MethodView's behaviour, not plain View's.",
+      "explanation": "__repr__ calls _cv_app.get(None) and only uses ctx.app.name if a context exists, otherwise object.__repr__ (`src/flask/ctx.py:111`). _cv_app is imported from globals (`src/flask/ctx.py:12`).",
       "evidenceNodeIds": [
-       "file:src/flask/views.py",
-       "class:src/flask/views.py::View"
+       "file:src/flask/ctx.py",
+       "file:src/flask/globals.py"
       ]
      },
      {
       "type": "multiple_choice",
-      "difficulty": "easy",
-      "concept": "Decorators on class-based views",
-      "question": "A login-check decorator is placed directly on the View subclass definition, yet unauthenticated users still reach the view. What should be changed?",
-      "answer": "List the decorator in the class's decorators attribute so it wraps the generated view function",
+      "difficulty": "medium",
+      "concept": "Circular import avoidance",
+      "question": "ctx.py imports Flask only under t.TYPE_CHECKING while app.py imports from ctx at module level. What is the reason for this arrangement?",
+      "answer": "It keeps the Flask import for type hints only, so the two modules do not import each other at runtime.",
       "distractors": [
-       "Put the decorator on dispatch_request's base class in views.py",
-       "Move it to __init__, because decorators run when the instance is created",
-       "Nothing; class decorators apply but run after the response"
+       "It makes Flask load lazily so apps start faster.",
+       "It prevents Flask from being subclassed.",
+       "It lets ctx.py replace Flask with a mock at runtime."
       ],
-      "explanation": "The View docstring warns that decorators applied to the class itself won't be applied to the generated view function, and the decorators attribute should be used instead (src/flask/views.py:40-42). That list is applied, in order, to the generated view (src/flask/views.py:58-64).",
+      "explanation": "app.py imports AppContext from ctx (`src/flask/app.py:32`), while ctx.py imports Flask only inside the TYPE_CHECKING block (`src/flask/ctx.py:17`).",
+      "evidenceNodeIds": [
+       "file:src/flask/ctx.py",
+       "file:src/flask/app.py"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "hard-1",
+    "kind": "diagnose",
+    "nodeId": "file:src/flask/app.py",
+    "conceptId": "goal:requirements:1b894454e51c84da664b7374cd2403f30556a9e7fb0f02d62f2fecead2e19647",
+    "level": "hard",
+    "caption": "add_ctx and remove_ctx adapt method signatures so overridden methods work whether or not the app context is passed.",
+    "questions": [
+     {
+      "type": "multiple_choice",
+      "difficulty": "hard",
+      "concept": "Signature adapter design",
+      "question": "What would go wrong if add_ctx prepended the app context to the arguments unconditionally?",
+      "answer": "Calls that already pass an AppContext first would receive it twice, shifting every positional argument.",
+      "distractors": [
+       "The wrapped method would no longer be callable on Flask instances.",
+       "The app context would be popped before the method ran.",
+       "Keyword arguments would be dropped."
+      ],
+      "explanation": "add_ctx only prepends when args is empty or args[0] is not an AppContext (`src/flask/app.py:96`, `src/flask/app.py:100`). Without that check, callers that already pass the context would duplicate it.",
+      "evidenceNodeIds": [
+       "file:src/flask/app.py",
+       "file:src/flask/ctx.py"
+      ]
+     },
+     {
+      "type": "multiple_choice",
+      "difficulty": "hard",
+      "concept": "Backward compatible overrides",
+      "question": "Why does remove_ctx strip a leading AppContext argument before calling the wrapped method?",
+      "answer": "So an overridden method written without a ctx parameter still works when other code calls it with the new ctx argument.",
+      "distractors": [
+       "So the app context is not kept alive after the call.",
+       "So the request object can be passed in its place.",
+       "So the method runs outside any application context."
+      ],
+      "explanation": "The comment says other methods may call the overridden method with the new ctx arg, so the wrapper removes it when args[0] is an AppContext (`src/flask/app.py:82`, `src/flask/app.py:86`).",
+      "evidenceNodeIds": [
+       "file:src/flask/app.py",
+       "file:src/flask/sansio/app.py"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "hard-2",
+    "kind": "compare",
+    "nodeId": "file:src/flask/views.py",
+    "conceptId": "goal:requirements:1b894454e51c84da664b7374cd2403f30556a9e7fb0f02d62f2fecead2e19647",
+    "level": "hard",
+    "caption": "View.as_view turns a class into a view function; init_every_request trades efficiency against per-request state safety, and the app is found through current_app.",
+    "questions": [
+     {
+      "type": "multiple_choice",
+      "difficulty": "hard",
+      "concept": "Per-request instance trade-off",
+      "question": "A view class sets init_every_request = False and stores the current user on self inside dispatch_request. What is the problem, and what is the intended alternative?",
+      "answer": "One instance serves all requests so the data is not safe across requests; request-scoped data should go on g.",
+      "distractors": [
+       "The class can no longer be registered with add_url_rule; use a function view.",
+       "Each request gets a new instance, so the data is lost; store it on the class.",
+       "dispatch_request is never called; override as_view instead."
+      ],
+      "explanation": "With the flag False the same instance is reused, and the docs say storing data on self is no longer safe and g should be used (`src/flask/views.py:66`, `src/flask/views.py:76`).",
       "evidenceNodeIds": [
        "file:src/flask/views.py",
-       "class:src/flask/views.py::View"
+       "file:src/flask/globals.py"
+      ]
+     },
+     {
+      "type": "multiple_choice",
+      "difficulty": "hard",
+      "concept": "Late app resolution",
+      "question": "The generated view function calls current_app.ensure_sync(...) at request time instead of capturing an app when as_view runs. What does this design allow?",
+      "answer": "The class can be turned into a view function before any app exists, and it uses the app of the active context when called.",
+      "distractors": [
+       "The view runs without needing an application context at all.",
+       "The view is bound permanently to the first app that registers it.",
+       "The framework can skip routing for class-based views."
+      ],
+      "explanation": "as_view takes only the class and its arguments, with no app reference, and the view body resolves current_app on each call (`src/flask/views.py:86`, `src/flask/views.py:110`). Flask objects act as the registry for view functions (`src/flask/app.py:108`).",
+      "evidenceNodeIds": [
+       "file:src/flask/views.py",
+       "file:src/flask/app.py"
       ]
      }
     ]
    }
   ],
-  "relations": [
-   {
-    "from": "flask-app-object",
-    "to": "goal:requirements:1b894454e51c84da664b7374cd2403f30556a9e7fb0f02d62f2fecead2e19647",
-    "kind": "prerequisite",
-    "reason": "A request can only be routed once you know the app object is the WSGI entry and the registry of URL rules and views.",
-    "evidenceNodeIds": [
-     "file:src/flask/app.py",
-     "class:src/flask/app.py::Flask",
-     "class:src/flask/sansio/app.py::App"
-    ]
-   },
-   {
-    "from": "request-routing-results",
-    "to": "goal:requirements:1b894454e51c84da664b7374cd2403f30556a9e7fb0f02d62f2fecead2e19647",
-    "kind": "prerequisite",
-    "reason": "The routing outcome (url_rule, view_args, routing_exception) is stored on Request and decides which view runs and with what arguments.",
-    "evidenceNodeIds": [
-     "file:src/flask/wrappers.py",
-     "class:src/flask/wrappers.py::Request"
-    ]
-   },
-   {
-    "from": "app-context-g",
-    "to": "goal:requirements:1b894454e51c84da664b7374cd2403f30556a9e7fb0f02d62f2fecead2e19647",
-    "kind": "prerequisite",
-    "reason": "The context objects created around a request provide g and the current app that views and Request rely on.",
-    "evidenceNodeIds": [
-     "file:src/flask/ctx.py",
-     "class:src/flask/ctx.py::_AppCtxGlobals",
-     "class:src/flask/ctx.py::AppContext"
-    ]
-   },
-   {
-    "from": "class-based-view-dispatch",
-    "to": "goal:requirements:1b894454e51c84da664b7374cd2403f30556a9e7fb0f02d62f2fecead2e19647",
-    "kind": "prerequisite",
-    "reason": "For class-based views, the last step is the generated view function calling dispatch_request with the URL variables.",
-    "evidenceNodeIds": [
-     "file:src/flask/views.py",
-     "class:src/flask/views.py::View"
-    ]
-   }
-  ]
+  "relations": []
  }
 }

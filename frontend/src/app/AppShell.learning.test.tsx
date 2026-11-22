@@ -319,3 +319,20 @@ it('ending the session stops the background run', async () => {
   await userEvent.click(within(panel).getByRole('button', { name: 'End session' }))
   expect(background.cancel).toHaveBeenCalled()
 })
+
+it('a session whose first preparation failed is prepared again when reopened, not shown as used up', async () => {
+  const learning = library()
+  const failed = view(); failed.session.status = 'generation-needed'; failed.session.current = null; failed.question = null; failed.concepts = []
+  learning.prepare.mockRejectedValueOnce(new Error('Concept definition changed without changing version'))
+  // Reopened, the saved session is the one whose preparation failed.
+  learning.get.mockResolvedValueOnce(failed)
+  await begin(learning, undefined, 'Explain notifications')
+  expect((await screen.findByRole('alert')).textContent).toContain('Concept definition changed')
+
+  await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
+  const panel = await screen.findByRole('region', { name: 'Adaptive learning' })
+  await within(panel).findByRole('button', { name: 'Check answer' })
+  expect(learning.start).toHaveBeenCalledTimes(1)
+  expect(learning.prepare).toHaveBeenCalledTimes(2)
+  expect(within(panel).queryByText(/every question prepared/)).toBeNull()
+})
