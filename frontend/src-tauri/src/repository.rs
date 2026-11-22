@@ -348,6 +348,12 @@ fn read_sources_with_limits(
         if !canonical.starts_with(&canonical_root) {
             continue;
         }
+        let Ok(path_meta) = fs::metadata(&canonical) else {
+            continue;
+        };
+        if !path_meta.is_file() {
+            continue;
+        }
         let Ok(file) = fs::File::open(&canonical) else {
             continue;
         };
@@ -855,6 +861,43 @@ mod tests {
         let content = res.sources.get("latin.py").unwrap();
         assert!(content.starts_with("def f():\n    return b'"));
         assert!(content.contains('\u{FFFD}'));
+        assert_eq!(res.skipped, 0);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn read_sources_skips_fifo_without_blocking() {
+        let (dir, db, root) = make_search_fixture("fifo");
+        let fifo = root.join("pipe.py");
+        let status = std::process::Command::new("mkfifo").arg(&fifo).status().unwrap();
+        assert!(status.success(), "mkfifo failed");
+        fs::write(root.join("ok.py"), "ok = 1\n").unwrap();
+
+        let db_str = db.to_str().unwrap().to_owned();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let handle = std::thread::spawn(move || {
+            let res = read_sources_with_limits(
+                &db_str,
+                &["pipe.py".into(), "ok.py".into()],
+                MAX_SEARCH_FILE_BYTES,
+                MAX_SEARCH_TOTAL_BYTES,
+            );
+            let _ = tx.send(res);
+        });
+
+        let received = rx.recv_timeout(Duration::from_millis(500));
+        if received.is_err() {
+            // Unblock the worker thread if it hung on opening the FIFO.
+            let _ = fs::OpenOptions::new().write(true).open(&fifo);
+            let _ = handle.join();
+            let _ = fs::remove_dir_all(&dir);
+            panic!("read_sources blocked on FIFO");
+        }
+        handle.join().unwrap();
+        let res = received.unwrap().unwrap();
+        assert!(!res.sources.contains_key("pipe.py"));
+        assert_eq!(res.sources.get("ok.py").map(String::as_str), Some("ok = 1\n"));
         assert_eq!(res.skipped, 0);
         let _ = fs::remove_dir_all(&dir);
     }

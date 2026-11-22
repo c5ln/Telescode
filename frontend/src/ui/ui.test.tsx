@@ -363,4 +363,33 @@ describe('SearchField', () => {
     fireEvent.keyDown(window, { key: 'k', ctrlKey: true })
     expect(document.activeElement).not.toBe(input)
   })
+
+  it('moves active option up immediately after results shrink below the previous index', async () => {
+    const manyResults: SearchResult[] = Array.from({ length: 5 }, (_, i) => ({
+      id: `file:f${i}.ts`,
+      kind: 'file',
+      label: `f${i}.ts`,
+      subtitle: `src/f${i}.ts`,
+      source: 'name',
+    }))
+    const { rerender } = render(
+      <SearchField label="Search" value="f" onChange={vi.fn()} results={manyResults} onSelect={vi.fn()} />,
+    )
+    const input = screen.getByRole('combobox', { name: 'Search' })
+    await userEvent.click(input)
+
+    // Move down to the last item (index 4).
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}{ArrowDown}')
+    expect(screen.getAllByRole('option')[4].getAttribute('aria-selected')).toBe('true')
+
+    // Shrink results from 5 to 2; display clamps to index 1.
+    rerender(
+      <SearchField label="Search" value="f" onChange={vi.fn()} results={manyResults.slice(0, 2)} onSelect={vi.fn()} />,
+    )
+    expect(screen.getAllByRole('option')[1].getAttribute('aria-selected')).toBe('true')
+
+    // A single ArrowUp should move from index 1 to index 0.
+    await userEvent.keyboard('{ArrowUp}')
+    expect(screen.getAllByRole('option')[0].getAttribute('aria-selected')).toBe('true')
+  })
 })

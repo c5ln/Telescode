@@ -126,7 +126,7 @@ export function SearchField({
       if (e.key === 'ArrowUp') {
         e.preventDefault()
         if (isOpen && resultCount > 0) {
-          setRawActiveIndex((prev) => Math.max(prev - 1, 0))
+          setRawActiveIndex((prev) => Math.max(Math.min(prev, resultCount - 1) - 1, 0))
         }
         return
       }
