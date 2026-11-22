@@ -1,6 +1,7 @@
 // Persistent chrome: breadcrumbs | search | AI agent | tutorial | overflow.
 
 import { agents, type AgentProvider } from '../agent'
+import type { SearchResult } from '../search/search'
 import { Breadcrumbs, type Crumb } from '../ui/Breadcrumbs'
 import { Dropdown, type DropdownItem } from '../ui/Dropdown'
 import { ChevronDownIcon, MoreIcon, PlayIcon } from '../ui/icons'
@@ -13,18 +14,37 @@ interface TopBarProps {
   crumbs: readonly Crumb[]
   onNavigate?: (crumb: Crumb, index: number) => void
   menuItems: DropdownItem[]
+  search?: {
+    value: string
+    onChange: (value: string) => void
+    results: SearchResult[]
+    onSelect: (result: SearchResult) => void
+    disabled: boolean
+    emptyMessage?: string
+    footer?: string
+  }
   /** The entry point to tutorial mode: plays the tutorial, or starts making one. */
   tutorial: { active: boolean; disabled: boolean; onToggle: () => void }
 }
 
-export function TopBar({ crumbs, onNavigate, menuItems, tutorial, agent }: TopBarProps) {
+export function TopBar({ crumbs, onNavigate, menuItems, search, tutorial, agent }: TopBarProps) {
   return (
     <header className={styles.bar}>
       <div className={styles.crumbs}>
         <Breadcrumbs items={crumbs} onNavigate={onNavigate} />
       </div>
       <div className={styles.search}>
-        <SearchField placeholder="Search files, classes, functions…" label="Search" />
+        <SearchField
+          placeholder="Search files, classes, functions…"
+          label="Search"
+          value={search?.value}
+          onChange={search?.onChange}
+          results={search?.results}
+          onSelect={search?.onSelect}
+          disabled={search?.disabled}
+          emptyMessage={search?.emptyMessage}
+          footer={search?.footer}
+        />
       </div>
       {agent && (
         <Dropdown

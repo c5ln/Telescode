@@ -11,7 +11,7 @@
 //! Only public repositories are supported: no token is ever sent, and GitHub
 //! answers a private repository exactly as it does a missing one.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs;
@@ -36,6 +36,10 @@ const MAX_DOWNLOAD_BYTES: u64 = 500 * 1024 * 1024;
 const MAX_SOURCE_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 /// Most entries an archive may hold.
 const MAX_ENTRIES: u64 = 200_000;
+/// Largest prefix of a single source file loaded for full-text search.
+const MAX_SEARCH_FILE_BYTES: u64 = 400_000;
+/// Largest cumulative source bytes loaded for full-text search across one repository.
+const MAX_SEARCH_TOTAL_BYTES: usize = 32 * 1024 * 1024;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(15 * 60);
@@ -297,6 +301,102 @@ pub fn source_record(db: &Path) -> PathBuf {
     let mut path = db.as_os_str().to_owned();
     path.push(".source");
     PathBuf::from(path)
+}
+
+#[derive(Debug, Default, Serialize, PartialEq)]
+pub struct Sources {
+    sources: HashMap<String, String>,
+    skipped: usize,
+}
+
+fn read_sources_with_limits(
+    db_path: &str,
+    file_ids: &[String],
+    max_file_bytes: u64,
+    max_total_bytes: usize,
+) -> Result<Sources, BridgeError> {
+    let db = bridge::validate_db_path(db_path)?;
+    let root_raw = match fs::read_to_string(source_record(&db)) {
+        Ok(s) => s,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(Sources::default()),
+        Err(_) => return Ok(Sources::default()),
+    };
+    let root_trimmed = root_raw.trim();
+    if root_trimmed.is_empty() {
+        return Ok(Sources::default());
+    }
+    let Ok(canonical_root) = fs::canonicalize(root_trimmed) else {
+        return Ok(Sources::default());
+    };
+
+    let mut sources = HashMap::new();
+    let mut skipped = 0usize;
+    let mut total_bytes = 0usize;
+    let mut capped = false;
+
+    for id in file_ids {
+        if sources.contains_key(id) {
+            continue;
+        }
+        let rel = Path::new(id);
+        if rel.is_absolute() || rel.components().any(|c| matches!(c, Component::ParentDir)) {
+            continue;
+        }
+        let Ok(canonical) = fs::canonicalize(canonical_root.join(rel)) else {
+            continue;
+        };
+        if !canonical.starts_with(&canonical_root) {
+            continue;
+        }
+        let Ok(path_meta) = fs::metadata(&canonical) else {
+            continue;
+        };
+        if !path_meta.is_file() {
+            continue;
+        }
+        let Ok(file) = fs::File::open(&canonical) else {
+            continue;
+        };
+        let Ok(meta) = file.metadata() else {
+            continue;
+        };
+        if !meta.is_file() {
+            continue;
+        }
+
+        let expected = meta.len().min(max_file_bytes) as usize;
+        if capped || total_bytes.saturating_add(expected) > max_total_bytes {
+            capped = true;
+            skipped += 1;
+            continue;
+        }
+
+        let mut buf = Vec::with_capacity(expected);
+        if file.take(max_file_bytes).read_to_end(&mut buf).is_err() {
+            continue;
+        }
+        if total_bytes.saturating_add(buf.len()) > max_total_bytes {
+            capped = true;
+            skipped += 1;
+            continue;
+        }
+        total_bytes += buf.len();
+        sources.insert(id.clone(), String::from_utf8_lossy(&buf).into_owned());
+    }
+
+    Ok(Sources { sources, skipped })
+}
+
+/// IPC entry point: `invoke("read_sources", { dbPath, fileIds })`.
+#[tauri::command]
+pub async fn read_sources(db_path: String, file_ids: Vec<String>) -> Result<Sources, BridgeError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        read_sources_with_limits(&db_path, &file_ids, MAX_SEARCH_FILE_BYTES, MAX_SEARCH_TOTAL_BYTES)
+    })
+    .await
+    .map_err(|e| BridgeError::Internal {
+        message: format!("Source reader worker failed: {e}"),
+    })?
 }
 
 fn record_source(db: &Path, source: &Path) -> Result<(), BridgeError> {
@@ -620,6 +720,185 @@ mod tests {
         scan(&sidecar, &dir.join("source"), &db, "project").unwrap();
         assert_eq!(fs::read_to_string(source_record(&db)).unwrap(), dir.join("source").to_str().unwrap());
         assert!(!dir.join("project.db.source.json").exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    fn make_search_fixture(name: &str) -> (PathBuf, PathBuf, PathBuf) {
+        let dir = std::env::temp_dir().join(format!("telescode-read-sources-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let root = dir.join("repo");
+        fs::create_dir_all(&root).unwrap();
+        let db = dir.join("project.db");
+        fs::write(&db, b"SQLite format 3\0").unwrap();
+        record_source(&db, &root).unwrap();
+        (dir, db, root)
+    }
+
+    #[test]
+    fn read_sources_returns_empty_when_source_record_is_missing() {
+        let (dir, db, _root) = make_search_fixture("missing-record");
+        fs::remove_file(source_record(&db)).unwrap();
+
+        let res = read_sources_with_limits(
+            db.to_str().unwrap(),
+            &["a.py".into()],
+            MAX_SEARCH_FILE_BYTES,
+            MAX_SEARCH_TOTAL_BYTES,
+        )
+        .unwrap();
+        assert!(res.sources.is_empty());
+        assert_eq!(res.skipped, 0);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn read_sources_rejects_parent_traversal_and_absolute_paths() {
+        let (dir, db, root) = make_search_fixture("traversal");
+        let secret = dir.join("secret.txt");
+        fs::write(&secret, "top-secret").unwrap();
+        fs::write(root.join("ok.py"), "print(1)\n").unwrap();
+
+        let ids = vec![
+            "../secret.txt".into(),
+            secret.to_str().unwrap().into(),
+            "missing.py".into(),
+            "ok.py".into(),
+        ];
+        let res = read_sources_with_limits(
+            db.to_str().unwrap(),
+            &ids,
+            MAX_SEARCH_FILE_BYTES,
+            MAX_SEARCH_TOTAL_BYTES,
+        )
+        .unwrap();
+
+        assert_eq!(res.sources.len(), 1);
+        assert_eq!(res.sources.get("ok.py").map(String::as_str), Some("print(1)\n"));
+        assert_eq!(res.skipped, 0);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn read_sources_rejects_symlinks_pointing_outside_root() {
+        let (dir, db, root) = make_search_fixture("symlink");
+        let outside = dir.join("outside.py");
+        fs::write(&outside, "secret = 42\n").unwrap();
+        fs::write(root.join("inside.py"), "ok = 1\n").unwrap();
+        std::os::unix::fs::symlink(&outside, root.join("escape.py")).unwrap();
+
+        let ids = vec!["escape.py".into(), "inside.py".into()];
+        let res = read_sources_with_limits(
+            db.to_str().unwrap(),
+            &ids,
+            MAX_SEARCH_FILE_BYTES,
+            MAX_SEARCH_TOTAL_BYTES,
+        )
+        .unwrap();
+
+        assert!(!res.sources.contains_key("escape.py"));
+        assert_eq!(res.sources.get("inside.py").map(String::as_str), Some("ok = 1\n"));
+        assert_eq!(res.skipped, 0);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn read_sources_truncates_single_file_at_400kb() {
+        let (dir, db, root) = make_search_fixture("truncate");
+        let oversized = vec![b'a'; 450_000];
+        fs::write(root.join("big.py"), &oversized).unwrap();
+
+        let res = read_sources_with_limits(
+            db.to_str().unwrap(),
+            &["big.py".into()],
+            MAX_SEARCH_FILE_BYTES,
+            MAX_SEARCH_TOTAL_BYTES,
+        )
+        .unwrap();
+
+        assert_eq!(res.sources.get("big.py").unwrap().len(), 400_000);
+        assert_eq!(res.skipped, 0);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn read_sources_counts_skipped_when_total_cap_is_exceeded() {
+        let (dir, db, root) = make_search_fixture("cap");
+        fs::write(root.join("first.py"), vec![b'x'; 60]).unwrap();
+        fs::write(root.join("second.py"), vec![b'y'; 50]).unwrap();
+        fs::write(root.join("third.py"), vec![b'z'; 10]).unwrap();
+
+        let ids = vec![
+            "first.py".into(),
+            "second.py".into(),
+            "missing.py".into(),
+            "../escape.py".into(),
+            "third.py".into(),
+        ];
+        let res = read_sources_with_limits(db.to_str().unwrap(), &ids, MAX_SEARCH_FILE_BYTES, 100).unwrap();
+
+        assert_eq!(res.sources.len(), 1);
+        assert!(res.sources.contains_key("first.py"));
+        assert!(!res.sources.contains_key("second.py"));
+        assert!(!res.sources.contains_key("third.py"));
+        assert_eq!(res.skipped, 2);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn read_sources_handles_non_utf8_bytes_lossily() {
+        let (dir, db, root) = make_search_fixture("non-utf8");
+        fs::write(root.join("latin.py"), b"def f():\n    return b'\xff\xfe'\n").unwrap();
+
+        let res = read_sources_with_limits(
+            db.to_str().unwrap(),
+            &["latin.py".into()],
+            MAX_SEARCH_FILE_BYTES,
+            MAX_SEARCH_TOTAL_BYTES,
+        )
+        .unwrap();
+
+        let content = res.sources.get("latin.py").unwrap();
+        assert!(content.starts_with("def f():\n    return b'"));
+        assert!(content.contains('\u{FFFD}'));
+        assert_eq!(res.skipped, 0);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn read_sources_skips_fifo_without_blocking() {
+        let (dir, db, root) = make_search_fixture("fifo");
+        let fifo = root.join("pipe.py");
+        let status = std::process::Command::new("mkfifo").arg(&fifo).status().unwrap();
+        assert!(status.success(), "mkfifo failed");
+        fs::write(root.join("ok.py"), "ok = 1\n").unwrap();
+
+        let db_str = db.to_str().unwrap().to_owned();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let handle = std::thread::spawn(move || {
+            let res = read_sources_with_limits(
+                &db_str,
+                &["pipe.py".into(), "ok.py".into()],
+                MAX_SEARCH_FILE_BYTES,
+                MAX_SEARCH_TOTAL_BYTES,
+            );
+            let _ = tx.send(res);
+        });
+
+        let received = rx.recv_timeout(Duration::from_millis(500));
+        if received.is_err() {
+            // Unblock the worker thread if it hung on opening the FIFO.
+            let _ = fs::OpenOptions::new().write(true).open(&fifo);
+            let _ = handle.join();
+            let _ = fs::remove_dir_all(&dir);
+            panic!("read_sources blocked on FIFO");
+        }
+        handle.join().unwrap();
+        let res = received.unwrap().unwrap();
+        assert!(!res.sources.contains_key("pipe.py"));
+        assert_eq!(res.sources.get("ok.py").map(String::as_str), Some("ok = 1\n"));
+        assert_eq!(res.skipped, 0);
         let _ = fs::remove_dir_all(&dir);
     }
 

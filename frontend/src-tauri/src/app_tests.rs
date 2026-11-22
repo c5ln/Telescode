@@ -64,6 +64,13 @@ fn learning_commands_are_registered_and_validate_paths_before_starting_work() {
     assert_eq!(error["code"], "invalid_argument", "{error}");
 }
 
+#[test]
+fn read_sources_command_is_registered_and_validates_db_path() {
+    let (_app, window) = window();
+    let error = ipc(&window, "read_sources", json!({"dbPath":"", "fileIds":[]})).unwrap_err();
+    assert_eq!(error["code"], "invalid_argument", "{error}");
+}
+
 fn learning_fixture() -> (std::path::PathBuf, std::path::PathBuf) {
     use std::time::{SystemTime, UNIX_EPOCH};
     let dir = std::env::temp_dir().join(format!("telescode-learning-ipc-{}-{}", std::process::id(), SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()));
