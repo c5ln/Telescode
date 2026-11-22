@@ -776,5 +776,29 @@ describe('AppShell', () => {
       expect(within(panel).getByRole('button', { name: 'Play' })).toBeTruthy()
       expect(within(panel).getByTestId('step-progress').style.animationPlayState).toBe('paused')
     })
+
+    it('re-spotlights the current tutorial step when resuming playback after searching away', async () => {
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={library([sherlockTour(60_000)])} />)
+      await startOnboarding()
+      const panel = await screen.findByRole('region', { name: 'Tutorial' })
+
+      // Advance to step 2 (file:sherlock_project/result.py) while auto-play stays active.
+      await userEvent.click(within(panel).getByRole('button', { name: 'Next step' }))
+      expect(renderer().selected?.id).toBe('file:sherlock_project/result.py')
+      expect(within(panel).getByRole('button', { name: 'Pause' })).toBeTruthy()
+
+      // Search away to a different node; tutorial auto-play pauses.
+      const input = screen.getByRole('combobox', { name: 'Search' })
+      await userEvent.click(input)
+      await userEvent.keyboard('QueryNotify')
+      await userEvent.keyboard('{Enter}')
+      expect(renderer().selected?.id).toBe('class:sherlock_project/notify.py::QueryNotify')
+      expect(within(panel).getByRole('button', { name: 'Play' })).toBeTruthy()
+
+      // Resuming playback re-spotlights step 2's node even though the step index did not change.
+      await userEvent.click(within(panel).getByRole('button', { name: 'Play' }))
+      expect(within(panel).getByRole('button', { name: 'Pause' })).toBeTruthy()
+      expect(renderer().selected?.id).toBe('file:sherlock_project/result.py')
+    })
   })
 })

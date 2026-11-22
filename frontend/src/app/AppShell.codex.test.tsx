@@ -53,6 +53,7 @@ function native(options: {
     switch (command) {
       case 'list_tours': return hasTour ? [savedTour] : []
       case 'list_quizzes': return hasQuiz ? [savedQuiz] : []
+      case 'read_sources': return { sources: {}, skipped: 0 }
       case 'agent_status':
         expect(args).toEqual({ provider: 'codex' })
         return { installed: options.installed ?? true, signedIn: options.signedIn ?? true }
@@ -122,7 +123,8 @@ describe('Codex in the app', () => {
     expect(screen.getByRole('menuitemradio', { name: 'Codex', checked: false })).toBeTruthy()
     await userEvent.keyboard('{Escape}')
     await chooseCodex()
-    expect(invoke).not.toHaveBeenCalled() // Choosing does not start login or generation.
+    // Choosing does not start login or generation (only search indexing may read sources).
+    expect(invoke.mock.calls.every(([command]) => command === 'read_sources')).toBe(true)
     app.unmount()
     render(<AppShell initialState={ready} />)
     expect(agentSelector().textContent).toBe('Codex')
@@ -197,6 +199,8 @@ describe('Codex in the app', () => {
     await userEvent.click(await within(tutorial).findByRole('button', { name: 'Quiz on this step' }))
     const quiz = await screen.findByRole('region', { name: 'Quiz' })
     await within(quiz).findByText(savedQuiz.questions[0]!.question)
-    expect(invoke.mock.calls.every(([command]) => command === 'list_tours' || command === 'list_quizzes')).toBe(true)
+    expect(
+      invoke.mock.calls.every(([command]) => command === 'list_tours' || command === 'list_quizzes' || command === 'read_sources'),
+    ).toBe(true)
   })
 })
