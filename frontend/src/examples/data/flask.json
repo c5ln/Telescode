@@ -1,0 +1,2132 @@
+{
+ "schemaVersion": 1,
+ "owner": "pallets",
+ "name": "flask",
+ "commit": "49943b5a94413a530761350f04e896f76e8d620e",
+ "requirements": "I'm a Python developer new to Flask's internals. Show me how an incoming request reaches a view function: routing, the request context and the app object.",
+ "tour": {
+  "plan": {
+   "schemaVersion": 1,
+   "id": "868e4651-776f-4495-8430-52a13bea7ef7",
+   "revision": 1,
+   "title": "Flask Onboarding: CLI, Config, and the App Core",
+   "language": "en",
+   "snapshotHash": "bdd2f40d5312953eccd7a5137719283299d9320b8a9311757e0b6ac9fd8add7f",
+   "stops": [
+    {
+     "nodeId": "dir:src/flask",
+     "caption": "The framework lives in src/flask: 24 files, plus json and sansio subpackages. We follow the ranked path: CLI, config, the app core, then request and response wrappers.",
+     "transitionMs": 1000,
+     "holdMs": 7000,
+     "title": "src/flask",
+     "evidence": [
+      {
+       "label": "Files",
+       "value": "24"
+      },
+      {
+       "label": "Classes",
+       "value": "53"
+      }
+     ]
+    },
+    {
+     "nodeId": "file:src/flask/cli.py",
+     "caption": "cli.py ranks first. It holds the command-line classes like FlaskGroup and ScriptInfo, and imports app.py, helpers.py and globals.py. Next: config.py.",
+     "transitionMs": 1000,
+     "holdMs": 7000,
+     "title": "src/flask/cli.py",
+     "evidence": [
+      {
+       "label": "Reading rank",
+       "value": "1"
+      },
+      {
+       "label": "LambdaRank score",
+       "value": "2.0435981146820903"
+      },
+      {
+       "label": "Inbound imports",
+       "value": "6"
+      },
+      {
+       "label": "Outbound imports",
+       "value": "4"
+      },
+      {
+       "label": "Complexity score",
+       "value": "0.9048780487804878"
+      }
+     ]
+    },
+    {
+     "nodeId": "class:src/flask/config.py::Config",
+     "caption": "Config, in config.py, is the configuration class with nine methods. Tests extend it in tests/test_config.py. Next: the sansio App.",
+     "transitionMs": 1000,
+     "holdMs": 6500,
+     "title": "Config",
+     "evidence": [
+      {
+       "label": "Methods",
+       "value": "9"
+      },
+      {
+       "label": "Fields",
+       "value": "1"
+      },
+      {
+       "label": "Relationships",
+       "value": "1"
+      },
+      {
+       "label": "Containing file rank",
+       "value": "2"
+      }
+     ]
+    },
+    {
+     "nodeId": "class:src/flask/sansio/app.py::App",
+     "caption": "App in sansio/app.py (sans-I/O: app logic without request handling I/O) is linked to Scaffold and the Jinja template loader. Flask builds on it.",
+     "transitionMs": 1000,
+     "holdMs": 7000,
+     "title": "App",
+     "evidence": [
+      {
+       "label": "Methods",
+       "value": "28"
+      },
+      {
+       "label": "Fields",
+       "value": "12"
+      },
+      {
+       "label": "Relationships",
+       "value": "5"
+      },
+      {
+       "label": "Containing file rank",
+       "value": "5"
+      }
+     ]
+    },
+    {
+     "nodeId": "file:src/flask/wrappers.py",
+     "caption": "wrappers.py defines Request and Response. Ten files import it, including app.py, ctx.py and sessions.py. Next: the Flask class.",
+     "transitionMs": 1000,
+     "holdMs": 6500,
+     "title": "src/flask/wrappers.py",
+     "evidence": [
+      {
+       "label": "Reading rank",
+       "value": "8"
+      },
+      {
+       "label": "LambdaRank score",
+       "value": "-3.0360505644038036"
+      },
+      {
+       "label": "Inbound imports",
+       "value": "10"
+      },
+      {
+       "label": "Outbound imports",
+       "value": "4"
+      },
+      {
+       "label": "Complexity score",
+       "value": "0.8128048780487804"
+      }
+     ]
+    },
+    {
+     "nodeId": "class:src/flask/app.py::Flask",
+     "caption": "Flask in app.py links to App, AppContext and the test client classes. Many test classes extend it, so it is the hub to read closely.",
+     "transitionMs": 1000,
+     "holdMs": 7000,
+     "title": "Flask",
+     "evidence": [
+      {
+       "label": "Methods",
+       "value": "35"
+      },
+      {
+       "label": "Fields",
+       "value": "3"
+      },
+      {
+       "label": "Relationships",
+       "value": "21"
+      },
+      {
+       "label": "Containing file rank",
+       "value": "9"
+      }
+     ]
+    },
+    {
+     "nodeId": "dir:src/flask",
+     "caption": "Remember the path: cli.py, Config, sansio App, wrappers, Flask. Read blueprints.py, then ctx.py and globals.py next.",
+     "transitionMs": 1000,
+     "holdMs": 6500,
+     "title": "src/flask",
+     "evidence": [
+      {
+       "label": "Files",
+       "value": "24"
+      },
+      {
+       "label": "Classes",
+       "value": "53"
+      }
+     ]
+    }
+   ]
+  },
+  "ranking": {
+   "model": "lambdarank-v1",
+   "query": "Understand the application architecture, main entry points, core modules, configuration, dependencies, and how to load, process and return data.",
+   "queryId": "tour"
+  }
+ },
+ "quizzes": [
+  {
+   "schemaVersion": 1,
+   "id": "05c8d5a3-64b8-41c9-8206-0a911640a3fd",
+   "tourId": "868e4651-776f-4495-8430-52a13bea7ef7",
+   "tourRevision": 1,
+   "stopIndex": 0,
+   "nodeId": "dir:src/flask",
+   "language": "en",
+   "questions": [
+    {
+     "id": "05c8d5a3-64b8-41c9-8206-0a911640a3fd:1",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "App discovery in a module",
+     "question": "A module defines two Flask instances named `api` and `admin`, has no variable called `app` or `application`, and has no factory function. The user runs the Flask CLI on that module without naming an app. What does the app-discovery logic do?",
+     "answer": "It raises NoAppException telling the user to pick one with 'module:name'.",
+     "distractors": [
+      "It returns the first Flask instance it finds in the module's namespace.",
+      "It merges both instances into one application and returns it.",
+      "It silently returns None so the CLI can fall back to `wsgi.py`."
+     ],
+     "choices": [
+      "It silently returns None so the CLI can fall back to `wsgi.py`.",
+      "It merges both instances into one application and returns it.",
+      "It raises NoAppException telling the user to pick one with 'module:name'.",
+      "It returns the first Flask instance it finds in the module's namespace."
+     ],
+     "explanation": "find_best_app first checks the names `app` and `application`, then collects every Flask instance in the module; when more than one matches it raises NoAppException asking for 'module:name' (src/flask/cli.py:55-64). It never picks one arbitrarily, and it only falls through to factory lookup when there are no matches at all.",
+     "evidence": [
+      {
+       "nodeId": "dir:src/flask",
+       "title": "src/flask"
+      },
+      {
+       "nodeId": "file:src/flask/cli.py",
+       "title": "src/flask/cli.py"
+      }
+     ]
+    },
+    {
+     "id": "05c8d5a3-64b8-41c9-8206-0a911640a3fd:2",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "Distinguishing call errors from factory errors",
+     "question": "When calling an app factory raises a TypeError, the CLI checks `_called_with_wrong_args` before deciding what to do. Which situation is this check meant to tell apart?",
+     "answer": "Whether the factory could not be called with the given arguments, or whether code inside the factory raised the TypeError itself.",
+     "distractors": [
+      "Whether the factory returned a Flask instance or some other object.",
+      "Whether the TypeError came from Click's option parsing or from Werkzeug.",
+      "Whether the factory is a plain function or a class with a `__call__` method."
+     ],
+     "choices": [
+      "Whether the TypeError came from Click's option parsing or from Werkzeug.",
+      "Whether the factory is a plain function or a class with a `__call__` method.",
+      "Whether the factory returned a Flask instance or some other object.",
+      "Whether the factory could not be called with the given arguments, or whether code inside the factory raised the TypeError itself."
+     ],
+     "explanation": "_called_with_wrong_args walks the traceback; if it reaches the factory's own code frame the call itself succeeded, so the TypeError came from inside and is re-raised unchanged (src/flask/cli.py:94-117, 76-78). Only when the frame was never reached does the CLI turn it into a NoAppException about arguments (src/flask/cli.py:80-85). Checking the return type is a separate isinstance check, not this one.",
+     "evidence": [
+      {
+       "nodeId": "dir:src/flask",
+       "title": "src/flask"
+      },
+      {
+       "nodeId": "file:src/flask/cli.py",
+       "title": "src/flask/cli.py"
+      }
+     ]
+    },
+    {
+     "id": "05c8d5a3-64b8-41c9-8206-0a911640a3fd:3",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "Parsing the --app import string",
+     "question": "A developer runs `flask --app hello:create_app(config=os.environ) run`. Following the path from ScriptInfo.load_app through locate_app to find_app_by_string, what happens?",
+     "answer": "The arguments are evaluated with ast.literal_eval, which rejects `os.environ`, so a NoAppException about failing to parse literal values is raised.",
+     "distractors": [
+      "The expression is evaluated with eval() in the module's namespace, so `create_app` receives the real environment mapping.",
+      "The part after ':' is ignored and the CLI falls back to looking for a variable named `app`.",
+      "The factory is called with no arguments and `config` is filled in later from the FLASK_ environment prefix."
+     ],
+     "choices": [
+      "The expression is evaluated with eval() in the module's namespace, so `create_app` receives the real environment mapping.",
+      "The part after ':' is ignored and the CLI falls back to looking for a variable named `app`.",
+      "The arguments are evaluated with ast.literal_eval, which rejects `os.environ`, so a NoAppException about failing to parse literal values is raised.",
+      "The factory is called with no arguments and `config` is filled in later from the FLASK_ environment prefix."
+     ],
+     "explanation": "load_app splits the import path on ':' and passes the name to locate_app, which calls find_app_by_string (src/flask/cli.py:344-349, 261-264). That function parses the name with ast and evaluates call arguments only via ast.literal_eval, raising NoAppException on ValueError (src/flask/cli.py:148-161). Nothing is eval'd in the module namespace, so non-literal expressions such as `os.environ` cannot be passed.",
+     "evidence": [
+      {
+       "nodeId": "dir:src/flask",
+       "title": "src/flask"
+      },
+      {
+       "nodeId": "file:src/flask/cli.py",
+       "title": "src/flask/cli.py"
+      }
+     ]
+    },
+    {
+     "id": "05c8d5a3-64b8-41c9-8206-0a911640a3fd:4",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "Default app lookup when no app is specified",
+     "question": "A project's entry file is `server.py`, and the user runs `flask routes` without `--app` or FLASK_APP. The command fails with \"Could not locate a Flask application\". Which part of the loading flow explains this?",
+     "answer": "Without an import path, ScriptInfo.load_app only tries `wsgi.py` and `app.py`, calling locate_app with raise_if_not_found=False, and raises NoAppException when both yield nothing.",
+     "distractors": [
+      "find_best_app scans every .py file in the current directory but skips files whose names do not contain 'app'.",
+      "prepare_import refuses any file outside a package with `__init__.py`, so `server.py` is rejected.",
+      "FlaskGroup.get_command requires a factory named `create_app`, which `server.py` does not define."
+     ],
+     "choices": [
+      "FlaskGroup.get_command requires a factory named `create_app`, which `server.py` does not define.",
+      "Without an import path, ScriptInfo.load_app only tries `wsgi.py` and `app.py`, calling locate_app with raise_if_not_found=False, and raises NoAppException when both yield nothing.",
+      "find_best_app scans every .py file in the current directory but skips files whose names do not contain 'app'.",
+      "prepare_import refuses any file outside a package with `__init__.py`, so `server.py` is rejected."
+     ],
+     "explanation": "When app_import_path is empty, load_app loops over (\"wsgi.py\", \"app.py\") and calls locate_app with raise_if_not_found=False, so a missing module returns None instead of raising (src/flask/cli.py:350-356, 254-257). If both return None it raises the 'Could not locate a Flask application' NoAppException (src/flask/cli.py:358-364). No directory scan happens, and prepare_import walks up packages rather than rejecting non-package files (src/flask/cli.py:213-226).",
+     "evidence": [
+      {
+       "nodeId": "dir:src/flask",
+       "title": "src/flask"
+      },
+      {
+       "nodeId": "file:src/flask/cli.py",
+       "title": "src/flask/cli.py"
+      }
+     ]
+    },
+    {
+     "id": "05c8d5a3-64b8-41c9-8206-0a911640a3fd:5",
+     "type": "multiple_choice",
+     "difficulty": "hard",
+     "concept": "Resilient command lookup",
+     "question": "FlaskGroup.get_command looks up built-in and plugin commands before loading the user's app, and catches NoAppException when it does load the app. If it were changed to call `info.load_app()` first and let errors propagate, what would break?",
+     "answer": "A broken or missing app would make every command fail, including built-in ones like `run` or `shell` and plugin commands that don't need the app.",
+     "distractors": [
+      "App-defined commands would no longer get an application context, so they would need @with_appcontext.",
+      "Plugin commands from the `flask.commands` entry point would be registered twice on every lookup.",
+      "The `--app` option would be processed after command lookup, so FLASK_APP would be ignored."
+     ],
+     "choices": [
+      "A broken or missing app would make every command fail, including built-in ones like `run` or `shell` and plugin commands that don't need the app.",
+      "The `--app` option would be processed after command lookup, so FLASK_APP would be ignored.",
+      "Plugin commands from the `flask.commands` entry point would be registered twice on every lookup.",
+      "App-defined commands would no longer get an application context, so they would need @with_appcontext."
+     ],
+     "explanation": "get_command first calls _load_plugin_commands and super().get_command so built-in and plugin commands resolve 'even if the app fails to load', and only then loads the app, printing NoAppException as an error and returning None (src/flask/cli.py:609-626). Loading first would turn any app import error into a failure for all commands. App-context pushing happens after loading either way (src/flask/cli.py:631-632), and plugin loading is guarded by _loaded_plugin_commands (src/flask/cli.py:600-607).",
+     "evidence": [
+      {
+       "nodeId": "dir:src/flask",
+       "title": "src/flask"
+      },
+      {
+       "nodeId": "file:src/flask/cli.py",
+       "title": "src/flask/cli.py"
+      },
+      {
+       "nodeId": "class:src/flask/cli.py::FlaskGroup",
+       "title": "FlaskGroup"
+      },
+      {
+       "nodeId": "class:src/flask/cli.py::ScriptInfo",
+       "title": "ScriptInfo"
+      }
+     ]
+    },
+    {
+     "id": "05c8d5a3-64b8-41c9-8206-0a911640a3fd:6",
+     "type": "multiple_choice",
+     "difficulty": "hard",
+     "concept": "Caching the loaded app across CLI callbacks",
+     "question": "ScriptInfo.load_app stores the result in `_loaded_app` and returns it on later calls. FlaskGroup.get_command, FlaskGroup.list_commands and with_appcontext all call load_app on the same ScriptInfo. What would go wrong if this cache were removed?",
+     "answer": "A factory would be called again on each lookup, producing different Flask instances, so commands and the pushed app context could refer to different apps.",
+     "distractors": [
+      "Nothing, because Python's import cache already ensures create_app returns the same instance every time.",
+      "The debug flag would never be applied, because it is only set the first time a module is imported.",
+      "Click would raise an error because make_pass_decorator only allows one ScriptInfo per process."
+     ],
+     "choices": [
+      "The debug flag would never be applied, because it is only set the first time a module is imported.",
+      "Nothing, because Python's import cache already ensures create_app returns the same instance every time.",
+      "Click would raise an error because make_pass_decorator only allows one ScriptInfo per process.",
+      "A factory would be called again on each lookup, producing different Flask instances, so commands and the pushed app context could refer to different apps."
+     ],
+     "explanation": "load_app returns `_loaded_app` if set, otherwise it calls create_app or locate_app and stores the result (src/flask/cli.py:338-342, 371-372). Several callers share one ScriptInfo via ctx.ensure_object (src/flask/cli.py:397, 618-623, 640-645), and get_command even checks `current_app._get_current_object() is not app` before pushing a context (src/flask/cli.py:631-632). Without the cache, factories run again and return new instances. The import cache only covers module objects, not repeated factory calls.",
+     "evidence": [
+      {
+       "nodeId": "dir:src/flask",
+       "title": "src/flask"
+      },
+      {
+       "nodeId": "file:src/flask/cli.py",
+       "title": "src/flask/cli.py"
+      },
+      {
+       "nodeId": "class:src/flask/cli.py::ScriptInfo",
+       "title": "ScriptInfo"
+      },
+      {
+       "nodeId": "class:src/flask/cli.py::FlaskGroup",
+       "title": "FlaskGroup"
+      },
+      {
+       "nodeId": "class:src/flask/cli.py::AppGroup",
+       "title": "AppGroup"
+      }
+     ]
+    }
+   ],
+   "createdMs": 1795332881738
+  },
+  {
+   "schemaVersion": 1,
+   "id": "77d245eb-b19a-4df5-ac89-e8e75f10c2f1",
+   "tourId": "868e4651-776f-4495-8430-52a13bea7ef7",
+   "tourRevision": 1,
+   "stopIndex": 1,
+   "nodeId": "file:src/flask/cli.py",
+   "language": "en",
+   "questions": [
+    {
+     "id": "77d245eb-b19a-4df5-ac89-e8e75f10c2f1:1",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "App discovery without an explicit name",
+     "question": "You point the CLI at a module but give no app name. The module has no variable called `app` or `application`, and it defines two Flask instances, `web` and `admin`. What does `find_best_app` do?",
+     "answer": "It raises NoAppException and tells you to name the app explicitly with 'module:name'",
+     "distractors": [
+      "It returns the first Flask instance it finds in the module's namespace",
+      "It falls back to calling `create_app()` and returns the app that factory builds",
+      "It returns `web`, because it picks the instance whose name sorts first"
+     ],
+     "choices": [
+      "It returns `web`, because it picks the instance whose name sorts first",
+      "It returns the first Flask instance it finds in the module's namespace",
+      "It falls back to calling `create_app()` and returns the app that factory builds",
+      "It raises NoAppException and tells you to name the app explicitly with 'module:name'"
+     ],
+     "explanation": "After the `app`/`application` lookups fail, `find_best_app` gathers every Flask instance in the module. If there is more than one, it refuses to guess and raises NoAppException, asking for 'module:name' (src/flask/cli.py:55-64). It never picks one by order, and it only tries the factory functions after finding no instance at all (src/flask/cli.py:66-72).",
+     "evidence": [
+      {
+       "nodeId": "file:src/flask/cli.py",
+       "title": "src/flask/cli.py"
+      },
+      {
+       "nodeId": "class:src/flask/cli.py::NoAppException",
+       "title": "NoAppException"
+      }
+     ]
+    },
+    {
+     "id": "77d245eb-b19a-4df5-ac89-e8e75f10c2f1:2",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "Telling a bad call apart from an internal error",
+     "question": "Calling an app factory raises a TypeError. Why does the CLI check `_called_with_wrong_args` before deciding what to report?",
+     "answer": "To separate 'the factory was called with the wrong arguments' from 'code inside the factory raised a TypeError', so real bugs in the factory are re-raised unchanged",
+     "distractors": [
+      "To retry the factory automatically with a different set of default arguments",
+      "To turn every TypeError into NoAppException so users never see a traceback",
+      "To check that the factory's return value is a Flask instance before using it"
+     ],
+     "choices": [
+      "To separate 'the factory was called with the wrong arguments' from 'code inside the factory raised a TypeError', so real bugs in the factory are re-raised unchanged",
+      "To check that the factory's return value is a Flask instance before using it",
+      "To turn every TypeError into NoAppException so users never see a traceback",
+      "To retry the factory automatically with a different set of default arguments"
+     ],
+     "explanation": "`_called_with_wrong_args` walks the traceback. If any frame belongs to the factory's own code, the call itself succeeded and the error came from inside, so the original exception is re-raised (src/flask/cli.py:76-78, 102-113). Only a failed call becomes NoAppException with a hint about passing arguments (src/flask/cli.py:80-85). Nothing is retried, and the return type is checked separately with isinstance (src/flask/cli.py:74).",
+     "evidence": [
+      {
+       "nodeId": "file:src/flask/cli.py",
+       "title": "src/flask/cli.py"
+      },
+      {
+       "nodeId": "class:src/flask/cli.py::NoAppException",
+       "title": "NoAppException"
+      }
+     ]
+    },
+    {
+     "id": "77d245eb-b19a-4df5-ac89-e8e75f10c2f1:3",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "How the --app value becomes a loaded app",
+     "question": "A user runs `flask --app hello:create_app('dev') routes`. Which description best matches how that `--app` string turns into a Flask app?",
+     "answer": "The eager `--app` callback stores the string on the context's ScriptInfo. `ScriptInfo.load_app` then splits it at the colon, `prepare_import` resolves the module and adjusts sys.path, and `locate_app` imports it and parses `create_app('dev')` as a call with literal arguments",
+     "distractors": [
+      "FlaskGroup parses the string itself in `__init__` and imports the module before any command-line arguments are read",
+      "`locate_app` runs the whole string with `eval`, so any Python expression, including attribute chains, can produce the app",
+      "The string is saved in the FLASK_APP environment variable, and each command imports the app again on its own"
+     ],
+     "choices": [
+      "FlaskGroup parses the string itself in `__init__` and imports the module before any command-line arguments are read",
+      "The string is saved in the FLASK_APP environment variable, and each command imports the app again on its own",
+      "The eager `--app` callback stores the string on the context's ScriptInfo. `ScriptInfo.load_app` then splits it at the colon, `prepare_import` resolves the module and adjusts sys.path, and `locate_app` imports it and parses `create_app('dev')` as a call with literal arguments",
+      "`locate_app` runs the whole string with `eval`, so any Python expression, including attribute chains, can produce the app"
+     ],
+     "explanation": "`_set_app` writes the value to `ctx.ensure_object(ScriptInfo).app_import_path` (src/flask/cli.py:440-446). The ScriptInfo object itself comes from `FlaskGroup.make_context` (src/flask/cli.py:669-674). `load_app` splits the value, calls `prepare_import`, then calls `locate_app` (src/flask/cli.py:344-349). `find_app_by_string` uses `ast.parse` and `literal_eval` rather than `eval`, and it rejects anything other than a simple name (src/flask/cli.py:129-161).",
+     "evidence": [
+      {
+       "nodeId": "file:src/flask/cli.py",
+       "title": "src/flask/cli.py"
+      },
+      {
+       "nodeId": "class:src/flask/cli.py::ScriptInfo",
+       "title": "ScriptInfo"
+      },
+      {
+       "nodeId": "class:src/flask/cli.py::FlaskGroup",
+       "title": "FlaskGroup"
+      }
+     ]
+    },
+    {
+     "id": "77d245eb-b19a-4df5-ac89-e8e75f10c2f1:4",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "Built-in commands survive a failed app load",
+     "question": "A project's app module has a typo, so it cannot be located. `flask run --help` still works, but a custom app command fails with a red 'Error: ...' message. Which code path explains this?",
+     "answer": "`FlaskGroup.get_command` first looks up built-in and plugin commands without loading the app, and only for unknown names calls `ScriptInfo.load_app`, catching NoAppException to print it and return no command",
+     "distractors": [
+      "`ScriptInfo.load_app` returns a stub app when loading fails, and the stub only knows the built-in commands",
+      "AppGroup wraps each built-in command in `with_appcontext`, which silently skips loading the app when it fails",
+      "`list_commands` caches the built-in command names at startup, and `run` is always resolved from that cache"
+     ],
+     "choices": [
+      "AppGroup wraps each built-in command in `with_appcontext`, which silently skips loading the app when it fails",
+      "`FlaskGroup.get_command` first looks up built-in and plugin commands without loading the app, and only for unknown names calls `ScriptInfo.load_app`, catching NoAppException to print it and return no command",
+      "`ScriptInfo.load_app` returns a stub app when loading fails, and the stub only knows the built-in commands",
+      "`list_commands` caches the built-in command names at startup, and `run` is always resolved from that cache"
+     ],
+     "explanation": "`get_command` calls `super().get_command` for built-in and plugin commands, 'which should be available even if the app fails to load' (src/flask/cli.py:609-616). Only after that does it call `info.load_app()`, and on NoAppException it prints the message and returns None (src/flask/cli.py:618-626). `load_app` never returns a stub. If it finds no app, it raises (src/flask/cli.py:358-364).",
+     "evidence": [
+      {
+       "nodeId": "file:src/flask/cli.py",
+       "title": "src/flask/cli.py"
+      },
+      {
+       "nodeId": "class:src/flask/cli.py::FlaskGroup",
+       "title": "FlaskGroup"
+      },
+      {
+       "nodeId": "class:src/flask/cli.py::ScriptInfo",
+       "title": "ScriptInfo"
+      },
+      {
+       "nodeId": "class:src/flask/cli.py::NoAppException",
+       "title": "NoAppException"
+      }
+     ]
+    },
+    {
+     "id": "77d245eb-b19a-4df5-ac89-e8e75f10c2f1:5",
+     "type": "multiple_choice",
+     "difficulty": "hard",
+     "concept": "Guarding against side effects at import time",
+     "question": "`FlaskGroup.make_context` sets `FLASK_RUN_FROM_CLI=true` before any command runs. What would most likely go wrong if this line were removed?",
+     "answer": "An app module that calls `app.run()` at top level, without a `__main__` guard, would start the server as soon as the CLI imported it, blocking whatever command the user asked for",
+     "distractors": [
+      "The `--debug` option would stop working, because `get_debug_flag` reads this variable to choose debug mode",
+      "`ScriptInfo.load_app` would stop caching the app and would import the module again for every command lookup",
+      "Plugin commands from `flask.commands` entry points would load twice, because the variable marks them as already registered"
+     ],
+     "choices": [
+      "Plugin commands from `flask.commands` entry points would load twice, because the variable marks them as already registered",
+      "The `--debug` option would stop working, because `get_debug_flag` reads this variable to choose debug mode",
+      "`ScriptInfo.load_app` would stop caching the app and would import the module again for every command lookup",
+      "An app module that calls `app.run()` at top level, without a `__main__` guard, would start the server as soon as the CLI imported it, blocking whatever command the user asked for"
+     ],
+     "explanation": "The comment at src/flask/cli.py:664-667 says this flag tells `app.run` to do nothing. Otherwise a module-level `run()` would start the server during import and block the command. Loading the app means importing user code (src/flask/cli.py:245), and Flask exposes the `run` method (src/flask/app.py). Debug mode is handled through FLASK_DEBUG (src/flask/cli.py:481). Caching relies on `_loaded_app` (src/flask/cli.py:338-339, 371), and plugin loading relies on `_loaded_plugin_commands` (src/flask/cli.py:600-607).",
+     "evidence": [
+      {
+       "nodeId": "file:src/flask/cli.py",
+       "title": "src/flask/cli.py"
+      },
+      {
+       "nodeId": "class:src/flask/cli.py::FlaskGroup",
+       "title": "FlaskGroup"
+      },
+      {
+       "nodeId": "class:src/flask/cli.py::ScriptInfo",
+       "title": "ScriptInfo"
+      },
+      {
+       "nodeId": "class:src/flask/app.py::Flask",
+       "title": "Flask"
+      }
+     ]
+    },
+    {
+     "id": "77d245eb-b19a-4df5-ac89-e8e75f10c2f1:6",
+     "type": "multiple_choice",
+     "difficulty": "hard",
+     "concept": "Global options built as eager option callbacks",
+     "question": "FlaskGroup handles `--env-file`, `--app` and `--debug` in eager option callbacks rather than in the group's own callback, and it adds `--env-file` first. What does this design make possible?",
+     "answer": "A subclass or user can supply a custom group callback without losing app, env and debug handling, and environment files are loaded before `--app` is resolved, so their values are in place before the app loads",
+     "distractors": [
+      "Option callbacks run in a fresh process, so changes to environment variables never leak into the app being loaded",
+      "Eager callbacks let Click keep the loaded app between separate CLI invocations, so the app is only imported once per machine",
+      "A group callback cannot reach `ctx.obj`, so ScriptInfo would be out of reach unless the options were processed separately"
+     ],
+     "choices": [
+      "A subclass or user can supply a custom group callback without losing app, env and debug handling, and environment files are loaded before `--app` is resolved, so their values are in place before the app loads",
+      "A group callback cannot reach `ctx.obj`, so ScriptInfo would be out of reach unless the options were processed separately",
+      "Eager callbacks let Click keep the loaded app between separate CLI invocations, so the app is only imported once per machine",
+      "Option callbacks run in a fresh process, so changes to environment variables never leak into the app being loaded"
+     ],
+     "explanation": "The comment at src/flask/cli.py:573-577 says option callbacks let users write their own group callback 'without losing the behavior', and that `--env-file` must come first so it is evaluated before `--app`. `--debug` also writes FLASK_DEBUG to the environment so a factory can read it early (src/flask/cli.py:479-481), and `load_app` applies it to the app later (src/flask/cli.py:366-369). The callbacks change `os.environ` in the same process, and the app cache lives only on that invocation's ScriptInfo (src/flask/cli.py:331, 371).",
+     "evidence": [
+      {
+       "nodeId": "file:src/flask/cli.py",
+       "title": "src/flask/cli.py"
+      },
+      {
+       "nodeId": "class:src/flask/cli.py::FlaskGroup",
+       "title": "FlaskGroup"
+      },
+      {
+       "nodeId": "class:src/flask/cli.py::ScriptInfo",
+       "title": "ScriptInfo"
+      }
+     ]
+    }
+   ],
+   "createdMs": 1795332898521
+  },
+  {
+   "schemaVersion": 1,
+   "id": "2a904aa5-04d0-415b-9175-fde4e721c935",
+   "tourId": "868e4651-776f-4495-8430-52a13bea7ef7",
+   "tourRevision": 1,
+   "stopIndex": 2,
+   "nodeId": "class:src/flask/config.py::Config",
+   "language": "en",
+   "questions": [
+    {
+     "id": "2a904aa5-04d0-415b-9175-fde4e721c935:1",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "Uppercase-only config keys",
+     "question": "A settings file loaded with from_pyfile contains `SECRET_KEY = 'dev'` and a helper line `base_dir = '/srv/app'`. What ends up in the Config dict afterwards?",
+     "answer": "Only SECRET_KEY is added; base_dir is treated as a temporary value and ignored",
+     "distractors": [
+      "Both SECRET_KEY and base_dir are added, since every assignment in the file becomes a key",
+      "Both are added, but base_dir is stored under the uppercased key BASE_DIR",
+      "Loading fails, because config files may only contain uppercase names"
+     ],
+     "choices": [
+      "Only SECRET_KEY is added; base_dir is treated as a temporary value and ignored",
+      "Both SECRET_KEY and base_dir are added, since every assignment in the file becomes a key",
+      "Both are added, but base_dir is stored under the uppercased key BASE_DIR",
+      "Loading fails, because config files may only contain uppercase names"
+     ],
+     "explanation": "from_pyfile executes the file into a module object and hands it to from_object, which copies only attributes whose names are uppercase (src/flask/config.py:215, src/flask/config.py:252-254). Lowercase names are skipped rather than rejected or renamed, which lets a config file keep scratch values (src/flask/config.py:69-73).",
+     "evidence": [
+      {
+       "nodeId": "class:src/flask/config.py::Config",
+       "title": "Config"
+      }
+     ]
+    },
+    {
+     "id": "2a904aa5-04d0-415b-9175-fde4e721c935:2",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "Failure handling of from_envvar",
+     "question": "An app calls `app.config.from_envvar('APP_SETTINGS')` with the default arguments, but the environment variable was never set on the server. What happens?",
+     "answer": "A RuntimeError is raised explaining that the variable is not set and must point to a config file",
+     "distractors": [
+      "The call returns False and the app keeps running on its default config",
+      "The config is silently loaded from a file named APP_SETTINGS in the root path",
+      "An OSError is raised because the empty path cannot be opened"
+     ],
+     "choices": [
+      "The call returns False and the app keeps running on its default config",
+      "A RuntimeError is raised explaining that the variable is not set and must point to a config file",
+      "An OSError is raised because the empty path cannot be opened",
+      "The config is silently loaded from a file named APP_SETTINGS in the root path"
+     ],
+     "explanation": "When the variable is missing, from_envvar returns False only if silent=True; otherwise it raises a RuntimeError with a descriptive message (src/flask/config.py:114-123). Returning False is the silent=True path, and no file is opened at all because the check happens before from_pyfile is called (src/flask/config.py:124).",
+     "evidence": [
+      {
+       "nodeId": "class:src/flask/config.py::Config",
+       "title": "Config"
+      }
+     ]
+    },
+    {
+     "id": "2a904aa5-04d0-415b-9175-fde4e721c935:3",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "Load chain from env var to config keys",
+     "question": "APP_SETTINGS is set to the relative path `settings.cfg` and the app calls `app.config.from_envvar('APP_SETTINGS')`. How do the values in that file get into the config?",
+     "answer": "The path is joined with the config's root_path, the file is executed into a fresh module object, and from_object copies that module's uppercase attributes",
+     "distractors": [
+      "The path is resolved against the process's current working directory and the file is parsed as JSON before being merged",
+      "from_envvar reads the file itself and calls dict.update with every name defined in it",
+      "The file is imported with import_string as a regular Python module and cached in sys.modules"
+     ],
+     "choices": [
+      "from_envvar reads the file itself and calls dict.update with every name defined in it",
+      "The file is imported with import_string as a regular Python module and cached in sys.modules",
+      "The path is joined with the config's root_path, the file is executed into a fresh module object, and from_object copies that module's uppercase attributes",
+      "The path is resolved against the process's current working directory and the file is parsed as JSON before being merged"
+     ],
+     "explanation": "from_envvar just forwards the variable's value to from_pyfile (src/flask/config.py:124), which joins it with self.root_path, executes it into a types.ModuleType, and then calls from_object (src/flask/config.py:204-215). import_string is only used by from_object when given a string import name (src/flask/config.py:250-251), and JSON parsing belongs to from_prefixed_env/from_file, not this path.",
+     "evidence": [
+      {
+       "nodeId": "class:src/flask/config.py::Config",
+       "title": "Config"
+      },
+      {
+       "nodeId": "file:src/flask/config.py",
+       "title": "src/flask/config.py"
+      }
+     ]
+    },
+    {
+     "id": "2a904aa5-04d0-415b-9175-fde4e721c935:4",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "from_file delegates filtering to from_mapping",
+     "question": "A developer loads `config.json` with `app.config.from_file('config.json', load=json.load)`. The file contains `{\"database_url\": \"...\", \"DEBUG\": true}`, but afterwards `app.config['database_url']` raises KeyError. What should they suspect first?",
+     "answer": "from_file passes the loaded mapping to from_mapping, which keeps only uppercase keys, so database_url was dropped",
+     "distractors": [
+      "json.load returned a list instead of a dict, so from_file stored nothing",
+      "from_file opened the file in binary mode by default, so json.load failed and the error was swallowed",
+      "from_file only fills keys that already exist in the defaults passed to Config's constructor"
+     ],
+     "choices": [
+      "from_file opened the file in binary mode by default, so json.load failed and the error was swallowed",
+      "from_file only fills keys that already exist in the defaults passed to Config's constructor",
+      "json.load returned a list instead of a dict, so from_file stored nothing",
+      "from_file passes the loaded mapping to from_mapping, which keeps only uppercase keys, so database_url was dropped"
+     ],
+     "explanation": "from_file opens the file (text mode by default), calls the given load function, and returns self.from_mapping(obj) (src/flask/config.py:290-302); from_mapping then writes only keys where key.isupper() is true (src/flask/config.py:318-320). DEBUG survives while database_url is silently skipped. Load errors are not swallowed — only OSError with silent=True is (src/flask/config.py:295-300).",
+     "evidence": [
+      {
+       "nodeId": "class:src/flask/config.py::Config",
+       "title": "Config"
+      },
+      {
+       "nodeId": "file:src/flask/config.py",
+       "title": "src/flask/config.py"
+      }
+     ]
+    },
+    {
+     "id": "2a904aa5-04d0-415b-9175-fde4e721c935:5",
+     "type": "multiple_choice",
+     "difficulty": "hard",
+     "concept": "Config as single source of truth via ConfigAttribute",
+     "question": "The App class imports both Config and ConfigAttribute. If an App attribute currently declared as a ConfigAttribute were replaced by a plain instance attribute set once in __init__, what problem would appear?",
+     "answer": "The attribute and app.config would become two separate copies: values loaded later via from_pyfile/from_mapping wouldn't show up on the attribute, and assigning the attribute wouldn't update the config",
+     "distractors": [
+      "Nothing changes functionally, because Config already copies uppercase keys onto the app object as attributes",
+      "Config loading methods would start raising errors, because they write through ConfigAttribute descriptors",
+      "Only reading would break; assignments to the attribute would still be forwarded into app.config by Config.__setitem__"
+     ],
+     "choices": [
+      "Nothing changes functionally, because Config already copies uppercase keys onto the app object as attributes",
+      "The attribute and app.config would become two separate copies: values loaded later via from_pyfile/from_mapping wouldn't show up on the attribute, and assigning the attribute wouldn't update the config",
+      "Config loading methods would start raising errors, because they write through ConfigAttribute descriptors",
+      "Only reading would break; assignments to the attribute would still be forwarded into app.config by Config.__setitem__"
+     ],
+     "explanation": "ConfigAttribute's __get__ reads obj.config[name] (optionally converting it) and __set__ writes obj.config[name], so the attribute is just a view over the dict (src/flask/config.py:35-47). Config itself is a plain dict subclass whose loaders only write self[key] (src/flask/config.py:50, src/flask/config.py:252-254) — it never pushes values back onto the app, so without the descriptor the two would drift apart.",
+     "evidence": [
+      {
+       "nodeId": "class:src/flask/config.py::Config",
+       "title": "Config"
+      },
+      {
+       "nodeId": "class:src/flask/config.py::ConfigAttribute",
+       "title": "ConfigAttribute"
+      },
+      {
+       "nodeId": "file:src/flask/sansio/app.py",
+       "title": "src/flask/sansio/app.py"
+      }
+     ]
+    },
+    {
+     "id": "2a904aa5-04d0-415b-9175-fde4e721c935:6",
+     "type": "multiple_choice",
+     "difficulty": "hard",
+     "concept": "Extension point for new config formats",
+     "question": "The team wants to load configuration from YAML. Which approach fits the existing Config design best, and why?",
+     "answer": "Call from_file with a YAML loader as the load callable; from_file handles path resolution and missing-file errors, and from_mapping still enforces the uppercase-key rule",
+     "distractors": [
+      "Subclass Config and override from_pyfile to detect .yaml files, since from_pyfile is the only loader that resolves paths against root_path",
+      "Add a YAML branch to from_object, because every loader ultimately funnels through from_object",
+      "Convert the YAML to FLASK_-prefixed environment variables and use from_prefixed_env, which already applies the same uppercase filtering"
+     ],
+     "choices": [
+      "Convert the YAML to FLASK_-prefixed environment variables and use from_prefixed_env, which already applies the same uppercase filtering",
+      "Call from_file with a YAML loader as the load callable; from_file handles path resolution and missing-file errors, and from_mapping still enforces the uppercase-key rule",
+      "Subclass Config and override from_pyfile to detect .yaml files, since from_pyfile is the only loader that resolves paths against root_path",
+      "Add a YAML branch to from_object, because every loader ultimately funnels through from_object"
+     ],
+     "explanation": "from_file takes the parsing step as a `load` callable, resolves the path against root_path, handles OSError/silent, and delegates to from_mapping (src/flask/config.py:256-302), so new formats need no subclass — the docstring shows json.load and tomllib.load used this way (src/flask/config.py:269-273). from_file does not go through from_object, and from_prefixed_env writes keys directly without any isupper() check (src/flask/config.py:167-183).",
+     "evidence": [
+      {
+       "nodeId": "class:src/flask/config.py::Config",
+       "title": "Config"
+      },
+      {
+       "nodeId": "file:src/flask/config.py",
+       "title": "src/flask/config.py"
+      }
+     ]
+    }
+   ],
+   "createdMs": 1795332880282
+  },
+  {
+   "schemaVersion": 1,
+   "id": "b4cedac4-5cde-441f-91dc-4a4d608b47f0",
+   "tourId": "868e4651-776f-4495-8430-52a13bea7ef7",
+   "tourRevision": 1,
+   "stopIndex": 3,
+   "nodeId": "class:src/flask/sansio/app.py::App",
+   "language": "en",
+   "questions": [
+    {
+     "id": "b4cedac4-5cde-441f-91dc-4a4d608b47f0:1",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "Setup phase vs. serving phase",
+     "question": "A developer calls a setup method such as registering a new route on the application after it has already served traffic, and gets an AssertionError. What is this check protecting against?",
+     "answer": "Changes made after the first request would not be applied consistently, so the app refuses setup calls once it has handled a request",
+     "distractors": [
+      "The route already exists, so the app refuses to register a duplicate URL rule",
+      "The application context is not active, so the app cannot know which configuration to use",
+      "Debug mode is off, so the app locks its configuration for production safety"
+     ],
+     "choices": [
+      "The route already exists, so the app refuses to register a duplicate URL rule",
+      "The application context is not active, so the app cannot know which configuration to use",
+      "Debug mode is off, so the app locks its configuration for production safety",
+      "Changes made after the first request would not be applied consistently, so the app refuses setup calls once it has handled a request"
+     ],
+     "explanation": "_check_setup_finished raises only when the internal _got_first_request flag is set, and its message says later changes 'will not be applied consistently' (src/flask/sansio/app.py:411-421). It does not look at duplicate rules, the active context or debug mode; duplicate endpoints are checked separately in add_url_rule (src/flask/sansio/app.py:656-661).",
+     "evidence": [
+      {
+       "nodeId": "class:src/flask/sansio/app.py::App",
+       "title": "App"
+      }
+     ]
+    },
+    {
+     "id": "b4cedac4-5cde-441f-91dc-4a4d608b47f0:2",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "Instance path resolution",
+     "question": "When the application is created with instance_path='instance' (a relative path), what happens?",
+     "answer": "The constructor raises a ValueError because a provided instance path must be absolute",
+     "distractors": [
+      "The path is resolved relative to the application root path and stored",
+      "The value is ignored and the instance folder is found automatically instead",
+      "The path is accepted as-is and resolved later when config files are loaded"
+     ],
+     "choices": [
+      "The constructor raises a ValueError because a provided instance path must be absolute",
+      "The value is ignored and the instance folder is found automatically instead",
+      "The path is accepted as-is and resolved later when config files are loaded",
+      "The path is resolved relative to the application root path and stored"
+     ],
+     "explanation": "In __init__, auto_find_instance_path is used only when instance_path is None; a non-absolute value raises ValueError with 'it must be absolute' (src/flask/sansio/app.py:301-307). The constructor never silently resolves or ignores a relative value.",
+     "evidence": [
+      {
+       "nodeId": "class:src/flask/sansio/app.py::App",
+       "title": "App"
+      }
+     ]
+    },
+    {
+     "id": "b4cedac4-5cde-441f-91dc-4a4d608b47f0:3",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "Template method between App and Flask",
+     "question": "App.create_jinja_environment only raises NotImplementedError, yet templates render fine in a normal Flask app that reads app.jinja_env. Why?",
+     "answer": "jinja_env calls self.create_jinja_environment(), and Flask, which subclasses App, provides its own create_jinja_environment that is used instead",
+     "distractors": [
+      "Scaffold, the base class of App, builds the Jinja environment before App's method is ever reached",
+      "jinja_env catches the NotImplementedError and falls back to a default Jinja Environment",
+      "DispatchingJinjaLoader creates the environment itself, so create_jinja_environment is never called"
+     ],
+     "choices": [
+      "DispatchingJinjaLoader creates the environment itself, so create_jinja_environment is never called",
+      "jinja_env calls self.create_jinja_environment(), and Flask, which subclasses App, provides its own create_jinja_environment that is used instead",
+      "Scaffold, the base class of App, builds the Jinja environment before App's method is ever reached",
+      "jinja_env catches the NotImplementedError and falls back to a default Jinja Environment"
+     ],
+     "explanation": "jinja_env is a cached_property that returns self.create_jinja_environment() (src/flask/sansio/app.py:467-478), and Flask is declared as class Flask(App) (src/flask/app.py:108) with its own create_jinja_environment, so the subclass version runs. App's version does not catch errors, and the loader from create_global_jinja_loader is only the template loader (src/flask/sansio/app.py:521-532), not the environment.",
+     "evidence": [
+      {
+       "nodeId": "class:src/flask/sansio/app.py::App",
+       "title": "App"
+      },
+      {
+       "nodeId": "class:src/flask/app.py::Flask",
+       "title": "Flask"
+      },
+      {
+       "nodeId": "class:src/flask/templating.py::DispatchingJinjaLoader",
+       "title": "DispatchingJinjaLoader"
+      }
+     ]
+    },
+    {
+     "id": "b4cedac4-5cde-441f-91dc-4a4d608b47f0:4",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "Lazy creation of the Jinja environment",
+     "question": "A team changes app.jinja_options in a startup hook, but the new options do nothing. The hook runs after a custom template filter was registered. What should they suspect first?",
+     "answer": "Registering the filter accessed jinja_env, which built and cached the environment, so later option changes are never read",
+     "distractors": [
+      "jinja_options is an immutable dict, so the assignment silently fails",
+      "Flask's create_jinja_environment ignores jinja_options and only reads the config",
+      "The options are applied per request, so they take effect only after a restart of the request context"
+     ],
+     "choices": [
+      "Registering the filter accessed jinja_env, which built and cached the environment, so later option changes are never read",
+      "jinja_options is an immutable dict, so the assignment silently fails",
+      "Flask's create_jinja_environment ignores jinja_options and only reads the config",
+      "The options are applied per request, so they take effect only after a restart of the request context"
+     ],
+     "explanation": "add_template_filter writes into self.jinja_env.filters (src/flask/sansio/app.py:712), and jinja_env is a cached_property created on first access (src/flask/sansio/app.py:467-475). The comment on jinja_options says changes after the environment is created have no effect, and that it is a plain dict, not an ImmutableDict (src/flask/sansio/app.py:240-249).",
+     "evidence": [
+      {
+       "nodeId": "class:src/flask/sansio/app.py::App",
+       "title": "App"
+      },
+      {
+       "nodeId": "class:src/flask/app.py::Flask",
+       "title": "Flask"
+      }
+     ]
+    },
+    {
+     "id": "b4cedac4-5cde-441f-91dc-4a4d608b47f0:5",
+     "type": "multiple_choice",
+     "difficulty": "hard",
+     "concept": "Sans-IO core vs. WSGI application",
+     "question": "You want to reuse Flask's route registration, blueprints and configuration with a different server integration, without Flask's WSGI request handling. Based on how App and Flask split responsibilities, what is the most reasonable starting point?",
+     "answer": "Build on App, which holds registration and configuration, and implement the hooks it leaves open (such as create_jinja_environment) the way Flask does",
+     "distractors": [
+      "Build on Scaffold alone, since it already owns the config, blueprint registry and URL map",
+      "Subclass Flask and override run(), since App depends on Flask's request dispatching to register routes",
+      "Build on AppContext, since routes and config are stored per context rather than on the application"
+     ],
+     "choices": [
+      "Subclass Flask and override run(), since App depends on Flask's request dispatching to register routes",
+      "Build on AppContext, since routes and config are stored per context rather than on the application",
+      "Build on Scaffold alone, since it already owns the config, blueprint registry and URL map",
+      "Build on App, which holds registration and configuration, and implement the hooks it leaves open (such as create_jinja_environment) the way Flask does"
+     ],
+     "explanation": "App's constructor creates config, url_map, blueprints and extensions, and add_url_rule and register_blueprint live there (src/flask/sansio/app.py:317-409, 570-662), while request dispatch, exception handling, run and test_client are members of Flask, which subclasses App (src/flask/app.py:108). Scaffold has no config or blueprint registry in its constructor signature, and AppContext only takes app, request and session, so neither owns this state.",
+     "evidence": [
+      {
+       "nodeId": "class:src/flask/sansio/app.py::App",
+       "title": "App"
+      },
+      {
+       "nodeId": "class:src/flask/app.py::Flask",
+       "title": "Flask"
+      },
+      {
+       "nodeId": "class:src/flask/sansio/scaffold.py::Scaffold",
+       "title": "Scaffold"
+      },
+      {
+       "nodeId": "class:src/flask/ctx.py::AppContext",
+       "title": "AppContext"
+      }
+     ]
+    },
+    {
+     "id": "b4cedac4-5cde-441f-91dc-4a4d608b47f0:6",
+     "type": "multiple_choice",
+     "difficulty": "hard",
+     "concept": "Guarding shared mutable registries",
+     "question": "Suppose App._check_setup_finished were changed to do nothing. What is the main risk for an app that is already serving requests?",
+     "answer": "Late calls to setup methods could change url_map, view_functions or the cached Jinja environment while requests run, so behavior would depend on timing",
+     "distractors": [
+      "Blueprints could no longer be registered at all, because register_blueprint relies on this check to record them",
+      "Duplicate endpoints would be silently overwritten, because this check is what detects endpoint conflicts",
+      "Configuration would reload on every request, because the check is what freezes the Config object"
+     ],
+     "choices": [
+      "Duplicate endpoints would be silently overwritten, because this check is what detects endpoint conflicts",
+      "Configuration would reload on every request, because the check is what freezes the Config object",
+      "Late calls to setup methods could change url_map, view_functions or the cached Jinja environment while requests run, so behavior would depend on timing",
+      "Blueprints could no longer be registered at all, because register_blueprint relies on this check to record them"
+     ],
+     "explanation": "register_blueprint, add_url_rule and add_template_filter are setup methods that mutate shared state: url_map.add, view_functions and jinja_env.filters (src/flask/sansio/app.py:570-662, 712). The guard exists to stop these changes after the first request, because they 'will not be applied consistently' (src/flask/sansio/app.py:411-421). Blueprint registration itself is done by blueprint.register (src/flask/sansio/app.py:596), and endpoint conflicts are caught by a separate check in add_url_rule (src/flask/sansio/app.py:656-661), so those distractors credit the guard with work done elsewhere.",
+     "evidence": [
+      {
+       "nodeId": "class:src/flask/sansio/app.py::App",
+       "title": "App"
+      },
+      {
+       "nodeId": "class:src/flask/sansio/scaffold.py::Scaffold",
+       "title": "Scaffold"
+      },
+      {
+       "nodeId": "class:src/flask/sansio/blueprints.py::Blueprint",
+       "title": "Blueprint"
+      }
+     ]
+    }
+   ],
+   "createdMs": 1795335117194
+  },
+  {
+   "schemaVersion": 1,
+   "id": "3f08d8b4-4266-439f-b8bb-0e21c7cf0c0f",
+   "tourId": "868e4651-776f-4495-8430-52a13bea7ef7",
+   "tourRevision": 1,
+   "stopIndex": 4,
+   "nodeId": "file:src/flask/wrappers.py",
+   "language": "en",
+   "questions": [
+    {
+     "id": "3f08d8b4-4266-439f-b8bb-0e21c7cf0c0f:1",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "Per-request limit override precedence",
+     "question": "The app's MAX_CONTENT_LENGTH config is 16 MB, but an upload view sets `request.max_content_length` to 1 MB before it reads the body. Which limit applies to that request, and why?",
+     "answer": "1 MB, because the getter returns the value stored on the request before it looks at the app config",
+     "distractors": [
+      "16 MB, because the app config always wins over values set on a single request",
+      "No limit, because setting the property on the request turns off the config-based check",
+      "Werkzeug's built-in default, because the setter writes past Flask's config lookup"
+     ],
+     "choices": [
+      "1 MB, because the getter returns the value stored on the request before it looks at the app config",
+      "Werkzeug's built-in default, because the setter writes past Flask's config lookup",
+      "No limit, because setting the property on the request turns off the config-based check",
+      "16 MB, because the app config always wins over values set on a single request"
+     ],
+     "explanation": "The setter stores the value in `_max_content_length`, and the getter returns it first if it is not None. Only after that does it fall back to `current_app.config[\"MAX_CONTENT_LENGTH\"]` or Werkzeug's default (src/flask/wrappers.py:80-90). The config is only the default, so the idea that the config always wins reverses the lookup order.",
+     "evidence": [
+      {
+       "nodeId": "file:src/flask/wrappers.py",
+       "title": "src/flask/wrappers.py"
+      },
+      {
+       "nodeId": "class:src/flask/wrappers.py::Request",
+       "title": "Request"
+      }
+     ]
+    },
+    {
+     "id": "3f08d8b4-4266-439f-b8bb-0e21c7cf0c0f:2",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "Hiding JSON parse error details outside debug mode",
+     "question": "A client sends malformed JSON and the app is not in debug mode. What does Flask's `Request.on_json_loading_failed` do with the BadRequest that Werkzeug raises?",
+     "answer": "It raises a new, generic BadRequest chained from the original, so the client does not see the detailed parse error",
+     "distractors": [
+      "It catches the error and returns None, so the view continues with no JSON data",
+      "It re-raises Werkzeug's original BadRequest unchanged, detailed message included",
+      "It turns the error into a 500 Internal Server Error, because parsing failed on the server"
+     ],
+     "choices": [
+      "It turns the error into a 500 Internal Server Error, because parsing failed on the server",
+      "It re-raises Werkzeug's original BadRequest unchanged, detailed message included",
+      "It catches the error and returns None, so the view continues with no JSON data",
+      "It raises a new, generic BadRequest chained from the original, so the client does not see the detailed parse error"
+     ],
+     "explanation": "Outside debug mode the handler runs `raise BadRequest() from ebr`, which replaces the detailed error with a plain one but keeps the original as the cause (src/flask/wrappers.py:212-219). Only when `current_app.debug` is true is the original re-raised as is (line 216-217). It never swallows the error or changes it to a 500.",
+     "evidence": [
+      {
+       "nodeId": "file:src/flask/wrappers.py",
+       "title": "src/flask/wrappers.py"
+      },
+      {
+       "nodeId": "class:src/flask/wrappers.py::Request",
+       "title": "Request"
+      }
+     ]
+    },
+    {
+     "id": "3f08d8b4-4266-439f-b8bb-0e21c7cf0c0f:3",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "Where a config default is defined and where it is consumed",
+     "question": "No one sets MAX_FORM_MEMORY_SIZE anywhere in a project, yet `request.max_form_memory_size` returns a concrete value while a request is being handled. Where does that value come from?",
+     "answer": "From the Flask class's `default_config`, which `Request.max_form_memory_size` reads through `current_app.config`",
+     "distractors": [
+      "From a class attribute on Request that holds the hard-coded limit",
+      "From Werkzeug's base Request, which Flask always calls first for form limits",
+      "From the request's own `_max_form_memory_size` field, which is filled in when the request is created"
+     ],
+     "choices": [
+      "From Werkzeug's base Request, which Flask always calls first for form limits",
+      "From a class attribute on Request that holds the hard-coded limit",
+      "From the Flask class's `default_config`, which `Request.max_form_memory_size` reads through `current_app.config`",
+      "From the request's own `_max_form_memory_size` field, which is filled in when the request is created"
+     ],
+     "explanation": "`Flask.default_config` defines \"MAX_FORM_MEMORY_SIZE\": 500_000 (src/flask/app.py:225). The Request property reads `current_app.config[\"MAX_FORM_MEMORY_SIZE\"]` when an app is active (src/flask/wrappers.py:107-113). `_max_form_memory_size` starts as None (wrappers.py:56) and is only used when a view sets it. Werkzeug's default is used only when no app is active.",
+     "evidence": [
+      {
+       "nodeId": "file:src/flask/wrappers.py",
+       "title": "src/flask/wrappers.py"
+      },
+      {
+       "nodeId": "class:src/flask/wrappers.py::Request",
+       "title": "Request"
+      },
+      {
+       "nodeId": "file:src/flask/app.py",
+       "title": "src/flask/app.py"
+      },
+      {
+       "nodeId": "file:src/flask/globals.py",
+       "title": "src/flask/globals.py"
+      }
+     ]
+    },
+    {
+     "id": "3f08d8b4-4266-439f-b8bb-0e21c7cf0c0f:4",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "Swapping in a custom request class",
+     "question": "Your team wants every `flask.request` in the app to have an extra helper property. Based on how the Flask application and the Request wrapper are connected, what is the intended way to do this?",
+     "answer": "Subclass flask's Request, add the property, and set the app's `request_class` to the subclass",
+     "distractors": [
+      "Edit Werkzeug's Request base class, because Flask's Request only forwards to it",
+      "Wrap every view in a decorator that attaches the property to the request",
+      "Subclass Response instead, because Flask builds the request from the response class"
+     ],
+     "choices": [
+      "Subclass flask's Request, add the property, and set the app's `request_class` to the subclass",
+      "Edit Werkzeug's Request base class, because Flask's Request only forwards to it",
+      "Subclass Response instead, because Flask builds the request from the response class",
+      "Wrap every view in a decorator that attaches the property to the request"
+     ],
+     "explanation": "The Flask class says which request type to create through `request_class: type[Request] = Request` (src/flask/app.py:239). The Request docstring says to subclass it and set `request_class` to replace the request object (src/flask/wrappers.py:22-24). Changing Werkzeug or adding a decorator to every view skips the extension point Flask provides for this.",
+     "evidence": [
+      {
+       "nodeId": "file:src/flask/wrappers.py",
+       "title": "src/flask/wrappers.py"
+      },
+      {
+       "nodeId": "class:src/flask/wrappers.py::Request",
+       "title": "Request"
+      },
+      {
+       "nodeId": "file:src/flask/app.py",
+       "title": "src/flask/app.py"
+      }
+     ]
+    },
+    {
+     "id": "3f08d8b4-4266-439f-b8bb-0e21c7cf0c0f:5",
+     "type": "multiple_choice",
+     "difficulty": "hard",
+     "concept": "Request wrapper that does not depend on an app context",
+     "question": "Each limit property on Request checks `if not current_app` and, if no app is active, returns the Werkzeug parent's value. What would break if that branch were removed and the property always read `current_app.config[...]`?",
+     "answer": "Using a Request outside an active app context would fail, because the object would depend on an app being active",
+     "distractors": [
+      "Per-request overrides would stop working, because the override check depends on that branch",
+      "Debug-mode form error helpers would stop being attached, because they share that check",
+      "Nothing would change, because a Request can only exist while an app context is active"
+     ],
+     "choices": [
+      "Debug-mode form error helpers would stop being attached, because they share that check",
+      "Nothing would change, because a Request can only exist while an app context is active",
+      "Using a Request outside an active app context would fail, because the object would depend on an app being active",
+      "Per-request overrides would stop working, because the override check depends on that branch"
+     ],
+     "explanation": "`current_app` is a proxy imported from globals (src/flask/wrappers.py:11). It refers to an app only while one is active. The fallback to `super().max_content_length` keeps the Werkzeug behavior when no app is active (wrappers.py:83-84, 110-111, 137-138). The per-request override is checked earlier and on its own (line 80-81), so it would keep working. The debug helpers use a separate check in `_load_form_data`.",
+     "evidence": [
+      {
+       "nodeId": "file:src/flask/wrappers.py",
+       "title": "src/flask/wrappers.py"
+      },
+      {
+       "nodeId": "class:src/flask/wrappers.py::Request",
+       "title": "Request"
+      },
+      {
+       "nodeId": "file:src/flask/globals.py",
+       "title": "src/flask/globals.py"
+      },
+      {
+       "nodeId": "file:src/flask/app.py",
+       "title": "src/flask/app.py"
+      }
+     ]
+    },
+    {
+     "id": "3f08d8b4-4266-439f-b8bb-0e21c7cf0c0f:6",
+     "type": "multiple_choice",
+     "difficulty": "hard",
+     "concept": "Reading config when it is used versus storing it on the class",
+     "question": "An app factory creates two Flask apps in one process with different MAX_CONTENT_LENGTH values, and both use the same default Request class. Why does each app enforce its own limit?",
+     "answer": "The property looks up the config of whichever app is active each time it is read, instead of keeping a limit on the class",
+     "distractors": [
+      "Each Flask instance creates its own copy of the Request class, with that app's limit stored as a class attribute",
+      "The first app to start saves its limit on Request, and the second app overrides it on each request",
+      "Werkzeug splits limits per process, so Flask does not need to resolve them itself"
+     ],
+     "choices": [
+      "Werkzeug splits limits per process, so Flask does not need to resolve them itself",
+      "Each Flask instance creates its own copy of the Request class, with that app's limit stored as a class attribute",
+      "The first app to start saves its limit on Request, and the second app overrides it on each request",
+      "The property looks up the config of whichever app is active each time it is read, instead of keeping a limit on the class"
+     ],
+     "explanation": "Both apps point `request_class` at the same Request class (src/flask/app.py:239). The class only holds `None` as its default value (src/flask/wrappers.py:55). The limit is looked up each time it is read with `current_app.config[\"MAX_CONTENT_LENGTH\"]` (wrappers.py:86), so the active app decides. Storing the limit on the class would leak one app's setting into the other.",
+     "evidence": [
+      {
+       "nodeId": "file:src/flask/wrappers.py",
+       "title": "src/flask/wrappers.py"
+      },
+      {
+       "nodeId": "class:src/flask/wrappers.py::Request",
+       "title": "Request"
+      },
+      {
+       "nodeId": "file:src/flask/app.py",
+       "title": "src/flask/app.py"
+      },
+      {
+       "nodeId": "class:src/flask/app.py::Flask",
+       "title": "Flask"
+      }
+     ]
+    }
+   ],
+   "createdMs": 1795335112909
+  },
+  {
+   "schemaVersion": 1,
+   "id": "14533845-4c2b-4503-bd7f-2919baf8bff3",
+   "tourId": "868e4651-776f-4495-8430-52a13bea7ef7",
+   "tourRevision": 1,
+   "stopIndex": 5,
+   "nodeId": "class:src/flask/app.py::Flask",
+   "language": "en",
+   "questions": [
+    {
+     "id": "14533845-4c2b-4503-bd7f-2919baf8bff3:1",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "Meaning of the import name",
+     "question": "Your app object lives in yourapplication/app.py inside a package. Why does the Flask documentation suggest passing 'yourapplication' instead of __name__ when creating it?",
+     "answer": "Extensions use the import name to tell which code belongs to the app, so a too-narrow name loses debugging information for code in other modules of the package.",
+     "distractors": [
+      "With __name__ the app cannot find its templates or static files, so requests for them fail.",
+      "The import name becomes the URL prefix for every route, so __name__ would add '/app' to each URL.",
+      "Flask registers the import name as the session cookie name, so using __name__ causes cookie conflicts between modules."
+     ],
+     "choices": [
+      "The import name becomes the URL prefix for every route, so __name__ would add '/app' to each URL.",
+      "With __name__ the app cannot find its templates or static files, so requests for them fail.",
+      "Extensions use the import name to tell which code belongs to the app, so a too-narrow name loses debugging information for code in other modules of the package.",
+      "Flask registers the import name as the session cookie name, so using __name__ causes cookie conflicts between modules."
+     ],
+     "explanation": "The docstring says the app works even with __name__ because of how resources are looked up, but extensions such as Flask-SQLAlchemy rely on the import name; with 'yourapplication.app' they would only pick up queries from that one module (src/flask/app.py:145-153). Resource lookup still works, so the 'cannot find templates' option is wrong, and nothing in the code ties the import name to URLs or cookie names.",
+     "evidence": [
+      {
+       "nodeId": "class:src/flask/app.py::Flask",
+       "title": "Flask"
+      }
+     ]
+    },
+    {
+     "id": "14533845-4c2b-4503-bd7f-2919baf8bff3:2",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "Backward-compatible subclassing",
+     "question": "A team subclasses Flask and overrides dispatch_request(self) with the older signature that takes no context argument. What does Flask do when the subclass is defined?",
+     "answer": "It emits a DeprecationWarning and wraps the overridden method so that it can still be called with the new arguments.",
+     "distractors": [
+      "It raises a TypeError at class definition time because the override does not match the base signature.",
+      "It silently ignores the override and keeps using Flask's own dispatch_request.",
+      "It accepts the override as-is, and the mismatch only surfaces as an error on the first request."
+     ],
+     "choices": [
+      "It accepts the override as-is, and the mismatch only surfaces as an error on the first request.",
+      "It emits a DeprecationWarning and wraps the overridden method so that it can still be called with the new arguments.",
+      "It raises a TypeError at class definition time because the override does not match the base signature.",
+      "It silently ignores the override and keeps using Flask's own dispatch_request."
+     ],
+     "explanation": "__init_subclass__ inspects each overridden method's second parameter; if it is not named ctx or annotated as AppContext, it warns and replaces the method with a remove_ctx wrapper while wrapping the base with add_ctx (src/flask/app.py:251-306). No error is raised and the override is not ignored. The point is to keep old subclasses working during the deprecation period.",
+     "evidence": [
+      {
+       "nodeId": "class:src/flask/app.py::Flask",
+       "title": "Flask"
+      }
+     ]
+    },
+    {
+     "id": "14533845-4c2b-4503-bd7f-2919baf8bff3:3",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "Static file request flow",
+     "question": "With the default constructor arguments, a browser requests /static/logo.png. Which path through the code serves it?",
+     "answer": "__init__ registered a 'static' URL rule whose view calls send_static_file, which looks up the cache max age from config and hands the file to send_from_directory.",
+     "distractors": [
+      "The base App class scans the static folder at startup and registers one URL rule per file it finds.",
+      "The request falls through to the WSGI server, which serves the static folder directly without entering Flask.",
+      "send_static_file builds the response itself with a fixed 12-hour cache header, independent of configuration."
+     ],
+     "choices": [
+      "__init__ registered a 'static' URL rule whose view calls send_static_file, which looks up the cache max age from config and hands the file to send_from_directory.",
+      "The request falls through to the WSGI server, which serves the static folder directly without entering Flask.",
+      "send_static_file builds the response itself with a fixed 12-hour cache header, independent of configuration.",
+      "The base App class scans the static folder at startup and registers one URL rule per file it finds."
+     ],
+     "explanation": "After calling App.__init__, Flask.__init__ uses add_url_rule to register one '<path:filename>' rule with endpoint 'static' that calls send_static_file (src/flask/app.py:349-361). send_static_file calls get_send_file_max_age, which reads SEND_FILE_MAX_AGE_DEFAULT (None by default, meaning conditional requests), and then calls send_from_directory (src/flask/app.py:380-388, 407-410). The rule is added without checking whether the folder exists, so no per-file scan happens, and the 12-hour default was removed in 2.0.",
+     "evidence": [
+      {
+       "nodeId": "class:src/flask/app.py::Flask",
+       "title": "Flask"
+      },
+      {
+       "nodeId": "class:src/flask/sansio/app.py::App",
+       "title": "App"
+      }
+     ]
+    },
+    {
+     "id": "14533845-4c2b-4503-bd7f-2919baf8bff3:4",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "Template auto-reload configuration",
+     "question": "A developer sets TEMPLATES_AUTO_RELOAD = True, but edited templates still do not reload. Which cause should they check first?",
+     "answer": "jinja_options already contains an 'auto_reload' key, which takes precedence over the config value when the Jinja environment is created.",
+     "distractors": [
+      "TEMPLATES_AUTO_RELOAD only takes effect when SEND_FILE_MAX_AGE_DEFAULT is also set to zero.",
+      "Auto-reload is read on every render, so the value must be set inside each request, not at startup.",
+      "The setting is ignored unless the request has a request context, because update_template_context controls reloading."
+     ],
+     "choices": [
+      "TEMPLATES_AUTO_RELOAD only takes effect when SEND_FILE_MAX_AGE_DEFAULT is also set to zero.",
+      "Auto-reload is read on every render, so the value must be set inside each request, not at startup.",
+      "The setting is ignored unless the request has a request context, because update_template_context controls reloading.",
+      "jinja_options already contains an 'auto_reload' key, which takes precedence over the config value when the Jinja environment is created."
+     ],
+     "explanation": "create_jinja_environment copies jinja_options and reads TEMPLATES_AUTO_RELOAD only if 'auto_reload' is not already in the options. If the config value is None, it falls back to self.debug (src/flask/app.py:479-490). The docstring also says that changing options after the environment is created has no effect (src/flask/app.py:468-471), so the value is not re-read per request. The static file cache setting and the template context are unrelated.",
+     "evidence": [
+      {
+       "nodeId": "class:src/flask/app.py::Flask",
+       "title": "Flask"
+      },
+      {
+       "nodeId": "class:src/flask/sansio/app.py::App",
+       "title": "App"
+      }
+     ]
+    },
+    {
+     "id": "14533845-4c2b-4503-bd7f-2919baf8bff3:5",
+     "type": "multiple_choice",
+     "difficulty": "hard",
+     "concept": "Avoiding reference cycles",
+     "question": "In Flask.__init__ the static route's view function reaches the app through weakref.ref(self) instead of capturing self directly. What would change if a refactor captured self in the lambda?",
+     "answer": "The app would keep a view function that refers back to the app, creating a reference cycle, so a discarded app could not be freed until the cyclic garbage collector ran.",
+     "distractors": [
+      "Static files would be served from the wrong app when several Flask instances exist in the same process.",
+      "The static route would stop working after the first request, because a strong reference cannot be pickled for reuse.",
+      "Blueprints would no longer be able to register their own static routes, since they look up the app through the weak reference."
+     ],
+     "choices": [
+      "The static route would stop working after the first request, because a strong reference cannot be pickled for reuse.",
+      "The app would keep a view function that refers back to the app, creating a reference cycle, so a discarded app could not be freed until the cyclic garbage collector ran.",
+      "Static files would be served from the wrong app when several Flask instances exist in the same process.",
+      "Blueprints would no longer be able to register their own static routes, since they look up the app through the weak reference."
+     ],
+     "explanation": "The code comment says the weakref is used 'to avoid creating a reference cycle between the app and the view function' (src/flask/app.py:353-361). The app stores the view through add_url_rule, inherited from App/Scaffold, so a strong reference back to the app completes the cycle. This matters when many apps are created and thrown away, as in test suites. Each lambda would still point at its own app, so serving from the wrong app is wrong, and blueprints do not depend on this weakref.",
+     "evidence": [
+      {
+       "nodeId": "class:src/flask/app.py::Flask",
+       "title": "Flask"
+      },
+      {
+       "nodeId": "class:src/flask/sansio/app.py::App",
+       "title": "App"
+      },
+      {
+       "nodeId": "class:src/flask/sansio/scaffold.py::Scaffold",
+       "title": "Scaffold"
+      }
+     ]
+    },
+    {
+     "id": "14533845-4c2b-4503-bd7f-2919baf8bff3:6",
+     "type": "multiple_choice",
+     "difficulty": "hard",
+     "concept": "Debug-only diagnostics for routing redirects",
+     "question": "raise_routing_exception replaces a routing redirect with FormDataRoutingRedirect only in debug mode, only for non-307/308 redirects, and only for methods other than GET, HEAD and OPTIONS. What is the best explanation for these conditions?",
+     "answer": "They limit the error to the case where a redirect would silently drop a request body, turning that data loss into a visible error for developers while production keeps the normal redirect behavior.",
+     "distractors": [
+      "They protect production users from open-redirect attacks, which can only happen with POST requests and non-permanent status codes.",
+      "They exist because Werkzeug cannot build redirect responses for POST requests, so Flask must raise its own exception instead.",
+      "They make sure GET requests are always redirected with 308, while every other method is rejected with an error in all modes."
+     ],
+     "choices": [
+      "They protect production users from open-redirect attacks, which can only happen with POST requests and non-permanent status codes.",
+      "They limit the error to the case where a redirect would silently drop a request body, turning that data loss into a visible error for developers while production keeps the normal redirect behavior.",
+      "They make sure GET requests are always redirected with 308, while every other method is rejected with an error in all modes.",
+      "They exist because Werkzeug cannot build redirect responses for POST requests, so Flask must raise its own exception instead."
+     ],
+     "explanation": "The docstring says that in debug mode a routing redirect is replaced with an error 'if the body will be discarded'. The 307/308 codes are excluded because they tell the browser to resend the method and body, and GET/HEAD/OPTIONS normally carry no body (src/flask/app.py:566-592). Outside debug, or when no body is at risk, the original routing_exception is raised unchanged, so this is a developer diagnostic, not a security control or a workaround for Werkzeug. FormDataRoutingRedirect is imported lazily from debughelpers only on this path.",
+     "evidence": [
+      {
+       "nodeId": "class:src/flask/app.py::Flask",
+       "title": "Flask"
+      },
+      {
+       "nodeId": "class:src/flask/debughelpers.py::FormDataRoutingRedirect",
+       "title": "FormDataRoutingRedirect"
+      }
+     ]
+    }
+   ],
+   "createdMs": 1795335113249
+  },
+  {
+   "schemaVersion": 1,
+   "id": "c7df0ec9-e736-478f-afb5-c3601934b05f",
+   "tourId": "868e4651-776f-4495-8430-52a13bea7ef7",
+   "tourRevision": 1,
+   "stopIndex": 6,
+   "nodeId": "dir:src/flask",
+   "language": "en",
+   "questions": [
+    {
+     "id": "c7df0ec9-e736-478f-afb5-c3601934b05f:1",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "App discovery without an explicit name",
+     "question": "You run the Flask CLI against a module that defines two Flask instances named `web` and `admin`, and has no variable called `app` or `application`. What does the automatic app discovery in the CLI do?",
+     "answer": "It refuses to guess and raises an error telling you to name the app explicitly as 'module:name'.",
+     "distractors": [
+      "It picks the first Flask instance it finds in the module's namespace and uses it.",
+      "It skips the instances and looks for a create_app or make_app factory instead, using that if present.",
+      "It merges both instances' commands into a single CLI so either app can be used."
+     ],
+     "choices": [
+      "It skips the instances and looks for a create_app or make_app factory instead, using that if present.",
+      "It refuses to guess and raises an error telling you to name the app explicitly as 'module:name'.",
+      "It picks the first Flask instance it finds in the module's namespace and uses it.",
+      "It merges both instances' commands into a single CLI so either app can be used."
+     ],
+     "explanation": "find_best_app first checks the names `app` and `application`, then collects every Flask instance in the module; with more than one match it raises NoAppException asking for 'module:name' (src/flask/cli.py:48-64). The factory search only runs when there are zero matches, so it never falls through to create_app here (src/flask/cli.py:67).",
+     "evidence": [
+      {
+       "nodeId": "dir:src/flask",
+       "title": "src/flask"
+      },
+      {
+       "nodeId": "file:src/flask/cli.py",
+       "title": "src/flask/cli.py"
+      }
+     ]
+    },
+    {
+     "id": "c7df0ec9-e736-478f-afb5-c3601934b05f:2",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "Distinguishing call errors from factory bugs",
+     "question": "When the CLI calls an app factory and gets a TypeError, it inspects the traceback before deciding what to do. What situation is that check meant to tell apart?",
+     "answer": "Whether the factory could not be called with those arguments at all, or whether the TypeError was raised by code running inside the factory.",
+     "distractors": [
+      "Whether the factory returned a non-Flask object or returned None.",
+      "Whether the TypeError came from the CLI's own argument parsing or from the operating system.",
+      "Whether the factory is a plain function or a class whose constructor builds the app."
+     ],
+     "choices": [
+      "Whether the factory returned a non-Flask object or returned None.",
+      "Whether the factory is a plain function or a class whose constructor builds the app.",
+      "Whether the factory could not be called with those arguments at all, or whether the TypeError was raised by code running inside the factory.",
+      "Whether the TypeError came from the CLI's own argument parsing or from the operating system."
+     ],
+     "explanation": "_called_with_wrong_args walks the traceback and returns False if it reaches the factory's own code frame, meaning the call succeeded and the error came from inside (src/flask/cli.py:102-113). In that case the original error is re-raised so real bugs aren't hidden; only a failed call becomes a NoAppException about arguments (src/flask/cli.py:76-85). Checking the return type is a separate isinstance check, not this one.",
+     "evidence": [
+      {
+       "nodeId": "dir:src/flask",
+       "title": "src/flask"
+      },
+      {
+       "nodeId": "file:src/flask/cli.py",
+       "title": "src/flask/cli.py"
+      }
+     ]
+    },
+    {
+     "id": "c7df0ec9-e736-478f-afb5-c3601934b05f:3",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "Safe parsing of the --app factory call",
+     "question": "A teammate sets `--app \"myapp:create_app(settings)\"`, where `settings` is a variable defined in myapp. How does the CLI handle the part after the colon?",
+     "answer": "It parses the string as an expression and only accepts literal arguments, so the variable reference fails with a 'could not parse arguments as literal values' error.",
+     "distractors": [
+      "It evaluates the expression inside myapp's namespace, so `settings` resolves to the module variable.",
+      "It ignores the parentheses and calls create_app() with no arguments.",
+      "It passes the text 'settings' to create_app as a string argument."
+     ],
+     "choices": [
+      "It ignores the parentheses and calls create_app() with no arguments.",
+      "It passes the text 'settings' to create_app as a string argument.",
+      "It parses the string as an expression and only accepts literal arguments, so the variable reference fails with a 'could not parse arguments as literal values' error.",
+      "It evaluates the expression inside myapp's namespace, so `settings` resolves to the module variable."
+     ],
+     "explanation": "load_app splits the import path from the name and hands the name to find_app_by_string via locate_app (src/flask/cli.py:344-349). There the name is parsed with ast, and arguments go through ast.literal_eval, which rejects a variable name and raises NoAppException (src/flask/cli.py:129, 149-161). The string is never executed as code, so it cannot resolve module variables.",
+     "evidence": [
+      {
+       "nodeId": "dir:src/flask",
+       "title": "src/flask"
+      },
+      {
+       "nodeId": "file:src/flask/cli.py",
+       "title": "src/flask/cli.py"
+      }
+     ]
+    },
+    {
+     "id": "c7df0ec9-e736-478f-afb5-c3601934b05f:4",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "App context for CLI commands",
+     "question": "A custom command registered with an AppGroup's `command` decorator uses `current_app`, and it works even though nobody pushed an app context manually. What makes this work?",
+     "answer": "AppGroup wraps the callback in with_appcontext, which loads the app through ScriptInfo and pushes its app context for the duration of the command if none is active.",
+     "distractors": [
+      "The Flask instance pushes a global app context when it is created, so current_app is always set after import.",
+      "Click passes the Flask app as the first argument and current_app reads it from there.",
+      "with_appcontext creates a new, empty Flask app just for the command so current_app is never empty."
+     ],
+     "choices": [
+      "Click passes the Flask app as the first argument and current_app reads it from there.",
+      "with_appcontext creates a new, empty Flask app just for the command so current_app is never empty.",
+      "The Flask instance pushes a global app context when it is created, so current_app is always set after import.",
+      "AppGroup wraps the callback in with_appcontext, which loads the app through ScriptInfo and pushes its app context for the duration of the command if none is active."
+     ],
+     "explanation": "AppGroup.command wraps the function with with_appcontext unless with_appcontext=False is passed (src/flask/cli.py:420-425). The wrapper checks current_app, and if no context is active it calls ScriptInfo.load_app() and registers app.app_context() as a resource on the click context (src/flask/cli.py:395-400). It reuses the real configured app, it does not build a blank one.",
+     "evidence": [
+      {
+       "nodeId": "dir:src/flask",
+       "title": "src/flask"
+      },
+      {
+       "nodeId": "file:src/flask/cli.py",
+       "title": "src/flask/cli.py"
+      }
+     ]
+    },
+    {
+     "id": "c7df0ec9-e736-478f-afb5-c3601934b05f:5",
+     "type": "multiple_choice",
+     "difficulty": "hard",
+     "concept": "Lookup order and app-load failure isolation",
+     "question": "FlaskGroup.get_command looks up built-in and plugin commands before it tries to load the user's app, and catches NoAppException when loading. What would go wrong if it loaded the app first and let the error propagate?",
+     "answer": "A broken or missing app would also break commands that don't need it, such as the default run, shell and routes commands and plugin commands, instead of only hiding the app's own commands.",
+     "distractors": [
+      "Nothing changes, because built-in commands are registered on app.cli and need the app anyway.",
+      "Plugin commands would load twice, since _load_plugin_commands would run again after the app loads.",
+      "The app context would be pushed twice for every command, causing a context mismatch error."
+     ],
+     "choices": [
+      "A broken or missing app would also break commands that don't need it, such as the default run, shell and routes commands and plugin commands, instead of only hiding the app's own commands.",
+      "Plugin commands would load twice, since _load_plugin_commands would run again after the app loads.",
+      "Nothing changes, because built-in commands are registered on app.cli and need the app anyway.",
+      "The app context would be pushed twice for every command, causing a context mismatch error."
+     ],
+     "explanation": "run, shell and routes are added on the group itself, and plugins come from the 'flask.commands' entry points (src/flask/cli.py:593-596, 604-605), so super().get_command can find them without an app (src/flask/cli.py:613-616). Only app-provided commands need load_app, and a NoAppException there is printed and returns None (src/flask/cli.py:622-626). Plugin loading is guarded by _loaded_plugin_commands, so the duplicate-load distractor doesn't happen.",
+     "evidence": [
+      {
+       "nodeId": "dir:src/flask",
+       "title": "src/flask"
+      },
+      {
+       "nodeId": "file:src/flask/cli.py",
+       "title": "src/flask/cli.py"
+      },
+      {
+       "nodeId": "class:src/flask/cli.py::FlaskGroup",
+       "title": "FlaskGroup"
+      },
+      {
+       "nodeId": "class:src/flask/cli.py::ScriptInfo",
+       "title": "ScriptInfo"
+      }
+     ]
+    },
+    {
+     "id": "c7df0ec9-e736-478f-afb5-c3601934b05f:6",
+     "type": "multiple_choice",
+     "difficulty": "hard",
+     "concept": "Memoized app loading in ScriptInfo",
+     "question": "ScriptInfo.load_app stores the app in `_loaded_app` and returns it on later calls. If that caching were removed, what is the main risk across one CLI invocation?",
+     "answer": "Each caller (command lookup, command listing, with_appcontext) could trigger a fresh import or factory call and get a different Flask instance, so a command might run against a different app object than the one whose context was pushed.",
+     "distractors": [
+      "The --debug flag would no longer be applied, because get_debug_flag is only read the first time.",
+      "Built-in commands would disappear, since they are registered on the cached app's cli group.",
+      "Environment variables from .env files would be loaded twice and overwrite values set in the shell."
+     ],
+     "choices": [
+      "The --debug flag would no longer be applied, because get_debug_flag is only read the first time.",
+      "Environment variables from .env files would be loaded twice and overwrite values set in the shell.",
+      "Each caller (command lookup, command listing, with_appcontext) could trigger a fresh import or factory call and get a different Flask instance, so a command might run against a different app object than the one whose context was pushed.",
+      "Built-in commands would disappear, since they are registered on the cached app's cli group."
+     ],
+     "explanation": "Several paths call load_app independently: get_command, list_commands and with_appcontext (src/flask/cli.py:623, 645, 397), and get_command explicitly compares current_app to the loaded app by identity before pushing a context (src/flask/cli.py:631-632). The cache at src/flask/cli.py:338-339 and 371 is what keeps them on one instance; without it, factories like create_app would run repeatedly (src/flask/cli.py:341-342). The debug flag is set on every load, and load_dotenv never overrides existing os.environ keys (src/flask/cli.py:757-761), so those distractors are wrong.",
+     "evidence": [
+      {
+       "nodeId": "dir:src/flask",
+       "title": "src/flask"
+      },
+      {
+       "nodeId": "file:src/flask/cli.py",
+       "title": "src/flask/cli.py"
+      },
+      {
+       "nodeId": "class:src/flask/cli.py::ScriptInfo",
+       "title": "ScriptInfo"
+      },
+      {
+       "nodeId": "class:src/flask/cli.py::FlaskGroup",
+       "title": "FlaskGroup"
+      },
+      {
+       "nodeId": "class:src/flask/cli.py::AppGroup",
+       "title": "AppGroup"
+      }
+     ]
+    }
+   ],
+   "createdMs": 1795335192590
+  }
+ ],
+ "curriculum": {
+  "version": 1,
+  "concepts": [
+   {
+    "id": "goal:requirements:1b894454e51c84da664b7374cd2403f30556a9e7fb0f02d62f2fecead2e19647",
+    "name": "How a request reaches a Flask view",
+    "definition": "An incoming WSGI request is handled by the Flask application object, which holds the registry of URL rules and view functions. Routing results (matched rule, view arguments or a routing exception) are stored on the Request object, the application context provides per-context state such as g, and the matched view function (or a class-based view's dispatch_request) is called with the URL variables.",
+    "version": 1
+   },
+   {
+    "id": "flask-app-object",
+    "name": "The Flask app object",
+    "definition": "Flask (src/flask/app.py) subclasses the I/O-free App (src/flask/sansio/app.py). It implements the WSGI application and acts as the central registry for view functions, URL rules and template configuration; its first argument (import name) is used to locate resources.",
+    "version": 1
+   },
+   {
+    "id": "request-routing-results",
+    "name": "Routing results on the Request",
+    "definition": "Flask's Request (src/flask/wrappers.py) extends Werkzeug's Request and remembers the outcome of URL matching: url_rule (the matched Rule), view_args (matched URL variables, None on failure) and routing_exception (the error, usually NotFound, when matching fails). It also reads per-request limits from the current app's config.",
+    "version": 1
+   },
+   {
+    "id": "app-context-g",
+    "name": "Application context and g",
+    "definition": "Creating an application context creates an _AppCtxGlobals namespace object exposed as the g proxy (src/flask/ctx.py). It stores data for the duration of the context; helpers like after_this_request work only inside a request.",
+    "version": 1
+   },
+   {
+    "id": "class-based-view-dispatch",
+    "name": "Class-based view dispatch",
+    "definition": "View.as_view (src/flask/views.py) converts a View subclass into a view function. The generated function passes URL variables as keyword arguments to dispatch_request, creating a new instance per request unless init_every_request is False, and applies the class's decorators list to the generated function.",
+    "version": 1
+   }
+  ],
+  "items": [
+   {
+    "id": "target-app-registry",
+    "kind": "explain",
+    "nodeId": "file:src/flask/app.py",
+    "conceptId": "goal:requirements:1b894454e51c84da664b7374cd2403f30556a9e7fb0f02d62f2fecead2e19647",
+    "level": "easy",
+    "caption": "Start with src/flask/app.py. The Flask class (line 108) is the WSGI application and the central registry for view functions and URL rules. Every request enters here first, and the app object decides which view handles it.",
+    "questions": [
+     {
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "concept": "App as the routing registry",
+      "question": "A request for /hello arrives from the WSGI server. Why is the Flask app object, and not the view function, the part that decides which code runs?",
+      "answer": "The app object holds the registry of URL rules and view functions, so it can map the URL to a view",
+      "distractors": [
+       "Each view function scans incoming URLs itself and claims the ones it recognises",
+       "The WSGI server reads the decorators and calls the matching view directly",
+       "The Request object stores all URL rules and picks a view on its own"
+      ],
+      "explanation": "The Flask docstring says it implements a WSGI application and acts as the central registry for view functions and URL rules (src/flask/app.py:109-112). Views don't scan URLs and the WSGI server doesn't read decorators. The app owns the mapping.",
+      "evidenceNodeIds": [
+       "file:src/flask/app.py",
+       "class:src/flask/app.py::Flask"
+      ]
+     },
+     {
+      "type": "true_false",
+      "difficulty": "easy",
+      "concept": "Flask builds on a base App",
+      "question": "True or false: Flask in src/flask/app.py contains all of its own logic and has no base application class.",
+      "answer": "False",
+      "explanation": "Flask is declared as class Flask(App) (src/flask/app.py:108), and App is imported from .sansio.app (src/flask/app.py:43). The WSGI-facing Flask class builds on that shared base, so it doesn't carry all of its own logic.",
+      "evidenceNodeIds": [
+       "file:src/flask/app.py",
+       "class:src/flask/app.py::Flask"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "target-request-carries-match",
+    "kind": "explain",
+    "nodeId": "file:src/flask/wrappers.py",
+    "conceptId": "goal:requirements:1b894454e51c84da664b7374cd2403f30556a9e7fb0f02d62f2fecead2e19647",
+    "level": "easy",
+    "caption": "Next, open src/flask/wrappers.py. After routing, the Request object remembers which rule matched and what the URL variables were (url_rule, view_args). If matching failed, it keeps the error in routing_exception instead.",
+    "questions": [
+     {
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "concept": "Request remembers the match",
+      "question": "After Flask matches /users/42 to a rule with an id variable, where can a before-request handler find both the matched rule and the extracted id?",
+      "answer": "On the Request object, in request.url_rule and request.view_args",
+      "distractors": [
+       "On the Response object, which is created before routing",
+       "Only inside the view function's local variables",
+       "In the app config under a ROUTING key"
+      ],
+      "explanation": "The Request docstring says it remembers the matched endpoint and view arguments (src/flask/wrappers.py:19-20), and these are stored in url_rule and view_args (src/flask/wrappers.py:43-47). They aren't kept only in the view's local variables or in the config.",
+      "evidenceNodeIds": [
+       "file:src/flask/wrappers.py",
+       "class:src/flask/wrappers.py::Request"
+      ]
+     },
+     {
+      "type": "true_false",
+      "difficulty": "easy",
+      "concept": "Method mismatch keeps the request unbound",
+      "question": "True or false: if a URL matches a rule but the HTTP method isn't allowed, request.url_rule is still set to that rule so handlers can read its methods.",
+      "answer": "False",
+      "explanation": "The comment explains that when the method is invalid for the rule, the allowed methods are found on routing_exception.valid_methods instead, because the request was never internally bound (src/flask/wrappers.py:35-40). So url_rule isn't the place to look in that case.",
+      "evidenceNodeIds": [
+       "file:src/flask/wrappers.py",
+       "class:src/flask/wrappers.py::Request"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "target-context-state",
+    "kind": "explain",
+    "nodeId": "file:src/flask/ctx.py",
+    "conceptId": "goal:requirements:1b894454e51c84da664b7374cd2403f30556a9e7fb0f02d62f2fecead2e19647",
+    "level": "easy",
+    "caption": "src/flask/ctx.py holds the context objects that run alongside a request. Creating an app context also creates a namespace object, exposed as g. Helpers like after_this_request attach behaviour to the current request only.",
+    "questions": [
+     {
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "concept": "g comes from the app context",
+      "question": "A view reads g.user even though g was never passed to it as an argument. Why does this work?",
+      "answer": "Creating the app context creates an _AppCtxGlobals object, which g exposes for that context",
+      "distractors": [
+       "g is a plain module-level dict shared by every request in the process",
+       "Flask injects g into each view as a hidden keyword argument",
+       "g is an attribute copied from the Response object after the view returns"
+      ],
+      "explanation": "The _AppCtxGlobals docstring says creating an app context automatically creates this object, and it is made available as the g proxy (src/flask/ctx.py:31-35). It isn't injected as an argument or taken from the Response.",
+      "evidenceNodeIds": [
+       "file:src/flask/ctx.py",
+       "class:src/flask/ctx.py::_AppCtxGlobals"
+      ]
+     },
+     {
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "concept": "Per-request after hook",
+      "question": "Inside one view, a developer decorates add_header(response) with @after_this_request. Which requests does add_header affect?",
+      "answer": "Only the current request; it runs after this request and can modify its response",
+      "distractors": [
+       "Every future request, exactly like app.after_request",
+       "Only requests that come after the current one",
+       "None; it only runs if registered during app setup"
+      ],
+      "explanation": "after_this_request behaves like Flask.after_request, but only for the current request rather than every request, and it must be used inside a request context, not during setup (src/flask/ctx.py:121-124). The example adds a header to that one response (src/flask/ctx.py:128-135).",
+      "evidenceNodeIds": [
+       "file:src/flask/ctx.py"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "app-ctx-wrapper",
+    "kind": "read",
+    "nodeId": "file:src/flask/app.py",
+    "conceptId": "flask-app-object",
+    "level": "easy",
+    "caption": "At the top of app.py, two helpers, remove_ctx and add_ctx (lines 84-105), adapt method calls so they work whether or not an AppContext is passed in as the first argument.",
+    "questions": [
+     {
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "concept": "add_ctx supplies the current context",
+      "question": "A method wrapped with add_ctx is called with ordinary arguments and no AppContext. What does the wrapper do before calling the method?",
+      "answer": "It puts the current app context object in front of the arguments",
+      "distractors": [
+       "It raises an error because the context argument is missing",
+       "It drops the first argument and calls the method with the rest",
+       "It creates a brand-new AppContext just for this call"
+      ],
+      "explanation": "add_ctx checks whether args[0] is an AppContext and, if not, builds args as (app_ctx._get_current_object(), *args) (src/flask/app.py:96-103). Dropping the first argument is what remove_ctx does (src/flask/app.py:84-89), so that distractor mixes up the two helpers.",
+      "evidenceNodeIds": [
+       "file:src/flask/app.py"
+      ]
+     },
+     {
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "concept": "remove_ctx strips the context",
+      "question": "Other code calls an overridden method wrapped with remove_ctx and passes an AppContext first. What does the overridden method receive?",
+      "answer": "The remaining arguments, with the AppContext removed",
+      "distractors": [
+       "All the arguments, with the AppContext still first",
+       "Only the AppContext, with the other arguments discarded",
+       "The current app context swapped in for whatever was passed"
+      ],
+      "explanation": "remove_ctx strips args[0] when it's an AppContext and calls the method with the remaining arguments (src/flask/app.py:84-89). Swapping in the current context is the opposite helper, add_ctx (src/flask/app.py:96-103).",
+      "evidenceNodeIds": [
+       "file:src/flask/app.py"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "sansio-app-base",
+    "kind": "compare",
+    "nodeId": "file:src/flask/sansio/app.py",
+    "conceptId": "flask-app-object",
+    "level": "easy",
+    "caption": "src/flask/sansio/app.py defines App, the base class that Flask extends. 'Sans-IO' means without input/output handling. App brings in Werkzeug's routing Map and Rule, and its first argument tells Flask what belongs to your application.",
+    "questions": [
+     {
+      "type": "true_false",
+      "difficulty": "easy",
+      "concept": "Import name locates resources",
+      "question": "True or false: the first argument passed when creating the app, such as __name__, is only a display label and doesn't affect where resources are found.",
+      "answer": "False",
+      "explanation": "The App docstring says the package name is used to resolve resources inside the package or the module's folder (src/flask/sansio/app.py:66-69). It also says this name is used to find resources on the filesystem (src/flask/sansio/app.py:81-84).",
+      "evidenceNodeIds": [
+       "file:src/flask/sansio/app.py",
+       "class:src/flask/sansio/app.py::App"
+      ]
+     },
+     {
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "concept": "Where the URL rule table comes from",
+      "question": "App imports Map and Rule from werkzeug.routing. For an app's routing, what role do these Werkzeug types play?",
+      "answer": "They describe the URL rules the app registers and matches requests against",
+      "distractors": [
+       "They store per-request values the way g does",
+       "They render templates for the matched view",
+       "They serialise view return values to JSON"
+      ],
+      "explanation": "App imports Werkzeug's routing Map and Rule (src/flask/sansio/app.py:15-16) and describes itself as the central registry for view functions and URL rules (src/flask/sansio/app.py:61-64). Per-request storage is _AppCtxGlobals, also imported here (src/flask/sansio/app.py:24), and JSON goes through the separate JSON provider (src/flask/sansio/app.py:27-28).",
+      "evidenceNodeIds": [
+       "file:src/flask/sansio/app.py",
+       "class:src/flask/sansio/app.py::App"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "request-routing-failure",
+    "kind": "diagnose",
+    "nodeId": "file:src/flask/wrappers.py",
+    "conceptId": "request-routing-results",
+    "level": "easy",
+    "caption": "Look at what Request records when routing fails: view_args becomes None, and routing_exception holds the error that will be raised.",
+    "questions": [
+     {
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "concept": "State after a failed match",
+      "question": "A client requests /nope and no URL rule matches. What do request.view_args and request.routing_exception hold?",
+      "answer": "view_args is None and routing_exception holds the error, usually NotFound",
+      "distractors": [
+       "view_args is an empty dict and routing_exception stays None",
+       "Both are None because the error is raised before a Request exists",
+       "view_args holds partial values from the closest rule"
+      ],
+      "explanation": "view_args is None if an exception happened during matching (src/flask/wrappers.py:45-47), and routing_exception holds the exception, usually NotFound, when matching fails (src/flask/wrappers.py:49-53). An empty dict or partial values would hide the failure.",
+      "evidenceNodeIds": [
+       "file:src/flask/wrappers.py",
+       "class:src/flask/wrappers.py::Request"
+      ]
+     },
+     {
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "concept": "Reading allowed methods",
+      "question": "In a before-request handler on a successfully matched request, you want the HTTP methods the matched URL accepts. Where do you look?",
+      "answer": "request.url_rule.methods",
+      "distractors": [
+       "request.view_args['methods']",
+       "request.routing_exception.valid_methods",
+       "The Allow header of the Response object"
+      ],
+      "explanation": "The url_rule comment suggests request.url_rule.methods for inspecting allowed methods from a before/after handler (src/flask/wrappers.py:33-35). routing_exception.valid_methods is only for the case where the method was invalid and the request was never bound (src/flask/wrappers.py:36-40).",
+      "evidenceNodeIds": [
+       "file:src/flask/wrappers.py",
+       "class:src/flask/wrappers.py::Request"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "request-reads-app-config",
+    "kind": "diagnose",
+    "nodeId": "file:src/flask/wrappers.py",
+    "conceptId": "request-routing-results",
+    "level": "easy",
+    "caption": "Request.max_content_length (lines 59-90) shows the request reading settings from the current app. It checks a per-request override first, then the app's config, and falls back to Werkzeug's default when no app is active.",
+    "questions": [
+     {
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "concept": "Per-request override wins",
+      "question": "The app config has MAX_CONTENT_LENGTH of 10 MB, but one view sets request.max_content_length = 1024. Which limit applies to that request?",
+      "answer": "1024 bytes, because the per-request value is checked first",
+      "distractors": [
+       "10 MB, because the app config always overrides the request",
+       "No limit, because setting it on the request disables the config",
+       "Werkzeug's built-in default, because Flask ignores both values"
+      ],
+      "explanation": "The getter returns _max_content_length first when it isn't None (src/flask/wrappers.py:80-81), and the setter stores the per-request value (src/flask/wrappers.py:88-90). The config is used only when no per-request value is set (src/flask/wrappers.py:86).",
+      "evidenceNodeIds": [
+       "file:src/flask/wrappers.py",
+       "class:src/flask/wrappers.py::Request"
+      ]
+     },
+     {
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "concept": "Fallback without an active app",
+      "question": "A Flask Request is used when there is no current app, and no per-request limit was set. Where does max_content_length come from?",
+      "answer": "From the Werkzeug base Request's own max_content_length",
+      "distractors": [
+       "From the MAX_CONTENT_LENGTH config of the last app that ran",
+       "It raises an error because current_app is required",
+       "It returns 0, so no request body is read"
+      ],
+      "explanation": "When current_app is falsy, the property returns super().max_content_length, Werkzeug's base behaviour (src/flask/wrappers.py:83-84). Only with an active app does it read current_app.config['MAX_CONTENT_LENGTH'] (src/flask/wrappers.py:86).",
+      "evidenceNodeIds": [
+       "file:src/flask/wrappers.py",
+       "class:src/flask/wrappers.py::Request"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "g-namespace-behaviour",
+    "kind": "read",
+    "nodeId": "file:src/flask/ctx.py",
+    "conceptId": "app-context-g",
+    "level": "easy",
+    "caption": "_AppCtxGlobals (lines 30-115) is a simple namespace object. Attribute access, get, pop and setdefault behave much like a dict, with a few differences in how missing names are handled.",
+    "questions": [
+     {
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "concept": "Missing attribute on g",
+      "question": "A view reads g.user, but no code set g.user during this context. What happens?",
+      "answer": "An AttributeError is raised",
+      "distractors": [
+       "It returns None",
+       "A KeyError reaches the view",
+       "g.user is created with an empty value"
+      ],
+      "explanation": "__getattr__ looks the name up in __dict__ and turns a KeyError into AttributeError(name) (src/flask/ctx.py:53-57), so missing names behave like normal missing attributes. Getting None needs g.get('user') (src/flask/ctx.py:68-77).",
+      "evidenceNodeIds": [
+       "file:src/flask/ctx.py",
+       "class:src/flask/ctx.py::_AppCtxGlobals"
+      ]
+     },
+     {
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "concept": "pop without a default",
+      "question": "Teardown code calls g.pop('db') with no default, but 'db' was never stored on g. What happens?",
+      "answer": "A KeyError is raised, like dict.pop without a default",
+      "distractors": [
+       "None is returned silently",
+       "An AttributeError is raised, like reading g.db",
+       "Nothing happens and the call is ignored"
+      ],
+      "explanation": "pop uses a sentinel default; when no default is given it calls self.__dict__.pop(name), which raises KeyError for a missing key (src/flask/ctx.py:79-91). Passing a default such as g.pop('db', None) avoids the error.",
+      "evidenceNodeIds": [
+       "file:src/flask/ctx.py",
+       "class:src/flask/ctx.py::_AppCtxGlobals"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "view-dispatch-args",
+    "kind": "explain",
+    "nodeId": "file:src/flask/views.py",
+    "conceptId": "class-based-view-dispatch",
+    "level": "easy",
+    "caption": "src/flask/views.py shows how a class becomes a view. as_view creates a function that the app can register for a route. When a request arrives, that function calls dispatch_request with the URL variables.",
+    "questions": [
+     {
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "concept": "URL variables reach dispatch_request",
+      "question": "Hello.as_view('hello') is registered for /hello/<name>, and a request for /hello/ada arrives. How does 'ada' reach Hello's code?",
+      "answer": "The generated view function gets it as a keyword argument and passes it to dispatch_request",
+      "distractors": [
+       "dispatch_request reads it from g.name, set during routing",
+       "It is passed to Hello's __init__ through class_args",
+       "The view must read it from request.args by itself"
+      ],
+      "explanation": "The generated view(**kwargs) calls self.dispatch_request(**kwargs) (src/flask/views.py:106-110), and the docstring says URL rule variables are passed as keyword arguments (src/flask/views.py:78-81). class_args are the fixed arguments given to as_view, not URL values (src/flask/views.py:98-99).",
+      "evidenceNodeIds": [
+       "file:src/flask/views.py",
+       "class:src/flask/views.py::View"
+      ]
+     },
+     {
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "concept": "Shared instance and request data",
+      "question": "A View subclass sets init_every_request = False and stores the current user on self.user inside dispatch_request. What is the risk?",
+      "answer": "One instance is shared across requests, so self.user can leak between requests; g should be used",
+      "distractors": [
+       "None, because a fresh instance is still created for each request",
+       "Flask raises an error when attributes are set on self",
+       "self.user is cleared after each request, so it's always safe"
+      ],
+      "explanation": "With init_every_request False, the same instance is used for every request, so storing data on self is no longer safe and g should be used instead (src/flask/views.py:66-76). The code creates the instance once outside the view function (src/flask/views.py:112-113).",
+      "evidenceNodeIds": [
+       "file:src/flask/views.py",
+       "class:src/flask/views.py::View"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "view-misconfig",
+    "kind": "diagnose",
+    "nodeId": "file:src/flask/views.py",
+    "conceptId": "class-based-view-dispatch",
+    "level": "easy",
+    "caption": "Two common mistakes with class-based views: forgetting to override dispatch_request, and decorating the class itself instead of using the decorators attribute.",
+    "questions": [
+     {
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "concept": "Missing dispatch_request override",
+      "question": "A developer subclasses View, registers it with as_view, but never overrides dispatch_request. A request hits the route. What happens?",
+      "answer": "The base dispatch_request raises NotImplementedError",
+      "distractors": [
+       "Flask returns an empty 200 response",
+       "Flask returns 405 Method Not Allowed",
+       "It falls back to a get method if one is defined"
+      ],
+      "explanation": "View.dispatch_request just raises NotImplementedError, and subclasses must override it (src/flask/views.py:78-83). Dispatching to methods like get is MethodView's behaviour, not plain View's.",
+      "evidenceNodeIds": [
+       "file:src/flask/views.py",
+       "class:src/flask/views.py::View"
+      ]
+     },
+     {
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "concept": "Decorators on class-based views",
+      "question": "A login-check decorator is placed directly on the View subclass definition, yet unauthenticated users still reach the view. What should be changed?",
+      "answer": "List the decorator in the class's decorators attribute so it wraps the generated view function",
+      "distractors": [
+       "Put the decorator on dispatch_request's base class in views.py",
+       "Move it to __init__, because decorators run when the instance is created",
+       "Nothing; class decorators apply but run after the response"
+      ],
+      "explanation": "The View docstring warns that decorators applied to the class itself won't be applied to the generated view function, and the decorators attribute should be used instead (src/flask/views.py:40-42). That list is applied, in order, to the generated view (src/flask/views.py:58-64).",
+      "evidenceNodeIds": [
+       "file:src/flask/views.py",
+       "class:src/flask/views.py::View"
+      ]
+     }
+    ]
+   }
+  ],
+  "relations": [
+   {
+    "from": "flask-app-object",
+    "to": "goal:requirements:1b894454e51c84da664b7374cd2403f30556a9e7fb0f02d62f2fecead2e19647",
+    "kind": "prerequisite",
+    "reason": "A request can only be routed once you know the app object is the WSGI entry and the registry of URL rules and views.",
+    "evidenceNodeIds": [
+     "file:src/flask/app.py",
+     "class:src/flask/app.py::Flask",
+     "class:src/flask/sansio/app.py::App"
+    ]
+   },
+   {
+    "from": "request-routing-results",
+    "to": "goal:requirements:1b894454e51c84da664b7374cd2403f30556a9e7fb0f02d62f2fecead2e19647",
+    "kind": "prerequisite",
+    "reason": "The routing outcome (url_rule, view_args, routing_exception) is stored on Request and decides which view runs and with what arguments.",
+    "evidenceNodeIds": [
+     "file:src/flask/wrappers.py",
+     "class:src/flask/wrappers.py::Request"
+    ]
+   },
+   {
+    "from": "app-context-g",
+    "to": "goal:requirements:1b894454e51c84da664b7374cd2403f30556a9e7fb0f02d62f2fecead2e19647",
+    "kind": "prerequisite",
+    "reason": "The context objects created around a request provide g and the current app that views and Request rely on.",
+    "evidenceNodeIds": [
+     "file:src/flask/ctx.py",
+     "class:src/flask/ctx.py::_AppCtxGlobals",
+     "class:src/flask/ctx.py::AppContext"
+    ]
+   },
+   {
+    "from": "class-based-view-dispatch",
+    "to": "goal:requirements:1b894454e51c84da664b7374cd2403f30556a9e7fb0f02d62f2fecead2e19647",
+    "kind": "prerequisite",
+    "reason": "For class-based views, the last step is the generated view function calling dispatch_request with the URL variables.",
+    "evidenceNodeIds": [
+     "file:src/flask/views.py",
+     "class:src/flask/views.py::View"
+    ]
+   }
+  ]
+ }
+}
