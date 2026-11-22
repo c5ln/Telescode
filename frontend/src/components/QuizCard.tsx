@@ -4,6 +4,7 @@
 
 import type { KeyboardEvent } from 'react'
 
+import { AgentError } from './AgentError'
 import { agents, type AgentProvider } from '../agent'
 import { questionsOf, type Quiz } from '../app/useQuiz'
 import type { SetupPhase } from '../app/useTutorial'
@@ -25,12 +26,14 @@ const LABELS: Record<Difficulty, string> = { easy: 'Easy', medium: 'Medium', har
 
 interface QuizCardProps {
   provider?: AgentProvider
+  /** Switch to another agent, offered when writing fails. */
+  onSwitchAgent?: (provider: AgentProvider) => void
   quiz: Quiz
   /** The step's title, for the eyebrow. */
   stepTitle: string
 }
 
-export function QuizCard({ quiz, stepTitle, provider = 'claude' }: QuizCardProps) {
+export function QuizCard({ quiz, stepTitle, provider = 'claude', onSwitchAgent }: QuizCardProps) {
   const { name, account } = agents[provider]
   const { state } = quiz
   if (state.status === 'off') return null
@@ -70,7 +73,8 @@ export function QuizCard({ quiz, stepTitle, provider = 'claude' }: QuizCardProps
         {state.phase === 'not-installed' ? (
           <p className={panel.text}>Quizzes are written by {name} with your {account} account. Install it, then try again.</p>
         ) : state.error ? (
-          <p className={panel.error}>Cannot write the quiz: {state.error}</p>
+          <AgentError what="quiz" signingIn={state.phase === 'signing-in'} message={state.error} provider={provider}
+            onRetry={quiz.retry} onSwitchAgent={onSwitchAgent} />
         ) : (
           <p className={panel.waiting} role="status">
             <Spinner />

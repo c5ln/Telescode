@@ -43,7 +43,9 @@ export function CodeMap({ snapshot, repositoryName, onContextChange, onRetry, gr
       <div className={styles.center}>
         <ErrorState
           title="Could not draw the code map"
-          message={error instanceof Error ? error.message : String(error)}
+          cause="The analysis loaded, but the map could not be laid out."
+          next="Try again. If it happens again, report it with the details below."
+          details={error instanceof Error ? (error.stack ?? error.message) : String(error)}
         >
           <Button variant="primary" onClick={onRetry}>
             Try again

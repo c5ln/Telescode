@@ -15,6 +15,7 @@ import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, PauseIcon, PlayIcon, Quiz
 import { IconButton } from '../ui/IconButton'
 import { Tooltip } from '../ui/Tooltip'
 import { Spinner } from '../ui/Spinner'
+import { AgentError } from './AgentError'
 import { QuizCard } from './QuizCard'
 import { TourStartPanel } from './TourStartPanel'
 import styles from './TutorialPanel.module.css'
@@ -27,20 +28,22 @@ const SETUP_TITLES: Record<SetupPhase, (repository: string, account: string, nam
 
 interface TutorialPanelProps {
   provider?: AgentProvider
+  /** Switch to another agent, offered when writing fails. */
+  onSwitchAgent?: (provider: AgentProvider) => void
   tutorial: Tutorial
   quiz: Quiz
   repositoryName: string
   learning?: Learning
 }
 
-export function TutorialPanel({ tutorial, quiz, repositoryName, provider = 'claude', learning }: TutorialPanelProps) {
+export function TutorialPanel({ tutorial, quiz, repositoryName, provider = 'claude', learning, onSwitchAgent }: TutorialPanelProps) {
   const { name, account } = agents[provider]
   const { state } = tutorial
   if (state.status === 'off') return null
 
   if (state.status === 'playing' && quiz.state.status !== 'off') {
     const stop = state.tour.plan.stops[quiz.state.at.stopIndex]
-    return <QuizCard provider={provider} quiz={quiz} stepTitle={stop?.title || quiz.state.at.nodeId} />
+    return <QuizCard provider={provider} onSwitchAgent={onSwitchAgent} quiz={quiz} stepTitle={stop?.title || quiz.state.at.nodeId} />
   }
 
   const exit = () => {
@@ -110,10 +113,8 @@ export function TutorialPanel({ tutorial, quiz, repositoryName, provider = 'clau
                 <code className={styles.command}>{installCommand(provider)}</code>
               </>
             ) : error ? (
-              <>
-                <p className={styles.error}>Cannot write the tour: {error}</p>
-                <div className={styles.actions}><Button onClick={tutorial.start}>Try again</Button></div>
-              </>
+              <AgentError what="tour" signingIn={state.phase === 'signing-in'} message={error} provider={provider}
+                onRetry={tutorial.start} onSwitchAgent={onSwitchAgent} />
             ) : (
               <p className={styles.waiting} role="status">
                 <Spinner />

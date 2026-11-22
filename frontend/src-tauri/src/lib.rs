@@ -18,6 +18,8 @@ fn with_commands<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builde
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   with_commands(tauri::Builder::default())
+    // Opens links in the user's browser, e.g. a bug report from an error.
+    .plugin(tauri_plugin_opener::init())
     .setup(|app| {
       if cfg!(debug_assertions) {
         app.handle().plugin(

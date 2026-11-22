@@ -7,7 +7,7 @@
 import type { RefObject } from 'react'
 
 import type { AgentProvider } from '../agent'
-import type { RepositorySource, TelescodeErrorCode } from '../bridge'
+import type { RepositorySource, TelescodeError } from '../bridge'
 import type { Quiz } from '../app/useQuiz'
 import type { Tutorial } from '../app/useTutorial'
 import type { Learning } from '../app/useLearning'
@@ -17,6 +17,9 @@ import type { GraphHandle } from '../graph/GraphCanvas'
 import type { GraphNode } from '../graph/model'
 import { Button } from '../ui/Button'
 import { ErrorState } from '../ui/ErrorState'
+import { openExternal } from '../openUrl'
+import { describeError, errorDetails, reportUrl, type ErrorAction } from './errorMessages'
+import { EXAMPLE_REPOSITORIES } from './examples'
 import { Spinner } from '../ui/Spinner'
 import { CanvasControls } from './CanvasControls'
 import { CodeMap } from './CodeMap'
@@ -40,26 +43,9 @@ interface WorkspaceCanvasProps {
   tutorial: Tutorial
   quiz: Quiz
   provider?: AgentProvider
+  /** Switch to another agent, offered when the agent fails to write something. */
+  onSwitchAgent?: (provider: AgentProvider) => void
   learning?: Learning
-}
-
-const ERROR_TITLES: Partial<Record<TelescodeErrorCode, string>> = {
-  db_not_found: 'Database not found',
-  db_not_a_file: 'Not a database file',
-  db_invalid: 'Not a Telescode database',
-  sidecar_missing: 'Telescode core not found',
-  sidecar_spawn_failed: 'Telescode core failed to start',
-  sidecar_failed: 'Analysis failed',
-  bridge_unavailable: 'Desktop app required',
-  unsupported_schema_version: 'Unsupported database version',
-  invalid_repository_url: 'Not a GitHub repository URL',
-  repository_not_found: 'Repository not found',
-  repository_unreachable: 'GitHub could not be reached',
-  repository_too_large: 'Repository too large',
-  repository_empty: 'No supported source files',
-  repository_fetch_failed: 'Download failed',
-  folder_not_found: 'Folder not found',
-  not_a_folder: 'Not a folder',
 }
 
 /** What the loading state says is happening. */
@@ -83,6 +69,7 @@ export function WorkspaceCanvas({
   tutorial,
   quiz,
   provider,
+  onSwitchAgent,
   learning,
 }: WorkspaceCanvasProps) {
   return (
@@ -117,22 +104,13 @@ export function WorkspaceCanvas({
 
       {state.status === 'error' && (
         <div className={styles.center}>
-          <ErrorState
-            title={ERROR_TITLES[state.error.code] ?? (state.source ? 'Could not open the repository' : 'Could not open the database')}
-            message={state.error.message}
-            code={state.error.code}
-          >
-            <Button variant="primary" onClick={onRetry}>
-              Try again
-            </Button>
-            <Button onClick={onClose}>Back</Button>
-          </ErrorState>
+          <WorkspaceError error={state.error} source={state.source} onOpen={onOpen} onRetry={onRetry} onClose={onClose} />
         </div>
       )}
 
       {state.status === 'ready' && (
-        learning && learning.state.status !== 'off' ? <LearningPanel learning={learning} /> :
-          <TutorialPanel provider={provider} tutorial={tutorial} quiz={quiz} repositoryName={workspaceName(state)} learning={learning} />
+        learning && learning.state.status !== 'off' ? <LearningPanel learning={learning} provider={provider} onSwitchAgent={onSwitchAgent} /> :
+          <TutorialPanel provider={provider} onSwitchAgent={onSwitchAgent} tutorial={tutorial} quiz={quiz} repositoryName={workspaceName(state)} learning={learning} />
       )}
 
       <CanvasControls
@@ -142,5 +120,49 @@ export function WorkspaceCanvas({
         onFit={() => graphRef.current?.fit()}
       />
     </main>
+  )
+}
+
+const ACTION_LABELS: Record<ErrorAction, string> = {
+  edit: 'Edit URL',
+  example: 'Try an example',
+  retry: 'Try again',
+  back: 'Back',
+  another: 'Try another repository',
+  report: 'Report issue',
+}
+
+/** Why the repository could not be opened, and the way forward that fits. */
+function WorkspaceError({
+  error,
+  source,
+  onOpen,
+  onRetry,
+  onClose,
+}: {
+  error: TelescodeError
+  source?: RepositorySource
+  onOpen: (source: RepositorySource) => void
+  onRetry: () => void
+  onClose: () => void
+}) {
+  const { tone, title, cause, next, actions } = describeError(error, source)
+  const details = errorDetails(error)
+  const run: Record<ErrorAction, () => void> = {
+    edit: onClose,
+    example: () => onOpen({ kind: 'github', url: EXAMPLE_REPOSITORIES[0]!.url }),
+    retry: onRetry,
+    back: onClose,
+    another: onClose,
+    report: () => openExternal(reportUrl(title, details)),
+  }
+  return (
+    <ErrorState title={title} cause={cause} next={next} tone={tone} details={details}>
+      {actions.map((action, i) => (
+        <Button key={action} variant={i === 0 ? 'primary' : 'secondary'} onClick={run[action]}>
+          {action === 'edit' && source?.kind === 'folder' ? 'Edit path' : ACTION_LABELS[action]}
+        </Button>
+      ))}
+    </ErrorState>
   )
 }

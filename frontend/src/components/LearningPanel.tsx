@@ -1,22 +1,27 @@
+import type { AgentProvider } from '../agent'
 import type { Learning } from '../app/useLearning'
 import { Button } from '../ui/Button'
 import { IconButton } from '../ui/IconButton'
 import { CloseIcon } from '../ui/icons'
 import { Spinner } from '../ui/Spinner'
+import { AgentError } from './AgentError'
 import panel from './TutorialPanel.module.css'
 import quiz from './QuizCard.module.css'
 
-export function LearningPanel({ learning }: { learning: Learning }) {
+export function LearningPanel({ learning, provider = 'claude', onSwitchAgent }: {
+  learning: Learning
+  provider?: AgentProvider
+  onSwitchAgent?: (provider: AgentProvider) => void
+}) {
   const { state } = learning
   if (state.status === 'off') return null
   const close = <IconButton label="Back to tour" tooltipAlign="end" onClick={learning.close}><CloseIcon /></IconButton>
   if (state.status === 'loading') return <section className={panel.panel} aria-label="Adaptive learning">
     <header className={panel.header}><p className={panel.eyebrow}>Adaptive learning</p>{close}</header>
-    {state.error ? <p className={panel.error} role="alert">{state.error}</p> : <p className={panel.waiting}><Spinner /> Preparing a learning path…</p>}
-    {(state.pending || state.error) && <div className={panel.actions}>
-      {state.pending && <Button onClick={() => learning.advance('stop')}>End session</Button>}
-      {state.error && <Button variant="primary" onClick={learning.retry}>Try again</Button>}
-    </div>}
+    {state.error
+      ? <AgentError what="learning path" message={state.error} provider={provider} onRetry={learning.retry} onSwitchAgent={onSwitchAgent} />
+      : <p className={panel.waiting}><Spinner /> Preparing a learning path…</p>}
+    {state.pending && <div className={panel.actions}><Button onClick={() => learning.advance('stop')}>End session</Button></div>}
   </section>
   const { session, concepts, knowledge } = state.view
   const step = session.current

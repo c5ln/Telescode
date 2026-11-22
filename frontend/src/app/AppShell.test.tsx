@@ -167,20 +167,30 @@ describe('AppShell', () => {
     opened[0]!.reject(new TelescodeError('repository_not_found', 'c5ln/private does not exist or is private.'))
     const alert = await screen.findByRole('alert')
     expect(within(alert).getByText('Repository not found')).toBeTruthy()
-    expect(within(alert).getByText('c5ln/private does not exist or is private.')).toBeTruthy()
+    expect(within(alert).getByText('c5ln/private does not exist, or it is private.')).toBeTruthy()
+    expect(within(alert).getByText('Check the spelling, or open a public repository instead.')).toBeTruthy()
+    expect(within(alert).getByText(/c5ln\/private does not exist or is private\./, { selector: 'pre' })).toBeTruthy()
+    // Trying the same address again cannot help.
+    expect(within(alert).queryByRole('button', { name: 'Try again' })).toBeNull()
     expect(screen.queryByText('16 files · 11 classes')).toBeNull()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
-    expect(repositories).toHaveBeenCalledTimes(2)
+    // An example opens in one click.
+    await userEvent.click(within(alert).getByRole('button', { name: 'Try an example' }))
+    expect(repositories).toHaveBeenLastCalledWith({ kind: 'github', url: 'https://github.com/psf/requests' })
     expect(analyze).not.toHaveBeenCalled()
 
-    opened[1]!.reject(new TelescodeError('repository_empty', 'c5ln/private has no source files Telescode can analyze.'))
-    expect(await screen.findByText('No supported source files')).toBeTruthy()
+    opened[1]!.reject(new TelescodeError('repository_unreachable', 'Could not reach GitHub: timed out'))
+    expect(await screen.findByText('Could not reach GitHub')).toBeTruthy()
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(repositories).toHaveBeenCalledTimes(3)
 
-    await userEvent.click(screen.getByRole('button', { name: 'Back' }))
+    opened[2]!.reject(new TelescodeError('repository_empty', 'requests has no source files Telescode can analyze.'))
+    expect(await screen.findByText('No Python code found')).toBeTruthy()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Try another repository' }))
     expect(screen.getByText('See a Python repository as a map')).toBeTruthy()
     expect((screen.getByRole('textbox', { name: 'Repository URL' }) as HTMLInputElement).value).toBe(
-      'https://github.com/c5ln/private',
+      'https://github.com/psf/requests',
     )
   })
 
@@ -222,7 +232,7 @@ describe('AppShell', () => {
     expect(canvasButtons().every((b) => !b.disabled)).toBe(true)
   })
 
-  it('shows a concise bridge error and can retry', async () => {
+  it('shows a missing folder and lets the user fix the path', async () => {
     const { api, analyze } = deferredApi()
     const { repositories, opened } = deferredRepositories()
     render(<AppShell api={api} repositories={repositories} allowLocalFolder />)
@@ -231,13 +241,12 @@ describe('AppShell', () => {
     opened[0]!.reject(new TelescodeError('folder_not_found', 'Folder not found: C:/x/missing'))
     const alert = await screen.findByRole('alert')
     expect(within(alert).getByText('Folder not found')).toBeTruthy()
-    expect(within(alert).getByText('Folder not found: C:/x/missing')).toBeTruthy()
-    expect(within(alert).getByText('folder_not_found')).toBeTruthy()
+    expect(within(alert).getByText('C:/x/missing does not exist.')).toBeTruthy()
+    expect(within(alert).getByText(/^folder_not_found Folder not found: C:\/x\/missing/, { selector: 'pre' })).toBeTruthy()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
-    expect(repositories).toHaveBeenCalledTimes(2)
+    await userEvent.click(screen.getByRole('button', { name: 'Edit path' }))
     expect(analyze).not.toHaveBeenCalled()
-    expect(screen.getByRole('status').textContent).toBe('Scanning missing…')
+    expect((screen.getByRole('textbox', { name: 'Folder path' }) as HTMLInputElement).value).toBe('C:/x/missing')
   })
 
   it('re-analyzes a scanned folder without scanning it again', async () => {
@@ -519,7 +528,8 @@ describe('AppShell', () => {
       render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
       await startOnboarding()
       const panel = await screen.findByRole('region', { name: 'Code tour' })
-      expect(await within(panel).findByText('Cannot write the tour: Signing in to Claude did not finish in time.')).toBeTruthy()
+      expect(await within(panel).findByText('Sign-in did not finish')).toBeTruthy()
+      expect(within(panel).getByText(/Signing in to Claude did not finish in time\./, { selector: 'pre' })).toBeTruthy()
       expect(within(panel).getByText('Sign in to Claude to write a tour for project')).toBeTruthy()
       expect(tours.generate).not.toHaveBeenCalled()
     })
@@ -553,7 +563,9 @@ describe('AppShell', () => {
       render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
       await startOnboarding()
       const panel = await screen.findByRole('region', { name: 'Code tour' })
-      expect(await within(panel).findByText('Cannot write the tour: Claude Code was not found.')).toBeTruthy()
+      expect(await within(panel).findByText('The tour was not finished')).toBeTruthy()
+      expect(within(panel).getByText('Claude Code stopped before saving the tour.')).toBeTruthy()
+      expect(within(panel).getByText('Claude Code was not found.', { selector: 'pre' })).toBeTruthy()
       expect(within(panel).queryByRole('status')).toBeNull()
       await userEvent.click(within(panel).getByRole('button', { name: 'Try again' }))
       await within(panel).findByText('Tour ready')
@@ -564,7 +576,7 @@ describe('AppShell', () => {
       render(<AppShell api={deferredApi().api} initialState={ready} tours={{ ...library([]), generate: async () => {} }} />)
       await startOnboarding()
       const panel = await screen.findByRole('region', { name: 'Code tour' })
-      expect(await within(panel).findByText('Cannot write the tour: Generation finished without saving a tutorial.')).toBeTruthy()
+      expect(await within(panel).findByText('Claude Code finished without saving a tour.')).toBeTruthy()
     })
 
     it('reports when saved tours cannot be read, without generating', async () => {
@@ -573,7 +585,7 @@ describe('AppShell', () => {
       render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
       await startOnboarding()
       const panel = await screen.findByRole('region', { name: 'Code tour' })
-      expect(await within(panel).findByText('Cannot write the tour: No MCP server.')).toBeTruthy()
+      expect(await within(panel).findByText('Telescode could not reach its MCP server.')).toBeTruthy()
       expect(generate).not.toHaveBeenCalled()
     })
   })

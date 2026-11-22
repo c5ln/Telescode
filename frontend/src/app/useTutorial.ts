@@ -121,7 +121,7 @@ export function useTutorial(
       // Once generation is done the tour is saved; offer it (polling may already have).
       const saved = await find()
       if (!current()) return
-      if (!saved) throw new Error('Generation finished without saving a tutorial.')
+      if (!saved) throw new Error('Generation finished without saving a tour.')
       setState({ status: 'setup', phase: 'generating', ready: saved, error: null })
     }
     make().catch((e: unknown) => {

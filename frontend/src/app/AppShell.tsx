@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { savedAgent, saveAgent } from '../agent'
+import { savedAgent, saveAgent, type AgentProvider } from '../agent'
 import type { RepositoryOpener, RepositorySource, TelescodeApi } from '../bridge'
 import { TopBar } from '../components/TopBar'
 import { WorkspaceCanvas } from '../components/WorkspaceCanvas'
@@ -110,6 +110,8 @@ export function AppShell({
     { type: 'toggle', id: 'complexity', label: 'Complexity', checked: complexity, onChange: setComplexity },
   ]
 
+  const switchAgent = (next: AgentProvider) => { saveAgent(next); setProvider(next) }
+
   const toggleTour =
     tutorial.state.status === 'off'
       ? tutorial.open
@@ -142,7 +144,7 @@ export function AppShell({
       <TopBar
         crumbs={crumbs}
         agent={{ provider, disabled: pending > 0 || tutorial.state.status === 'searching' || quiz.state.status === 'searching',
-          onChange: (next) => { saveAgent(next); setProvider(next) } }}
+          onChange: switchAgent }}
         onNavigate={(crumb) => graphRef.current?.navigate(crumb.id)}
         menuItems={menuItems}
         tutorial={{ active: tutorial.state.status !== 'off', disabled: tourDisabled, onToggle: toggleTour }}
@@ -160,6 +162,7 @@ export function AppShell({
         tutorial={tutorial}
         quiz={quiz}
         provider={provider}
+        onSwitchAgent={switchAgent}
         learning={learning}
       />
     </div>
