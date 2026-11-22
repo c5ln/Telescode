@@ -13,7 +13,7 @@ import { buildGraphModel, type GraphModel, type GraphNode } from '../graph/model
 import { Button } from '../ui/Button'
 import { EmptyState } from '../ui/EmptyState'
 import { ErrorState } from '../ui/ErrorState'
-import { FileCard, MapHint, MapLegend, useMapHint, type FileFacts } from './MapOverlays'
+import { FileCard, fileFactsText, MapHint, MapLegend, useMapHint, type FileFacts } from './MapOverlays'
 import styles from './WorkspaceCanvas.module.css'
 
 interface CodeMapProps {
@@ -94,12 +94,13 @@ export function CodeMap({
         onError={setDrawError}
         complexity={complexity}
         onHover={card.hover}
+        describe={card.describe}
         onInteract={(kind) => {
           card.hide()
           hint.interacted(kind)
         }}
       />
-      {card.shown && <FileCard {...card.shown} />}
+      {card.shown && <FileCard {...card.shown} offset={CARD_OFFSET} />}
       <MapLegend
         complexity={complexity}
         onComplexityChange={onComplexityChange}
@@ -148,12 +149,15 @@ function useFileCard(model: GraphModel | undefined) {
       const bounds = area.current?.getBoundingClientRect()
       const right = bounds ? bounds.width : Infinity
       const x = at.x + CARD_OFFSET + CARD_WIDTH > right ? at.x - CARD_OFFSET - CARD_WIDTH : at.x + CARD_OFFSET
-      setShown({ facts: facts(node), x: Math.max(8, x), y: at.y + CARD_OFFSET })
+      // FileCard places itself above or below the pointer, whichever fits.
+      setShown({ facts: facts(node), x: Math.max(8, x), y: at.y })
     }, CARD_DELAY_MS)
   }
   const hide = () => {
     cancel()
     setShown(null)
   }
-  return { area, shown, hover, hide }
+  /** What keyboard and screen reader users hear on selecting a file: the card's numbers. */
+  const describe = (node: GraphNode) => (node.kind === 'file' && facts ? fileFactsText(facts(node)) : null)
+  return { area, shown, hover, hide, describe }
 }

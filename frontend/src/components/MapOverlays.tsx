@@ -3,7 +3,7 @@
 // goes away once the user has tried the map, and a card with a file's own
 // numbers while the pointer rests on it.
 
-import { useState, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 
 import type { MapInteraction } from '../graph/GraphCanvas'
 import type { GraphNode } from '../graph/model'
@@ -199,12 +199,40 @@ export interface FileFacts {
 
 const files = (n: number) => `${n} ${n === 1 ? 'file' : 'files'}`
 
-/** A file's own numbers, by the pointer, so the legend's encodings read off the map. */
-export function FileCard({ facts, x, y }: { facts: FileFacts; x: number; y: number }) {
+/** The file card's numbers as one sentence, for a screen reader when the file is selected. */
+export function fileFactsText({ node, level, imports, usedBy }: FileFacts): string {
+  return [
+    node.loc !== undefined && `${node.loc.toLocaleString('en-US')} lines`,
+    level >= 0 && `${LEVEL_NAMES[level]} complexity for this repository`,
+    `imports ${files(imports)}`,
+    `used by ${files(usedBy)}`,
+  ].filter(Boolean).join(', ')
+}
+
+/** Space kept between the card and the map's edges. */
+const EDGE = 8
+
+/**
+ * A file's own numbers, by the pointer, so the legend's encodings read off
+ * the map. Below the pointer when it fits, otherwise above it, and always
+ * inside the map.
+ */
+export function FileCard({ facts, x, y, offset }: { facts: FileFacts; x: number; y: number; offset: number }) {
   const { node, level, imports, usedBy } = facts
   const path = node.id.replace(/^file:/, '')
+  const ref = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const card = ref.current
+    const area = card?.offsetParent
+    if (!card || !area) return
+    const height = card.offsetHeight
+    const space = area.clientHeight
+    const below = y + offset
+    const top = below + height <= space - EDGE ? below : y - offset - height
+    card.style.top = `${Math.max(EDGE, Math.min(top, space - height - EDGE))}px`
+  }, [x, y, offset, facts])
   return (
-    <div className={styles.card} style={{ left: x, top: y }} role="tooltip">
+    <div ref={ref} className={styles.card} style={{ left: x, top: y + offset }} role="tooltip">
       <p className={styles.cardName}>{node.label}</p>
       {path !== node.label && <p className={styles.cardPath}>{path}</p>}
       <dl className={styles.cardFacts}>

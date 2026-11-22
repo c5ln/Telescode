@@ -190,9 +190,9 @@ describe('AppShell', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Try another repository' }))
     expect(screen.getByText('See a Python repository as a map')).toBeTruthy()
-    // An example is offered again by its plain address.
+    // An example is offered again at its pinned commit, so it still opens with its prewritten tour.
     expect((screen.getByRole('textbox', { name: 'Repository URL' }) as HTMLInputElement).value).toBe(
-      'https://github.com/psf/requests',
+      'https://github.com/psf/requests/tree/3c7baaa05ab4aa49cc819ce3a819d260de19c157',
     )
   })
 

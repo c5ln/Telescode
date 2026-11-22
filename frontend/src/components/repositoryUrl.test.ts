@@ -41,6 +41,16 @@ describe('readRepositoryInput', () => {
     expect(readRepositoryInput(value)).toEqual({ url: 'https://github.com/psf/requests', repository: { owner: 'psf', name: 'requests' } }))
 
   it.each([
+    'https://github.com/psf/requests/tree/3C7BAAA05AB4AA49CC819CE3A819D260DE19C157',
+    'github.com/psf/requests/tree/3c7baaa05ab4aa49cc819ce3a819d260de19c157/',
+    'https://github.com/psf/requests.git/tree/3c7baaa05ab4aa49cc819ce3a819d260de19c157?tab=readme',
+  ])('keeps the commit %j is pinned to', (value) =>
+    expect(readRepositoryInput(value)).toEqual({
+      url: 'https://github.com/psf/requests/tree/3c7baaa05ab4aa49cc819ce3a819d260de19c157',
+      repository: { owner: 'psf', name: 'requests' },
+    }))
+
+  it.each([
     ['https://gitlab.com/psf/requests', 'Only GitHub is supported. Use an address like github.com/owner/repo.'],
     ['github.com/psf', 'Add the repository name, as in github.com/owner/repo.'],
     ['requests', 'That is not a repository address. Use one like github.com/owner/repo.'],

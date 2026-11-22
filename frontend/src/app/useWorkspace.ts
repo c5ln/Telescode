@@ -102,16 +102,20 @@ export function useWorkspace(
       let progress: LoadingProgress = advance({ startedMs: now, stages: [] }, source.kind === 'github' ? { stage: 'download', bytes: 0 } : { stage: 'read', pythonFiles: null }, now)
       setState({ status: 'loading', dbPath: '', source, progress })
       let dbPath: string
+      // A progress event that arrives after the download finished or failed must not undo its outcome.
+      let settled = false
       try {
         dbPath = await repositories(source, (event) => {
-          if (id !== requestId.current) return
+          if (id !== requestId.current || settled) return
           progress = advance(progress, event)
           setState({ status: 'loading', dbPath: '', source, progress })
         })
       } catch (e) {
+        settled = true
         if (id === requestId.current) setState({ status: 'error', dbPath: '', source, error: toTelescodeError(e) })
         return
       }
+      settled = true
       if (id === requestId.current) await analyze(id, dbPath, source, progress)
     },
     [repositories, analyze],

@@ -44,7 +44,7 @@ export interface Quiz {
   setDifficulty: (difficulty: Difficulty) => void
   select: (choice: number) => void
   submit: () => void
-  /** Answer the same question again, as a new attempt. */
+  /** Answer the same question again, as a new attempt; after a failed write, write the quiz again. */
   retry: () => void
   next: () => void
   /** Show one of the nodes an answer rests on. */
@@ -73,6 +73,8 @@ export function useQuiz(
   // When the current question was put in front of the user, for response time.
   const shownAt = useRef(0)
   const moved = useRef(false)
+  // The step last opened, so a failed write can be tried again.
+  const lastOpened = useRef<{ tour: SavedTour; stopIndex: number } | null>(null)
 
   const show = useCallback(
     (next: Extract<QuizState, { status: 'ready' }>) => {
@@ -94,6 +96,7 @@ export function useQuiz(
     (tour: SavedTour, stopIndex: number) => {
       const stop = tour.plan.stops[stopIndex]
       if (!snapshot || !stop) return
+      lastOpened.current = { tour, stopIndex }
       const at: TourContext = { tourId: tour.plan.id, tourRevision: tour.plan.revision, stopIndex, nodeId: stop.nodeId }
       const id = ++searchId.current
       const current = () => id === searchId.current
@@ -189,9 +192,11 @@ export function useQuiz(
   }, [state, library, setState])
 
   const retry = useCallback(() => {
+    // A failed write is started over for the same step; a ready quiz asks the same question again.
+    if (state.status === 'setup' && lastOpened.current) return open(lastOpened.current.tour, lastOpened.current.stopIndex)
     if (state.status !== 'ready') return
     show({ ...state, selected: null, answer: { status: 'open' } })
-  }, [state, show])
+  }, [state, show, open])
 
   const next = useCallback(() => {
     if (state.status !== 'ready') return

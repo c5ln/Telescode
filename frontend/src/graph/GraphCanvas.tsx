@@ -40,6 +40,8 @@ interface GraphCanvasProps {
   onHover?: (node: GraphNode | null, at: { x: number; y: number }) => void
   /** The user zoomed, moved, selected or opened something. */
   onInteract?: (kind: MapInteraction) => void
+  /** More to announce about a selected node, after its kind and name (e.g. a file's numbers). */
+  describe?: (node: GraphNode) => string | null
   ref?: Ref<GraphHandle>
 }
 
@@ -51,7 +53,7 @@ const ARROW_PAN = 80
 
 const KIND_NAMES = { root: 'repository', dir: 'directory', file: 'file', class: 'class', member: 'member' } as const
 
-export function GraphCanvas({ model, onContextChange, onError, complexity = false, onHover, onInteract, ref }: GraphCanvasProps) {
+export function GraphCanvas({ model, onContextChange, onError, complexity = false, onHover, onInteract, describe, ref }: GraphCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rendererRef = useRef<GraphRenderer | null>(null)
   const [announcement, setAnnouncement] = useState('')
@@ -59,9 +61,9 @@ export function GraphCanvas({ model, onContextChange, onError, complexity = fals
   const complexityRef = useRef(complexity)
 
   // Latest callbacks without re-creating the renderer when they change.
-  const callbacks = useRef({ onContextChange, onError, onHover, onInteract })
+  const callbacks = useRef({ onContextChange, onError, onHover, onInteract, describe })
   useLayoutEffect(() => {
-    callbacks.current = { onContextChange, onError, onHover, onInteract }
+    callbacks.current = { onContextChange, onError, onHover, onInteract, describe }
   })
 
   useImperativeHandle(
@@ -119,8 +121,11 @@ export function GraphCanvas({ model, onContextChange, onError, complexity = fals
         callbacks: {
           onContextChange: (path) => callbacks.current.onContextChange(path),
           onError: (e) => callbacks.current.onError(e),
-          onSelectionChange: (node) =>
-            setAnnouncement(node ? `Selected ${KIND_NAMES[node.kind]} ${node.label}` : ''),
+          onSelectionChange: (node) => {
+            if (!node) return setAnnouncement('')
+            const more = callbacks.current.describe?.(node)
+            setAnnouncement(`Selected ${KIND_NAMES[node.kind]} ${node.label}${more ? `. ${more}` : ''}`)
+          },
           onHoverChange: (node) => callbacks.current.onHover?.(node, pointer),
         },
       })

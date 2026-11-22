@@ -28,7 +28,7 @@ const SSH = /^git@github\.com:([a-z0-9-]+)\/([\w.-]+?)(?:\.git)?$/i
 /**
  * Reads the common ways people write a repository: the full URL, the URL
  * without https://, `owner/repo`, an SSH remote, or a link to a file or pull
- * request inside it. Anything else gets a sentence on how to fix it.
+ * request inside it, or a link to a full commit SHA. Anything else gets a sentence on how to fix it.
  */
 export function readRepositoryInput(value: string): RepositoryInput {
   const text = value.trim()
@@ -55,5 +55,8 @@ export function readRepositoryInput(value: string): RepositoryInput {
 
   const canonical = `https://github.com/${segments[0]}/${segments[1]!.replace(/\.git$/i, '')}`
   const repository = parseGitHubRepositoryUrl(canonical)
-  return repository ? { url: canonical, repository } : { problem: `That is not a valid repository name. Use one like ${EXAMPLE}.` }
+  if (!repository) return { problem: `That is not a valid repository name. Use one like ${EXAMPLE}.` }
+  // A link to a full commit SHA keeps that commit (the examples are pinned this way); a branch or file link opens the repository.
+  const commit = segments[2] === 'tree' && /^[0-9a-f]{40}$/i.test(segments[3] ?? '') ? segments[3]!.toLowerCase() : null
+  return { url: commit ? `${canonical}/tree/${commit}` : canonical, repository }
 }

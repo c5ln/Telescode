@@ -58,8 +58,12 @@ pub async fn prepare_learning_session<R: tauri::Runtime>(
         let provider = provider.unwrap_or_default();
         let job = mcp::call("request_learning_preparation", json!({"sessionId":session_id,"revision":revision,"provider":provider,"ownerPid":std::process::id()}))?;
         let job_id = job["id"].as_str().unwrap_or_default();
-        if job["shouldRun"] == true && curriculum.is_some() {
-            let saved = mcp::call("save_learning_curriculum", json!({"jobId":job_id,"curriculum":curriculum}));
+        if let (true, Some(bundled)) = (job["shouldRun"] == true, curriculum.as_ref()) {
+            // The server takes the version after the session's current one,
+            // which is higher when a retry supplements earlier material.
+            let mut material = bundled.clone();
+            material["version"] = json!(job["baseVersion"].as_u64().unwrap_or(0) + 1);
+            let saved = mcp::call("save_learning_curriculum", json!({"jobId":job_id,"curriculum":material}));
             let completion = match &saved {
                 Err(e) => json!({"jobId":job_id,"error":bounded_error(&format!("{e:?}"))}),
                 Ok(_) => json!({"jobId":job_id}),

@@ -16,6 +16,7 @@
 // the tours refer to the map's node IDs at that commit.
 
 import { spawn } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
@@ -75,7 +76,11 @@ function agent(prompt: string, artifacts: string, tools: string[], extra: string
 async function prepareRepository(example: ExampleRepository, dir: string) {
   const source = join(dir, 'source')
   const db = join(dir, `${example.name}.db`)
-  if (existsSync(db)) return db
+  // The source sidecar is written last, so it marks a finished preparation;
+  // a database without it is left from a failed run and is started over.
+  if (existsSync(`${db}.source`)) return db
+  await Promise.all(['', '-wal', '-shm'].map((s) => rm(`${db}${s}`, { force: true })))
+  await rm(source, { recursive: true, force: true })
   await mkdir(source, { recursive: true })
   const tarball = join(dir, 'source.tgz')
   await run('curl', ['-sfL', `https://api.github.com/repos/${example.owner}/${example.name}/tarball/${example.commit}`, '-o', tarball])
@@ -140,13 +145,15 @@ async function writeCurriculum(db: string, artifacts: string, requirements: stri
     const prompt = `Prepare Telescode adaptive learning job ${job.id}. Call get_learning_preparation_context with exactly this job ID, inspect its grounded code excerpts and immutable goal, then save_learning_curriculum with the same job ID. Follow the server's adaptive learning instructions. Prepare at least two independent scenario questions per target when supported. Use the requested target levels and existing concept definitions exactly. Save only material; never answer or advance a learner session. Reply with the job ID.`
     const stream = await agent(prompt, artifacts, LEARNING_TOOLS, ['--output-format', 'stream-json', '--verbose'])
     await call('finish_learning_preparation', { jobId: job.id })
-    // The last accepted save wins; earlier ones may have been rejected and retried.
+    // The last save the server accepted wins; earlier ones may have been rejected and retried.
+    const saves = new Map<string, unknown>()
     let curriculum: unknown = null
     for (const line of stream.split('\n')) {
       if (!line.trim()) continue
       const event = JSON.parse(line)
       for (const part of event.message?.content ?? []) {
-        if (part.type === 'tool_use' && part.name === 'mcp__telescode__save_learning_curriculum') curriculum = part.input.curriculum
+        if (part.type === 'tool_use' && part.name === 'mcp__telescode__save_learning_curriculum') saves.set(part.id, part.input.curriculum)
+        if (part.type === 'tool_result' && saves.has(part.tool_use_id) && !part.is_error) curriculum = saves.get(part.tool_use_id)
       }
     }
     const saved = await call('get_learning_session', { sessionId: view.session.id })
@@ -157,8 +164,19 @@ async function writeCurriculum(db: string, artifacts: string, requirements: stri
   }
 }
 
+/**
+ * The cache directory for one example: the database, tour, quizzes and
+ * learning material all live under it, so a new commit or a rebuilt core
+ * starts every one of them over, while an unchanged rerun reuses them.
+ */
+async function cacheDir(example: ExampleRepository) {
+  const core = createHash('sha256')
+  for (const tool of [headless, join(root, 'build/TelescodePPR')]) core.update(await readFile(tool).catch(() => Buffer.alloc(0)))
+  return join(work, `${example.name}@${example.commit}-${core.digest('hex').slice(0, 12)}`)
+}
+
 async function build(example: ExampleRepository) {
-  const dir = join(work, example.name)
+  const dir = await cacheDir(example)
   const artifacts = join(dir, 'artifacts')
   await mkdir(artifacts, { recursive: true })
   const log = (step: string) => console.log(`[${example.owner}/${example.name}] ${step}`)

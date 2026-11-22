@@ -25,7 +25,13 @@ const data: ExampleData = {
 function libraries() {
   const tour: TourLibrary = { list: vi.fn(() => Promise.reject(new Error('no desktop app'))) }
   const quiz: QuizLibrary = { list: vi.fn(async () => []), respond: vi.fn() }
-  const learning = { start: vi.fn(async () => ({})), prepare: vi.fn(async () => ({})) } as unknown as LearningLibrary
+  const goals: Record<string, string> = {}
+  const learning = {
+    start: vi.fn(async () => ({})),
+    get: vi.fn(async (sessionId: string) => ({ session: { goal: { goalId: goals[sessionId] } } })),
+    prepare: vi.fn(async () => ({})),
+    goals,
+  } as unknown as LearningLibrary & { goals: Record<string, string> }
   return { tour, quiz, learning }
 }
 
@@ -47,18 +53,23 @@ describe('withExample', () => {
     const right = await example.quiz.respond({ quizSetId: 'set-1', quizId: 'q1', selectedIndex: 1, responseTimeMs: 500 })
     expect(right.feedback).toMatchObject({ correct: true, explanation: 'Sessions persist cookies.', attempt: 2 })
     expect(base.quiz.respond).not.toHaveBeenCalled()
+
+    // Opening the example again continues the count.
+    const again = await withExample(libraries(), data, snapshot).quiz.respond({ quizSetId: 'set-1', quizId: 'q1', selectedIndex: 1, responseTimeMs: 400 })
+    expect(again.feedback.attempt).toBe(3)
   })
 
-  it('hands over the prewritten material only for the suggested goal', async () => {
+  it("hands over the prewritten material only for a session with the suggested goal", async () => {
     const base = libraries()
+    base.learning.goals.s1 = (await requirementsGoal('Show me sessions.')).goalId
+    base.learning.goals.s2 = (await requirementsGoal('Something else entirely.')).goalId
+    // The session's own goal decides, not the goal started last or before this wrapper existed.
     const example = withExample(base, data, snapshot)
 
-    await example.learning.start({ dbPath: 'x.db', goal: await requirementsGoal('Show me sessions.') })
-    await example.learning.prepare({ sessionId: 's1', revision: 1 })
-    expect(base.learning.prepare).toHaveBeenLastCalledWith({ sessionId: 's1', revision: 1, curriculum: { version: 1 } }, undefined)
-
-    await example.learning.start({ dbPath: 'x.db', goal: await requirementsGoal('Something else entirely.') })
     await example.learning.prepare({ sessionId: 's2', revision: 1 })
     expect(base.learning.prepare).toHaveBeenLastCalledWith({ sessionId: 's2', revision: 1 }, undefined)
+
+    await example.learning.prepare({ sessionId: 's1', revision: 1 })
+    expect(base.learning.prepare).toHaveBeenLastCalledWith({ sessionId: 's1', revision: 1, curriculum: { version: 1 } }, undefined)
   })
 })

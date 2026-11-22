@@ -28,6 +28,9 @@ export interface ExampleData {
   curriculum: unknown
 }
 
+/** Attempts at bundled questions, by question; kept across wrappers so reopening an example continues the count. */
+const attempts = new Map<string, number>()
+
 const files = import.meta.glob<ExampleData>('./data/*.json', { import: 'default' })
 
 export async function loadExample(example: ExampleRepository): Promise<ExampleData | null> {
@@ -60,7 +63,6 @@ export function withExample(libraries: Libraries, data: ExampleData, snapshot: A
     },
   }
 
-  const attempts = new Map<string, number>()
   const quiz: QuizLibrary = {
     ...libraries.quiz,
     async list() {
@@ -88,16 +90,14 @@ export function withExample(libraries: Libraries, data: ExampleData, snapshot: A
 
   // The prewritten material fits only the suggested goal; any other goal is
   // prepared by the agent as usual.
+  // The session's own goal decides, so a session started before this wrapper
+  // existed, or with another goal since, is never given the wrong material.
   const suggested = requirementsGoal(data.requirements).then((g) => g.goalId)
-  let goalId: string | null = null
   const learning: LearningLibrary = {
     ...libraries.learning,
-    start(input) {
-      goalId = input.goal.goalId
-      return libraries.learning.start(input)
-    },
     async prepare(input, onToolCall) {
-      return libraries.learning.prepare(goalId === (await suggested) ? { ...input, curriculum: data.curriculum } : input, onToolCall)
+      const [view, goalId] = await Promise.all([libraries.learning.get(input.sessionId), suggested])
+      return libraries.learning.prepare(view.session.goal.goalId === goalId ? { ...input, curriculum: data.curriculum } : input, onToolCall)
     },
   }
 

@@ -9,7 +9,7 @@ import type { AnalysisSnapshot, GraphResponse, TelescodeApi } from '../bridge'
 import sherlock from '../graph/fixtures/sherlock.graph.json'
 import type { GraphNode } from '../graph/model'
 import { CanvasControls } from './CanvasControls'
-import { FileCard } from './MapOverlays'
+import { FileCard, fileFactsText } from './MapOverlays'
 
 const snapshot: AnalysisSnapshot = { ...(sherlock as GraphResponse), dbPath: 'C:/x/project.db', readingSequence: [] }
 const api = { analyze: () => new Promise(() => {}) } as unknown as TelescodeApi
@@ -57,13 +57,17 @@ describe('the legend', () => {
 describe('FileCard', () => {
   it("reads a file's own numbers", () => {
     const node = { id: 'file:pkg/notify.py', kind: 'file', label: 'notify.py', loc: 1286 } as GraphNode
-    render(<FileCard facts={{ node, level: 2, imports: 1, usedBy: 3 }} x={0} y={0} />)
+    render(<FileCard facts={{ node, level: 2, imports: 1, usedBy: 3 }} x={0} y={0} offset={16} />)
     const card = screen.getByRole('tooltip')
     expect(within(card).getByText('pkg/notify.py')).toBeTruthy()
     expect(within(card).getByText('1,286')).toBeTruthy()
     expect(within(card).getByText('High for this repository')).toBeTruthy()
     expect(within(card).getByText('1 file')).toBeTruthy()
     expect(within(card).getByText('3 files')).toBeTruthy()
+  })
+  it('says the same numbers in one sentence for a screen reader', () => {
+    const node = { id: 'file:pkg/notify.py', kind: 'file', label: 'notify.py', loc: 1286 } as GraphNode
+    expect(fileFactsText({ node, level: 2, imports: 1, usedBy: 3 })).toBe('1,286 lines, High complexity for this repository, imports 1 file, used by 3 files')
   })
 })
 
