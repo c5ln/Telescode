@@ -19,7 +19,7 @@ import { Button } from '../ui/Button'
 import { ErrorState } from '../ui/ErrorState'
 import { openExternal } from '../openUrl'
 import { describeError, errorDetails, reportUrl, type ErrorAction } from './errorMessages'
-import { EXAMPLE_REPOSITORIES } from './examples'
+import { EXAMPLE_REPOSITORIES, exampleUrl } from './examples'
 import { Spinner } from '../ui/Spinner'
 import { CanvasControls } from './CanvasControls'
 import { CodeMap } from './CodeMap'
@@ -45,6 +45,8 @@ interface WorkspaceCanvasProps {
   provider?: AgentProvider
   /** Switch to another agent, offered when the agent fails to write something. */
   onSwitchAgent?: (provider: AgentProvider) => void
+  /** A goal to suggest when starting a tour, e.g. an example repository's. */
+  suggestedRequirements?: string
   learning?: Learning
 }
 
@@ -70,6 +72,7 @@ export function WorkspaceCanvas({
   quiz,
   provider,
   onSwitchAgent,
+  suggestedRequirements,
   learning,
 }: WorkspaceCanvasProps) {
   return (
@@ -110,7 +113,7 @@ export function WorkspaceCanvas({
 
       {state.status === 'ready' && (
         learning && learning.state.status !== 'off' ? <LearningPanel learning={learning} provider={provider} onSwitchAgent={onSwitchAgent} /> :
-          <TutorialPanel provider={provider} onSwitchAgent={onSwitchAgent} tutorial={tutorial} quiz={quiz} repositoryName={workspaceName(state)} learning={learning} />
+          <TutorialPanel provider={provider} onSwitchAgent={onSwitchAgent} suggestedRequirements={suggestedRequirements} tutorial={tutorial} quiz={quiz} repositoryName={workspaceName(state)} learning={learning} />
       )}
 
       <CanvasControls
@@ -150,7 +153,7 @@ function WorkspaceError({
   const details = errorDetails(error)
   const run: Record<ErrorAction, () => void> = {
     edit: onClose,
-    example: () => onOpen({ kind: 'github', url: EXAMPLE_REPOSITORIES[0]!.url }),
+    example: () => onOpen({ kind: 'github', url: exampleUrl(EXAMPLE_REPOSITORIES[0]!) }),
     retry: onRetry,
     back: onClose,
     another: onClose,

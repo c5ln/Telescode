@@ -7,7 +7,7 @@ export interface LearningLibrary {
   get(sessionId: string): Promise<LearningView>
   /** Reserves or joins the preparation job and resolves only once the session has left `preparing`;
    * waiting and its deadline belong to the native side, so callers never poll. */
-  prepare(input: { sessionId: string; revision: number }): Promise<LearningView>
+  prepare(input: { sessionId: string; revision: number; curriculum?: unknown }): Promise<LearningView>
   respond(input: LearningAnswer): Promise<LearningResult>
   advance(input: { sessionId: string; revision: number; stopId: string; outcome: 'continue' | 'skip' | 'stop' }): Promise<LearningView>
 }

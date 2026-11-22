@@ -45,11 +45,15 @@ const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 pub struct RepositoryRef {
     pub owner: String,
     pub name: String,
+    /// A full commit SHA, when the URL pins one with `/tree/<sha>`.
+    pub commit: Option<String>,
 }
 
 /// Reads `https://github.com/owner/repo`, with or without `www.`, `.git`, a
-/// trailing slash, a query or a fragment. Anything that points inside a
-/// repository (a branch, file, pull request, ...) is refused, as are other hosts.
+/// trailing slash, a query or a fragment, optionally pinned to a commit with
+/// `/tree/<40-character SHA>` (how the app's example repositories are opened).
+/// Anything else that points inside a repository (a branch, file, pull
+/// request, ...) is refused, as are other hosts.
 pub fn parse_url(raw: &str) -> Result<RepositoryRef, BridgeError> {
     let invalid = |why: &str| BridgeError::InvalidRepositoryUrl {
         message: format!("{why} Enter a public GitHub repository URL, such as https://github.com/owner/repo."),
@@ -68,6 +72,12 @@ pub fn parse_url(raw: &str) -> Result<RepositoryRef, BridgeError> {
     }
 
     let parts: Vec<&str> = path.split('/').filter(|p| !p.is_empty()).collect();
+    let (parts, commit) = match parts.as_slice() {
+        [owner, name, "tree", sha] if sha.len() == 40 && sha.chars().all(|c| c.is_ascii_hexdigit()) => {
+            (vec![*owner, *name], Some(sha.to_ascii_lowercase()))
+        }
+        _ => (parts, None),
+    };
     match parts.as_slice() {
         [owner, name] => {
             let name = name.strip_suffix(".git").unwrap_or(name);
@@ -77,7 +87,7 @@ pub fn parse_url(raw: &str) -> Result<RepositoryRef, BridgeError> {
                 && name != ".."
                 && name.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'));
             if owner_ok && name_ok {
-                Ok(RepositoryRef { owner: owner.to_string(), name: name.to_string() })
+                Ok(RepositoryRef { owner: owner.to_string(), name: name.to_string(), commit })
             } else {
                 Err(invalid("That is not a valid repository name."))
             }
@@ -244,8 +254,11 @@ fn unpack(reader: impl Read, dest: &Path, name: &str) -> Result<(), BridgeError>
 
 /// Downloads the default branch of `repo` into `dest`, which must not exist.
 fn download(repo: &RepositoryRef, info: &RepositoryInfo, dest: &Path) -> Result<(), BridgeError> {
-    // Without a ref, GitHub serves the default branch.
-    let url = format!("{API}/repos/{}/{}/tarball", repo.owner, repo.name);
+    // Without a commit, GitHub serves the default branch.
+    let url = match &repo.commit {
+        Some(sha) => format!("{API}/repos/{}/{}/tarball/{sha}", repo.owner, repo.name),
+        None => format!("{API}/repos/{}/{}/tarball", repo.owner, repo.name),
+    };
     let mut res = agent(DOWNLOAD_TIMEOUT).get(&url).call().map_err(unreachable)?;
     let status = res.status().as_u16();
     if status != 200 {
@@ -323,10 +336,15 @@ fn open(cache: &Path, url: &str) -> Result<PathBuf, BridgeError> {
 
     // GitHub names are case-insensitive, so one directory per repository
     // whatever the URL's spelling.
+    // A pinned commit gets a directory of its own, next to the default branch.
+    let name = repo.name.to_ascii_lowercase();
     let dir = cache
         .join("repositories")
         .join(repo.owner.to_ascii_lowercase())
-        .join(repo.name.to_ascii_lowercase());
+        .join(match &repo.commit {
+            Some(sha) => format!("{name}@{sha}"),
+            None => name,
+        });
     let lock = lock_for(&dir);
     let _guard = lock.lock().unwrap_or_else(|e| e.into_inner());
 
@@ -475,7 +493,7 @@ mod tests {
     }
 
     fn repo(owner: &str, name: &str) -> RepositoryRef {
-        RepositoryRef { owner: owner.into(), name: name.into() }
+        RepositoryRef { owner: owner.into(), name: name.into(), commit: None }
     }
 
     #[test]
@@ -490,6 +508,17 @@ mod tests {
             assert_eq!(parse_url(url).unwrap(), repo("c5ln", "Telescode"), "{url}");
         }
         assert_eq!(parse_url("https://github.com/a-b/x.y_z").unwrap(), repo("a-b", "x.y_z"));
+    }
+
+    #[test]
+    fn a_full_commit_sha_pins_the_download() {
+        let sha = "3c7baaa05ab4aa49cc819ce3a819d260de19c157";
+        let pinned = parse_url(&format!("https://github.com/psf/requests/tree/{}", sha.to_uppercase())).unwrap();
+        assert_eq!(pinned, RepositoryRef { owner: "psf".into(), name: "requests".into(), commit: Some(sha.into()) });
+        // A branch or a short SHA is not a pin.
+        for url in ["https://github.com/psf/requests/tree/main", "https://github.com/psf/requests/tree/3c7baaa"] {
+            assert!(matches!(parse_url(url), Err(BridgeError::InvalidRepositoryUrl { .. })), "{url}");
+        }
     }
 
     #[test]

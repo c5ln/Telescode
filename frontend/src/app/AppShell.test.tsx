@@ -135,7 +135,7 @@ describe('AppShell', () => {
 
     expect(within(screen.getByRole('list', { name: 'How it works' })).getAllByRole('listitem')).toHaveLength(3)
     await userEvent.click(screen.getByRole('button', { name: 'Open psf/requests' }))
-    expect(repositories).toHaveBeenCalledWith({ kind: 'github', url: 'https://github.com/psf/requests' })
+    expect(repositories).toHaveBeenCalledWith({ kind: 'github', url: 'https://github.com/psf/requests/tree/3c7baaa05ab4aa49cc819ce3a819d260de19c157' })
   })
 
   it('downloads a repository, then analyzes it like a local database', async () => {
@@ -176,7 +176,7 @@ describe('AppShell', () => {
 
     // An example opens in one click.
     await userEvent.click(within(alert).getByRole('button', { name: 'Try an example' }))
-    expect(repositories).toHaveBeenLastCalledWith({ kind: 'github', url: 'https://github.com/psf/requests' })
+    expect(repositories).toHaveBeenLastCalledWith({ kind: 'github', url: 'https://github.com/psf/requests/tree/3c7baaa05ab4aa49cc819ce3a819d260de19c157' })
     expect(analyze).not.toHaveBeenCalled()
 
     opened[1]!.reject(new TelescodeError('repository_unreachable', 'Could not reach GitHub: timed out'))
@@ -189,6 +189,7 @@ describe('AppShell', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Try another repository' }))
     expect(screen.getByText('See a Python repository as a map')).toBeTruthy()
+    // An example is offered again by its plain address.
     expect((screen.getByRole('textbox', { name: 'Repository URL' }) as HTMLInputElement).value).toBe(
       'https://github.com/psf/requests',
     )

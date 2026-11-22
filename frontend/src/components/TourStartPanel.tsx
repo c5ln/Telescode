@@ -7,13 +7,15 @@ import panel from './TutorialPanel.module.css'
 import styles from './TourStartPanel.module.css'
 
 interface TourStartPanelProps {
+  /** A goal written in advance, e.g. an example repository's; filled in and editable. */
+  suggested?: string
   onStart: (requirements: string) => void
   onClose: () => void
 }
 
-export function TourStartPanel({ onStart, onClose }: TourStartPanelProps) {
+export function TourStartPanel({ suggested, onStart, onClose }: TourStartPanelProps) {
   const id = useId()
-  const [requirements, setRequirements] = useState('')
+  const [requirements, setRequirements] = useState(suggested ?? '')
   const [submitted, setSubmitted] = useState(false)
   return <section className={panel.panel} aria-label="Start a code tour" onKeyDown={event => {
     if (event.key === 'Escape') { event.preventDefault(); onClose() }
@@ -23,7 +25,11 @@ export function TourStartPanel({ onStart, onClose }: TourStartPanelProps) {
       <IconButton label="Close tour setup" tooltipAlign="end" onClick={onClose}><CloseIcon /></IconButton>
     </div>
     <h2 className={panel.title}>What would you like to learn?</h2>
-    <p className={panel.text} id={`${id}-hint`}>Leave it blank for a general onboarding tour. Or tell us who you are and what you want to understand, and the tour starts from there.</p>
+    <p className={panel.text} id={`${id}-hint`}>
+      {suggested
+        ? 'This example comes with a goal, and its learning path is ready. Edit it, or clear it for a general onboarding tour.'
+        : 'Leave it blank for a general onboarding tour. Or tell us who you are and what you want to understand, and the tour starts from there.'}
+    </p>
     <form onSubmit={event => {
       event.preventDefault()
       if (submitted) return

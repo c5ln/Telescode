@@ -8,9 +8,9 @@ export interface GitHubRepository {
   name: string
 }
 
-const GITHUB_URL = /^https?:\/\/(?:www\.)?github\.com\/([a-z0-9-]+)\/([\w.-]+?)(?:\.git)?\/?(?:[?#].*)?$/i
+const GITHUB_URL = /^https?:\/\/(?:www\.)?github\.com\/([a-z0-9-]+)\/([\w.-]+?)(?:\.git)?(?:\/tree\/[0-9a-f]{40})?\/?(?:[?#].*)?$/i
 
-/** `owner/name` from https://github.com/owner/name (optionally `.git`, a trailing slash, a query or fragment). */
+/** `owner/name` from https://github.com/owner/name (optionally `.git`, a pinned `/tree/<commit SHA>`, a trailing slash, a query or fragment). */
 export function parseGitHubRepositoryUrl(value: string): GitHubRepository | null {
   const match = GITHUB_URL.exec(value.trim())
   if (!match) return null

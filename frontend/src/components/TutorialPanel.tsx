@@ -30,13 +30,15 @@ interface TutorialPanelProps {
   provider?: AgentProvider
   /** Switch to another agent, offered when writing fails. */
   onSwitchAgent?: (provider: AgentProvider) => void
+  /** A goal to suggest in the tour setup. */
+  suggestedRequirements?: string
   tutorial: Tutorial
   quiz: Quiz
   repositoryName: string
   learning?: Learning
 }
 
-export function TutorialPanel({ tutorial, quiz, repositoryName, provider = 'claude', learning, onSwitchAgent }: TutorialPanelProps) {
+export function TutorialPanel({ tutorial, quiz, repositoryName, provider = 'claude', learning, onSwitchAgent, suggestedRequirements }: TutorialPanelProps) {
   const { name, account } = agents[provider]
   const { state } = tutorial
   if (state.status === 'off') return null
@@ -51,7 +53,7 @@ export function TutorialPanel({ tutorial, quiz, repositoryName, provider = 'clau
     tutorial.exit()
   }
 
-  if (state.status === 'choosing') return <TourStartPanel onClose={exit} onStart={requirements => {
+  if (state.status === 'choosing') return <TourStartPanel suggested={suggestedRequirements} onClose={exit} onStart={requirements => {
     if (requirements && learning) void learning.start(requirements)
     else tutorial.start()
   }} />

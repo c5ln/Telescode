@@ -13,7 +13,7 @@ import styles from './InlineForm.module.css'
 import { OpenFolderForm } from './OpenFolderForm'
 import { RepositoryUrlForm } from './RepositoryUrlForm'
 import welcome from './EmptyWorkspace.module.css'
-import { EXAMPLE_REPOSITORIES } from './examples'
+import { EXAMPLE_REPOSITORIES, exampleFor, exampleUrl } from './examples'
 
 interface EmptyWorkspaceProps {
   /** Offer the development-only folder entry. */
@@ -70,7 +70,7 @@ export function EmptyWorkspace({ allowLocalFolder, onOpen, lastSource }: EmptyWo
       </ol>
       <div className={welcome.form}>
         <RepositoryUrlForm
-          initialUrl={lastSource?.kind === 'github' ? lastSource.url : undefined}
+          initialUrl={lastSource?.kind === 'github' ? shownUrl(lastSource.url) : undefined}
           onSubmit={(url) => onOpen({ kind: 'github', url })}
         />
         <div className={welcome.examples}>
@@ -79,12 +79,12 @@ export function EmptyWorkspace({ allowLocalFolder, onOpen, lastSource }: EmptyWo
           </span>
           <ul aria-labelledby="example-repositories">
             {EXAMPLE_REPOSITORIES.map((example) => (
-              <li key={example.url}>
+              <li key={example.name}>
                 <button
                   type="button"
                   className={welcome.example}
                   aria-label={`Open ${example.owner}/${example.name}`}
-                  onClick={() => onOpen({ kind: 'github', url: example.url })}
+                  onClick={() => onOpen({ kind: 'github', url: exampleUrl(example) })}
                 >
                   <span className={welcome.owner}>{example.owner}/</span>
                   {example.name}
@@ -104,4 +104,10 @@ export function EmptyWorkspace({ allowLocalFolder, onOpen, lastSource }: EmptyWo
       )}
     </div>
   )
+}
+
+/** An example is shown by its plain address, not the commit it is pinned to. */
+function shownUrl(url: string): string {
+  const example = exampleFor(url)
+  return example ? `https://github.com/${example.owner}/${example.name}` : url
 }

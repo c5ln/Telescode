@@ -18,6 +18,8 @@ import { useQuiz } from './useQuiz'
 import { useTutorial } from './useTutorial'
 import { createLearningLibrary, type LearningLibrary } from '../learning/api'
 import { useLearning } from './useLearning'
+import { exampleFor, type ExampleRepository } from '../components/examples'
+import { loadExample, withExample, type ExampleData } from '../examples'
 import { sourceLocation, useWorkspace, workspaceName, type WorkspaceState } from './useWorkspace'
 
 interface AppShellProps {
@@ -68,9 +70,29 @@ export function AppShell({
   const { state } = workspace
   const graphRef = useRef<GraphHandle | null>(null)
   const ready = state.status === 'ready' ? state : null
-  const tutorial = useTutorial(tours ?? libraries.tour, ready?.snapshot ?? null, ready?.dbPath ?? null, graphRef)
-  const quiz = useQuiz(quizzes ?? libraries.quiz, ready?.snapshot ?? null, ready?.dbPath ?? null, graphRef)
-  const learning = useLearning(providedLearning ?? libraries.learning, ready?.snapshot ?? null, ready?.dbPath ?? null, graphRef)
+
+  // An example repository plays the tour, quizzes and learning material
+  // written for it in advance.
+  const example = state.status !== 'empty' && state.source?.kind === 'github' ? exampleFor(state.source.url) : undefined
+  const [loadedExample, setLoadedExample] = useState<{ example: ExampleRepository; data: ExampleData } | null>(null)
+  useEffect(() => {
+    if (!example) return
+    let live = true
+    loadExample(example).then(
+      (data) => { if (live && data) setLoadedExample({ example, data }) },
+      () => {},
+    )
+    return () => { live = false }
+  }, [example])
+  const exampleData = loadedExample?.example === example ? loadedExample?.data : undefined
+  const content = useMemo(
+    () => (exampleData && ready ? withExample(libraries, exampleData, ready.snapshot) : libraries),
+    [exampleData, ready, libraries],
+  )
+
+  const tutorial = useTutorial(tours ?? content.tour, ready?.snapshot ?? null, ready?.dbPath ?? null, graphRef)
+  const quiz = useQuiz(quizzes ?? content.quiz, ready?.snapshot ?? null, ready?.dbPath ?? null, graphRef)
+  const learning = useLearning(providedLearning ?? content.learning, ready?.snapshot ?? null, ready?.dbPath ?? null, graphRef)
   /** Where the user is in the map, below the repository. */
   const [trail, setTrail] = useState<Crumb[]>([])
   /** Complexity mode: on by default, kept across repositories. */
@@ -163,6 +185,7 @@ export function AppShell({
         quiz={quiz}
         provider={provider}
         onSwitchAgent={switchAgent}
+        suggestedRequirements={example?.requirements}
         learning={learning}
       />
     </div>

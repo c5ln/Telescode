@@ -39,14 +39,25 @@ pub async fn advance_learning_session(input: Value) -> Result<Value, BridgeError
     blocking(move || mcp::call("advance_learning_session", input)).await
 }
 #[tauri::command]
-pub async fn prepare_learning_session(session_id: String, revision: u64, provider: Option<agent::Provider>) -> Result<Value, BridgeError> {
+/// `curriculum` is material written in advance (the example repositories
+/// ship one for their suggested goal): it is saved as the job's result
+/// instead of running an agent.
+pub async fn prepare_learning_session(session_id: String, revision: u64, provider: Option<agent::Provider>, curriculum: Option<Value>) -> Result<Value, BridgeError> {
     blocking(move || {
         // Includes reservation so queued duplicates observe the first worker's saved materials.
         let serial = PREPARATION.lock().unwrap_or_else(|e| e.into_inner());
         let provider = provider.unwrap_or_default();
         let job = mcp::call("request_learning_preparation", json!({"sessionId":session_id,"revision":revision,"provider":provider,"ownerPid":std::process::id()}))?;
         let job_id = job["id"].as_str().unwrap_or_default();
-        if job["shouldRun"] == true {
+        if job["shouldRun"] == true && curriculum.is_some() {
+            let saved = mcp::call("save_learning_curriculum", json!({"jobId":job_id,"curriculum":curriculum}));
+            let completion = match &saved {
+                Err(e) => json!({"jobId":job_id,"error":bounded_error(&format!("{e:?}"))}),
+                Ok(_) => json!({"jobId":job_id}),
+            };
+            mcp::call("finish_learning_preparation", completion)?;
+            saved?;
+        } else if job["shouldRun"] == true {
             let prompt = format!("Prepare Telescode adaptive learning job {job_id}. Call get_learning_preparation_context with exactly this job ID, inspect its grounded code excerpts and immutable goal, then save_learning_curriculum with the same job ID. Follow the server's adaptive learning instructions. Prepare at least two independent scenario questions per target when supported. Use the requested target levels and existing concept definitions exactly. Save only material; never answer or advance a learner session. Reply with the job ID.");
             let result = agent::generate(provider, &prompt, PREPARATION_TOOLS, Duration::from_secs(10 * 60));
             let error = result.as_ref().err().map(|e| bounded_error(&format!("{e:?}")));

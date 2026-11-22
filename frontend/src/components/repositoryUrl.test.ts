@@ -9,6 +9,7 @@ describe('parseGitHubRepositoryUrl', () => {
     'https://github.com/c5ln/Telescode.git',
     'http://www.github.com/c5ln/Telescode',
     ' https://GitHub.com/c5ln/Telescode?tab=readme#top ',
+    'https://github.com/c5ln/Telescode/tree/3c7baaa05ab4aa49cc819ce3a819d260de19c157',
   ])('reads %s', (url) => expect(parseGitHubRepositoryUrl(url)).toEqual({ owner: 'c5ln', name: 'Telescode' }))
 
   it.each([
