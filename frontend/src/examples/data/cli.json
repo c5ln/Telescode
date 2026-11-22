@@ -1,0 +1,2071 @@
+{
+ "schemaVersion": 1,
+ "owner": "httpie",
+ "name": "cli",
+ "commit": "5b604c37c6c67e18e7c3e9aee6c88a8c22b98345",
+ "requirements": "I'm a frontend developer who uses HTTPie in the terminal. Show me how a command line becomes an HTTP request, and how the response is formatted and printed.",
+ "tour": {
+  "plan": {
+   "schemaVersion": 1,
+   "id": "1eb0cd87-d177-44e5-87cc-7faeee8a8706",
+   "revision": 1,
+   "title": "HTTPie CLI: First Reading Path",
+   "language": "en",
+   "snapshotHash": "c3b9b97226c3a457d3af042f765ca06d64475173c22038931e688099bbbaefff",
+   "stops": [
+    {
+     "nodeId": "dir:httpie",
+     "caption": "The httpie package holds the app code, split into cli, output, plugins, manager and internal. We'll follow the ranked path from the entry point to core.py.",
+     "transitionMs": 0,
+     "holdMs": 6500,
+     "title": "httpie",
+     "evidence": [
+      {
+       "label": "Files",
+       "value": "78"
+      },
+      {
+       "label": "Classes",
+       "value": "106"
+      }
+     ]
+    },
+    {
+     "nodeId": "file:httpie/__main__.py",
+     "caption": "__main__.py is the first stop. It imports core.py and status.py, and packaging scripts and tests import it. Next: internal/daemons.py.",
+     "transitionMs": 800,
+     "holdMs": 6200,
+     "title": "httpie/__main__.py",
+     "evidence": [
+      {
+       "label": "Reading rank",
+       "value": "1"
+      },
+      {
+       "label": "LambdaRank score",
+       "value": "2.3290422698729225"
+      },
+      {
+       "label": "Inbound imports",
+       "value": "4"
+      },
+      {
+       "label": "Outbound imports",
+       "value": "2"
+      },
+      {
+       "label": "Complexity score",
+       "value": "0.47196969696969693"
+      }
+     ]
+    },
+    {
+     "nodeId": "file:httpie/internal/daemons.py",
+     "caption": "internal/daemons.py imports __main__, core and compat. update_warnings.py depends on it. Next: compat.py.",
+     "transitionMs": 800,
+     "holdMs": 6000,
+     "title": "httpie/internal/daemons.py",
+     "evidence": [
+      {
+       "label": "Reading rank",
+       "value": "2"
+      },
+      {
+       "label": "LambdaRank score",
+       "value": "1.0667495530214752"
+      },
+      {
+       "label": "Inbound imports",
+       "value": "2"
+      },
+      {
+       "label": "Outbound imports",
+       "value": "3"
+      },
+      {
+       "label": "Complexity score",
+       "value": "0.6659090909090909"
+      }
+     ]
+    },
+    {
+     "nodeId": "file:httpie/compat.py",
+     "caption": "compat.py is a shared compatibility layer that 17 files import, including config, models and plugins. Next: config.py.",
+     "transitionMs": 800,
+     "holdMs": 6000,
+     "title": "httpie/compat.py",
+     "evidence": [
+      {
+       "label": "Reading rank",
+       "value": "3"
+      },
+      {
+       "label": "LambdaRank score",
+       "value": "0.18344199197642236"
+      },
+      {
+       "label": "Inbound imports",
+       "value": "17"
+      },
+      {
+       "label": "Outbound imports",
+       "value": "1"
+      },
+      {
+       "label": "Complexity score",
+       "value": "0.6731060606060607"
+      }
+     ]
+    },
+    {
+     "nodeId": "file:httpie/config.py",
+     "caption": "config.py defines BaseConfigDict, Config and ConfigFileError. context.py and sessions.py build on it. Next: the plugin manager.",
+     "transitionMs": 800,
+     "holdMs": 6200,
+     "title": "httpie/config.py",
+     "evidence": [
+      {
+       "label": "Reading rank",
+       "value": "5"
+      },
+      {
+       "label": "LambdaRank score",
+       "value": "-0.6201576516285147"
+      },
+      {
+       "label": "Inbound imports",
+       "value": "4"
+      },
+      {
+       "label": "Outbound imports",
+       "value": "3"
+      },
+      {
+       "label": "Complexity score",
+       "value": "0.7219696969696969"
+      }
+     ]
+    },
+    {
+     "nodeId": "file:httpie/plugins/manager.py",
+     "caption": "plugins/manager.py holds PluginManager and imports plugins/base.py. registry.py and the plugin install task use it. Next: core.py.",
+     "transitionMs": 800,
+     "holdMs": 6200,
+     "title": "httpie/plugins/manager.py",
+     "evidence": [
+      {
+       "label": "Reading rank",
+       "value": "6"
+      },
+      {
+       "label": "LambdaRank score",
+       "value": "-0.6972037014394797"
+      },
+      {
+       "label": "Inbound imports",
+       "value": "3"
+      },
+      {
+       "label": "Outbound imports",
+       "value": "4"
+      },
+      {
+       "label": "Complexity score",
+       "value": "0.6219696969696968"
+      }
+     ]
+    },
+    {
+     "nodeId": "file:httpie/core.py",
+     "caption": "core.py is the hub: it imports 15 modules, including client, downloads, models, output/writer, context and the CLI definition.",
+     "transitionMs": 800,
+     "holdMs": 6500,
+     "title": "httpie/core.py",
+     "evidence": [
+      {
+       "label": "Reading rank",
+       "value": "7"
+      },
+      {
+       "label": "LambdaRank score",
+       "value": "-1.5418710349552733"
+      },
+      {
+       "label": "Inbound imports",
+       "value": "4"
+      },
+      {
+       "label": "Outbound imports",
+       "value": "15"
+      },
+      {
+       "label": "Complexity score",
+       "value": "0.937878787878788"
+      }
+     ]
+    },
+    {
+     "nodeId": "dir:httpie",
+     "caption": "Remember: __main__ → core, with compat, config and plugins underneath. Read cookies.py and cli/options.py next.",
+     "transitionMs": 800,
+     "holdMs": 6000,
+     "title": "httpie",
+     "evidence": [
+      {
+       "label": "Files",
+       "value": "78"
+      },
+      {
+       "label": "Classes",
+       "value": "106"
+      }
+     ]
+    }
+   ]
+  },
+  "ranking": {
+   "model": "lambdarank-v1",
+   "query": "Understand the application architecture, main entry points, core modules, configuration, dependencies, and how to load, process and return data.",
+   "queryId": "tour"
+  }
+ },
+ "quizzes": [
+  {
+   "schemaVersion": 1,
+   "id": "78ed6f14-6082-4b97-be32-48275f9ed777",
+   "tourId": "1eb0cd87-d177-44e5-87cc-7faeee8a8706",
+   "tourRevision": 1,
+   "stopIndex": 0,
+   "nodeId": "dir:httpie",
+   "language": "en",
+   "questions": [
+    {
+     "id": "78ed6f14-6082-4b97-be32-48275f9ed777:1",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "Entry-point interrupt handling",
+     "question": "A user runs `python -m httpie` and presses Ctrl+C while the command is still starting up. What does the package's entry-point `main()` in `__main__.py` do in that case?",
+     "answer": "It catches the KeyboardInterrupt and returns the numeric value of the Ctrl+C exit status, which is passed to sys.exit",
+     "distractors": [
+      "It lets the KeyboardInterrupt propagate so Python prints a traceback and exits",
+      "It retries importing and calling the core main function once before giving up",
+      "It returns a generic success status because no request was sent yet"
+     ],
+     "choices": [
+      "It lets the KeyboardInterrupt propagate so Python prints a traceback and exits",
+      "It catches the KeyboardInterrupt and returns the numeric value of the Ctrl+C exit status, which is passed to sys.exit",
+      "It retries importing and calling the core main function once before giving up",
+      "It returns a generic success status because no request was sent yet"
+     ],
+     "explanation": "The import of `httpie.core.main` and the call to it sit inside a try block. A KeyboardInterrupt there is caught, mapped to `ExitStatus.ERROR_CTRL_C`, and its `.value` is returned to `sys.exit` (`httpie/__main__.py:7-14`, `httpie/__main__.py:19`). Because the handler catches the interrupt, no traceback is printed, and nothing is retried or reported as success.",
+     "evidence": [
+      {
+       "nodeId": "dir:httpie",
+       "title": "httpie"
+      },
+      {
+       "nodeId": "file:httpie/__main__.py",
+       "title": "httpie/__main__.py"
+      }
+     ]
+    },
+    {
+     "id": "78ed6f14-6082-4b97-be32-48275f9ed777:2",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "Version compatibility shim",
+     "question": "Why does `compat.py` wrap `from functools import cached_property` in a try/except and define its own `cached_property` class in the except branch?",
+     "answer": "So the code still works on Python versions whose functools has no cached_property, by providing an equivalent decorator",
+     "distractors": [
+      "To replace the standard library version with a faster one on every Python version",
+      "To add thread locking around property access that functools does not provide",
+      "To make cached values expire after a configurable timeout"
+     ],
+     "choices": [
+      "To replace the standard library version with a faster one on every Python version",
+      "So the code still works on Python versions whose functools has no cached_property, by providing an equivalent decorator",
+      "To make cached values expire after a configurable timeout",
+      "To add thread locking around property access that functools does not provide"
+     ],
+     "explanation": "The local class is only defined when the import raises ImportError. The comment says it can be removed once Python versions below 3.8 are no longer supported (`httpie/compat.py:20-25`). On newer Pythons the standard library version is used, so the shim is not a speed-up. Its `__get__` simply stores the result in `instance.__dict__` (`httpie/compat.py:58-67`), with no locking and no expiry.",
+     "evidence": [
+      {
+       "nodeId": "dir:httpie",
+       "title": "httpie"
+      },
+      {
+       "nodeId": "file:httpie/compat.py",
+       "title": "httpie/compat.py"
+      }
+     ]
+    },
+    {
+     "id": "78ed6f14-6082-4b97-be32-48275f9ed777:3",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "Default options from config",
+     "question": "A user puts some options under `default_options` in their HTTPie `config.json`. How do these options reach the argument parser on a normal `http` run?",
+     "answer": "raw_main puts the configured default options in front of the command-line arguments before parsing, so options typed on the command line come later in the list",
+     "distractors": [
+      "raw_main adds the configured options after the command-line arguments, so the config file always overrides the command line",
+      "The Config object passes them to the parser separately, after it has finished parsing the command line",
+      "They are applied only by program() after a request has been built, so they never go through the parser"
+     ],
+     "choices": [
+      "The Config object passes them to the parser separately, after it has finished parsing the command line",
+      "They are applied only by program() after a request has been built, so they never go through the parser",
+      "raw_main puts the configured default options in front of the command-line arguments before parsing, so options typed on the command line come later in the list",
+      "raw_main adds the configured options after the command-line arguments, so the config file always overrides the command line"
+     ],
+     "explanation": "`Config` starts with `default_options: []` and exposes it as a property (`httpie/config.py:139-150`). `raw_main` reads `env.config.default_options` and builds `args = env.config.default_options + args` before calling `parser.parse_args` (`httpie/core.py:48-49`, `httpie/core.py:77-80`). So the defaults come first, not last, and they go through the same parser. This also only happens when `use_default_options` is true.",
+     "evidence": [
+      {
+       "nodeId": "dir:httpie",
+       "title": "httpie"
+      },
+      {
+       "nodeId": "file:httpie/core.py",
+       "title": "httpie/core.py"
+      },
+      {
+       "nodeId": "file:httpie/config.py",
+       "title": "httpie/config.py"
+      }
+     ]
+    },
+    {
+     "id": "78ed6f14-6082-4b97-be32-48275f9ed777:4",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "Error-to-exit-status flow",
+     "question": "While `program()` is sending a request, the `requests` library raises a Timeout. How does that end up as the process exit code?",
+     "answer": "raw_main catches the Timeout around main_program, logs a timeout message, and returns ExitStatus.ERROR_TIMEOUT; the entry-point main returns its value to sys.exit",
+     "distractors": [
+      "program() catches the Timeout itself and returns ERROR_TIMEOUT before raw_main sees it",
+      "The Timeout propagates to __main__.main, which catches all exceptions and turns them into the Ctrl+C status",
+      "raw_main's generic Exception handler logs it and returns the plain ERROR status"
+     ],
+     "choices": [
+      "program() catches the Timeout itself and returns ERROR_TIMEOUT before raw_main sees it",
+      "The Timeout propagates to __main__.main, which catches all exceptions and turns them into the Ctrl+C status",
+      "raw_main's generic Exception handler logs it and returns the plain ERROR status",
+      "raw_main catches the Timeout around main_program, logs a timeout message, and returns ExitStatus.ERROR_TIMEOUT; the entry-point main returns its value to sys.exit"
+     ],
+     "explanation": "`program()` is documented as \"the main program without error handling\" (`httpie/core.py:170-174`). In `raw_main`, the call to `main_program` has a dedicated `except requests.Timeout` that sets `ExitStatus.ERROR_TIMEOUT` and logs the timeout (`httpie/core.py:99-117`). That handler comes before the generic `Exception` handler, so the generic one never sees a Timeout. `__main__.main` only catches KeyboardInterrupt and returns `exit_status.value` (`httpie/__main__.py:7-14`).",
+     "evidence": [
+      {
+       "nodeId": "dir:httpie",
+       "title": "httpie"
+      },
+      {
+       "nodeId": "file:httpie/core.py",
+       "title": "httpie/core.py"
+      },
+      {
+       "nodeId": "file:httpie/__main__.py",
+       "title": "httpie/__main__.py"
+      }
+     ]
+    },
+    {
+     "id": "78ed6f14-6082-4b97-be32-48275f9ed777:5",
+     "type": "multiple_choice",
+     "difficulty": "hard",
+     "concept": "Separating error handling from program logic",
+     "question": "`raw_main` takes the parser and the program to run as parameters (`parser`, `main_program`), and `main()` passes in the HTTP parser and `program`. What does this design make possible?",
+     "answer": "Another command can reuse the same argument decoding, plugin loading, default-option handling and exception-to-exit-status mapping by passing its own parser and program",
+     "distractors": [
+      "It lets program() run several requests in parallel threads, each with its own parser",
+      "It is needed for argparse to work at all, because argparse needs the program function at construction time",
+      "It moves error handling into program() so each command can format its own tracebacks"
+     ],
+     "choices": [
+      "Another command can reuse the same argument decoding, plugin loading, default-option handling and exception-to-exit-status mapping by passing its own parser and program",
+      "It is needed for argparse to work at all, because argparse needs the program function at construction time",
+      "It lets program() run several requests in parallel threads, each with its own parser",
+      "It moves error handling into program() so each command can format its own tracebacks"
+     ],
+     "explanation": "`raw_main` handles daemon mode, plugin loading, default options, `--debug`/`--traceback`, and maps exceptions to `ExitStatus`. It then calls whichever `main_program` it was given (`httpie/core.py:32-143`). `main()` is a thin wrapper that supplies the HTTP parser and `program` (`httpie/core.py:146-167`), so the same wrapper can run a different parser and program. Error handling stays in `raw_main`, not in `program` (`httpie/core.py:170-174`). The code has no threading, and argparse does not depend on this.",
+     "evidence": [
+      {
+       "nodeId": "dir:httpie",
+       "title": "httpie"
+      },
+      {
+       "nodeId": "file:httpie/core.py",
+       "title": "httpie/core.py"
+      }
+     ]
+    },
+    {
+     "id": "78ed6f14-6082-4b97-be32-48275f9ed777:6",
+     "type": "multiple_choice",
+     "difficulty": "hard",
+     "concept": "Global cookie policy patch",
+     "question": "`compat.py` sets `cookiejar.DefaultCookiePolicy = HTTPieCookiePolicy` at import time instead of attaching the policy to one cookie jar. If that line were removed, what behavior would most likely be lost?",
+     "answer": "Cookies marked Secure would no longer be treated as sendable to plain-HTTP localhost hosts, because the custom localhost check would not be in effect",
+     "distractors": [
+      "All cookies would stop being sent, because the standard cookiejar has no default policy without this line",
+      "Secure cookies would start leaking to every plain-HTTP host, because the standard policy ignores the Secure flag",
+      "Session files could no longer be loaded, because the session code reads the policy class to parse JSON"
+     ],
+     "choices": [
+      "All cookies would stop being sent, because the standard cookiejar has no default policy without this line",
+      "Cookies marked Secure would no longer be treated as sendable to plain-HTTP localhost hosts, because the custom localhost check would not be in effect",
+      "Session files could no longer be loaded, because the session code reads the policy class to parse JSON",
+      "Secure cookies would start leaking to every plain-HTTP host, because the standard policy ignores the Secure flag"
+     ],
+     "explanation": "`HTTPieCookiePolicy.return_ok_secure` first defers to the standard check and then also accepts `localhost` and `*.localhost` hosts (`httpie/cookies.py:9-25`). The comment in compat explains why the class is installed globally: the request does not carry the policy attached to the jar, so the global default is changed instead (`httpie/compat.py:9-12`). Without the patch, the standard policy, which only accepts secure protocols, is used again. Cookies would not stop entirely, and secure cookies would not leak to every host.",
+     "evidence": [
+      {
+       "nodeId": "dir:httpie",
+       "title": "httpie"
+      },
+      {
+       "nodeId": "file:httpie/compat.py",
+       "title": "httpie/compat.py"
+      },
+      {
+       "nodeId": "file:httpie/cookies.py",
+       "title": "httpie/cookies.py"
+      }
+     ]
+    }
+   ],
+   "createdMs": 1795332873946
+  },
+  {
+   "schemaVersion": 1,
+   "id": "9a8fe6f2-81c8-457c-8087-3fa009bb5571",
+   "tourId": "1eb0cd87-d177-44e5-87cc-7faeee8a8706",
+   "tourRevision": 1,
+   "stopIndex": 1,
+   "nodeId": "file:httpie/__main__.py",
+   "language": "en",
+   "questions": [
+    {
+     "id": "9a8fe6f2-81c8-457c-8087-3fa009bb5571:1",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "Thin entry-point wrapper",
+     "question": "What is the main responsibility of the main() function in httpie/__main__.py?",
+     "answer": "Delegate to httpie.core.main and turn the ExitStatus it returns into a plain integer for the process exit code",
+     "distractors": [
+      "Parse the command-line arguments and build the HTTP request before handing it to httpie.core",
+      "Send the HTTP request and print the response, using httpie.core only for formatting",
+      "Load installed plugins and configuration, then start an interactive HTTPie session"
+     ],
+     "choices": [
+      "Load installed plugins and configuration, then start an interactive HTTPie session",
+      "Parse the command-line arguments and build the HTTP request before handing it to httpie.core",
+      "Delegate to httpie.core.main and turn the ExitStatus it returns into a plain integer for the process exit code",
+      "Send the HTTP request and print the response, using httpie.core only for formatting"
+     ],
+     "explanation": "main() only imports and calls httpie.core.main, then returns exit_status.value, which sys.exit uses (httpie/__main__.py:8-14, 19). Argument parsing, plugin loading and sending requests happen in httpie.core, not in this wrapper.",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/__main__.py",
+       "title": "httpie/__main__.py"
+      }
+     ]
+    },
+    {
+     "id": "9a8fe6f2-81c8-457c-8087-3fa009bb5571:2",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "Handling user interruption",
+     "question": "A user presses Ctrl+C and the resulting KeyboardInterrupt reaches httpie/__main__.py's main(). What happens?",
+     "answer": "It is caught and main() returns the value of ExitStatus.ERROR_CTRL_C, so the program exits cleanly with that code",
+     "distractors": [
+      "The exception propagates and Python prints a traceback before exiting",
+      "main() retries the call to httpie.core.main once before giving up",
+      "It is caught and main() returns a success value because the user chose to stop"
+     ],
+     "choices": [
+      "The exception propagates and Python prints a traceback before exiting",
+      "main() retries the call to httpie.core.main once before giving up",
+      "It is caught and main() returns the value of ExitStatus.ERROR_CTRL_C, so the program exits cleanly with that code",
+      "It is caught and main() returns a success value because the user chose to stop"
+     ],
+     "explanation": "The try/except around the core call catches KeyboardInterrupt and sets exit_status to ExitStatus.ERROR_CTRL_C, whose value is returned (httpie/__main__.py:10-14). Nothing is re-raised or retried, and the code is an error code, not success.",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/__main__.py",
+       "title": "httpie/__main__.py"
+      }
+     ]
+    },
+    {
+     "id": "9a8fe6f2-81c8-457c-8087-3fa009bb5571:3",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "Exit status flow from HTTP response to shell",
+     "question": "A user runs HTTPie with --check-status and the server answers 404. How does that become the process exit code?",
+     "answer": "core.program maps the status with http_status_to_exit_status to an ExitStatus, raw_main returns it, and __main__.main passes its integer value to sys.exit",
+     "distractors": [
+      "__main__.main inspects the HTTP response itself and picks an exit code from the status line",
+      "A 404 raises an exception in core.program that __main__.main catches and converts to an exit code",
+      "The exit code stays success because only network errors and timeouts change the exit status"
+     ],
+     "choices": [
+      "The exit code stays success because only network errors and timeouts change the exit status",
+      "A 404 raises an exception in core.program that __main__.main catches and converts to an exit code",
+      "__main__.main inspects the HTTP response itself and picks an exit code from the status line",
+      "core.program maps the status with http_status_to_exit_status to an ExitStatus, raw_main returns it, and __main__.main passes its integer value to sys.exit"
+     ],
+     "explanation": "With args.check_status, program() calls http_status_to_exit_status, which returns ERROR_HTTP_4XX for 4xx codes (httpie/core.py:230-231, httpie/status.py:33-35); raw_main returns that value and __main__.main returns exit_status.value to sys.exit (httpie/__main__.py:9-19). __main__ never sees the response, and no exception is raised for a 404.",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/__main__.py",
+       "title": "httpie/__main__.py"
+      },
+      {
+       "nodeId": "file:httpie/core.py",
+       "title": "httpie/core.py"
+      },
+      {
+       "nodeId": "file:httpie/status.py",
+       "title": "httpie/status.py"
+      }
+     ]
+    },
+    {
+     "id": "9a8fe6f2-81c8-457c-8087-3fa009bb5571:4",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "Re-launching HTTPie as a background process",
+     "question": "Why does daemons._start_process add httpie.__main__.__file__ to the command when HTTPie is not frozen?",
+     "answer": "In that case sys.executable is the Python interpreter, so it needs the path of the entry-point script to run HTTPie in the new process",
+     "distractors": [
+      "It makes the child process import httpie.__main__ to share the parent's in-memory state",
+      "sys.executable is the http binary, and the file path is passed as the URL argument",
+      "It is required on every platform so the child can find the installed plugins directory"
+     ],
+     "choices": [
+      "sys.executable is the http binary, and the file path is passed as the URL argument",
+      "It is required on every platform so the child can find the installed plugins directory",
+      "In that case sys.executable is the Python interpreter, so it needs the path of the entry-point script to run HTTPie in the new process",
+      "It makes the child process import httpie.__main__ to share the parent's in-memory state"
+     ],
+     "explanation": "The comment says that when not frozen sys.executable points to the Python interpreter, so the code appends the __main__ file path to make `python <path> task --daemon` (httpie/internal/daemons.py:22-29); that script then calls httpie.core.main via its __name__ == '__main__' block (httpie/__main__.py:17-19). A new process shares no memory with the parent, and a frozen build skips the path because sys.executable is already the http binary.",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/__main__.py",
+       "title": "httpie/__main__.py"
+      },
+      {
+       "nodeId": "file:httpie/internal/daemons.py",
+       "title": "httpie/internal/daemons.py"
+      }
+     ]
+    },
+    {
+     "id": "9a8fe6f2-81c8-457c-8087-3fa009bb5571:5",
+     "type": "true_false",
+     "difficulty": "hard",
+     "concept": "Layered interrupt handling",
+     "question": "True or false: the KeyboardInterrupt handler in httpie/__main__.py is redundant and could be removed with no change in behavior, because core.raw_main already handles KeyboardInterrupt.",
+     "answer": "False",
+     "distractors": [
+      "True"
+     ],
+     "choices": [
+      "True",
+      "False"
+     ],
+     "explanation": "raw_main only catches KeyboardInterrupt around argument parsing and the main program (httpie/core.py:76-108), and re-raises it when --traceback or --debug is given (httpie/core.py:88-89, 106-107). An interrupt while importing httpie.core, during plugin loading before that try (httpie/core.py:46), or a re-raised one would escape; only the outer handler turns it into ERROR_CTRL_C (httpie/__main__.py:7-12).",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/__main__.py",
+       "title": "httpie/__main__.py"
+      },
+      {
+       "nodeId": "file:httpie/core.py",
+       "title": "httpie/core.py"
+      },
+      {
+       "nodeId": "file:httpie/status.py",
+       "title": "httpie/status.py"
+      }
+     ]
+    },
+    {
+     "id": "9a8fe6f2-81c8-457c-8087-3fa009bb5571:6",
+     "type": "multiple_choice",
+     "difficulty": "hard",
+     "concept": "Extending exit codes",
+     "question": "You need HTTPie to exit with a distinct code when a new kind of error occurs during a request. Where should the change go?",
+     "answer": "Add a member to the ExitStatus enum and return it from the matching exception handler in core.raw_main; __main__.main needs no change",
+     "distractors": [
+      "Add a new except clause to __main__.main that catches the error and returns a hard-coded integer",
+      "Change __main__.main to translate each ExitStatus into an integer with its own lookup table",
+      "Raise SystemExit with the new code from the request code so it bypasses ExitStatus entirely"
+     ],
+     "choices": [
+      "Add a new except clause to __main__.main that catches the error and returns a hard-coded integer",
+      "Add a member to the ExitStatus enum and return it from the matching exception handler in core.raw_main; __main__.main needs no change",
+      "Change __main__.main to translate each ExitStatus into an integer with its own lookup table",
+      "Raise SystemExit with the new code from the request code so it bypasses ExitStatus entirely"
+     ],
+     "explanation": "Error-to-status mapping lives in raw_main's except chain (httpie/core.py:104-141) using ExitStatus members (httpie/status.py:5-20), while __main__.main just returns exit_status.value, so it works for any new member (httpie/__main__.py:14). A SystemExit with a non-success code is turned into the generic ExitStatus.ERROR by raw_main (httpie/core.py:109-114), so the custom code would be lost.",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/__main__.py",
+       "title": "httpie/__main__.py"
+      },
+      {
+       "nodeId": "file:httpie/core.py",
+       "title": "httpie/core.py"
+      },
+      {
+       "nodeId": "file:httpie/status.py",
+       "title": "httpie/status.py"
+      }
+     ]
+    }
+   ],
+   "createdMs": 1795332881854
+  },
+  {
+   "schemaVersion": 1,
+   "id": "32b746f4-7eb3-43a9-b215-2b3d266767aa",
+   "tourId": "1eb0cd87-d177-44e5-87cc-7faeee8a8706",
+   "tourRevision": 1,
+   "stopIndex": 2,
+   "nodeId": "file:httpie/internal/daemons.py",
+   "language": "en",
+   "questions": [
+    {
+     "id": "32b746f4-7eb3-43a9-b215-2b3d266767aa:1",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "Detached background process",
+     "question": "On Linux, _spawn_posix forks twice and calls os.setsid() in between. What is this sequence meant to achieve for the user who just ran an `http` command?",
+     "answer": "The background task becomes detached from the user's process, so their command can finish without waiting for the task",
+     "distractors": [
+      "The task runs twice in parallel so one copy can retry if the other fails",
+      "The task inherits the user's terminal so it can print its result when it finishes",
+      "The parent process waits for both children to exit before returning an exit status"
+     ],
+     "choices": [
+      "The task runs twice in parallel so one copy can retry if the other fails",
+      "The background task becomes detached from the user's process, so their command can finish without waiting for the task",
+      "The task inherits the user's terminal so it can print its result when it finishes",
+      "The parent process waits for both children to exit before returning an exit status"
+     ],
+     "explanation": "The docstring says the double fork detaches from the parent \"so that we don't block the user\" (httpie/internal/daemons.py:56-59); the original process returns right after the first fork (daemons.py:67-69) and the intermediate child exits after the second (daemons.py:76-78). The task does not keep the terminal: stdin/stdout/stderr are closed (daemons.py:83-85), and nothing waits for the children in the parent.",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/internal/daemons.py",
+       "title": "httpie/internal/daemons.py"
+      }
+     ]
+    },
+    {
+     "id": "32b746f4-7eb3-43a9-b215-2b3d266767aa:2",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "Platform-specific isolation",
+     "question": "After the double fork on macOS (Darwin), the code starts a subprocess and then calls process.communicate() to wait for it. Why is waiting acceptable here even though the whole point is not to block the user?",
+     "answer": "The waiting happens in the already-detached grandchild, so only the background process blocks, not the user's command",
+     "distractors": [
+      "communicate() returns immediately on macOS because stdout and stderr are discarded",
+      "macOS cannot run the task without a parent attached, so the user's process must wait anyway",
+      "Waiting lets the subprocess send its output back to the user's terminal"
+     ],
+     "choices": [
+      "The waiting happens in the already-detached grandchild, so only the background process blocks, not the user's command",
+      "Waiting lets the subprocess send its output back to the user's terminal",
+      "communicate() returns immediately on macOS because stdout and stderr are discarded",
+      "macOS cannot run the task without a parent attached, so the user's process must wait anyway"
+     ],
+     "explanation": "The comment notes double-fork alone is not reliable on macOS, so a subprocess isolates the task, and \"since we already completed the fork procedure we can simply join the process\" (httpie/internal/daemons.py:87-93). By then the user's original process has already returned from the first fork (daemons.py:67-69). The output is not sent back: _start_process redirects it to DEVNULL (daemons.py:29).",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/internal/daemons.py",
+       "title": "httpie/internal/daemons.py"
+      }
+     ]
+    },
+    {
+     "id": "32b746f4-7eb3-43a9-b215-2b3d266767aa:3",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "Daemon-mode dispatch flow",
+     "question": "spawn_daemon('fetch_updates') ends up launching HTTPie's normal entry point again. How does that new process know to run the background task instead of treating 'fetch_updates' as a URL to request?",
+     "answer": "spawn_daemon appends '--daemon' to the arguments, and raw_main checks is_daemon_mode(args) first and hands off to run_daemon_task before plugins load or arguments are parsed",
+     "distractors": [
+      "spawn_daemon sets a PYTHONPATH environment variable that core.main reads to choose daemon mode",
+      "httpie/__main__.py inspects the task name and calls the task function directly without going through core.main",
+      "The argument parser recognises 'fetch_updates' as a subcommand and routes it to the update checker"
+     ],
+     "choices": [
+      "The argument parser recognises 'fetch_updates' as a subcommand and routes it to the update checker",
+      "httpie/__main__.py inspects the task name and calls the task function directly without going through core.main",
+      "spawn_daemon appends '--daemon' to the arguments, and raw_main checks is_daemon_mode(args) first and hands off to run_daemon_task before plugins load or arguments are parsed",
+      "spawn_daemon sets a PYTHONPATH environment variable that core.main reads to choose daemon mode"
+     ],
+     "explanation": "spawn_daemon builds args as [task, '--daemon'] (httpie/internal/daemons.py:113), and the child runs either httpie/__main__.py via _start_process (daemons.py:26-29) or core.main(['http'] + args) directly (daemons.py:97). In httpie/core.py:43-44, raw_main returns run_daemon_task(env, args) when is_daemon_mode(args), before plugin loading (core.py:46) and parser.parse_args (core.py:77). PYTHONPATH (daemons.py:117) only makes the package importable; it does not select the mode.",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/internal/daemons.py",
+       "title": "httpie/internal/daemons.py"
+      },
+      {
+       "nodeId": "file:httpie/core.py",
+       "title": "httpie/core.py"
+      },
+      {
+       "nodeId": "file:httpie/__main__.py",
+       "title": "httpie/__main__.py"
+      }
+     ]
+    },
+    {
+     "id": "32b746f4-7eb3-43a9-b215-2b3d266767aa:4",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "Frozen vs. source installs",
+     "question": "_start_process adds httpie/__main__.py to the command only when is_frozen is false, and spawn_daemon sets PYTHONPATH only in that case too. What problem would appear if HTTPie were packaged as a frozen binary and the code still added the __main__.py path?",
+     "answer": "sys.executable is already the http binary, so the script path would be passed to HTTPie as an extra command-line argument rather than run as a Python script",
+     "distractors": [
+      "The frozen binary would start a second Python interpreter and run the task twice",
+      "is_windows would be evaluated incorrectly, so the POSIX branch would run on Windows",
+      "The child would inherit an empty environment because os.environ.copy() fails in frozen builds"
+     ],
+     "choices": [
+      "The child would inherit an empty environment because os.environ.copy() fails in frozen builds",
+      "The frozen binary would start a second Python interpreter and run the task twice",
+      "is_windows would be evaluated incorrectly, so the POSIX branch would run on Windows",
+      "sys.executable is already the http binary, so the script path would be passed to HTTPie as an extra command-line argument rather than run as a Python script"
+     ],
+     "explanation": "The comment in httpie/internal/daemons.py:24-25 says a frozen sys.executable \"points to the binary (http)\", while otherwise it is the Python interpreter that needs __main__.py as its script (daemons.py:26-28). is_frozen comes from getattr(sys, 'frozen', False) in httpie/compat.py:15, and httpie/__main__.py:1 documents it as the entry point used as `python -m httpie`. is_windows is a separate check (compat.py:14) that this branch does not affect.",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/internal/daemons.py",
+       "title": "httpie/internal/daemons.py"
+      },
+      {
+       "nodeId": "file:httpie/compat.py",
+       "title": "httpie/compat.py"
+      },
+      {
+       "nodeId": "file:httpie/__main__.py",
+       "title": "httpie/__main__.py"
+      }
+     ]
+    },
+    {
+     "id": "32b746f4-7eb3-43a9-b215-2b3d266767aa:5",
+     "type": "multiple_choice",
+     "difficulty": "hard",
+     "concept": "Keeping network work off the request path",
+     "question": "check_updates runs inside raw_main after argument parsing and before the user's request (main_program) is executed. Given that, why does fetch_updates hand the work to spawn_daemon by default instead of calling _fetch_updates inline?",
+     "answer": "_fetch_updates makes a blocking HTTP request to the package index, and doing that inline would delay or break every user command that triggers a fetch; a detached daemon keeps the user's request path fast",
+     "distractors": [
+      "The version file can only be written while holding a lock, and only a separate process is allowed to take that lock",
+      "Running inline would make the update warning appear twice because check_updates is decorated with _update_checker",
+      "The daemon runs with elevated privileges so it can write the version file into a protected directory"
+     ],
+     "choices": [
+      "_fetch_updates makes a blocking HTTP request to the package index, and doing that inline would delay or break every user command that triggers a fetch; a detached daemon keeps the user's request path fast",
+      "The version file can only be written while holding a lock, and only a separate process is allowed to take that lock",
+      "Running inline would make the update warning appear twice because check_updates is decorated with _update_checker",
+      "The daemon runs with elevated privileges so it can write the version file into a protected directory"
+     ],
+     "explanation": "In httpie/core.py:97-100, check_updates(env) is called right before main_program, and the _update_checker wrapper then calls maybe_fetch_updates (httpie/internal/update_warnings.py:97-102), which calls fetch_updates with lazy=True, so spawn_daemon('fetch_updates') is used (update_warnings.py:55-57). _fetch_updates performs requests.get on PACKAGE_INDEX_LINK (update_warnings.py:44), and daemons.py:56-59 says detaching exists so the user is not blocked while the release fetcher runs. The lockfile (update_warnings.py:51) is used in the normal process as well, so it is not a reason to need a separate process.",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/internal/daemons.py",
+       "title": "httpie/internal/daemons.py"
+      },
+      {
+       "nodeId": "file:httpie/internal/update_warnings.py",
+       "title": "httpie/internal/update_warnings.py"
+      },
+      {
+       "nodeId": "file:httpie/core.py",
+       "title": "httpie/core.py"
+      }
+     ]
+    },
+    {
+     "id": "32b746f4-7eb3-43a9-b215-2b3d266767aa:6",
+     "type": "multiple_choice",
+     "difficulty": "hard",
+     "concept": "Fork semantics and error containment",
+     "question": "In the POSIX grandchild, the task runs inside suppress(BaseException) and the function always ends with os._exit(0). Suppose someone replaced os._exit(0) with a plain return and removed the suppress block. What would be the most serious consequence?",
+     "answer": "The forked grandchild would return into the copied call stack (check_updates → raw_main) and continue running the user's original command in the background, or let an exception escape into that inherited code",
+     "distractors": [
+      "The parent process would become a zombie because the grandchild would never be reaped",
+      "The update warning would be printed on the user's terminal even when disable_update_warnings is set",
+      "The version file would be deleted because the lockfile is released without a final write"
+     ],
+     "choices": [
+      "The forked grandchild would return into the copied call stack (check_updates → raw_main) and continue running the user's original command in the background, or let an exception escape into that inherited code",
+      "The parent process would become a zombie because the grandchild would never be reaped",
+      "The version file would be deleted because the lockfile is released without a final write",
+      "The update warning would be printed on the user's terminal even when disable_update_warnings is set"
+     ],
+     "explanation": "A forked child continues from the same point as its parent, and here that point is inside spawn_daemon, which was called from fetch_updates/maybe_fetch_updates in the check_updates wrapper (httpie/internal/update_warnings.py:55-57, 97-102), itself called from raw_main just before main_program (httpie/core.py:98-100). os._exit(0) (httpie/internal/daemons.py:99) ends the grandchild without unwinding that stack, and suppress(BaseException) around main(['http'] + args) (daemons.py:96-97) stops a task failure from leaking into the inherited code. The intermediate child also exits with os._exit (daemons.py:78), and the disable flag is checked separately (update_warnings.py:142), so the distractors do not follow from this change.",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/internal/daemons.py",
+       "title": "httpie/internal/daemons.py"
+      },
+      {
+       "nodeId": "file:httpie/internal/update_warnings.py",
+       "title": "httpie/internal/update_warnings.py"
+      },
+      {
+       "nodeId": "file:httpie/core.py",
+       "title": "httpie/core.py"
+      }
+     ]
+    }
+   ],
+   "createdMs": 1795332888489
+  },
+  {
+   "schemaVersion": 1,
+   "id": "2b0c5c23-41b1-435c-b2c1-c5de22722b80",
+   "tourId": "1eb0cd87-d177-44e5-87cc-7faeee8a8706",
+   "tourRevision": 1,
+   "stopIndex": 3,
+   "nodeId": "file:httpie/compat.py",
+   "language": "en",
+   "questions": [
+    {
+     "id": "2b0c5c23-41b1-435c-b2c1-c5de22722b80:1",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "Per-instance caching via a descriptor",
+     "question": "On a Python version where the fallback cached_property class is used, an object's decorated property is read twice. What happens on the second read?",
+     "answer": "The value stored in the instance's __dict__ during the first read is returned, so the wrapped method is not called again.",
+     "distractors": [
+      "The wrapped method runs again, and its new result overwrites the value that was cached on the first read.",
+      "The value is looked up in a cache shared by every instance of the class, so all instances get the same result.",
+      "A TypeError is raised, because one cached_property cannot be read more than once on the same object."
+     ],
+     "choices": [
+      "The value stored in the instance's __dict__ during the first read is returned, so the wrapped method is not called again.",
+      "The value is looked up in a cache shared by every instance of the class, so all instances get the same result.",
+      "A TypeError is raised, because one cached_property cannot be read more than once on the same object.",
+      "The wrapped method runs again, and its new result overwrites the value that was cached on the first read."
+     ],
+     "explanation": "On the first read, __get__ calls the function and writes the result into instance.__dict__ under the property's name. Later reads find that value on the instance, as the docstring says (httpie/compat.py:58-67). The cache is per instance, not per class, and the TypeError only fires when __set_name__ was never called or when one object is bound to two different names (httpie/compat.py:38-56).",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/compat.py",
+       "title": "httpie/compat.py"
+      },
+      {
+       "nodeId": "class:httpie/compat.py::cached_property",
+       "title": "cached_property"
+      }
+     ]
+    },
+    {
+     "id": "2b0c5c23-41b1-435c-b2c1-c5de22722b80:2",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "Version fallback with try/except ImportError",
+     "question": "Why does compat.py wrap `from functools import cached_property` in try/except ImportError and define its own class in the except branch?",
+     "answer": "functools.cached_property does not exist on the oldest supported Python, so the module supplies a copy that works the same way there.",
+     "distractors": [
+      "The standard library version is slow, so HTTPie always prefers its own copy when both are available.",
+      "The local class adds thread locking that the functools version lacks, so the local class is used on every Python version.",
+      "The import only fails on Windows, so the fallback exists to support the is_windows platform check."
+     ],
+     "choices": [
+      "The standard library version is slow, so HTTPie always prefers its own copy when both are available.",
+      "The local class adds thread locking that the functools version lacks, so the local class is used on every Python version.",
+      "The import only fails on Windows, so the fallback exists to support the is_windows platform check.",
+      "functools.cached_property does not exist on the oldest supported Python, so the module supplies a copy that works the same way there."
+     ],
+     "explanation": "The supported range starts at Python 3.7 (httpie/compat.py:17), and the comment says the fallback can be removed once Python versions below 3.8 are dropped (httpie/compat.py:20-25). The local class is only defined when the import fails, so it never replaces the standard version, and nothing in it is tied to Windows.",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/compat.py",
+       "title": "httpie/compat.py"
+      },
+      {
+       "nodeId": "class:httpie/compat.py::cached_property",
+       "title": "cached_property"
+      }
+     ]
+    },
+    {
+     "id": "2b0c5c23-41b1-435c-b2c1-c5de22722b80:3",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "Hiding entry-point API differences behind a shim",
+     "question": "PluginManager.iter_entry_points gets entry points from importlib_metadata.entry_points() and passes them to compat.find_entry_points for each plugin group. Why doesn't it index the result directly, e.g. eps[group]?",
+     "answer": "Depending on the Python or importlib_metadata version, entry_points() returns either an object with .select() or a dict-like mapping, and find_entry_points handles both shapes.",
+     "distractors": [
+      "find_entry_points also scans the plugins directory on disk, which entry_points() alone cannot see.",
+      "Direct indexing would load every plugin class immediately, while find_entry_points delays loading until register().",
+      "find_entry_points removes plugins whose group is not in ENTRY_POINT_CLASSES, so this filter would otherwise be skipped."
+     ],
+     "choices": [
+      "Direct indexing would load every plugin class immediately, while find_entry_points delays loading until register().",
+      "Depending on the Python or importlib_metadata version, entry_points() returns either an object with .select() or a dict-like mapping, and find_entry_points handles both shapes.",
+      "find_entry_points also scans the plugins directory on disk, which entry_points() alone cannot see.",
+      "find_entry_points removes plugins whose group is not in ENTRY_POINT_CLASSES, so this filter would otherwise be skipped."
+     ],
+     "explanation": "find_entry_points calls .select(group=...) when it exists (Python 3.10+ / importlib_metadata >= 3.9.0) and otherwise falls back to entry_points.get(group, ()) (httpie/compat.py:79-83). PluginManager loops over the plugin group names and delegates to it (httpie/plugins/manager.py:59-64). The plugins directory is added to sys.path by enable_plugins, not by the shim, and loading happens later in load_installed_plugins (httpie/plugins/manager.py:66-70).",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/compat.py",
+       "title": "httpie/compat.py"
+      },
+      {
+       "nodeId": "file:httpie/plugins/manager.py",
+       "title": "httpie/plugins/manager.py"
+      }
+     ]
+    },
+    {
+     "id": "2b0c5c23-41b1-435c-b2c1-c5de22722b80:4",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "Platform flag consumed by config resolution",
+     "question": "A Windows user sets the HTTPIE_CONFIG_DIR environment variable. How does get_default_config_dir in config.py, which also uses the is_windows flag from compat.py, decide where the config lives?",
+     "answer": "It returns the HTTPIE_CONFIG_DIR path, because that variable is checked before the is_windows branch.",
+     "distractors": [
+      "It returns the %APPDATA%\\httpie directory, because is_windows overrides any setting from the environment.",
+      "It returns the legacy ~/.httpie directory if that folder exists, and the variable only applies when it doesn't.",
+      "It joins HTTPIE_CONFIG_DIR with %APPDATA%, so the Windows base path is always kept."
+     ],
+     "choices": [
+      "It joins HTTPIE_CONFIG_DIR with %APPDATA%, so the Windows base path is always kept.",
+      "It returns the HTTPIE_CONFIG_DIR path, because that variable is checked before the is_windows branch.",
+      "It returns the %APPDATA%\\httpie directory, because is_windows overrides any setting from the environment.",
+      "It returns the legacy ~/.httpie directory if that folder exists, and the variable only applies when it doesn't."
+     ],
+     "explanation": "compat.py computes is_windows once from sys.platform (httpie/compat.py:14). config.py first checks the explicit environment variable and only then the is_windows branch (httpie/config.py:34-41). The legacy ~/.httpie lookup comes after both checks (httpie/config.py:45-48), and the paths are never combined.",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/compat.py",
+       "title": "httpie/compat.py"
+      },
+      {
+       "nodeId": "file:httpie/config.py",
+       "title": "httpie/config.py"
+      }
+     ]
+    },
+    {
+     "id": "2b0c5c23-41b1-435c-b2c1-c5de22722b80:5",
+     "type": "multiple_choice",
+     "difficulty": "hard",
+     "concept": "Process-wide monkeypatch and import-order dependency",
+     "question": "compat.py replaces http.cookiejar.DefaultCookiePolicy with HTTPieCookiePolicy at import time instead of handing the policy to each cookie jar. What is the main trade-off of this choice?",
+     "answer": "Any code that uses the module's default policy after the patch gets the localhost-as-secure behavior, so the change is process-wide and depends on compat being imported before that code runs.",
+     "distractors": [
+      "The patch only affects cookie jars created inside compat.py, so other modules need their own copy of the policy.",
+      "The patch makes plain-HTTP remote hosts count as secure, which weakens the Secure cookie flag for every host.",
+      "The patch is reverted when compat finishes importing, so it only affects jars created while compat is loading."
+     ],
+     "choices": [
+      "The patch makes plain-HTTP remote hosts count as secure, which weakens the Secure cookie flag for every host.",
+      "Any code that uses the module's default policy after the patch gets the localhost-as-secure behavior, so the change is process-wide and depends on compat being imported before that code runs.",
+      "The patch is reverted when compat finishes importing, so it only affects jars created while compat is loading.",
+      "The patch only affects cookie jars created inside compat.py, so other modules need their own copy of the policy."
+     ],
+     "explanation": "The comment says Requests does not carry the policy attached to the jar, so HTTPie changes the global default instead (httpie/compat.py:9-12). HTTPieCookiePolicy relaxes return_ok_secure only for localhost and *.localhost, not for every plain-HTTP host (httpie/cookies.py:9-25). Because the change lives at module level in compat.py, which many httpie modules import, it reaches the whole process rather than one jar and is never reverted.",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/compat.py",
+       "title": "httpie/compat.py"
+      },
+      {
+       "nodeId": "file:httpie/cookies.py",
+       "title": "httpie/cookies.py"
+      },
+      {
+       "nodeId": "class:httpie/cookies.py::HTTPieCookiePolicy",
+       "title": "HTTPieCookiePolicy"
+      }
+     ]
+    },
+    {
+     "id": "2b0c5c23-41b1-435c-b2c1-c5de22722b80:6",
+     "type": "multiple_choice",
+     "difficulty": "hard",
+     "concept": "Centralized compatibility layer and safe removal of shims",
+     "question": "The team drops Python 3.7 support. PluginManager and PluginInstaller both import importlib_metadata (and helpers like get_dist_name) from httpie.compat. Which plan is correct?",
+     "answer": "Remove the cached_property fallback and the importlib_metadata backport branch in compat.py. Consumers keep importing the same names from httpie.compat, but find_entry_points and get_dist_name stay, because Python 3.8–3.9 still use the older API shape.",
+     "distractors": [
+      "Remove the backport branch and also delete find_entry_points and get_dist_name, since every version from 3.8 up has the same importlib.metadata API.",
+      "Change every consumer to import importlib.metadata directly, because the compat module's re-export only works while the backport is installed.",
+      "Leave compat.py as is and add version checks to PluginManager and PluginInstaller, since the shim cannot be changed without breaking them."
+     ],
+     "choices": [
+      "Leave compat.py as is and add version checks to PluginManager and PluginInstaller, since the shim cannot be changed without breaking them.",
+      "Remove the backport branch and also delete find_entry_points and get_dist_name, since every version from 3.8 up has the same importlib.metadata API.",
+      "Change every consumer to import importlib.metadata directly, because the compat module's re-export only works while the backport is installed.",
+      "Remove the cached_property fallback and the importlib_metadata backport branch in compat.py. Consumers keep importing the same names from httpie.compat, but find_entry_points and get_dist_name stay, because Python 3.8–3.9 still use the older API shape."
+     ],
+     "explanation": "The backport is only selected below 3.8 (httpie/compat.py:73-76), and the fallback class is marked removable once versions below 3.8 are dropped (httpie/compat.py:23). However, find_entry_points and get_dist_name branch on features that only arrived in 3.10 (httpie/compat.py:80, 88), so they are still needed. Since consumers import from httpie.compat (httpie/plugins/manager.py:11, httpie/manager/tasks/plugins.py:13), the change stays inside compat.py.",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/compat.py",
+       "title": "httpie/compat.py"
+      },
+      {
+       "nodeId": "file:httpie/plugins/manager.py",
+       "title": "httpie/plugins/manager.py"
+      },
+      {
+       "nodeId": "class:httpie/plugins/manager.py::PluginManager",
+       "title": "PluginManager"
+      },
+      {
+       "nodeId": "file:httpie/manager/tasks/plugins.py",
+       "title": "httpie/manager/tasks/plugins.py"
+      },
+      {
+       "nodeId": "class:httpie/manager/tasks/plugins.py::PluginInstaller",
+       "title": "PluginInstaller"
+      }
+     ]
+    }
+   ],
+   "createdMs": 1795332930881
+  },
+  {
+   "schemaVersion": 1,
+   "id": "3c70929d-c239-4c4e-95d9-e9908968a994",
+   "tourId": "1eb0cd87-d177-44e5-87cc-7faeee8a8706",
+   "tourRevision": 1,
+   "stopIndex": 4,
+   "nodeId": "file:httpie/config.py",
+   "language": "en",
+   "questions": [
+    {
+     "id": "3c70929d-c239-4c4e-95d9-e9908968a994:1",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "Config directory resolution priority",
+     "question": "On a Linux machine, a user has an existing ~/.httpie directory, XDG_CONFIG_HOME is set to ~/xdg, and they also export HTTPIE_CONFIG_DIR=/opt/httpie-conf. Which directory does get_default_config_dir() return?",
+     "answer": "/opt/httpie-conf, because an explicit HTTPIE_CONFIG_DIR is checked first and returned immediately",
+     "distractors": [
+      "~/.httpie, because an existing legacy directory always takes precedence for backward compatibility",
+      "~/xdg/httpie, because the XDG Base Directory specification overrides application-specific variables",
+      "~/.config/httpie, because the XDG default is used whenever more than one location is configured"
+     ],
+     "choices": [
+      "~/xdg/httpie, because the XDG Base Directory specification overrides application-specific variables",
+      "~/.config/httpie, because the XDG default is used whenever more than one location is configured",
+      "/opt/httpie-conf, because an explicit HTTPIE_CONFIG_DIR is checked first and returned immediately",
+      "~/.httpie, because an existing legacy directory always takes precedence for backward compatibility"
+     ],
+     "explanation": "The function checks the HTTPIE_CONFIG_DIR environment variable before anything else and returns it as soon as it is set (httpie/config.py:35-37). The legacy ~/.httpie and XDG locations are only consulted afterwards, as fallbacks (httpie/config.py:45-55), so they lose here.",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/config.py",
+       "title": "httpie/config.py"
+      }
+     ]
+    },
+    {
+     "id": "3c70929d-c239-4c4e-95d9-e9908968a994:2",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "Missing file vs. broken file handling",
+     "question": "A user runs HTTPie for the first time, so config.json does not exist yet. What happens when Config.load() is called?",
+     "answer": "read_raw_config swallows FileNotFoundError and returns None, so load() skips the update and the Config keeps its built-in defaults",
+     "distractors": [
+      "read_raw_config raises ConfigFileError saying the file cannot be read, and the caller has to create the file",
+      "load() creates an empty config.json on disk before reading it, so the next read always succeeds",
+      "json.load receives an empty stream and raises ValueError, which is reported as an invalid config file"
+     ],
+     "choices": [
+      "read_raw_config raises ConfigFileError saying the file cannot be read, and the caller has to create the file",
+      "load() creates an empty config.json on disk before reading it, so the next read always succeeds",
+      "json.load receives an empty stream and raises ValueError, which is reported as an invalid config file",
+      "read_raw_config swallows FileNotFoundError and returns None, so load() skips the update and the Config keeps its built-in defaults"
+     ],
+     "explanation": "FileNotFoundError is caught and ignored (httpie/config.py:74-75), so the function returns None and load() only merges data when it is not None (httpie/config.py:105-108). The defaults set in Config.__init__ stay in place (httpie/config.py:146). Only other OS errors and invalid JSON become ConfigFileError (httpie/config.py:70-77), and load() never writes a file.",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/config.py",
+       "title": "httpie/config.py"
+      },
+      {
+       "nodeId": "class:httpie/config.py::BaseConfigDict",
+       "title": "BaseConfigDict"
+      },
+      {
+       "nodeId": "class:httpie/config.py::Config",
+       "title": "Config"
+      }
+     ]
+    },
+    {
+     "id": "3c70929d-c239-4c4e-95d9-e9908968a994:3",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "Template-method hooks for load/save",
+     "question": "During a request, a new cookie is added to a Session's in-memory cookie_jar. When session.save() runs, how does that cookie end up in the JSON file, given that BaseConfigDict.save() only serializes the dict itself?",
+     "answer": "save() passes the dict through post_process_data, which Session overrides to turn cookie_jar into a list of cookies stored under data['cookies'] before the JSON is dumped",
+     "distractors": [
+      "BaseConfigDict.save() looks over all instance attributes, including cookie_jar, and serializes them along with the dict keys",
+      "Session sets self['cookies'] every time a cookie is added, so save() only writes keys that are already up to date",
+      "The cookie_jar writes its own separate file next to the session JSON, and load() merges the two later"
+     ],
+     "choices": [
+      "save() passes the dict through post_process_data, which Session overrides to turn cookie_jar into a list of cookies stored under data['cookies'] before the JSON is dumped",
+      "BaseConfigDict.save() looks over all instance attributes, including cookie_jar, and serializes them along with the dict keys",
+      "Session sets self['cookies'] every time a cookie is added, so save() only writes keys that are already up to date",
+      "The cookie_jar writes its own separate file next to the session JSON, and load() merges the two later"
+     ],
+     "explanation": "The base save() calls json.dumps on self.post_process_data(self) (httpie/config.py:122-127), and the base hook does nothing (httpie/config.py:99-101). Session overrides that hook to turn its cookie_jar and _headers into plain lists (httpie/sessions.py:185-198). Loading works the same way in reverse through pre_process_data (httpie/config.py:107, httpie/sessions.py:170-183). Attributes such as cookie_jar are never serialized on their own.",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/config.py",
+       "title": "httpie/config.py"
+      },
+      {
+       "nodeId": "class:httpie/config.py::BaseConfigDict",
+       "title": "BaseConfigDict"
+      },
+      {
+       "nodeId": "file:httpie/sessions.py",
+       "title": "httpie/sessions.py"
+      }
+     ]
+    },
+    {
+     "id": "3c70929d-c239-4c4e-95d9-e9908968a994:4",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "Class-level metadata in a shared base class",
+     "question": "A developer notices that saved session files contain '__meta__.help' and '__meta__.about' entries, but config.json only has '__meta__.httpie'. Both are written by the same save() method. What explains the difference?",
+     "answer": "Session sets the class attributes helpurl and about, while Config leaves the base defaults of None, and save() only writes those keys when they are set",
+     "distractors": [
+      "Config.save() is overridden to remove help and about, because the main config should stay minimal",
+      "save() writes help and about only when the file is new, and config.json is usually created before sessions",
+      "Session.post_process_data adds the help and about keys when it serializes cookies and headers"
+     ],
+     "choices": [
+      "Session.post_process_data adds the help and about keys when it serializes cookies and headers",
+      "Session sets the class attributes helpurl and about, while Config leaves the base defaults of None, and save() only writes those keys when they are set",
+      "Config.save() is overridden to remove help and about, because the main config should stay minimal",
+      "save() writes help and about only when the file is new, and config.json is usually created before sessions"
+     ],
+     "explanation": "BaseConfigDict sets helpurl and about to None (httpie/config.py:82-83), and save() adds them to __meta__ only when they have a value (httpie/config.py:114-118). Session gives both a value (httpie/sessions.py:125-126), but Config does not set them and does not override save() (httpie/config.py:137-172). Session.post_process_data only touches cookies and headers (httpie/sessions.py:185-198).",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/config.py",
+       "title": "httpie/config.py"
+      },
+      {
+       "nodeId": "class:httpie/config.py::BaseConfigDict",
+       "title": "BaseConfigDict"
+      },
+      {
+       "nodeId": "class:httpie/config.py::Config",
+       "title": "Config"
+      },
+      {
+       "nodeId": "file:httpie/sessions.py",
+       "title": "httpie/sessions.py"
+      }
+     ]
+    },
+    {
+     "id": "3c70929d-c239-4c4e-95d9-e9908968a994:5",
+     "type": "multiple_choice",
+     "difficulty": "hard",
+     "concept": "Error translation and graceful degradation",
+     "question": "A user hand-edits config.json and leaves a trailing comma, so the JSON is invalid. Following Environment.config and BaseConfigDict.load, what is the result for the HTTPie run, and why does this work?",
+     "answer": "The run continues with the default options: read_raw_config turns the ValueError into ConfigFileError, which Environment.config catches and logs as a warning, and update() is never reached",
+     "distractors": [
+      "The run aborts with a traceback, because json.load's ValueError passes through load() and Environment.config without being caught",
+      "The run continues with the valid keys parsed before the comma, because load() merges data incrementally as it is parsed",
+      "The run continues silently with defaults, because read_raw_config treats any read problem like a missing file and returns None"
+     ],
+     "choices": [
+      "The run continues with the default options: read_raw_config turns the ValueError into ConfigFileError, which Environment.config catches and logs as a warning, and update() is never reached",
+      "The run continues with the valid keys parsed before the comma, because load() merges data incrementally as it is parsed",
+      "The run continues silently with defaults, because read_raw_config treats any read problem like a missing file and returns None",
+      "The run aborts with a traceback, because json.load's ValueError passes through load() and Environment.config without being caught"
+     ],
+     "explanation": "read_raw_config wraps the JSON ValueError in the domain exception ConfigFileError (httpie/config.py:68-73), so load() raises before self.update(data) (httpie/config.py:105-108). Environment.config catches ConfigFileError and reports it with log_error at WARNING level (httpie/context.py:143-148), so the Config keeps its DEFAULTS (httpie/config.py:146). Only FileNotFoundError is silenced (httpie/config.py:74-75), so the user does see a warning.",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/config.py",
+       "title": "httpie/config.py"
+      },
+      {
+       "nodeId": "class:httpie/config.py::BaseConfigDict",
+       "title": "BaseConfigDict"
+      },
+      {
+       "nodeId": "class:httpie/config.py::Config",
+       "title": "Config"
+      },
+      {
+       "nodeId": "class:httpie/config.py::ConfigFileError",
+       "title": "ConfigFileError"
+      },
+      {
+       "nodeId": "file:httpie/context.py",
+       "title": "httpie/context.py"
+      },
+      {
+       "nodeId": "class:httpie/context.py::Environment",
+       "title": "Environment"
+      }
+     ]
+    },
+    {
+     "id": "3c70929d-c239-4c4e-95d9-e9908968a994:6",
+     "type": "multiple_choice",
+     "difficulty": "hard",
+     "concept": "Import-time defaults vs. injected configuration",
+     "question": "A test imports httpie, then sets os.environ['HTTPIE_CONFIG_DIR'] to a temporary directory and expects Environment().config and the default sessions directory to use it. Why does this fail, and what does the design expect instead?",
+     "answer": "DEFAULT_CONFIG_DIR is computed once at import time and copied into Environment.config_dir and DEFAULT_SESSIONS_DIR, so later environment changes are ignored. Tests should pass config_dir as a keyword argument to Environment, which overrides the class attribute",
+     "distractors": [
+      "get_default_config_dir() runs on each Config() call, but the test fails because Config caches the first directory it saw in a class-level singleton",
+      "The variable is read correctly, but Environment.config only uses it after config.json exists, so the test must create the file first",
+      "HTTPIE_CONFIG_DIR is ignored whenever XDG_CONFIG_HOME is set, so the test must clear XDG_CONFIG_HOME instead"
+     ],
+     "choices": [
+      "HTTPIE_CONFIG_DIR is ignored whenever XDG_CONFIG_HOME is set, so the test must clear XDG_CONFIG_HOME instead",
+      "get_default_config_dir() runs on each Config() call, but the test fails because Config caches the first directory it saw in a class-level singleton",
+      "The variable is read correctly, but Environment.config only uses it after config.json exists, so the test must create the file first",
+      "DEFAULT_CONFIG_DIR is computed once at import time and copied into Environment.config_dir and DEFAULT_SESSIONS_DIR, so later environment changes are ignored. Tests should pass config_dir as a keyword argument to Environment, which overrides the class attribute"
+     ],
+     "explanation": "DEFAULT_CONFIG_DIR = get_default_config_dir() runs at module level (httpie/config.py:58). That value then becomes the default for Config.__init__ (httpie/config.py:143), the Environment.config_dir class attribute (httpie/context.py:58), and DEFAULT_SESSIONS_DIR (httpie/sessions.py:30). Environment.__init__ lets keyword arguments override class attributes, which its docstring says the test suite relies on (httpie/context.py:51-53, 99-100), and config builds Config(directory=self.config_dir) (httpie/context.py:143). The trade-off is cheap, stable defaults in exchange for ignoring later changes to the environment variable.",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/config.py",
+       "title": "httpie/config.py"
+      },
+      {
+       "nodeId": "class:httpie/config.py::Config",
+       "title": "Config"
+      },
+      {
+       "nodeId": "file:httpie/context.py",
+       "title": "httpie/context.py"
+      },
+      {
+       "nodeId": "class:httpie/context.py::Environment",
+       "title": "Environment"
+      },
+      {
+       "nodeId": "file:httpie/sessions.py",
+       "title": "httpie/sessions.py"
+      }
+     ]
+    }
+   ],
+   "createdMs": 1795335113415
+  },
+  {
+   "schemaVersion": 1,
+   "id": "87858e55-bf4a-4a9f-8e4d-3f1aa4752474",
+   "tourId": "1eb0cd87-d177-44e5-87cc-7faeee8a8706",
+   "tourRevision": 1,
+   "stopIndex": 5,
+   "nodeId": "file:httpie/plugins/manager.py",
+   "language": "en",
+   "questions": [
+    {
+     "id": "87858e55-bf4a-4a9f-8e4d-3f1aa4752474:1",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "Fault-tolerant plugin loading",
+     "question": "A user has three plugins installed, and one of them raises an exception when its module is imported. What happens when PluginManager.load_installed_plugins runs?",
+     "answer": "A warning names the broken plugin and suggests how to uninstall it, and the remaining plugins are still loaded and registered",
+     "distractors": [
+      "The exception propagates and HTTPie stops at startup until the broken plugin is removed",
+      "Loading stops at the broken plugin, so only plugins discovered before it get registered",
+      "The broken plugin is registered anyway, with package_name set to None to mark it as failed"
+     ],
+     "choices": [
+      "The exception propagates and HTTPie stops at startup until the broken plugin is removed",
+      "The broken plugin is registered anyway, with package_name set to None to mark it as failed",
+      "A warning names the broken plugin and suggests how to uninstall it, and the remaining plugins are still loaded and registered",
+      "Loading stops at the broken plugin, so only plugins discovered before it get registered"
+     ],
+     "explanation": "The entry_point.load() call is wrapped in try/except; on failure it calls warnings.warn with uninstall hints and then `continue`s to the next entry point (httpie/plugins/manager.py:69-78). Only plugins that load successfully reach package_name assignment and register() (httpie/plugins/manager.py:79-80), so the broken one is skipped and nothing is aborted.",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/plugins/manager.py",
+       "title": "httpie/plugins/manager.py"
+      },
+      {
+       "nodeId": "class:httpie/plugins/manager.py::PluginManager",
+       "title": "PluginManager"
+      }
+     ]
+    },
+    {
+     "id": "87858e55-bf4a-4a9f-8e4d-3f1aa4752474:2",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "Temporary sys.path scoping",
+     "question": "What does enable_plugins(plugins_dir) do to Python's import path, and for how long?",
+     "answer": "It adds the plugin directory's site paths to sys.path only while the with-block runs and removes them afterwards, even if an error occurs",
+     "distractors": [
+      "It permanently appends the plugin directory to sys.path so that later imports anywhere can find plugins",
+      "It replaces sys.path with only the plugin directory, so that just plugin packages are visible inside the block",
+      "It copies plugin packages into the main site-packages directory before importing them"
+     ],
+     "choices": [
+      "It replaces sys.path with only the plugin directory, so that just plugin packages are visible inside the block",
+      "It permanently appends the plugin directory to sys.path so that later imports anywhere can find plugins",
+      "It adds the plugin directory's site paths to sys.path only while the with-block runs and removes them afterwards, even if an error occurs",
+      "It copies plugin packages into the main site-packages directory before importing them"
+     ],
+     "explanation": "_load_directories extends sys.path with the site dirs, yields, and removes each one in a finally block (httpie/plugins/manager.py:33-38). With plugins_dir=None, enable_plugins returns a nullcontext and changes nothing (httpie/plugins/manager.py:41-45). The paths are added to sys.path, not swapped in for it, and only for the duration of the block.",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/plugins/manager.py",
+       "title": "httpie/plugins/manager.py"
+      }
+     ]
+    },
+    {
+     "id": "87858e55-bf4a-4a9f-8e4d-3f1aa4752474:3",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "Version compatibility layer for entry point discovery",
+     "question": "PluginManager.iter_entry_points does not call `.select()` on the result of importlib_metadata.entry_points() itself. It hands the result to compat.find_entry_points instead. Why?",
+     "answer": "The entry_points() return type differs across Python/importlib_metadata versions, so find_entry_points uses select(group=...) where it exists and falls back to a dict-style get(group) on older versions",
+     "distractors": [
+      "find_entry_points loads every entry point and filters out those whose classes do not subclass BasePlugin",
+      "find_entry_points caches the discovered entry points so that later calls do not rescan installed packages",
+      "find_entry_points adds the plugin directory to sys.path before querying the installed distributions"
+     ],
+     "choices": [
+      "find_entry_points adds the plugin directory to sys.path before querying the installed distributions",
+      "find_entry_points caches the discovered entry points so that later calls do not rescan installed packages",
+      "find_entry_points loads every entry point and filters out those whose classes do not subclass BasePlugin",
+      "The entry_points() return type differs across Python/importlib_metadata versions, so find_entry_points uses select(group=...) where it exists and falls back to a dict-style get(group) on older versions"
+     ],
+     "explanation": "compat.find_entry_points checks hasattr(entry_points, 'select') for newer versions and otherwise uses entry_points.get(group, ()) (httpie/compat.py:79-83). compat also chooses between stdlib importlib.metadata and the backport (httpie/compat.py:73-76). The manager just loops over its group names and delegates (httpie/plugins/manager.py:61-64). Changing sys.path is enable_plugins' job, and type checks happen later in filter().",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/plugins/manager.py",
+       "title": "httpie/plugins/manager.py"
+      },
+      {
+       "nodeId": "file:httpie/compat.py",
+       "title": "httpie/compat.py"
+      }
+     ]
+    },
+    {
+     "id": "87858e55-bf4a-4a9f-8e4d-3f1aa4752474:4",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "Shared plugin-directory visibility between manager and installer",
+     "question": "PluginInstaller.run executes install, upgrade, uninstall and list inside `with enable_plugins(self.dir)`. What would most likely break if that wrapper were removed?",
+     "answer": "Metadata lookups such as importlib_metadata.distribution(target) in uninstall, and entry point discovery in list, would not see packages installed under the plugins directory",
+     "distractors": [
+      "pip would install plugins into the global site-packages instead of the plugins directory",
+      "The plugins directory would no longer be created before installation starts",
+      "Installed plugins would be registered twice in the global plugin manager"
+     ],
+     "choices": [
+      "The plugins directory would no longer be created before installation starts",
+      "Installed plugins would be registered twice in the global plugin manager",
+      "Metadata lookups such as importlib_metadata.distribution(target) in uninstall, and entry point discovery in list, would not see packages installed under the plugins directory",
+      "pip would install plugins into the global site-packages instead of the plugins directory"
+     ],
+     "explanation": "pip is given an explicit --prefix={self.dir} (httpie/manager/tasks/plugins.py:63-67), and the directory is created in setup_plugins_dir (httpie/manager/tasks/plugins.py:30-35), so neither depends on the wrapper. Lookups do depend on it, because _uninstall calls importlib_metadata.distribution(target) (httpie/manager/tasks/plugins.py:150) and list iterates entry points (httpie/manager/tasks/plugins.py:201). Those only see packages on sys.path, and enable_plugins adds the directory there temporarily (httpie/plugins/manager.py:41-45).",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/plugins/manager.py",
+       "title": "httpie/plugins/manager.py"
+      },
+      {
+       "nodeId": "file:httpie/manager/tasks/plugins.py",
+       "title": "httpie/manager/tasks/plugins.py"
+      }
+     ]
+    },
+    {
+     "id": "87858e55-bf4a-4a9f-8e4d-3f1aa4752474:5",
+     "type": "multiple_choice",
+     "difficulty": "hard",
+     "concept": "Extending the plugin system with a new category",
+     "question": "You need to add a new kind of plugin, say a 'request hook' plugin, that third-party packages can provide. Given how manager.py is structured, what is the most coherent way to extend it?",
+     "answer": "Define a new BasePlugin subclass, add its entry point group to ENTRY_POINT_CLASSES so discovery picks it up, and add a getter that uses filter() with the new base class",
+     "distractors": [
+      "Subclass PluginManager for the new category, because each plugin kind needs its own manager instance and registry",
+      "Nothing in manager.py needs to change, because filter(BasePlugin) already exposes every plugin kind through the existing getters",
+      "Add the new loading logic to PluginInstaller, since the installer decides which entry point groups exist at runtime"
+     ],
+     "choices": [
+      "Define a new BasePlugin subclass, add its entry point group to ENTRY_POINT_CLASSES so discovery picks it up, and add a getter that uses filter() with the new base class",
+      "Nothing in manager.py needs to change, because filter(BasePlugin) already exposes every plugin kind through the existing getters",
+      "Add the new loading logic to PluginInstaller, since the installer decides which entry point groups exist at runtime",
+      "Subclass PluginManager for the new category, because each plugin kind needs its own manager instance and registry"
+     ],
+     "explanation": "Discovery only scans groups listed in ENTRY_POINT_NAMES, which is derived from ENTRY_POINT_CLASSES (httpie/plugins/manager.py:18-24, 63-64). Typed access works by issubclass filtering, one getter per base class (httpie/plugins/manager.py:56-57, 83-110). The same map drives test tooling: dummy plugin classes are generated from CLASSES[group] (tests/utils/plugins_cli.py:17-20, 82), so one registration keeps discovery and tests consistent. The installer only runs pip and reads metadata, and the existing getters filter for specific subclasses, not for BasePlugin as a whole.",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/plugins/manager.py",
+       "title": "httpie/plugins/manager.py"
+      },
+      {
+       "nodeId": "file:httpie/plugins/base.py",
+       "title": "httpie/plugins/base.py"
+      },
+      {
+       "nodeId": "file:tests/utils/plugins_cli.py",
+       "title": "tests/utils/plugins_cli.py"
+      }
+     ]
+    },
+    {
+     "id": "87858e55-bf4a-4a9f-8e4d-3f1aa4752474:6",
+     "type": "multiple_choice",
+     "difficulty": "hard",
+     "concept": "Error isolation trade-off when loading plugins",
+     "question": "load_installed_plugins catches BaseException around entry_point.load(), and the test suite builds a 'broken_plugin' whose module raises at import time. What is the main trade-off of this design?",
+     "answer": "A faulty third-party plugin cannot crash the CLI, but the catch is broad enough to also swallow interrupts such as KeyboardInterrupt or SystemExit, and the failure surfaces only as a warning",
+     "distractors": [
+      "It guarantees broken plugins are uninstalled automatically, but it slows startup because pip runs on every load",
+      "It makes loading safe from crashes at no cost, because BaseException excludes interrupts and exit signals",
+      "It stops broken plugins from being discovered at all, but it hides them from the 'plugins list' output"
+     ],
+     "choices": [
+      "It guarantees broken plugins are uninstalled automatically, but it slows startup because pip runs on every load",
+      "It makes loading safe from crashes at no cost, because BaseException excludes interrupts and exit signals",
+      "It stops broken plugins from being discovered at all, but it hides them from the 'plugins list' output",
+      "A faulty third-party plugin cannot crash the CLI, but the catch is broad enough to also swallow interrupts such as KeyboardInterrupt or SystemExit, and the failure surfaces only as a warning"
+     ],
+     "explanation": "The except BaseException block warns and continues (httpie/plugins/manager.py:69-78), so an import-time failure like the fixture's `raise ValueError(\"broken plugin\")` (tests/utils/plugins_cli.py:181-186) leaves the CLI running. BaseException also covers KeyboardInterrupt and SystemExit, so those are swallowed during loading as well. Nothing is uninstalled automatically: the warning only suggests `httpie plugins uninstall`, and discovery itself (iter_entry_points) is unaffected.",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/plugins/manager.py",
+       "title": "httpie/plugins/manager.py"
+      },
+      {
+       "nodeId": "file:tests/utils/plugins_cli.py",
+       "title": "tests/utils/plugins_cli.py"
+      }
+     ]
+    }
+   ],
+   "createdMs": 1795335112467
+  },
+  {
+   "schemaVersion": 1,
+   "id": "4abd7dfc-920c-4931-bf15-7695d79b9d1c",
+   "tourId": "1eb0cd87-d177-44e5-87cc-7faeee8a8706",
+   "tourRevision": 1,
+   "stopIndex": 6,
+   "nodeId": "file:httpie/core.py",
+   "language": "en",
+   "questions": [
+    {
+     "id": "4abd7dfc-920c-4931-bf15-7695d79b9d1c:1",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "Separating error handling from the main program",
+     "question": "While program() is waiting on the server, the request times out and requests raises a Timeout. What does the user see, and what exit status comes back?",
+     "answer": "raw_main catches the Timeout, logs a 'Request timed out' message that includes the configured timeout, and returns ERROR_TIMEOUT",
+     "distractors": [
+      "program() catches the Timeout itself and retries the request once before giving up with ERROR",
+      "The Timeout is not caught, so Python prints a full traceback and the process exits with a generic error code",
+      "raw_main treats the Timeout as a parse error and returns ERROR after writing a newline to stderr"
+     ],
+     "choices": [
+      "The Timeout is not caught, so Python prints a full traceback and the process exits with a generic error code",
+      "raw_main catches the Timeout, logs a 'Request timed out' message that includes the configured timeout, and returns ERROR_TIMEOUT",
+      "raw_main treats the Timeout as a parse error and returns ERROR after writing a newline to stderr",
+      "program() catches the Timeout itself and retries the request once before giving up with ERROR"
+     ],
+     "explanation": "program() is described as 'the main program without error handling' (httpie/core.py:170-174). Its exceptions travel up to raw_main, which has a dedicated except requests.Timeout branch that sets ERROR_TIMEOUT and logs the timeout value (httpie/core.py:115-117). Nothing in program() retries the request, and the Timeout never reaches the top level as an uncaught exception.",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/core.py",
+       "title": "httpie/core.py"
+      }
+     ]
+    },
+    {
+     "id": "4abd7dfc-920c-4931-bf15-7695d79b9d1c:2",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "Option implication (--download implies --follow)",
+     "question": "A user runs a download (--download) against a URL that answers with a redirect. How does program() make sure the file saved is the one at the final location?",
+     "answer": "It turns on redirect following whenever --download is set, so the Downloader is handed the final response after all redirects",
+     "distractors": [
+      "It saves the redirect response body, because downloads always skip redirect handling",
+      "It asks the user to rerun with --follow, because redirects and downloads cannot be combined",
+      "It downloads both the redirect body and the final body and joins them into one file"
+     ],
+     "choices": [
+      "It asks the user to rerun with --follow, because redirects and downloads cannot be combined",
+      "It saves the redirect response body, because downloads always skip redirect handling",
+      "It downloads both the redirect body and the final body and joins them into one file",
+      "It turns on redirect following whenever --download is set, so the Downloader is handed the final response after all redirects"
+     ],
+     "explanation": "When args.download is set, program() forces args.follow = True, with the comment '--download implies --follow' (httpie/core.py:203-204). The last response seen in the message loop is kept as final_response (httpie/core.py:229) and passed to downloader.start (httpie/core.py:249-252). Nothing in the code saves the redirect body or rejects the combination of the two options.",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/core.py",
+       "title": "httpie/core.py"
+      }
+     ]
+    },
+    {
+     "id": "4abd7dfc-920c-4931-bf15-7695d79b9d1c:3",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "Reusing a parameterized entry point",
+     "question": "The `httpie` manager command (httpie/manager/__main__.py) calls core.raw_main rather than core.main. What does that choice give it?",
+     "answer": "It reuses the shared startup and error handling (argument decoding, the daemon check, plugin loading, exception-to-ExitStatus mapping) while supplying its own parser and program, and it skips the http command's configured default options",
+     "distractors": [
+      "It runs the regular http request pipeline first and then hands the parsed arguments to the manager's program",
+      "It avoids loading plugins, because raw_main skips plugin loading when given a non-http parser",
+      "It disables error handling, so manager errors always surface as raw tracebacks"
+     ],
+     "choices": [
+      "It runs the regular http request pipeline first and then hands the parsed arguments to the manager's program",
+      "It avoids loading plugins, because raw_main skips plugin loading when given a non-http parser",
+      "It reuses the shared startup and error handling (argument decoding, the daemon check, plugin loading, exception-to-ExitStatus mapping) while supplying its own parser and program, and it skips the http command's configured default options",
+      "It disables error handling, so manager errors always surface as raw tracebacks"
+     ],
+     "explanation": "raw_main takes a parser and a main_program as parameters (httpie/core.py:32-38). core.main just binds the http parser and program (httpie/core.py:160-167), while the manager passes its own parser, its own program and use_default_options=False (httpie/manager/__main__.py:33-42). Plugin loading in raw_main runs whatever parser is passed (httpie/core.py:46), so the plugin distractor is wrong, and the manager does not go through the http request pipeline.",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/core.py",
+       "title": "httpie/core.py"
+      },
+      {
+       "nodeId": "file:httpie/manager/__main__.py",
+       "title": "httpie/manager/__main__.py"
+      }
+     ]
+    },
+    {
+     "id": "4abd7dfc-920c-4931-bf15-7695d79b9d1c:4",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "Flow of exit status from the core to the process",
+     "question": "A user presses Ctrl+C while a response is streaming to the terminal. How does that become the process's exit code?",
+     "answer": "raw_main's inner KeyboardInterrupt handler writes a newline and returns ExitStatus.ERROR_CTRL_C; __main__.main then passes the enum's .value to sys.exit",
+     "distractors": [
+      "program() catches KeyboardInterrupt and calls sys.exit directly with ERROR_CTRL_C, bypassing raw_main",
+      "__main__.main is the only place that handles KeyboardInterrupt, so raw_main lets it pass through unchanged",
+      "raw_main converts the interrupt to SystemExit, and __main__ returns the SystemExit code without looking at ExitStatus"
+     ],
+     "choices": [
+      "raw_main's inner KeyboardInterrupt handler writes a newline and returns ExitStatus.ERROR_CTRL_C; __main__.main then passes the enum's .value to sys.exit",
+      "raw_main converts the interrupt to SystemExit, and __main__ returns the SystemExit code without looking at ExitStatus",
+      "program() catches KeyboardInterrupt and calls sys.exit directly with ERROR_CTRL_C, bypassing raw_main",
+      "__main__.main is the only place that handles KeyboardInterrupt, so raw_main lets it pass through unchanged"
+     ],
+     "explanation": "The call to main_program is wrapped in a try block whose KeyboardInterrupt branch returns ERROR_CTRL_C (httpie/core.py:99-108). httpie/__main__.py calls core.main, keeps its own KeyboardInterrupt handler as a fallback, and returns exit_status.value to sys.exit (httpie/__main__.py:6-19). program() has no KeyboardInterrupt handling of its own (httpie/core.py:170-267).",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/core.py",
+       "title": "httpie/core.py"
+      },
+      {
+       "nodeId": "file:httpie/__main__.py",
+       "title": "httpie/__main__.py"
+      }
+     ]
+    },
+    {
+     "id": "4abd7dfc-920c-4931-bf15-7695d79b9d1c:5",
+     "type": "multiple_choice",
+     "difficulty": "hard",
+     "concept": "Re-entrant entry point for background daemon tasks",
+     "question": "Background tasks are started by running the CLI entry point again with [task, '--daemon'] (on POSIX other than macOS, by calling core.main(['http'] + args) directly). Why does it matter that raw_main checks is_daemon_mode before loading plugins, adding default options, or parsing arguments?",
+     "answer": "The detached task goes straight to run_daemon_task, so it never meets the user's configured default options or the http argument parser, which do not understand that argument shape",
+     "distractors": [
+      "Daemon tasks must load plugins first so that run_daemon_task can find plugin-defined tasks, so the order is only about speed",
+      "The early check is needed because spawn_daemon has already parsed the arguments in the parent process",
+      "Moving the check later would make no difference, because default options are never applied when stdout is closed"
+     ],
+     "choices": [
+      "The detached task goes straight to run_daemon_task, so it never meets the user's configured default options or the http argument parser, which do not understand that argument shape",
+      "Moving the check later would make no difference, because default options are never applied when stdout is closed",
+      "The early check is needed because spawn_daemon has already parsed the arguments in the parent process",
+      "Daemon tasks must load plugins first so that run_daemon_task can find plugin-defined tasks, so the order is only about speed"
+     ],
+     "explanation": "spawn_daemon builds args = [task, '--daemon'] and re-enters the CLI, either through _start_process on httpie/__main__.py or by calling core.main directly (httpie/internal/daemons.py:22-29, 87-97, 112-121). raw_main returns run_daemon_task(env, args) right after decoding, before load_installed_plugins, before default_options are prepended, and before parser.parse_args (httpie/core.py:41-49, 76-80). The parent never parses these arguments, and nothing makes default options depend on stdout.",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/core.py",
+       "title": "httpie/core.py"
+      },
+      {
+       "nodeId": "file:httpie/internal/daemons.py",
+       "title": "httpie/internal/daemons.py"
+      },
+      {
+       "nodeId": "file:httpie/__main__.py",
+       "title": "httpie/__main__.py"
+      }
+     ]
+    },
+    {
+     "id": "4abd7dfc-920c-4931-bf15-7695d79b9d1c:6",
+     "type": "multiple_choice",
+     "difficulty": "hard",
+     "concept": "Diagnosing wrapped exceptions via the context chain",
+     "question": "In the ConnectionError handler, raw_main calls unwrap_context before deciding what to report. What would break if it passed the ConnectionError straight to handle_generic_error?",
+     "answer": "The socket.gaierror is buried in the exception's __context__ chain, so the DNS-specific hints (no DNS server, hostname not resolved) could not be detected or attached, and users would only see the generic wrapped error",
+     "distractors": [
+      "The request would be retried automatically, because handle_generic_error re-sends requests that failed with a ConnectionError",
+      "The exit status would change to ERROR_TIMEOUT, because ConnectionError is a subclass of Timeout",
+      "Nothing would change, because unwrap_context only strips the traceback and leaves the exception type and message as they are"
+     ],
+     "choices": [
+      "Nothing would change, because unwrap_context only strips the traceback and leaves the exception type and message as they are",
+      "The request would be retried automatically, because handle_generic_error re-sends requests that failed with a ConnectionError",
+      "The exit status would change to ERROR_TIMEOUT, because ConnectionError is a subclass of Timeout",
+      "The socket.gaierror is buried in the exception's __context__ chain, so the DNS-specific hints (no DNS server, hostname not resolved) could not be detected or attached, and users would only see the generic wrapped error"
+     ],
+     "explanation": "unwrap_context recursively follows exc.__context__ down to the innermost Exception (httpie/utils.py:258-263). raw_main checks that innermost exception for socket.gaierror and its errno (EAI_AGAIN or EAI_NONAME) to choose an annotation, then reports the original exception (httpie/core.py:124-137). handle_generic_error only formats and logs the error and does not retry (httpie/core.py:54-67).",
+     "evidence": [
+      {
+       "nodeId": "file:httpie/core.py",
+       "title": "httpie/core.py"
+      },
+      {
+       "nodeId": "file:httpie/utils.py",
+       "title": "httpie/utils.py"
+      }
+     ]
+    }
+   ],
+   "createdMs": 1795335109816
+  },
+  {
+   "schemaVersion": 1,
+   "id": "afc32c2a-e5a0-4d76-9b3a-dd00348489ba",
+   "tourId": "1eb0cd87-d177-44e5-87cc-7faeee8a8706",
+   "tourRevision": 1,
+   "stopIndex": 7,
+   "nodeId": "dir:httpie",
+   "language": "en",
+   "questions": [
+    {
+     "id": "afc32c2a-e5a0-4d76-9b3a-dd00348489ba:1",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "Entry point and exit codes",
+     "question": "When you run `http` or `python -m httpie`, the entry function wraps the call to the core main in a try block that catches KeyboardInterrupt. What does this achieve?",
+     "answer": "Pressing Ctrl+C ends the program with a defined exit code for interruption, returned to the shell, instead of a Python traceback.",
+     "distractors": [
+      "Pressing Ctrl+C makes HTTPie retry the current request once before it exits.",
+      "Pressing Ctrl+C makes HTTPie save the current session to disk before it exits.",
+      "Pressing Ctrl+C is treated as a successful run, so scripts never see a failure."
+     ],
+     "choices": [
+      "Pressing Ctrl+C is treated as a successful run, so scripts never see a failure.",
+      "Pressing Ctrl+C ends the program with a defined exit code for interruption, returned to the shell, instead of a Python traceback.",
+      "Pressing Ctrl+C makes HTTPie retry the current request once before it exits.",
+      "Pressing Ctrl+C makes HTTPie save the current session to disk before it exits."
+     ],
+     "explanation": "`main()` catches KeyboardInterrupt, sets `ExitStatus.ERROR_CTRL_C`, and returns its `.value`, which `sys.exit()` passes to the shell (httpie/__main__.py:7-14, 19). Nothing there retries or saves anything, and the status it sets is an error status, not success.",
+     "evidence": [
+      {
+       "nodeId": "dir:httpie",
+       "title": "httpie"
+      },
+      {
+       "nodeId": "file:httpie/__main__.py",
+       "title": "httpie/__main__.py"
+      }
+     ]
+    },
+    {
+     "id": "afc32c2a-e5a0-4d76-9b3a-dd00348489ba:2",
+     "type": "multiple_choice",
+     "difficulty": "easy",
+     "concept": "Per-instance cached property",
+     "question": "On older Pythons, compat.py supplies its own `cached_property`. What happens the first time code reads an attribute decorated with it on an object, and then reads it again?",
+     "answer": "The first read calls the method and stores the result in that object's `__dict__`, so later reads return the stored value without calling the method again.",
+     "distractors": [
+      "Every read calls the method again, and the decorator only makes the call look like an attribute.",
+      "The first read stores the result on the class, so every instance of that class shares one value.",
+      "The first read stores the result in a module-level cache keyed by the method name."
+     ],
+     "choices": [
+      "The first read stores the result on the class, so every instance of that class shares one value.",
+      "The first read calls the method and stores the result in that object's `__dict__`, so later reads return the stored value without calling the method again.",
+      "Every read calls the method again, and the decorator only makes the call look like an attribute.",
+      "The first read stores the result in a module-level cache keyed by the method name."
+     ],
+     "explanation": "`__get__` computes `self.func(instance)` and assigns it to `instance.__dict__[self.name]`, so later lookups find the instance attribute first (httpie/compat.py:58-67). The value is stored per instance, not on the class or in a module-level cache, and the method is not called again on later reads.",
+     "evidence": [
+      {
+       "nodeId": "dir:httpie",
+       "title": "httpie"
+      },
+      {
+       "nodeId": "file:httpie/compat.py",
+       "title": "httpie/compat.py"
+      }
+     ]
+    },
+    {
+     "id": "afc32c2a-e5a0-4d76-9b3a-dd00348489ba:3",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "Config defaults feeding argument parsing",
+     "question": "A user puts `\"default_options\": [\"--style=fruity\"]` in config.json. How do these options reach the request that HTTPie sends?",
+     "answer": "`raw_main` reads them from `env.config.default_options` and puts them before the user's own command-line args, before the parser runs.",
+     "distractors": [
+      "`raw_main` puts them after the user's own args, so the config file always wins over the command line.",
+      "They are applied to the parsed Namespace after argparse runs, so they are never checked by the parser.",
+      "They are read only when `--debug` is passed, as part of printing the environment."
+     ],
+     "choices": [
+      "They are read only when `--debug` is passed, as part of printing the environment.",
+      "`raw_main` puts them after the user's own args, so the config file always wins over the command line.",
+      "They are applied to the parsed Namespace after argparse runs, so they are never checked by the parser.",
+      "`raw_main` reads them from `env.config.default_options` and puts them before the user's own command-line args, before the parser runs."
+     ],
+     "explanation": "`Config` exposes `default_options` from its loaded dict (httpie/config.py:139-150). `raw_main` then does `args = env.config.default_options + args` before `parser.parse_args` (httpie/core.py:48-49, 77). They are added in front of the user's args, before parsing, and do not depend on `--debug`.",
+     "evidence": [
+      {
+       "nodeId": "dir:httpie",
+       "title": "httpie"
+      },
+      {
+       "nodeId": "file:httpie/core.py",
+       "title": "httpie/core.py"
+      },
+      {
+       "nodeId": "file:httpie/config.py",
+       "title": "httpie/config.py"
+      }
+     ]
+    },
+    {
+     "id": "afc32c2a-e5a0-4d76-9b3a-dd00348489ba:4",
+     "type": "multiple_choice",
+     "difficulty": "medium",
+     "concept": "Missing vs. malformed config handling",
+     "question": "Two users report config problems. User A has no config.json at all. User B's config.json has a JSON syntax error. What does the config-loading code do in each case?",
+     "answer": "A: the missing file is ignored and the built-in defaults stay in effect. B: a ConfigFileError is raised, and its message names the invalid file.",
+     "distractors": [
+      "A: a ConfigFileError is raised because the file is required. B: the bad file is ignored and the defaults are used.",
+      "Both cases fail silently: the defaults are used and nothing is reported.",
+      "Both cases cause `load` to create a new config.json filled with the defaults."
+     ],
+     "choices": [
+      "Both cases cause `load` to create a new config.json filled with the defaults.",
+      "Both cases fail silently: the defaults are used and nothing is reported.",
+      "A: the missing file is ignored and the built-in defaults stay in effect. B: a ConfigFileError is raised, and its message names the invalid file.",
+      "A: a ConfigFileError is raised because the file is required. B: the bad file is ignored and the defaults are used."
+     ],
+     "explanation": "`read_raw_config` catches FileNotFoundError and returns None, so `load` skips `update` and the `DEFAULTS` set in `Config.__init__` remain (httpie/config.py:65-77, 103-108, 143-146). A JSON `ValueError` is turned into `ConfigFileError('invalid ... file')`. `load` never writes a file; only `save` does (httpie/config.py:110-128). The defaults it keeps are what `raw_main` later reads (httpie/core.py:48).",
+     "evidence": [
+      {
+       "nodeId": "dir:httpie",
+       "title": "httpie"
+      },
+      {
+       "nodeId": "file:httpie/config.py",
+       "title": "httpie/config.py"
+      },
+      {
+       "nodeId": "file:httpie/core.py",
+       "title": "httpie/core.py"
+      }
+     ]
+    },
+    {
+     "id": "afc32c2a-e5a0-4d76-9b3a-dd00348489ba:5",
+     "type": "multiple_choice",
+     "difficulty": "hard",
+     "concept": "Layered interrupt handling",
+     "question": "`raw_main` in core.py already catches KeyboardInterrupt and maps it to ERROR_CTRL_C. A reviewer suggests deleting the KeyboardInterrupt handler in `__main__.main` as redundant. Why would that be a regression?",
+     "answer": "Some interrupts never reach `raw_main`'s handlers: Ctrl+C during the import of httpie.core, during plugin loading, and interrupts that `raw_main` re-raises when `--traceback` or `--debug` is set. Without the outer handler, these would end in a traceback instead of ERROR_CTRL_C.",
+     "distractors": [
+      "`raw_main` only catches KeyboardInterrupt while it parses arguments, so the outer handler is the only one that covers the request itself.",
+      "The outer handler is needed because `raw_main` turns KeyboardInterrupt into SystemExit, which `__main__` must convert back.",
+      "The outer handler is what lets the shell receive any exit code at all, because `raw_main` returns None."
+     ],
+     "choices": [
+      "The outer handler is what lets the shell receive any exit code at all, because `raw_main` returns None.",
+      "Some interrupts never reach `raw_main`'s handlers: Ctrl+C during the import of httpie.core, during plugin loading, and interrupts that `raw_main` re-raises when `--traceback` or `--debug` is set. Without the outer handler, these would end in a traceback instead of ERROR_CTRL_C.",
+      "`raw_main` only catches KeyboardInterrupt while it parses arguments, so the outer handler is the only one that covers the request itself.",
+      "The outer handler is needed because `raw_main` turns KeyboardInterrupt into SystemExit, which `__main__` must convert back."
+     ],
+     "explanation": "`__main__.main` imports and calls `httpie.core.main` inside its try block (httpie/__main__.py:7-12). `raw_main`'s try blocks cover only parsing and `main_program`. Plugin loading runs before them (httpie/core.py:46, 76-108), and with `include_traceback` set those handlers re-raise (httpie/core.py:88-89, 106-107). `raw_main` does handle interrupts during the request and returns an ExitStatus (httpie/core.py:104-108, 143), so the distractors misread the flow.",
+     "evidence": [
+      {
+       "nodeId": "dir:httpie",
+       "title": "httpie"
+      },
+      {
+       "nodeId": "file:httpie/__main__.py",
+       "title": "httpie/__main__.py"
+      },
+      {
+       "nodeId": "file:httpie/core.py",
+       "title": "httpie/core.py"
+      }
+     ]
+    },
+    {
+     "id": "afc32c2a-e5a0-4d76-9b3a-dd00348489ba:6",
+     "type": "multiple_choice",
+     "difficulty": "hard",
+     "concept": "Global monkeypatch trade-off",
+     "question": "compat.py assigns `cookiejar.DefaultCookiePolicy = HTTPieCookiePolicy` when it is imported, instead of passing the policy to a specific cookie jar. What is the trade-off of this design?",
+     "answer": "It works around requests not carrying a jar's attached policy, so Secure cookies can be sent to localhost over plain HTTP. The cost is a process-wide side effect at import time: any code that creates the default policy gets HTTPie's version.",
+     "distractors": [
+      "It limits the new policy to HTTPie's own Session objects, so the only cost is that third-party code cannot reuse the policy.",
+      "It makes Secure cookies go to every host over plain HTTP, giving up cookie security in exchange for simpler session handling.",
+      "It is a backport for Pythons that lack `http.cookiejar`, and the only cost is the extra import."
+     ],
+     "choices": [
+      "It makes Secure cookies go to every host over plain HTTP, giving up cookie security in exchange for simpler session handling.",
+      "It works around requests not carrying a jar's attached policy, so Secure cookies can be sent to localhost over plain HTTP. The cost is a process-wide side effect at import time: any code that creates the default policy gets HTTPie's version.",
+      "It limits the new policy to HTTPie's own Session objects, so the only cost is that third-party code cannot reuse the policy.",
+      "It is a backport for Pythons that lack `http.cookiejar`, and the only cost is the extra import."
+     ],
+     "explanation": "The comment explains that requests does not carry the jar's policy, so the global default is replaced (httpie/compat.py:9-12). The override relaxes the Secure check only for `localhost` and `*.localhost` (httpie/cookies.py:9-25). Because this assignment runs whenever compat is imported, and compat is imported by many modules (config, context, utils), it affects the whole process, not just HTTPie's sessions.",
+     "evidence": [
+      {
+       "nodeId": "dir:httpie",
+       "title": "httpie"
+      },
+      {
+       "nodeId": "file:httpie/compat.py",
+       "title": "httpie/compat.py"
+      },
+      {
+       "nodeId": "file:httpie/cookies.py",
+       "title": "httpie/cookies.py"
+      },
+      {
+       "nodeId": "class:httpie/cookies.py::HTTPieCookiePolicy",
+       "title": "HTTPieCookiePolicy"
+      }
+     ]
+    }
+   ],
+   "createdMs": 1795335179340
+  }
+ ],
+ "curriculum": {
+  "version": 1,
+  "concepts": [
+   {
+    "id": "goal:requirements:1a64802736edc5c3203280350b2e1842dc0877af7cf554d15780afd6e7bfb360",
+    "name": "From HTTPie command line to printed HTTP exchange",
+    "definition": "How an HTTPie terminal command turns into an HTTP request and how the response is formatted and printed. In the grounded code this covers: the `http`/`https` commands (which send requests) versus the `httpie` manager command (which only manages plugins and the CLI); the cookie policy that decides which stored cookies go out with a request; the transport adapter that builds the response object while keeping repeated headers; and the order in which request and response parts (headers, body, separators, metadata) appear in the printed output.",
+    "version": 1
+   }
+  ],
+  "items": [
+   {
+    "id": "manager-vs-http",
+    "kind": "explain",
+    "nodeId": "file:httpie/manager/core.py",
+    "conceptId": "goal:requirements:1a64802736edc5c3203280350b2e1842dc0877af7cf554d15780afd6e7bfb360",
+    "level": "easy",
+    "caption": "Start at the entry you type. `httpie/manager/core.py` belongs to the `httpie` manager command. It only sends `plugins` and `cli` subcommands to tasks (lines 26-42). If you type `httpie` with no subcommand, it stops with a message telling you to send requests with `http`/`https` instead (lines 9-23, 34-35). So a request is built only when you start with `http` or `https`.",
+    "questions": [
+     {
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "concept": "Request command vs manager command",
+      "question": "A frontend developer types just `httpie` in the terminal and presses Enter, hoping to try a request. What does this code do?",
+      "answer": "It stops with an error that lists the valid subcommands and shows an example using `http POST pie.dev/post hello=world`",
+      "distractors": [
+       "It sends a GET request to a default host and prints the response",
+       "It opens an interactive prompt that asks for the method and URL",
+       "It prints the installed plugin list and exits successfully"
+      ],
+      "explanation": "When `args.action` is None, `program` calls `parser.error(MSG_NAKED_INVOCATION)` (httpie/manager/core.py:34-35). That message combines the list of subcommands with a hint to use `http`/`https` (httpie/manager/core.py:9-23). Nothing here builds a request or opens a prompt.",
+      "evidenceNodeIds": [
+       "file:httpie/manager/core.py"
+      ]
+     },
+     {
+      "type": "true_false",
+      "difficulty": "easy",
+      "concept": "Request command vs manager command",
+      "question": "Running `httpie plugins list` turns its arguments into an HTTP request and sends it, just like `http` does.",
+      "answer": "False",
+      "distractors": [],
+      "explanation": "For `plugins`, `program` hands off to `dispatch_cli_task`, which looks up a task in `CLI_TASKS` and runs it (httpie/manager/core.py:26-30, 37-38). It builds no request. The help text says this command is only for managing plugins (httpie/manager/core.py:9-11).",
+      "evidenceNodeIds": [
+       "file:httpie/manager/core.py"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "localhost-secure-cookies",
+    "kind": "diagnose",
+    "nodeId": "file:httpie/cookies.py",
+    "conceptId": "goal:requirements:1a64802736edc5c3203280350b2e1842dc0877af7cf554d15780afd6e7bfb360",
+    "level": "easy",
+    "caption": "Before a request goes out, HTTPie decides which stored cookies to attach. `HTTPieCookiePolicy` extends the standard library cookie policy. A cookie marked Secure is normally sent only over a secure protocol. HTTPie also treats `localhost` and any `*.localhost` host as secure, the way Chrome and Firefox do (httpie/cookies.py:9-25). This matters if you test a local dev server over plain http.",
+    "questions": [
+     {
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "concept": "Secure cookies on localhost",
+      "question": "Your dev server at http://localhost:3000 set a cookie marked Secure. On the next plain-http request to the same server, does this policy allow HTTPie to send that cookie?",
+      "answer": "Yes, because the policy counts the host `localhost` as a secure location even without https",
+      "distractors": [
+       "No, because Secure cookies are only ever sent over https",
+       "Only if the URL uses 127.0.0.1 instead of the name localhost",
+       "Only after the cookie is copied into a named session file"
+      ],
+      "explanation": "If the parent check fails because the protocol is not secure, `return_ok_secure` falls back to `_is_local_host` (httpie/cookies.py:12-20). That check returns True for the host `localhost` (httpie/cookies.py:25). The code matches host names only, so 127.0.0.1 is not treated this way.",
+      "evidenceNodeIds": [
+       "file:httpie/cookies.py",
+       "class:httpie/cookies.py::HTTPieCookiePolicy"
+      ]
+     },
+     {
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "concept": "Secure cookies on localhost",
+      "question": "Which plain-http host would this policy NOT treat as a secure place to send a Secure cookie?",
+      "answer": "app.localhost.example.com",
+      "distractors": [
+       "localhost",
+       "api.localhost",
+       "dev.app.localhost"
+      ],
+      "explanation": "`_is_local_host` accepts only the exact name `localhost` or a name that ends with `.localhost` (httpie/cookies.py:4-5, 25). `app.localhost.example.com` ends with `.example.com`, so the check fails. The other three hosts all pass.",
+      "evidenceNodeIds": [
+       "file:httpie/cookies.py",
+       "class:httpie/cookies.py::HTTPieCookiePolicy"
+      ]
+     },
+     {
+      "type": "true_false",
+      "difficulty": "easy",
+      "concept": "Secure cookies on localhost",
+      "question": "For an https URL, the policy still runs the localhost name check before deciding whether a Secure cookie may be sent.",
+      "answer": "False",
+      "distractors": [],
+      "explanation": "`return_ok_secure` calls the parent check first and returns True right away if the protocol is secure (httpie/cookies.py:12-14). The localhost check on line 20 runs only when that first check fails.",
+      "evidenceNodeIds": [
+       "file:httpie/cookies.py",
+       "class:httpie/cookies.py::HTTPieCookiePolicy"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "response-headers-adapter",
+    "kind": "read",
+    "nodeId": "file:httpie/adapters.py",
+    "conceptId": "goal:requirements:1a64802736edc5c3203280350b2e1842dc0877af7cf554d15780afd6e7bfb360",
+    "level": "easy",
+    "caption": "When the server replies, the `requests` library builds a response object. HTTPie plugs in its own transport adapter, `HTTPieHTTPAdapter`. It lets `requests` do the normal work, then swaps the headers for an `HTTPHeadersDict`. That keeps every header that appears more than once, such as several Set-Cookie lines, so all of them can be printed (httpie/adapters.py:5-13).",
+    "questions": [
+     {
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "concept": "Keeping repeated response headers",
+      "question": "A server sends back two separate `Set-Cookie` headers. Why does HTTPie's adapter replace the response headers with an `HTTPHeadersDict`?",
+      "answer": "So that both headers with the same name are kept instead of being merged into one",
+      "distractors": [
+       "So that header names are sorted alphabetically before colored printing",
+       "So that header names are lowercased before the next request is sent",
+       "So that hop-by-hop headers are removed from the printed response"
+      ],
+      "explanation": "The docstring says the wrapper exists 'to preserve multiple headers that have the same name' (httpie/adapters.py:8-9). Line 12 builds `HTTPHeadersDict` from the raw response headers. The code does no sorting, lowercasing or filtering.",
+      "evidenceNodeIds": [
+       "file:httpie/adapters.py",
+       "class:httpie/adapters.py::HTTPieHTTPAdapter"
+      ]
+     },
+     {
+      "type": "true_false",
+      "difficulty": "easy",
+      "concept": "Keeping repeated response headers",
+      "question": "HTTPieHTTPAdapter replaces the whole response-building step, so HTTPie's own code builds the status and body instead of the requests library.",
+      "answer": "False",
+      "distractors": [],
+      "explanation": "`build_response` first calls `super().build_response(req, resp)`, so `requests` still builds the response (httpie/adapters.py:11). HTTPie then replaces only `response.headers` (httpie/adapters.py:12).",
+      "evidenceNodeIds": [
+       "file:httpie/adapters.py",
+       "class:httpie/adapters.py::HTTPieHTTPAdapter"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "printed-output-order",
+    "kind": "compare",
+    "nodeId": "file:tests/utils/matching/tokens.py",
+    "conceptId": "goal:requirements:1a64802736edc5c3203280350b2e1842dc0877af7cf554d15780afd6e7bfb360",
+    "level": "easy",
+    "caption": "This test helper describes the shape of HTTPie's printed output as a sequence of tokens: request headers, response headers, response metadata, body and separator. Compare the raw sequences with the terminal ones. Terminal output adds a separator after each message, and the `_META` variant adds response metadata at the very end (tests/utils/matching/tokens.py:4-52).",
+    "questions": [
+     {
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "concept": "Order of the printed exchange",
+      "question": "According to `TERMINAL_EXCHANGE`, in what order do the parts appear when HTTPie prints both the request and the response to the terminal?",
+      "answer": "Request headers, request body, separator, response headers, response body, separator",
+      "distractors": [
+       "Response headers, response body, separator, request headers, request body, separator",
+       "Request headers, response headers, separator, request body, response body, separator",
+       "Request headers, request body, response headers, response body, with no separators"
+      ],
+      "explanation": "`TERMINAL_EXCHANGE` is `TERMINAL_REQUEST` followed by `TERMINAL_RESPONSE` (tests/utils/matching/tokens.py:45-48). Each of those is headers, then body, then a separator (tests/utils/matching/tokens.py:21-28, 37-44). The request always comes before the response, and the headers and body of one message stay together.",
+      "evidenceNodeIds": [
+       "file:tests/utils/matching/tokens.py",
+       "class:tests/utils/matching/tokens.py::ExpectSequence",
+       "class:tests/utils/matching/tokens.py::Expect"
+      ]
+     },
+     {
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "concept": "Raw vs terminal output",
+      "question": "What separates the expected raw exchange (`RAW_EXCHANGE`) from the terminal exchange (`TERMINAL_EXCHANGE`)?",
+      "answer": "Raw output has one separator, between request and response; terminal output ends each message with a separator",
+      "distractors": [
+       "Raw output leaves out the bodies and keeps only headers",
+       "Terminal output leaves out the request headers",
+       "Raw output always ends with the response metadata"
+      ],
+      "explanation": "`RAW_EXCHANGE` puts a single `SEPARATOR` between the request and the response (tests/utils/matching/tokens.py:29-33). The terminal versions add a `SEPARATOR` after each message (tests/utils/matching/tokens.py:37-48). Both include headers and bodies, and only `TERMINAL_EXCHANGE_META` adds `RESPONSE_META` (tests/utils/matching/tokens.py:49-52).",
+      "evidenceNodeIds": [
+       "file:tests/utils/matching/tokens.py",
+       "class:tests/utils/matching/tokens.py::ExpectSequence",
+       "class:tests/utils/matching/tokens.py::Expect"
+      ]
+     },
+     {
+      "type": "true_false",
+      "difficulty": "easy",
+      "concept": "Response metadata placement",
+      "question": "In `TERMINAL_EXCHANGE_META`, the response metadata is printed before the response headers.",
+      "answer": "False",
+      "distractors": [],
+      "explanation": "`TERMINAL_EXCHANGE_META` is the full `TERMINAL_EXCHANGE` with `Expect.RESPONSE_META` added at the end (tests/utils/matching/tokens.py:49-52). So the metadata comes after the response headers, body and separator.",
+      "evidenceNodeIds": [
+       "file:tests/utils/matching/tokens.py",
+       "class:tests/utils/matching/tokens.py::ExpectSequence",
+       "class:tests/utils/matching/tokens.py::Expect"
+      ]
+     }
+    ]
+   }
+  ],
+  "relations": []
+ }
+}

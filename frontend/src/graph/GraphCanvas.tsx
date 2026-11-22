@@ -36,26 +36,38 @@ interface GraphCanvasProps {
   onError: (error: unknown) => void
   /** Shade files by complexity. */
   complexity?: boolean
+  /** The node under the pointer changed; `at` is where the pointer is, in canvas pixels. */
+  onHover?: (node: GraphNode | null, at: { x: number; y: number }) => void
+  /** The user zoomed, moved, selected or opened something. */
+  onInteract?: (kind: MapInteraction) => void
+  /** More to announce about a selected node, after its kind and name (e.g. a file's numbers). */
+  describe?: (node: GraphNode) => string | null
+  /** Node IDs the AI agent has read while it writes, the latest last. */
+  reading?: readonly string[]
   ref?: Ref<GraphHandle>
 }
 
+export type MapInteraction = 'zoom' | 'pan' | 'select' | 'open'
+
 /** Movement (px) before a press becomes a drag instead of a click. */
 const DRAG_THRESHOLD = 3
+const NONE: readonly string[] = []
 const ARROW_PAN = 80
 
 const KIND_NAMES = { root: 'repository', dir: 'directory', file: 'file', class: 'class', member: 'member' } as const
 
-export function GraphCanvas({ model, onContextChange, onError, complexity = false, ref }: GraphCanvasProps) {
+export function GraphCanvas({ model, onContextChange, onError, complexity = false, onHover, onInteract, describe, reading = NONE, ref }: GraphCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rendererRef = useRef<GraphRenderer | null>(null)
   const [announcement, setAnnouncement] = useState('')
   // Read when the renderer is (re)created; later changes go through setComplexityMode.
   const complexityRef = useRef(complexity)
+  const readingRef = useRef(reading)
 
   // Latest callbacks without re-creating the renderer when they change.
-  const callbacks = useRef({ onContextChange, onError })
+  const callbacks = useRef({ onContextChange, onError, onHover, onInteract, describe })
   useLayoutEffect(() => {
-    callbacks.current = { onContextChange, onError }
+    callbacks.current = { onContextChange, onError, onHover, onInteract, describe }
   })
 
   useImperativeHandle(
@@ -113,8 +125,12 @@ export function GraphCanvas({ model, onContextChange, onError, complexity = fals
         callbacks: {
           onContextChange: (path) => callbacks.current.onContextChange(path),
           onError: (e) => callbacks.current.onError(e),
-          onSelectionChange: (node) =>
-            setAnnouncement(node ? `Selected ${KIND_NAMES[node.kind]} ${node.label}` : ''),
+          onSelectionChange: (node) => {
+            if (!node) return setAnnouncement('')
+            const more = callbacks.current.describe?.(node)
+            setAnnouncement(`Selected ${KIND_NAMES[node.kind]} ${node.label}${more ? `. ${more}` : ''}`)
+          },
+          onHoverChange: (node) => callbacks.current.onHover?.(node, pointer),
         },
       })
     } catch (e) {
@@ -122,6 +138,7 @@ export function GraphCanvas({ model, onContextChange, onError, complexity = fals
       return
     }
     rendererRef.current = renderer
+    renderer.setReading(readingRef.current)
 
     // ---- Size ----
     const resize = () => {
@@ -133,6 +150,8 @@ export function GraphCanvas({ model, onContextChange, onError, complexity = fals
     observer?.observe(canvas)
 
     // ---- Pointer ----
+    let pointer = { x: 0, y: 0 }
+    const interact = (kind: MapInteraction) => callbacks.current.onInteract?.(kind)
     let press: { id: number; x: number; y: number; lastX: number; lastY: number; dragging: boolean } | null = null
     const local = (e: MouseEvent) => {
       const r = canvas.getBoundingClientRect()
@@ -146,10 +165,12 @@ export function GraphCanvas({ model, onContextChange, onError, complexity = fals
     }
     const onPointerMove = (e: PointerEvent) => {
       const [x, y] = local(e)
+      pointer = { x, y }
       if (press && press.id === e.pointerId) {
         if (!press.dragging && Math.hypot(x - press.x, y - press.y) > DRAG_THRESHOLD) {
           press.dragging = true
           canvas.dataset.dragging = 'true'
+          interact('pan')
         }
         if (press.dragging) {
           renderer.panBy(x - press.lastX, y - press.lastY)
@@ -163,7 +184,10 @@ export function GraphCanvas({ model, onContextChange, onError, complexity = fals
     const onPointerUp = (e: PointerEvent) => {
       if (!press || press.id !== e.pointerId) return
       const [x, y] = local(e)
-      if (!press.dragging && e.button === 0) renderer.click(x, y)
+      if (!press.dragging && e.button === 0) {
+        renderer.click(x, y)
+        interact('select')
+      }
       press = null
       delete canvas.dataset.dragging
     }
@@ -174,10 +198,12 @@ export function GraphCanvas({ model, onContextChange, onError, complexity = fals
     const onDoubleClick = (e: MouseEvent) => {
       const [x, y] = local(e)
       renderer.doubleClick(x, y)
+      interact('open')
     }
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
       const [x, y] = local(e)
+      interact('zoom')
       renderer.wheel(e.deltaX, e.deltaY, e.deltaMode, e.ctrlKey, x, y)
     }
 
@@ -271,6 +297,11 @@ export function GraphCanvas({ model, onContextChange, onError, complexity = fals
     complexityRef.current = complexity
     rendererRef.current?.setComplexityMode(complexity)
   }, [complexity])
+
+  useEffect(() => {
+    readingRef.current = reading
+    rendererRef.current?.setReading(reading)
+  }, [reading])
 
   return (
     <>

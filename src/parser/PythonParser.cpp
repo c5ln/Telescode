@@ -17,6 +17,9 @@
 #include <memory>
 #include <thread>
 #include <atomic>
+#include <cstdio>
+#include <cstdlib>
+#include <mutex>
 
 extern "C" const TSLanguage* tree_sitter_python();
 
@@ -1246,6 +1249,17 @@ std::vector<ParseResult> PythonParser::parseDirectory(
         files.push_back(entry.path().string());
     }
 
+    // With TELESCODE_SCAN_PROGRESS set, the files to read are printed first as
+    // "[scan] found <path>", then each as it is read as "[scan] read <path>"
+    // (relative to the root), for the app's loading map.
+    const char* progressEnv = std::getenv("TELESCODE_SCAN_PROGRESS");
+    const bool progress = progressEnv && *progressEnv && std::strcmp(progressEnv, "0") != 0;
+    if (progress) {
+        for (const auto& f : files)
+            std::fprintf(stdout, "[scan] found %s\n", fs::path(f).lexically_relative(root).generic_string().c_str());
+        std::fflush(stdout);
+    }
+
     // 병렬 파싱 
     // parseFile은 멤버 상태를 쓰지 않아 스레드 안전. 각 워커가 아토믹 카운터로
     // 다음 파일 인덱스를 가져가 results[i]에 기록하므로 락 없이 순서가 결정적이다.
@@ -1260,6 +1274,7 @@ std::vector<ParseResult> PythonParser::parseDirectory(
 
         // atomic을 이용해서, 여러 thread가 동시에 접근해도 충돌 X. 
         std::atomic<size_t> next{0}; 
+        std::mutex printing;
         auto worker = [&]() {
             size_t i;
 
@@ -1272,6 +1287,12 @@ std::vector<ParseResult> PythonParser::parseDirectory(
                 } catch (...) {
                     // 해당 파일만 빈 결과로 남기고 계속 진행.
                     // (std::thread에서 예외가 새면 프로세스가 종료됨)
+                }
+                if (progress) {
+                    const std::string rel = fs::path(files[i]).lexically_relative(root).generic_string();
+                    std::lock_guard<std::mutex> lock(printing);
+                    std::fprintf(stdout, "[scan] read %s\n", rel.c_str());
+                    std::fflush(stdout);
                 }
             }
         };

@@ -102,6 +102,24 @@ export const CloseIcon = (p: IconProps) => (
 
 export const QuizIcon = (p: IconProps) => (
   <Icon {...p}>
+    <path d="M2.75 4.5l1.25 1.25L6.25 3.5" />
+    <path d="M2.75 10.5l1.25 1.25 2.25-2.25" />
+    <path d="M8.75 4.75h4.5" />
+    <path d="M8.75 10.75h4.5" />
+  </Icon>
+)
+
+export const LegendIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="2.5" y="2.5" width="5" height="5" />
+    <rect x="9" y="2.5" width="4.5" height="3" />
+    <rect x="9" y="7" width="4.5" height="6.5" />
+    <rect x="2.5" y="9" width="5" height="4.5" />
+  </Icon>
+)
+
+export const HelpIcon = (p: IconProps) => (
+  <Icon {...p}>
     <circle cx="8" cy="8" r="5.75" />
     <path d="M6.25 6.5a1.75 1.75 0 1 1 2.5 1.6c-.5.23-.75.6-.75 1.15v.25" />
     <path d="M8 11.5h.01" />

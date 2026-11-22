@@ -9,6 +9,7 @@ import type { SearchResult } from '../search/search'
 import { Breadcrumbs, type Crumb } from './Breadcrumbs'
 import { Dropdown } from './Dropdown'
 import { SearchField } from './SearchField'
+import { Tooltip } from './Tooltip'
 
 afterEach(cleanup)
 
@@ -169,6 +170,43 @@ describe('Dropdown', () => {
       />,
     )
     expect(screen.getByRole('menuitemcheckbox', { name: 'Complexity' }).getAttribute('aria-checked')).toBe('true')
+  })
+})
+
+describe('Dropdown notes and hints', () => {
+  it('explains the menu above and below its items, and keeps an item named by its label alone', async () => {
+    const onOpenChange = vi.fn()
+    render(
+      <Dropdown
+        header="Choose the AI."
+        footer="No API key needed."
+        onOpenChange={onOpenChange}
+        items={[{ type: 'radio', id: 'claude', label: 'Claude Code', hint: 'Signed in', checked: true, onSelect: vi.fn() }]}
+        trigger={(props) => <button {...props}>Connect MCP</button>}
+      />,
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Connect MCP' }))
+
+    expect(onOpenChange).toHaveBeenLastCalledWith(true)
+    expect(screen.getByText('Choose the AI.')).toBeTruthy()
+    expect(screen.getByText('No API key needed.')).toBeTruthy()
+    const item = screen.getByRole('menuitemradio', { name: 'Claude Code', checked: true })
+    expect(item.getAttribute('aria-describedby')).toBe(screen.getByText('Signed in').id)
+  })
+})
+
+describe('Tooltip', () => {
+  it('shows a label tip, or a title and description when given one', () => {
+    render(
+      <>
+        <Tooltip label="Zoom in" shortcut="+"><button>a</button></Tooltip>
+        <Tooltip label="Start a code tour" shortcut="T" description="Walks you through it."><button>b</button></Tooltip>
+      </>,
+    )
+    expect(screen.getByText('Zoom in').textContent).toBe('Zoom in+')
+    const title = screen.getByText('Start a code tour')
+    expect(title.textContent).toBe('Start a code tourT')
+    expect(title.nextElementSibling?.textContent).toBe('Walks you through it.')
   })
 })
 

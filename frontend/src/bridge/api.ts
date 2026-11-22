@@ -5,7 +5,7 @@
 // request data at load or refresh time and keep it in state, never call this
 // during rendering.
 
-import { invoke, isTauri } from '@tauri-apps/api/core'
+import { Channel, invoke, isTauri } from '@tauri-apps/api/core'
 
 import { TelescodeError, fromNativeError } from './errors'
 import type { AnalysisResponse, GraphResponse, SequenceResponse } from './models'
@@ -60,20 +60,29 @@ export type RepositorySource = { kind: 'github'; url: string } | { kind: 'folder
  * GitHub), resolving with the path of the database to analyze. One coarse
  * call, like the others.
  */
-export type RepositoryOpener = (source: RepositorySource) => Promise<string>
+export type RepositoryOpener = (source: RepositorySource, onProgress?: (progress: OpenProgress) => void) => Promise<string>
+
+/** How far opening has come, as the shell reports it (repository.rs `Progress`). */
+export type OpenProgress =
+  | { stage: 'download'; bytes: number }
+  /** Since the last report, relative to the source root: `found`, the files to read; `files`, the files read. */
+  | { stage: 'read'; pythonFiles: number | null; found?: string[]; files?: string[] }
+  | { stage: 'rank' }
 
 /** The opener used inside the desktop app: the `open_repository` and `open_folder` Tauri commands. */
-export const tauriRepositoryOpener: RepositoryOpener = async (source) => {
+export const tauriRepositoryOpener: RepositoryOpener = async (source, onProgress) => {
   if (!isTauri()) {
     throw new TelescodeError(
       'bridge_unavailable',
       'Repositories can only be opened from the desktop app. Start it with `npm run desktop`.',
     )
   }
+  const channel = new Channel<OpenProgress>()
+  channel.onmessage = (progress) => onProgress?.(progress)
   try {
     return source.kind === 'github'
-      ? await invoke<string>('open_repository', { url: source.url })
-      : await invoke<string>('open_folder', { path: source.path })
+      ? await invoke<string>('open_repository', { url: source.url, onProgress: channel })
+      : await invoke<string>('open_folder', { path: source.path, onProgress: channel })
   } catch (e) {
     throw fromNativeError(e)
   }

@@ -14,7 +14,7 @@ use std::fs::File;
 use std::ffi::OsStr;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 /// Name of the sidecar as it sits next to the app executable. Tauri copies
 /// `binaries/TelescodeHeadless-<target-triple>` there at build time and strips
@@ -63,6 +63,8 @@ pub enum BridgeError {
     OutputNotUtf8 { message: String },
     ToursUnavailable { message: String },
     TourGenerationFailed { message: String },
+    /// The user stopped the AI agent before it finished.
+    AgentCancelled { message: String },
     InvalidRepositoryUrl { message: String },
     RepositoryNotFound { message: String },
     RepositoryUnreachable { message: String },
@@ -166,6 +168,50 @@ pub fn run(sidecar: &Path, op: Operation, db_path: &str) -> Result<String, Bridg
 /// Runs TelescodeHeadless with `args` and returns its stdout. Any failure to
 /// start it, a non-zero exit or non-UTF-8 output is an error.
 pub fn run_sidecar(sidecar: &Path, args: &[&OsStr]) -> Result<String, BridgeError> {
+    let out = sidecar_command(sidecar, args).output().map_err(spawn_failed)?;
+    sidecar_result(out.status, out.stdout, &out.stderr)
+}
+
+/// `run_sidecar` with `envs` set, handing each stdout line (without its line
+/// ending) to `on_line` as the sidecar prints it.
+pub fn run_sidecar_streaming(
+    sidecar: &Path,
+    args: &[&OsStr],
+    envs: &[(&str, &str)],
+    on_line: &mut dyn FnMut(&str),
+) -> Result<String, BridgeError> {
+    use std::io::BufRead;
+    let mut cmd = sidecar_command(sidecar, args);
+    cmd.envs(envs.iter().copied()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    let mut child = cmd.spawn().map_err(spawn_failed)?;
+    // Drained alongside stdout, so a full stderr pipe cannot stall the sidecar.
+    let mut stderr = child.stderr.take().expect("piped stderr");
+    let errors = std::thread::spawn(move || {
+        let mut bytes = Vec::new();
+        let _ = stderr.read_to_end(&mut bytes);
+        bytes
+    });
+    let mut reader = std::io::BufReader::new(child.stdout.take().expect("piped stdout"));
+    let mut stdout = Vec::new();
+    let mut line = Vec::new();
+    loop {
+        line.clear();
+        match reader.read_until(b'\n', &mut line) {
+            Ok(0) => break,
+            Ok(_) => {
+                on_line(String::from_utf8_lossy(&line).trim_end_matches(['\n', '\r']));
+                stdout.extend_from_slice(&line);
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(_) => break,
+        }
+    }
+    let status = child.wait().map_err(spawn_failed)?;
+    let stderr = errors.join().unwrap_or_default();
+    sidecar_result(status, stdout, &stderr)
+}
+
+fn sidecar_command(sidecar: &Path, args: &[&OsStr]) -> Command {
     let mut cmd = Command::new(sidecar);
     cmd.args(args);
     #[cfg(windows)]
@@ -175,26 +221,31 @@ pub fn run_sidecar(sidecar: &Path, args: &[&OsStr]) -> Result<String, BridgeErro
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         cmd.creation_flags(CREATE_NO_WINDOW);
     }
+    cmd
+}
 
-    let out = cmd.output().map_err(|e| BridgeError::SidecarSpawnFailed {
+fn spawn_failed(e: std::io::Error) -> BridgeError {
+    BridgeError::SidecarSpawnFailed {
         message: format!("Could not start TelescodeHeadless: {e}"),
-    })?;
+    }
+}
 
-    if !out.status.success() {
-        let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+fn sidecar_result(status: std::process::ExitStatus, stdout: Vec<u8>, stderr: &[u8]) -> Result<String, BridgeError> {
+    if !status.success() {
+        let stderr = String::from_utf8_lossy(stderr).trim().to_string();
         let message = if stderr.is_empty() {
-            format!("TelescodeHeadless exited with {}", out.status)
+            format!("TelescodeHeadless exited with {status}")
         } else {
             stderr.clone()
         };
         return Err(BridgeError::SidecarFailed {
             message,
-            exit_code: out.status.code(),
+            exit_code: status.code(),
             stderr,
         });
     }
 
-    String::from_utf8(out.stdout).map_err(|_| BridgeError::OutputNotUtf8 {
+    String::from_utf8(stdout).map_err(|_| BridgeError::OutputNotUtf8 {
         message: "TelescodeHeadless produced output that is not UTF-8.".into(),
     })
 }
@@ -224,6 +275,29 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn streaming_hands_over_each_line_with_the_environment_set() {
+        let mut lines = Vec::new();
+        let out = run_sidecar_streaming(
+            Path::new("/bin/sh"),
+            &[OsStr::new("-c"), OsStr::new("echo one; printf '%s\\r\\n' \"$TELESCODE_TEST\"; echo oops >&2")],
+            &[("TELESCODE_TEST", "two")],
+            &mut |line| lines.push(line.to_string()),
+        )
+        .unwrap();
+        assert_eq!(lines, ["one", "two"]);
+        assert_eq!(out, "one\ntwo\r\n");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn streaming_reports_a_failure_with_its_stderr() {
+        let err = run_sidecar_streaming(Path::new("/bin/sh"), &[OsStr::new("-c"), OsStr::new("echo broke >&2; exit 3")], &[], &mut |_| {})
+            .unwrap_err();
+        assert!(matches!(err, BridgeError::SidecarFailed { ref stderr, exit_code: Some(3), .. } if stderr == "broke"), "{err:?}");
     }
 
     #[test]

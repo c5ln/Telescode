@@ -45,8 +45,8 @@ function setup() {
   render(<AppShell initialState={{ status: 'ready', dbPath, snapshot }} tours={tours} learning={learning} />)
   const user = userEvent.setup()
   const open = async () => {
-    await user.click(screen.getByRole('button', { name: 'Tutorial' }))
-    return within(await screen.findByRole('region', { name: 'Start tutorial' }))
+    await user.click(within(screen.getByRole('banner')).getByRole('button', { name: 'Start tour' }))
+    return within(await screen.findByRole('region', { name: 'Start a code tour' }))
   }
   return { user, open, tours, learning }
 }
@@ -55,7 +55,7 @@ describe('Tour start screen', () => {
   it('opens an optional requirements field before starting a tour, even when onboarding is saved', async () => {
     const { open, tours, learning } = setup()
     const panel = await open()
-    const field = panel.getByRole('textbox', { name: /requirements/i }) as HTMLInputElement | HTMLTextAreaElement
+    const field = panel.getByRole('textbox', { name: /about you and your goal/i }) as HTMLInputElement | HTMLTextAreaElement
 
     expect(field.value).toBe('')
     expect(field.required).toBe(false)
@@ -69,12 +69,12 @@ describe('Tour start screen', () => {
   it.each(['', '   '])('starts saved onboarding when requirements are %j', async requirements => {
     const { user, open, tours, learning } = setup()
     const panel = await open()
-    if (requirements) await user.type(panel.getByRole('textbox', { name: /requirements/i }), requirements)
+    if (requirements) await user.type(panel.getByRole('textbox', { name: /about you and your goal/i }), requirements)
 
     await user.click(panel.getByRole('button', { name: 'Start tour' }))
 
     expect(await screen.findByText(tour.plan.stops[0]!.caption)).toBeTruthy()
-    expect(screen.queryByRole('region', { name: 'Start tutorial' })).toBeNull()
+    expect(screen.queryByRole('region', { name: 'Start a code tour' })).toBeNull()
     expect(tours.generate).not.toHaveBeenCalled()
     expect(learning.start).not.toHaveBeenCalled()
   })
@@ -83,7 +83,7 @@ describe('Tour start screen', () => {
     const { user, open, tours, learning } = setup()
     const panel = await open()
     const requirements = '알림 결과를 저장하고 전달하는 흐름을 설명해줘.'
-    await user.type(panel.getByRole('textbox', { name: /requirements/i }), requirements)
+    await user.type(panel.getByRole('textbox', { name: /about you and your goal/i }), requirements)
     expect(learning.start).not.toHaveBeenCalled()
 
     await user.click(panel.getByRole('button', { name: 'Start tour' }))
@@ -92,7 +92,7 @@ describe('Tour start screen', () => {
       goal: expect.objectContaining({ rawQuery: requirements }),
     })))
     expect(screen.queryByText(tour.plan.stops[0]!.caption)).toBeNull()
-    expect(screen.queryByRole('region', { name: 'Start tutorial' })).toBeNull()
+    expect(screen.queryByRole('region', { name: 'Start a code tour' })).toBeNull()
     expect(tours.generate).not.toHaveBeenCalled()
   })
 
@@ -110,11 +110,11 @@ describe('Tour start screen', () => {
   it('dismisses with Escape from the field without starting a tour', async () => {
     const { user, open, tours, learning } = setup()
     const panel = await open()
-    await user.type(panel.getByRole('textbox', { name: /requirements/i }), 'Explain authentication')
+    await user.type(panel.getByRole('textbox', { name: /about you and your goal/i }), 'Explain authentication')
 
     await user.keyboard('{Escape}')
 
-    expect(screen.queryByRole('region', { name: 'Start tutorial' })).toBeNull()
+    expect(screen.queryByRole('region', { name: 'Start a code tour' })).toBeNull()
     expect(screen.queryByText(tour.plan.stops[0]!.caption)).toBeNull()
     expect(tours.generate).not.toHaveBeenCalled()
     expect(learning.start).not.toHaveBeenCalled()
@@ -124,10 +124,10 @@ describe('Tour start screen', () => {
     const { user, open, tours, learning } = setup()
     await open()
 
-    await user.click(within(screen.getByRole('banner')).getByRole('button', { name: 'Exit tutorial' }))
+    await user.click(within(screen.getByRole('banner')).getByRole('button', { name: 'Exit tour' }))
 
-    expect(screen.queryByRole('region', { name: 'Start tutorial' })).toBeNull()
-    expect(screen.getByRole('button', { name: 'Tutorial' })).toBeTruthy()
+    expect(screen.queryByRole('region', { name: 'Start a code tour' })).toBeNull()
+    expect(within(screen.getByRole('banner')).getByRole('button', { name: 'Start tour' })).toBeTruthy()
     expect(screen.queryByText(tour.plan.stops[0]!.caption)).toBeNull()
     expect(tours.generate).not.toHaveBeenCalled()
     expect(learning.start).not.toHaveBeenCalled()

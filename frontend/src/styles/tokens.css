@@ -93,6 +93,7 @@
   --graph-hover-fill: rgb(0 0 0 / 0.04);
   --graph-selected: var(--blue-600);
   --graph-selected-fill: var(--blue-600-a20);
+  --graph-reading: var(--amber-600); /* what the AI agent has read */
   /* Complexity mode: one muted blue, darker for more complex files. Kept well
      below --graph-selected in saturation so the selection still stands out. */
   --graph-complexity-1: #eef3f9; /* low */
@@ -110,6 +111,7 @@
   --text-sm: 12px;
   --text-md: 13px; /* default UI size */
   --text-lg: 15px;
+  --text-xl: 22px; /* the first screen's title */
 
   --weight-regular: 400;
   --weight-medium: 500;
@@ -152,6 +154,20 @@
   --duration-fast: 90ms;
   --duration-tooltip-delay: 450ms;
   --ease: cubic-bezier(0.2, 0, 0, 1);
+
+  /* ---- Tooltip --------------------------------------------------------- */
+  /* A label tip names a control; a rich tip adds a line or two on how to use
+     it or how it works. Both sit on the inverse surface. */
+
+  --tooltip-bg: var(--surface-inverse);
+  --tooltip-text: var(--text-inverse);
+  --tooltip-text-muted: var(--text-inverse-muted);
+  --tooltip-radius: var(--radius-surface);
+  --tooltip-padding: 3px 7px;
+  --tooltip-padding-rich: var(--space-2) var(--space-3);
+  --tooltip-max-width: 264px;
+  --tooltip-offset: 6px;
+  --tooltip-delay: var(--duration-tooltip-delay);
 
   /* ---- Layers ---------------------------------------------------------- */
 

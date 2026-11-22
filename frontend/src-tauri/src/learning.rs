@@ -20,10 +20,14 @@ async fn blocking<T: Send + 'static>(work: impl FnOnce() -> Result<T, BridgeErro
 }
 
 #[tauri::command]
-pub async fn start_learning_session(db_path: String, goal: Value) -> Result<Value, BridgeError> {
+/// `learner_id` keeps what this learner was already asked apart from other
+/// learners'; without it the server's default local learner is used.
+pub async fn start_learning_session(db_path: String, goal: Value, learner_id: Option<String>) -> Result<Value, BridgeError> {
     blocking(move || {
         let db = validate_db_path(&db_path)?;
-        mcp::call("start_learning_session", json!({"path":db,"goal":goal}))
+        let mut input = json!({"path":db,"goal":goal});
+        if let Some(learner) = learner_id { input["learnerId"] = json!(learner); }
+        mcp::call("start_learning_session", input)
     }).await
 }
 #[tauri::command]
@@ -39,16 +43,40 @@ pub async fn advance_learning_session(input: Value) -> Result<Value, BridgeError
     blocking(move || mcp::call("advance_learning_session", input)).await
 }
 #[tauri::command]
-pub async fn prepare_learning_session(session_id: String, revision: u64, provider: Option<agent::Provider>) -> Result<Value, BridgeError> {
+/// `curriculum` is material written in advance (the example repositories
+/// ship one for their suggested goal): it is saved as the job's result
+/// instead of running an agent.
+/// With a `progressId`, each tool the agent calls is sent as an `agent-progress` event.
+pub async fn prepare_learning_session<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    session_id: String,
+    revision: u64,
+    provider: Option<agent::Provider>,
+    curriculum: Option<Value>,
+    progress_id: Option<String>,
+) -> Result<Value, BridgeError> {
+    let followed = agent::emit_progress(&app, progress_id);
     blocking(move || {
         // Includes reservation so queued duplicates observe the first worker's saved materials.
         let serial = PREPARATION.lock().unwrap_or_else(|e| e.into_inner());
         let provider = provider.unwrap_or_default();
         let job = mcp::call("request_learning_preparation", json!({"sessionId":session_id,"revision":revision,"provider":provider,"ownerPid":std::process::id()}))?;
         let job_id = job["id"].as_str().unwrap_or_default();
-        if job["shouldRun"] == true {
+        if let (true, Some(bundled)) = (job["shouldRun"] == true, curriculum.as_ref()) {
+            // The server takes the version after the session's current one,
+            // which is higher when a retry supplements earlier material.
+            let mut material = bundled.clone();
+            material["version"] = json!(job["baseVersion"].as_u64().unwrap_or(0) + 1);
+            let saved = mcp::call("save_learning_curriculum", json!({"jobId":job_id,"curriculum":material}));
+            let completion = match &saved {
+                Err(e) => json!({"jobId":job_id,"error":bounded_error(&format!("{e:?}"))}),
+                Ok(_) => json!({"jobId":job_id}),
+            };
+            mcp::call("finish_learning_preparation", completion)?;
+            saved?;
+        } else if job["shouldRun"] == true {
             let prompt = format!("Prepare Telescode adaptive learning job {job_id}. Call get_learning_preparation_context with exactly this job ID, inspect its grounded code excerpts and immutable goal, then save_learning_curriculum with the same job ID. Follow the server's adaptive learning instructions. Prepare at least two independent scenario questions per target when supported. Use the requested target levels and existing concept definitions exactly. Save only material; never answer or advance a learner session. Reply with the job ID.");
-            let result = agent::generate(provider, &prompt, PREPARATION_TOOLS, Duration::from_secs(10 * 60));
+            let result = agent::generate(provider, &prompt, PREPARATION_TOOLS, Duration::from_secs(10 * 60), followed);
             let error = result.as_ref().err().map(|e| bounded_error(&format!("{e:?}")));
             let completion = match error {
                 Some(error) => json!({"jobId":job_id,"error":error}),

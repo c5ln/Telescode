@@ -15,7 +15,7 @@ it('forwards selected Codex/Claude provider only to preparation and preserves ex
     await library.start({ dbPath: '/repo with spaces/project.db', goal })
     expect(invoke).toHaveBeenLastCalledWith('start_learning_session', { dbPath: '/repo with spaces/project.db', goal })
     await library.prepare({ sessionId: 's', revision: 4 })
-    expect(invoke).toHaveBeenLastCalledWith('prepare_learning_session', { sessionId: 's', revision: 4, provider })
+    expect(invoke).toHaveBeenCalledWith('prepare_learning_session', { sessionId: 's', revision: 4, provider, progressId: expect.any(String) })
   }
 })
 

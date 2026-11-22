@@ -79,8 +79,8 @@ const canvasButtons = () =>
 
 /** Enter the default Tour through its optional requirements screen. */
 async function startOnboarding() {
-  await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
-  const start = await screen.findByRole('region', { name: 'Start tutorial' })
+  await userEvent.click(within(screen.getByRole('banner')).getByRole('button', { name: 'Start tour' }))
+  const start = await screen.findByRole('region', { name: 'Start a code tour' })
   await userEvent.click(within(start).getByRole('button', { name: 'Start tour' }))
 }
 
@@ -92,9 +92,9 @@ describe('AppShell', () => {
     expect(within(bar).getByRole('navigation', { name: 'Breadcrumb' })).toBeTruthy()
     expect(within(bar).getByRole('search')).toBeTruthy()
     expect(within(bar).getByPlaceholderText('Search files, classes, functions…')).toBeTruthy()
-    expect(within(bar).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual([
-      'AI agent',
-      'Tutorial',
+    expect(within(bar).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual([
+      'Connect MCP',
+      'Start tour',
       'More actions',
     ])
     expect(screen.queryByRole('complementary')).toBeNull()
@@ -105,26 +105,37 @@ describe('AppShell', () => {
     const { repositories, opened } = deferredRepositories()
     render(<AppShell api={api} repositories={repositories} />)
 
-    expect(screen.getByText('Open a repository')).toBeTruthy()
+    expect(screen.getByText('See a Python repository as a map')).toBeTruthy()
     const url = screen.getByRole('textbox', { name: 'Repository URL' })
     expect(screen.queryByRole('textbox', { name: 'Folder path' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Open a local folder (dev)' })).toBeNull()
     expect(screen.queryByText(/database/i)).toBeNull()
 
-    for (const bad of ['not a url', 'https://gitlab.com/c5ln/Telescode', 'https://github.com/c5ln/Telescode/pull/1']) {
+    for (const bad of ['not a url', 'https://gitlab.com/c5ln/Telescode', 'github.com/c5ln']) {
       await userEvent.clear(url)
       await userEvent.type(url, bad)
       await userEvent.click(screen.getByRole('button', { name: 'Analyze' }))
-      expect(screen.getByRole('status').textContent).toMatch(/^Enter a public GitHub repository URL/)
+      expect(screen.getByRole('status').textContent).toMatch(/github\.com\/owner\/repo\.$/)
       expect(url.getAttribute('aria-invalid')).toBe('true')
     }
     expect(repositories).not.toHaveBeenCalled()
 
+    // A link inside the repository opens the repository itself.
     await userEvent.clear(url)
-    await userEvent.type(url, 'https://github.com/c5ln/Telescode')
+    await userEvent.type(url, 'https://github.com/c5ln/Telescode/pull/1')
     await userEvent.click(screen.getByRole('button', { name: 'Analyze' }))
-    expect(repositories).toHaveBeenCalledWith({ kind: 'github', url: 'https://github.com/c5ln/Telescode' })
+    expect(repositories).toHaveBeenCalledWith({ kind: 'github', url: 'https://github.com/c5ln/Telescode' }, expect.any(Function))
     expect(opened).toHaveLength(1)
+  })
+
+  it('opens an example repository in one click', async () => {
+    const { api } = deferredApi()
+    const { repositories } = deferredRepositories()
+    render(<AppShell api={api} repositories={repositories} />)
+
+    expect(within(screen.getByRole('list', { name: 'How it works' })).getAllByRole('listitem')).toHaveLength(3)
+    await userEvent.click(screen.getByRole('button', { name: 'Open psf/requests' }))
+    expect(repositories).toHaveBeenCalledWith({ kind: 'github', url: 'https://github.com/psf/requests/tree/3c7baaa05ab4aa49cc819ce3a819d260de19c157' }, expect.any(Function))
   })
 
   it('downloads a repository, then analyzes it like a local database', async () => {
@@ -133,17 +144,18 @@ describe('AppShell', () => {
     render(<AppShell api={api} repositories={repositories} />)
     await openRepository('https://github.com/c5ln/Telescode')
 
-    expect(screen.getByRole('status').textContent).toBe('Downloading and scanning c5ln/Telescode…')
+    expect(screen.getByRole('status').textContent).toBe('Download…')
+    expect(screen.getByRole('heading', { name: 'c5ln/Telescode' })).toBeTruthy()
     expect(screen.getByRole('main', { name: 'Workspace' }).getAttribute('aria-busy')).toBe('true')
     expect(screen.getByText('Telescode').getAttribute('aria-current')).toBe('location')
     expect(analyze).not.toHaveBeenCalled()
 
     opened[0]!.resolve('/cache/repositories/c5ln/telescode/Telescode.db')
     await vi.waitFor(() => expect(analyze).toHaveBeenCalledWith('/cache/repositories/c5ln/telescode/Telescode.db'))
-    expect(screen.getByRole('status').textContent).toBe('Analyzing c5ln/Telescode…')
+    expect(screen.getByRole('status').textContent).toBe('Draw the map…')
 
     pending[0]!.resolve(snapshot)
-    expect(await screen.findByText('16 files · 11 classes')).toBeTruthy()
+    expect(await screen.findByText('16 files, 11 classes')).toBeTruthy()
     expect(screen.getByText('Telescode').getAttribute('aria-current')).toBe('location')
   })
 
@@ -156,20 +168,31 @@ describe('AppShell', () => {
     opened[0]!.reject(new TelescodeError('repository_not_found', 'c5ln/private does not exist or is private.'))
     const alert = await screen.findByRole('alert')
     expect(within(alert).getByText('Repository not found')).toBeTruthy()
-    expect(within(alert).getByText('c5ln/private does not exist or is private.')).toBeTruthy()
-    expect(screen.queryByText('16 files · 11 classes')).toBeNull()
+    expect(within(alert).getByText('c5ln/private does not exist, or it is private.')).toBeTruthy()
+    expect(within(alert).getByText('Check the spelling, or open a public repository instead.')).toBeTruthy()
+    expect(within(alert).getByText(/c5ln\/private does not exist or is private\./, { selector: 'pre' })).toBeTruthy()
+    // Trying the same address again cannot help.
+    expect(within(alert).queryByRole('button', { name: 'Try again' })).toBeNull()
+    expect(screen.queryByText('16 files, 11 classes')).toBeNull()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
-    expect(repositories).toHaveBeenCalledTimes(2)
+    // An example opens in one click.
+    await userEvent.click(within(alert).getByRole('button', { name: 'Try an example' }))
+    expect(repositories).toHaveBeenLastCalledWith({ kind: 'github', url: 'https://github.com/psf/requests/tree/3c7baaa05ab4aa49cc819ce3a819d260de19c157' }, expect.any(Function))
     expect(analyze).not.toHaveBeenCalled()
 
-    opened[1]!.reject(new TelescodeError('repository_empty', 'c5ln/private has no source files Telescode can analyze.'))
-    expect(await screen.findByText('No supported source files')).toBeTruthy()
+    opened[1]!.reject(new TelescodeError('repository_unreachable', 'Could not reach GitHub: timed out'))
+    expect(await screen.findByText('Could not reach GitHub')).toBeTruthy()
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(repositories).toHaveBeenCalledTimes(3)
 
-    await userEvent.click(screen.getByRole('button', { name: 'Back' }))
-    expect(screen.getByText('Open a repository')).toBeTruthy()
+    opened[2]!.reject(new TelescodeError('repository_empty', 'requests has no source files Telescode can analyze.'))
+    expect(await screen.findByText('No Python code found')).toBeTruthy()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Try another repository' }))
+    expect(screen.getByText('See a Python repository as a map')).toBeTruthy()
+    // An example is offered again at its pinned commit, so it still opens with its prewritten tour.
     expect((screen.getByRole('textbox', { name: 'Repository URL' }) as HTMLInputElement).value).toBe(
-      'https://github.com/c5ln/private',
+      'https://github.com/psf/requests/tree/3c7baaa05ab4aa49cc819ce3a819d260de19c157',
     )
   })
 
@@ -185,7 +208,7 @@ describe('AppShell', () => {
     await new Promise((r) => setTimeout(r, 0))
 
     expect(analyze).not.toHaveBeenCalled()
-    expect(screen.getByText('Open a repository')).toBeTruthy()
+    expect(screen.getByText('See a Python repository as a map')).toBeTruthy()
   })
 
   it('starts empty, then scans a local folder and goes through loading to ready', async () => {
@@ -193,25 +216,27 @@ describe('AppShell', () => {
     const { repositories, opened } = deferredRepositories()
     render(<AppShell api={api} repositories={repositories} allowLocalFolder />)
 
-    expect(screen.getByText('Open a repository')).toBeTruthy()
+    expect(screen.getByText('See a Python repository as a map')).toBeTruthy()
     expect(canvasButtons().every((b) => b.disabled)).toBe(true)
 
     await openFolder('C:/x/project')
-    expect(repositories).toHaveBeenCalledWith({ kind: 'folder', path: 'C:/x/project' })
-    expect(screen.getByRole('status').textContent).toBe('Scanning project…')
+    expect(repositories).toHaveBeenCalledWith({ kind: 'folder', path: 'C:/x/project' }, expect.any(Function))
+    expect(screen.getByRole('status').textContent).toBe('Read the code…')
+    // A folder is read in place: no download step.
+    expect(screen.queryByText('Download')).toBeNull()
     expect(screen.getByRole('main', { name: 'Workspace' }).getAttribute('aria-busy')).toBe('true')
 
     opened[0]!.resolve('C:/cache/project.db')
     await vi.waitFor(() => expect(analyze).toHaveBeenCalledWith('C:/cache/project.db'))
-    expect(screen.getByRole('status').textContent).toBe('Analyzing project…')
+    expect(screen.getByRole('status').textContent).toBe('Draw the map…')
 
     pending[0]!.resolve(snapshot)
-    expect(await screen.findByText('16 files · 11 classes')).toBeTruthy()
+    expect(await screen.findByText('16 files, 11 classes')).toBeTruthy()
     expect(screen.getByText('project').getAttribute('aria-current')).toBe('location')
     expect(canvasButtons().every((b) => !b.disabled)).toBe(true)
   })
 
-  it('shows a concise bridge error and can retry', async () => {
+  it('shows a missing folder and lets the user fix the path', async () => {
     const { api, analyze } = deferredApi()
     const { repositories, opened } = deferredRepositories()
     render(<AppShell api={api} repositories={repositories} allowLocalFolder />)
@@ -220,13 +245,12 @@ describe('AppShell', () => {
     opened[0]!.reject(new TelescodeError('folder_not_found', 'Folder not found: C:/x/missing'))
     const alert = await screen.findByRole('alert')
     expect(within(alert).getByText('Folder not found')).toBeTruthy()
-    expect(within(alert).getByText('Folder not found: C:/x/missing')).toBeTruthy()
-    expect(within(alert).getByText('folder_not_found')).toBeTruthy()
+    expect(within(alert).getByText('C:/x/missing does not exist.')).toBeTruthy()
+    expect(within(alert).getByText(/^folder_not_found Folder not found: C:\/x\/missing/, { selector: 'pre' })).toBeTruthy()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
-    expect(repositories).toHaveBeenCalledTimes(2)
+    await userEvent.click(screen.getByRole('button', { name: 'Edit path' }))
     expect(analyze).not.toHaveBeenCalled()
-    expect(screen.getByRole('status').textContent).toBe('Scanning missing…')
+    expect((screen.getByRole('textbox', { name: 'Folder path' }) as HTMLInputElement).value).toBe('C:/x/missing')
   })
 
   it('re-analyzes a scanned folder without scanning it again', async () => {
@@ -236,7 +260,7 @@ describe('AppShell', () => {
     await openFolder('C:/x/project')
     await vi.waitFor(() => expect(analyze).toHaveBeenCalledTimes(1))
     pending[0]!.resolve(snapshot)
-    await screen.findByText('16 files · 11 classes')
+    await screen.findByText('16 files, 11 classes')
 
     await userEvent.click(screen.getByRole('button', { name: 'More actions' }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Reload analysis' }))
@@ -251,7 +275,7 @@ describe('AppShell', () => {
     await openFolder('C:/x/project')
     await vi.waitFor(() => expect(pending).toHaveLength(1))
     pending[0]!.resolve(snapshot)
-    await screen.findByText('16 files · 11 classes')
+    await screen.findByText('16 files, 11 classes')
 
     await userEvent.click(screen.getByRole('button', { name: 'More actions' }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Open repository…' }))
@@ -273,7 +297,7 @@ describe('AppShell', () => {
     await vi.waitFor(() => expect(pending).toHaveLength(2))
 
     pending[1]!.resolve(snapshot)
-    await screen.findByText('16 files · 11 classes')
+    await screen.findByText('16 files, 11 classes')
     pending[0]!.reject(new TelescodeError('db_invalid', 'late failure'))
     await new Promise((r) => setTimeout(r, 0))
     expect(screen.queryByRole('alert')).toBeNull()
@@ -282,7 +306,7 @@ describe('AppShell', () => {
   it('shows the code map when ready, and its breadcrumbs follow navigation in the map', async () => {
     render(<AppShell api={deferredApi().api} initialState={{ status: 'ready', dbPath: 'C:/x/project.db', snapshot }} />)
     expect(screen.getByRole('application', { name: /^Code map/ })).toBeTruthy()
-    expect(screen.getByText('16 files · 11 classes')).toBeTruthy()
+    expect(screen.getByText('16 files, 11 classes')).toBeTruthy()
 
     const nav = screen.getByRole('navigation', { name: 'Breadcrumb' })
     expect(nav.textContent).toBe('project')
@@ -313,7 +337,7 @@ describe('AppShell', () => {
     expect(renderer.camera.k).toBeCloseTo(k)
   })
 
-  it('colours files by complexity by default, and only while the Complexity toggle is on, without moving anything', async () => {
+  it('colours files by complexity by default, and only while the complexity switch in the legend is on, without moving anything', async () => {
     render(<AppShell api={deferredApi().api} initialState={{ status: 'ready', dbPath: 'C:/x/project.db', snapshot }} />)
     const renderer = (window as { __telescode?: GraphRenderer }).__telescode!
     renderer.resize(1200, 750)
@@ -321,11 +345,12 @@ describe('AppShell', () => {
     const before = { camera: { ...renderer.camera }, box: [hotspot.x, hotspot.y, hotspot.w, hotspot.h] }
     expect(renderer.complexityLevel(hotspot)).toBe(3)
 
-    await userEvent.click(screen.getByRole('button', { name: 'More actions' }))
-    const toggle = screen.getByRole('menuitemcheckbox', { name: 'Complexity' })
-    expect(toggle.getAttribute('aria-checked')).toBe('true')
+    // The switch lives in the legend, one click away from the map.
+    await userEvent.click(screen.getByRole('button', { name: /Legend/ }))
+    const toggle = screen.getByRole('switch', { name: 'Show complexity' }) as HTMLInputElement
+    expect(toggle.checked).toBe(true)
     await userEvent.click(toggle)
-    expect(toggle.getAttribute('aria-checked')).toBe('false')
+    expect(toggle.checked).toBe(false)
     expect(renderer.complexityLevel(hotspot)).toBe(-1)
 
     await userEvent.click(toggle)
@@ -339,7 +364,19 @@ describe('AppShell', () => {
 
     it('is only available once a repository is open', () => {
       render(<AppShell api={deferredApi().api} tours={library([])} />)
-      expect((screen.getByRole('button', { name: 'Tutorial' }) as HTMLButtonElement).disabled).toBe(true)
+      expect((within(screen.getByRole('banner')).getByRole('button', { name: 'Start tour' }) as HTMLButtonElement).disabled).toBe(true)
+    })
+
+    it('opens with T, but not while the user is typing', async () => {
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={library([])} />)
+      const search = screen.getByPlaceholderText('Search files, classes, functions…')
+      await userEvent.click(search)
+      await userEvent.keyboard('t')
+      expect(screen.queryByRole('region', { name: 'Start a code tour' })).toBeNull()
+
+      search.blur()
+      await userEvent.keyboard('t')
+      expect(await screen.findByRole('region', { name: 'Start a code tour' })).toBeTruthy()
     })
 
     it('plays the saved tour on the map, step by step, and puts the view back on exit', async () => {
@@ -349,11 +386,11 @@ describe('AppShell', () => {
       const before = { ...r.camera }
 
       await startOnboarding()
-      const panel = await screen.findByRole('region', { name: 'Tutorial' })
-      expect(screen.getByRole('button', { name: 'Exit tutorial', pressed: true })).toBeTruthy()
+      const panel = await screen.findByRole('region', { name: 'Code tour' })
+      expect(screen.getByRole('button', { name: 'Exit tour', pressed: true })).toBeTruthy()
       expect(within(panel).getByText('Sherlock finds a username across sites.')).toBeTruthy()
       expect(within(panel).getByText('1 / 3')).toBeTruthy()
-      expect(within(panel).getByText('Tutorial')).toBeTruthy()
+      expect(within(panel).getByText('Code tour')).toBeTruthy()
       expect(within(panel).queryByText(/Sherlock onboarding/)).toBeNull()
       expect(r.selected).toBeNull()
 
@@ -380,8 +417,8 @@ describe('AppShell', () => {
       await userEvent.click(within(panel).getByRole('button', { name: 'Previous step' }))
       expect(within(panel).getByText('2 / 3')).toBeTruthy()
 
-      await userEvent.click(within(panel).getByRole('button', { name: 'Exit tutorial' }))
-      expect(screen.queryByRole('region', { name: 'Tutorial' })).toBeNull()
+      await userEvent.click(within(panel).getByRole('button', { name: 'Exit tour' }))
+      expect(screen.queryByRole('region', { name: 'Code tour' })).toBeNull()
       expect(r.selected).toBeNull()
       r.step(performance.now() + 20_000, 16)
       expect(r.camera.x).toBeCloseTo(before.x)
@@ -392,7 +429,7 @@ describe('AppShell', () => {
     it('advances on its own while playing and stops at the last step', async () => {
       render(<AppShell api={deferredApi().api} initialState={ready} tours={library([sherlockTour(30)])} />)
       await startOnboarding()
-      const panel = await screen.findByRole('region', { name: 'Tutorial' })
+      const panel = await screen.findByRole('region', { name: 'Code tour' })
       await within(panel).findByText('3 / 3')
       // The last step plays out too, and its bar ends full.
       expect(within(panel).getByTestId('step-progress').style.animationPlayState).toBe('running')
@@ -416,20 +453,21 @@ describe('AppShell', () => {
         })),
       }
       render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
-      await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
-      const start = await screen.findByRole('region', { name: 'Start tutorial' })
+      await userEvent.click(within(screen.getByRole('banner')).getByRole('button', { name: 'Start tour' }))
+      const start = await screen.findByRole('region', { name: 'Start a code tour' })
       expect(tours.generate).not.toHaveBeenCalled()
 
       await userEvent.click(within(start).getByRole('button', { name: 'Start tour' }))
-      const panel = await screen.findByRole('region', { name: 'Tutorial' })
-      await within(panel).findByText('Generating a tutorial for project')
-      expect(within(panel).getByRole('status').textContent).toBe('Generating… It appears here as soon as it is ready.')
-      expect(tours.generate).toHaveBeenCalledWith('C:/x/project.db')
+      const panel = await screen.findByRole('region', { name: 'Code tour' })
+      await within(panel).findByText('Writing a tour for project')
+      // Until the agent calls its first tool, it is starting up.
+      expect(within(panel).getByRole('status').textContent).toBe('Start Claude Code…')
+      expect(tours.generate).toHaveBeenCalledWith('C:/x/project.db', expect.any(Function))
 
       await act(async () => finish())
-      await within(panel).findByText('Tutorial ready')
+      await within(panel).findByText('Tour ready')
       expect(within(panel).getByText('Sherlock onboarding · 3 steps')).toBeTruthy()
-      await userEvent.click(within(panel).getByRole('button', { name: 'Start tutorial' }))
+      await userEvent.click(within(panel).getByRole('button', { name: 'Start tour' }))
       expect(within(panel).getByText('1 / 3')).toBeTruthy()
     })
 
@@ -439,7 +477,7 @@ describe('AppShell', () => {
       render(<AppShell api={deferredApi().api} initialState={ready} tours={{ ...library([sherlockTour(60_000)]), agentStatus, generate }} />)
       expect(agentStatus).not.toHaveBeenCalled()
       await startOnboarding()
-      await within(await screen.findByRole('region', { name: 'Tutorial' })).findByText('1 / 3')
+      await within(await screen.findByRole('region', { name: 'Code tour' })).findByText('1 / 3')
       expect(agentStatus).not.toHaveBeenCalled()
       expect(generate).not.toHaveBeenCalled()
     })
@@ -451,17 +489,17 @@ describe('AppShell', () => {
       const tours = { ...library([]), agentStatus: async () => ({ installed: true, signedIn: false }), signIn, generate }
       render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
       await startOnboarding()
-      const panel = await screen.findByRole('region', { name: 'Tutorial' })
-      await within(panel).findByText('Sign in to Claude to generate a tutorial for project')
+      const panel = await screen.findByRole('region', { name: 'Code tour' })
+      await within(panel).findByText('Sign in to Claude to write a tour for project')
       expect(within(panel).getByRole('status').textContent).toBe(
-        'Finish signing in to Claude in your browser. The tutorial is generated right after.',
+        'Finish signing in to Claude in your browser. The tour is written right after.',
       )
       expect(signIn).toHaveBeenCalledTimes(1)
       expect(generate).not.toHaveBeenCalled()
 
       await act(async () => signedIn())
-      await within(panel).findByText('Generating a tutorial for project')
-      expect(generate).toHaveBeenCalledWith('C:/x/project.db')
+      await within(panel).findByText('Writing a tour for project')
+      expect(generate).toHaveBeenCalledWith('C:/x/project.db', expect.any(Function))
     })
 
     it('does not sign in when already signed in', async () => {
@@ -470,7 +508,7 @@ describe('AppShell', () => {
       const tours = { ...library([]), agentStatus: async () => ({ installed: true, signedIn: true }), signIn, generate }
       render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
       await startOnboarding()
-      await within(await screen.findByRole('region', { name: 'Tutorial' })).findByText('Generating a tutorial for project')
+      await within(await screen.findByRole('region', { name: 'Code tour' })).findByText('Writing a tour for project')
       expect(signIn).not.toHaveBeenCalled()
       expect(generate).toHaveBeenCalled()
     })
@@ -480,8 +518,8 @@ describe('AppShell', () => {
       const tours = { ...library([]), agentStatus: async () => ({ installed: false, signedIn: false }), generate }
       render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
       await startOnboarding()
-      const panel = await screen.findByRole('region', { name: 'Tutorial' })
-      await within(panel).findByText('Claude Code is needed to generate tutorials')
+      const panel = await screen.findByRole('region', { name: 'Code tour' })
+      await within(panel).findByText('Claude Code is needed to write tours')
       expect(within(panel).getByText('curl -fsSL https://claude.ai/install.sh | bash')).toBeTruthy()
       expect(generate).not.toHaveBeenCalled()
     })
@@ -495,9 +533,10 @@ describe('AppShell', () => {
       }
       render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
       await startOnboarding()
-      const panel = await screen.findByRole('region', { name: 'Tutorial' })
-      expect(await within(panel).findByText('Cannot generate the tutorial: Signing in to Claude did not finish in time.')).toBeTruthy()
-      expect(within(panel).getByText('Sign in to Claude to generate a tutorial for project')).toBeTruthy()
+      const panel = await screen.findByRole('region', { name: 'Code tour' })
+      expect(await within(panel).findByText('Sign-in did not finish')).toBeTruthy()
+      expect(within(panel).getByText(/Signing in to Claude did not finish in time\./, { selector: 'pre' })).toBeTruthy()
+      expect(within(panel).getByText('Sign in to Claude to write a tour for project')).toBeTruthy()
       expect(tours.generate).not.toHaveBeenCalled()
     })
 
@@ -507,13 +546,13 @@ describe('AppShell', () => {
         const tours = { ...library([], [], [sherlockTour(60_000)]), generate: vi.fn(() => new Promise<void>(() => {})) }
         render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
         await startOnboarding()
-        const panel = await screen.findByRole('region', { name: 'Tutorial' })
-        await within(panel).findByText('Generating a tutorial for project')
+        const panel = await screen.findByRole('region', { name: 'Code tour' })
+        await within(panel).findByText('Writing a tour for project')
 
         await act(async () => vi.advanceTimersByTime(3000))
-        expect(within(panel).queryByText('Tutorial ready')).toBeNull()
+        expect(within(panel).queryByText('Tour ready')).toBeNull()
         await act(async () => vi.advanceTimersByTime(3000))
-        await within(panel).findByText('Tutorial ready')
+        await within(panel).findByText('Tour ready')
         expect(tours.list).toHaveBeenCalledTimes(3)
       } finally {
         vi.useRealTimers()
@@ -529,19 +568,21 @@ describe('AppShell', () => {
       }
       render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
       await startOnboarding()
-      const panel = await screen.findByRole('region', { name: 'Tutorial' })
-      expect(await within(panel).findByText('Cannot generate the tutorial: Claude Code was not found.')).toBeTruthy()
+      const panel = await screen.findByRole('region', { name: 'Code tour' })
+      expect(await within(panel).findByText('The tour was not finished')).toBeTruthy()
+      expect(within(panel).getByText('Claude Code stopped before saving the tour.')).toBeTruthy()
+      expect(within(panel).getByText('Claude Code was not found.', { selector: 'pre' })).toBeTruthy()
       expect(within(panel).queryByRole('status')).toBeNull()
       await userEvent.click(within(panel).getByRole('button', { name: 'Try again' }))
-      await within(panel).findByText('Tutorial ready')
+      await within(panel).findByText('Tour ready')
       expect(tours.generate).toHaveBeenCalledTimes(2)
     })
 
     it('reports a generation that saved nothing', async () => {
       render(<AppShell api={deferredApi().api} initialState={ready} tours={{ ...library([]), generate: async () => {} }} />)
       await startOnboarding()
-      const panel = await screen.findByRole('region', { name: 'Tutorial' })
-      expect(await within(panel).findByText('Cannot generate the tutorial: Generation finished without saving a tutorial.')).toBeTruthy()
+      const panel = await screen.findByRole('region', { name: 'Code tour' })
+      expect(await within(panel).findByText('Claude Code finished without saving a tour.')).toBeTruthy()
     })
 
     it('reports when saved tours cannot be read, without generating', async () => {
@@ -549,8 +590,8 @@ describe('AppShell', () => {
       const tours: TourLibrary = { list: () => Promise.reject(new TelescodeError('tours_unavailable', 'No MCP server.')), generate }
       render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
       await startOnboarding()
-      const panel = await screen.findByRole('region', { name: 'Tutorial' })
-      expect(await within(panel).findByText('Cannot generate the tutorial: No MCP server.')).toBeTruthy()
+      const panel = await screen.findByRole('region', { name: 'Code tour' })
+      expect(await within(panel).findByText('Telescode could not reach its MCP server.')).toBeTruthy()
       expect(generate).not.toHaveBeenCalled()
     })
   })
@@ -612,8 +653,8 @@ describe('AppShell', () => {
 
     async function openQuiz() {
       await startOnboarding()
-      const tutorial = await screen.findByRole('region', { name: 'Tutorial' })
-      await userEvent.click(within(tutorial).getByRole('button', { name: 'Quiz on this step' }))
+      const tutorial = await screen.findByRole('region', { name: 'Code tour' })
+      await userEvent.click(within(tutorial).getByRole('button', { name: 'Quiz' }))
       return screen.findByRole('region', { name: 'Quiz' })
     }
 
@@ -656,8 +697,8 @@ describe('AppShell', () => {
       expect(within(panel).queryByRole('button', { name: 'Next question' })).toBeNull()
 
       // Back to the tutorial: the same step, paused, with the map on it again.
-      await userEvent.click(within(panel).getByRole('button', { name: 'Back to tutorial' }))
-      const tutorial = screen.getByRole('region', { name: 'Tutorial' })
+      await userEvent.click(within(panel).getByRole('button', { name: 'Back to tour' }))
+      const tutorial = screen.getByRole('region', { name: 'Code tour' })
       expect(within(tutorial).getByText('1 / 3')).toBeTruthy()
       expect(within(tutorial).getByRole('button', { name: 'Play' })).toBeTruthy()
       // The root step selects nothing, as in the tutorial itself.
@@ -671,7 +712,7 @@ describe('AppShell', () => {
       render(<AppShell api={deferredApi().api} initialState={ready} tours={library([sherlockTour(60_000)])} quizzes={{ ...quizLibrary, generate }} />)
       const panel = await openQuiz()
       await within(panel).findByText('Writing a quiz on this step')
-      expect(generate).toHaveBeenCalledWith({ tourId: 't1', tourRevision: 1, stopIndex: 0, nodeId: 'root', dbPath: 'C:/x/project.db' })
+      expect(generate).toHaveBeenCalledWith({ tourId: 't1', tourRevision: 1, stopIndex: 0, nodeId: 'root', dbPath: 'C:/x/project.db' }, expect.any(Function))
       await act(async () => finish())
       expect(await within(panel).findByText('Which directory holds the tests?')).toBeTruthy()
     })
@@ -692,10 +733,10 @@ describe('AppShell', () => {
       render(<AppShell api={deferredApi().api} initialState={ready} tours={library([sherlockTour(60_000)])} quizzes={quizzes([quizSet]).library} />)
       const panel = await openQuiz()
       await within(panel).findByText('Which directory holds the tests?')
-      await userEvent.click(screen.getByRole('button', { name: 'Exit tutorial', pressed: true }))
+      await userEvent.click(screen.getByRole('button', { name: 'Exit tour', pressed: true }))
       expect(screen.queryByRole('region', { name: 'Quiz' })).toBeNull()
       await startOnboarding()
-      expect(await screen.findByRole('region', { name: 'Tutorial' })).toBeTruthy()
+      expect(await screen.findByRole('region', { name: 'Code tour' })).toBeTruthy()
       expect(screen.queryByRole('region', { name: 'Quiz' })).toBeNull()
     })
   })
@@ -735,7 +776,7 @@ describe('AppShell', () => {
       await openFolder('C:/x/project')
       await vi.waitFor(() => expect(pending).toHaveLength(1))
       pending[0]!.resolve(snapshot)
-      await screen.findByText('16 files · 11 classes')
+      await screen.findByText('16 files, 11 classes')
 
       const input = screen.getByRole('combobox', { name: 'Search' }) as HTMLInputElement
       await userEvent.click(input)
@@ -746,7 +787,7 @@ describe('AppShell', () => {
       await userEvent.click(screen.getByRole('menuitem', { name: 'Reload analysis' }))
       await vi.waitFor(() => expect(pending).toHaveLength(2))
       pending[1]!.resolve({ ...snapshot })
-      await screen.findByText('16 files · 11 classes')
+      await screen.findByText('16 files, 11 classes')
       expect(input.value).toBe('')
       expect(input.disabled).toBe(false)
 
@@ -764,7 +805,7 @@ describe('AppShell', () => {
     it('pauses an auto-playing tutorial when a search result is selected', async () => {
       render(<AppShell api={deferredApi().api} initialState={ready} tours={library([sherlockTour(60_000)])} />)
       await startOnboarding()
-      const panel = await screen.findByRole('region', { name: 'Tutorial' })
+      const panel = await screen.findByRole('region', { name: 'Code tour' })
       expect(within(panel).getByRole('button', { name: 'Pause' })).toBeTruthy()
 
       const input = screen.getByRole('combobox', { name: 'Search' }) as HTMLInputElement
@@ -780,7 +821,7 @@ describe('AppShell', () => {
     it('re-spotlights the current tutorial step when resuming playback after searching away', async () => {
       render(<AppShell api={deferredApi().api} initialState={ready} tours={library([sherlockTour(60_000)])} />)
       await startOnboarding()
-      const panel = await screen.findByRole('region', { name: 'Tutorial' })
+      const panel = await screen.findByRole('region', { name: 'Code tour' })
 
       // Advance to step 2 (file:sherlock_project/result.py) while auto-play stays active.
       await userEvent.click(within(panel).getByRole('button', { name: 'Next step' }))

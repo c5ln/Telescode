@@ -13,6 +13,8 @@ interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 
   tooltip?: TooltipSide | false
   tooltipAlign?: 'center' | 'start' | 'end'
   shortcut?: string
+  /** Turns the tooltip into a rich tip: how to use the control. */
+  description?: ReactNode
   ref?: Ref<HTMLButtonElement>
 }
 
@@ -22,6 +24,7 @@ export function IconButton({
   tooltip = 'bottom',
   tooltipAlign,
   shortcut,
+  description,
   className,
   type = 'button',
   ...rest
@@ -33,7 +36,7 @@ export function IconButton({
   )
   if (tooltip === false) return button
   return (
-    <Tooltip label={label} shortcut={shortcut} side={tooltip} align={tooltipAlign}>
+    <Tooltip label={label} shortcut={shortcut} description={description} side={tooltip} align={tooltipAlign}>
       {button}
     </Tooltip>
   )

@@ -18,7 +18,7 @@ use std::fs;
 use std::io::{self, Read};
 use std::path::{Component, Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use tauri::Manager;
 
@@ -49,11 +49,15 @@ const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 pub struct RepositoryRef {
     pub owner: String,
     pub name: String,
+    /// A full commit SHA, when the URL pins one with `/tree/<sha>`.
+    pub commit: Option<String>,
 }
 
 /// Reads `https://github.com/owner/repo`, with or without `www.`, `.git`, a
-/// trailing slash, a query or a fragment. Anything that points inside a
-/// repository (a branch, file, pull request, ...) is refused, as are other hosts.
+/// trailing slash, a query or a fragment, optionally pinned to a commit with
+/// `/tree/<40-character SHA>` (how the app's example repositories are opened).
+/// Anything else that points inside a repository (a branch, file, pull
+/// request, ...) is refused, as are other hosts.
 pub fn parse_url(raw: &str) -> Result<RepositoryRef, BridgeError> {
     let invalid = |why: &str| BridgeError::InvalidRepositoryUrl {
         message: format!("{why} Enter a public GitHub repository URL, such as https://github.com/owner/repo."),
@@ -72,6 +76,12 @@ pub fn parse_url(raw: &str) -> Result<RepositoryRef, BridgeError> {
     }
 
     let parts: Vec<&str> = path.split('/').filter(|p| !p.is_empty()).collect();
+    let (parts, commit) = match parts.as_slice() {
+        [owner, name, "tree", sha] if sha.len() == 40 && sha.chars().all(|c| c.is_ascii_hexdigit()) => {
+            (vec![*owner, *name], Some(sha.to_ascii_lowercase()))
+        }
+        _ => (parts, None),
+    };
     match parts.as_slice() {
         [owner, name] => {
             let name = name.strip_suffix(".git").unwrap_or(name);
@@ -81,7 +91,7 @@ pub fn parse_url(raw: &str) -> Result<RepositoryRef, BridgeError> {
                 && name != ".."
                 && name.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'));
             if owner_ok && name_ok {
-                Ok(RepositoryRef { owner: owner.to_string(), name: name.to_string() })
+                Ok(RepositoryRef { owner: owner.to_string(), name: name.to_string(), commit })
             } else {
                 Err(invalid("That is not a valid repository name."))
             }
@@ -161,6 +171,52 @@ fn too_large(name: &str) -> BridgeError {
     BridgeError::RepositoryTooLarge { message: format!("{name} is too large for Telescode to process.") }
 }
 
+/// How far opening a repository has come, sent to the app as it happens.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(tag = "stage", rename_all = "camelCase", rename_all_fields = "camelCase")]
+pub enum Progress {
+    /// Bytes of the archive received so far.
+    Download { bytes: u64 },
+    /// The core is reading the code; the Python file count when known. Since
+    /// the last report: the files it found to read, and the files it read
+    /// (both relative to the source root).
+    Read {
+        python_files: Option<u64>,
+        #[serde(skip_serializing_if = "Vec::is_empty")]
+        found: Vec<String>,
+        #[serde(skip_serializing_if = "Vec::is_empty")]
+        files: Vec<String>,
+    },
+    /// Computing the reading order.
+    Rank,
+}
+
+/// Where progress goes; tests and callers that do not care pass a no-op.
+pub type Report<'a> = &'a (dyn Fn(Progress) + Sync);
+
+/// How often download progress is reported.
+const PROGRESS_STEP_BYTES: u64 = 256 * 1024;
+
+/// Reports the bytes read through it, every PROGRESS_STEP_BYTES.
+struct Counting<'a, R> {
+    inner: R,
+    read: u64,
+    reported: u64,
+    report: Report<'a>,
+}
+
+impl<R: Read> Read for Counting<'_, R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let n = self.inner.read(buf)?;
+        self.read += n as u64;
+        if self.read - self.reported >= PROGRESS_STEP_BYTES || (n == 0 && self.read > self.reported) {
+            self.reported = self.read;
+            (self.report)(Progress::Download { bytes: self.read });
+        }
+        Ok(n)
+    }
+}
+
 /// Fails reads once more than `limit` bytes have passed through.
 struct Capped<R> {
     inner: R,
@@ -201,11 +257,13 @@ fn fetch_failed(e: impl std::fmt::Display) -> BridgeError {
 
 /// Unpacks a gzipped GitHub tarball into `dest`, keeping only directories and
 /// regular files. Links are skipped, so nothing unpacked can point outside.
-fn unpack(reader: impl Read, dest: &Path, name: &str) -> Result<(), BridgeError> {
+/// Returns how many Python files it unpacked.
+fn unpack(reader: impl Read, dest: &Path, name: &str) -> Result<u64, BridgeError> {
     let capped = Capped { inner: reader, remaining: MAX_DOWNLOAD_BYTES };
     let mut archive = tar::Archive::new(flate2::read::GzDecoder::new(capped));
     let mut entries_seen = 0u64;
     let mut unpacked = 0u64;
+    let mut python_files = 0u64;
 
     // A read that hit the download cap surfaces as an io error somewhere in
     // the archive or gzip layers; recognise it wherever it comes from.
@@ -239,25 +297,41 @@ fn unpack(reader: impl Read, dest: &Path, name: &str) -> Result<(), BridgeError>
                 }
                 let mut file = fs::File::create(&target).map_err(fetch_failed)?;
                 io::copy(&mut entry, &mut file).map_err(read_error)?;
+                if target.extension().is_some_and(|e| e == "py") {
+                    python_files += 1;
+                }
             }
             _ => {}
         }
     }
-    Ok(())
+    Ok(python_files)
 }
 
 /// Downloads the default branch of `repo` into `dest`, which must not exist.
-fn download(repo: &RepositoryRef, info: &RepositoryInfo, dest: &Path) -> Result<(), BridgeError> {
-    // Without a ref, GitHub serves the default branch.
-    let url = format!("{API}/repos/{}/{}/tarball", repo.owner, repo.name);
+/// Returns how many Python files it holds.
+fn download(repo: &RepositoryRef, info: &RepositoryInfo, dest: &Path, report: Report) -> Result<u64, BridgeError> {
+    // Without a commit, GitHub serves the default branch.
+    let url = match &repo.commit {
+        Some(sha) => format!("{API}/repos/{}/{}/tarball/{sha}", repo.owner, repo.name),
+        None => format!("{API}/repos/{}/{}/tarball", repo.owner, repo.name),
+    };
     let mut res = agent(DOWNLOAD_TIMEOUT).get(&url).call().map_err(unreachable)?;
     let status = res.status().as_u16();
     if status != 200 {
         return Err(status_error(status, repo));
     }
     fs::create_dir_all(dest).map_err(fetch_failed)?;
-    unpack(res.body_mut().as_reader(), dest, &info.full_name)
+    report(Progress::Download { bytes: 0 });
+    let reader = Counting { inner: res.body_mut().as_reader(), read: 0, reported: 0, report };
+    unpack(reader, dest, &info.full_name)
 }
+
+/// How `scan` reports each file it will read, then each file it read, with TELESCODE_SCAN_PROGRESS set.
+const FOUND_PREFIX: &str = "[scan] found ";
+const READ_PREFIX: &str = "[scan] read ";
+/// Files are reported every READ_BATCH_FILES files or READ_BATCH_INTERVAL, whichever comes first.
+const READ_BATCH_FILES: usize = 200;
+const READ_BATCH_INTERVAL: Duration = Duration::from_millis(100);
 
 /// Number of files `scan` reports parsing, from its `[scan] Parsed N files.` line.
 fn parsed_file_count(stdout: &str) -> Option<u64> {
@@ -277,19 +351,44 @@ fn remove_if_present(path: &Path) -> Result<(), BridgeError> {
 }
 
 /// Scans `source` into a fresh database at `db` and computes its reading order.
-fn scan(sidecar: &Path, source: &Path, db: &Path, name: &str) -> Result<(), BridgeError> {
+fn scan(sidecar: &Path, source: &Path, db: &Path, name: &str, python_files: Option<u64>, report: Report) -> Result<(), BridgeError> {
     for suffix in ["", "-wal", "-shm", ".source"] {
         let mut path = db.as_os_str().to_owned();
         path.push(suffix);
         remove_if_present(Path::new(&path))?;
     }
 
-    let out = bridge::run_sidecar(sidecar, &[OsStr::new("scan"), source.as_os_str(), db.as_os_str()])?;
+    report(Progress::Read { python_files, found: Vec::new(), files: Vec::new() });
+    // The files found and read go to the app's loading map in batches, not one message per file.
+    let (mut found, mut files) = (Vec::new(), Vec::new());
+    let mut sent = Instant::now();
+    let out = bridge::run_sidecar_streaming(
+        sidecar,
+        &[OsStr::new("scan"), source.as_os_str(), db.as_os_str()],
+        &[("TELESCODE_SCAN_PROGRESS", "1")],
+        &mut |line| {
+            if let Some(file) = line.strip_prefix(FOUND_PREFIX) {
+                found.push(file.to_string());
+            } else if let Some(file) = line.strip_prefix(READ_PREFIX) {
+                files.push(file.to_string());
+            } else {
+                return;
+            }
+            if found.len() + files.len() >= READ_BATCH_FILES || sent.elapsed() >= READ_BATCH_INTERVAL {
+                report(Progress::Read { python_files, found: std::mem::take(&mut found), files: std::mem::take(&mut files) });
+                sent = Instant::now();
+            }
+        },
+    )?;
+    if !found.is_empty() || !files.is_empty() {
+        report(Progress::Read { python_files, found, files });
+    }
     if parsed_file_count(&out) == Some(0) {
         return Err(BridgeError::RepositoryEmpty {
             message: format!("{name} has no source files Telescode can analyze."),
         });
     }
+    report(Progress::Rank);
     bridge::run_sidecar(sidecar, &[OsStr::new("algo"), db.as_os_str()])?;
     record_source(db, source)
 }
@@ -416,28 +515,35 @@ fn lock_for(dir: &Path) -> Arc<Mutex<()>> {
 
 /// Downloads and scans the repository at `url` under `cache`, returning the
 /// database to open. Each open fetches the current default branch again.
-fn open(cache: &Path, url: &str) -> Result<PathBuf, BridgeError> {
+fn open(cache: &Path, url: &str, report: Report) -> Result<PathBuf, BridgeError> {
     let repo = parse_url(url)?;
     let sidecar = bridge::locate_sidecar()?;
     let info = fetch_info(&repo)?;
 
     // GitHub names are case-insensitive, so one directory per repository
     // whatever the URL's spelling.
+    // A pinned commit gets a directory of its own, next to the default branch.
+    let name = repo.name.to_ascii_lowercase();
     let dir = cache
         .join("repositories")
         .join(repo.owner.to_ascii_lowercase())
-        .join(repo.name.to_ascii_lowercase());
+        .join(match &repo.commit {
+            Some(sha) => format!("{name}@{sha}"),
+            None => name,
+        });
     let lock = lock_for(&dir);
     let _guard = lock.lock().unwrap_or_else(|e| e.into_inner());
 
     let source = dir.join("source");
     let partial = dir.join("source.partial");
     remove_if_present(&partial)?;
-    let downloaded = download(&repo, &info, &partial);
-    if let Err(e) = downloaded {
-        let _ = fs::remove_dir_all(&partial);
-        return Err(e);
-    }
+    let python_files = match download(&repo, &info, &partial, report) {
+        Ok(count) => count,
+        Err(e) => {
+            let _ = fs::remove_dir_all(&partial);
+            return Err(e);
+        }
+    };
     remove_if_present(&source)?;
     fs::rename(&partial, &source).map_err(|e| BridgeError::Internal {
         message: format!("Could not move the downloaded repository into place: {e}"),
@@ -445,7 +551,7 @@ fn open(cache: &Path, url: &str) -> Result<PathBuf, BridgeError> {
 
     // Named after the repository, which is how the workspace titles it.
     let db = dir.join(format!("{}.db", info.name));
-    scan(&sidecar, &source, &db, &info.full_name)?;
+    scan(&sidecar, &source, &db, &info.full_name, Some(python_files), report)?;
     Ok(db)
 }
 
@@ -508,7 +614,7 @@ fn validate_folder_from(raw: &str, home: Option<&Path>) -> Result<PathBuf, Bridg
 
 /// Scans the folder at `path` into a database under `cache`, returning the
 /// database to open. The folder itself is only read.
-fn open_folder_in(cache: &Path, path: &str) -> Result<PathBuf, BridgeError> {
+fn open_folder_in(cache: &Path, path: &str, report: Report) -> Result<PathBuf, BridgeError> {
     let folder = validate_folder(path)?;
     let sidecar = bridge::locate_sidecar()?;
     let name = folder
@@ -527,18 +633,25 @@ fn open_folder_in(cache: &Path, path: &str) -> Result<PathBuf, BridgeError> {
     })?;
 
     let db = dir.join(format!("{name}.db"));
-    scan(&sidecar, &folder, &db, &name)?;
+    scan(&sidecar, &folder, &db, &name, None, report)?;
     Ok(db)
 }
 
 /// IPC entry point: `invoke("open_folder", { path })`. Resolves with the path
 /// of the scanned database, ready for `run_headless`.
 #[tauri::command]
-pub async fn open_folder<R: tauri::Runtime>(app: tauri::AppHandle<R>, path: String) -> Result<String, BridgeError> {
+pub async fn open_folder<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    path: String,
+    on_progress: tauri::ipc::Channel<Progress>,
+) -> Result<String, BridgeError> {
     let cache = app.path().app_cache_dir().map_err(|e| BridgeError::Internal {
         message: format!("Cannot locate the app's cache directory: {e}"),
     })?;
-    tauri::async_runtime::spawn_blocking(move || open_folder_in(&cache, &path).map(|db| db.display().to_string()))
+    tauri::async_runtime::spawn_blocking(move || {
+        let report = move |p: Progress| send(&on_progress, p);
+        open_folder_in(&cache, &path, &report).map(|db| db.display().to_string())
+    })
         .await
         .map_err(|e| BridgeError::Internal {
             message: format!("Folder worker failed: {e}"),
@@ -548,15 +661,27 @@ pub async fn open_folder<R: tauri::Runtime>(app: tauri::AppHandle<R>, path: Stri
 /// IPC entry point: `invoke("open_repository", { url })`. Resolves with the
 /// path of the scanned database, ready for `run_headless`.
 #[tauri::command]
-pub async fn open_repository<R: tauri::Runtime>(app: tauri::AppHandle<R>, url: String) -> Result<String, BridgeError> {
+pub async fn open_repository<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    url: String,
+    on_progress: tauri::ipc::Channel<Progress>,
+) -> Result<String, BridgeError> {
     let cache = app.path().app_cache_dir().map_err(|e| BridgeError::Internal {
         message: format!("Cannot locate the app's cache directory: {e}"),
     })?;
-    tauri::async_runtime::spawn_blocking(move || open(&cache, &url).map(|db| db.display().to_string()))
+    tauri::async_runtime::spawn_blocking(move || {
+        let report = move |p: Progress| send(&on_progress, p);
+        open(&cache, &url, &report).map(|db| db.display().to_string())
+    })
         .await
         .map_err(|e| BridgeError::Internal {
             message: format!("Repository worker failed: {e}"),
         })?
+}
+
+/// Progress is best effort: a closed window must not fail the open.
+fn send(channel: &tauri::ipc::Channel<Progress>, progress: Progress) {
+    let _ = channel.send(progress);
 }
 
 #[cfg(test)]
@@ -575,7 +700,7 @@ mod tests {
     }
 
     fn repo(owner: &str, name: &str) -> RepositoryRef {
-        RepositoryRef { owner: owner.into(), name: name.into() }
+        RepositoryRef { owner: owner.into(), name: name.into(), commit: None }
     }
 
     #[test]
@@ -590,6 +715,17 @@ mod tests {
             assert_eq!(parse_url(url).unwrap(), repo("c5ln", "Telescode"), "{url}");
         }
         assert_eq!(parse_url("https://github.com/a-b/x.y_z").unwrap(), repo("a-b", "x.y_z"));
+    }
+
+    #[test]
+    fn a_full_commit_sha_pins_the_download() {
+        let sha = "3c7baaa05ab4aa49cc819ce3a819d260de19c157";
+        let pinned = parse_url(&format!("https://github.com/psf/requests/tree/{}", sha.to_uppercase())).unwrap();
+        assert_eq!(pinned, RepositoryRef { owner: "psf".into(), name: "requests".into(), commit: Some(sha.into()) });
+        // A branch or a short SHA is not a pin.
+        for url in ["https://github.com/psf/requests/tree/main", "https://github.com/psf/requests/tree/3c7baaa"] {
+            assert!(matches!(parse_url(url), Err(BridgeError::InvalidRepositoryUrl { .. })), "{url}");
+        }
     }
 
     #[test]
@@ -643,12 +779,27 @@ mod tests {
     }
 
     #[test]
+    fn downloads_report_progress_in_steps_and_at_the_end() {
+        let reports = Mutex::new(Vec::new());
+        let report = |p: Progress| reports.lock().unwrap().push(p);
+        let data = vec![0u8; (PROGRESS_STEP_BYTES * 2 + 10) as usize];
+        let mut reader = Counting { inner: &data[..], read: 0, reported: 0, report: &report };
+        io::copy(&mut reader, &mut io::sink()).unwrap();
+        let bytes: Vec<u64> = reports.into_inner().unwrap().into_iter()
+            .map(|p| match p { Progress::Download { bytes } => bytes, other => panic!("{other:?}") })
+            .collect();
+        assert_eq!(bytes.last(), Some(&(data.len() as u64)));
+        assert!(bytes.len() >= 2 && bytes.windows(2).all(|w| w[0] < w[1]), "{bytes:?}");
+    }
+
+    #[test]
     fn tarballs_unpack_files_but_not_links() {
         let dest = std::env::temp_dir().join(format!("telescode-unpack-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dest);
         fs::create_dir_all(&dest).unwrap();
         let bytes = tarball(&[("o-r-abc/pkg/a.py", b"print(1)\n"), ("o-r-abc/README.md", b"hi")]);
-        unpack(&bytes[..], &dest, "o/r").unwrap();
+        // Counts the Python files it unpacked, for the loading screen.
+        assert_eq!(unpack(&bytes[..], &dest, "o/r").unwrap(), 1);
         assert_eq!(fs::read_to_string(dest.join("pkg/a.py")).unwrap(), "print(1)\n");
         assert!(dest.join("README.md").is_file());
         assert!(fs::symlink_metadata(dest.join("link")).is_err());
@@ -717,7 +868,7 @@ mod tests {
         fs::write(dir.join("source/main.py"), "def main():\n    return 1\n").unwrap();
         let sidecar = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../build/TelescodeHeadless");
         let db = dir.join("project.db");
-        scan(&sidecar, &dir.join("source"), &db, "project").unwrap();
+        scan(&sidecar, &dir.join("source"), &db, "project", None, &|_| {}).unwrap();
         assert_eq!(fs::read_to_string(source_record(&db)).unwrap(), dir.join("source").to_str().unwrap());
         assert!(!dir.join("project.db.source.json").exists());
         let _ = fs::remove_dir_all(&dir);
@@ -915,17 +1066,17 @@ mod tests {
             return;
         };
         let cache = std::env::temp_dir().join(format!("telescode-repository-{}", std::process::id()));
-        let db = open(&cache, &url).unwrap();
+        let db = open(&cache, &url, &|_| {}).unwrap();
         let out = bridge::run(&bridge::locate_sidecar().unwrap(), bridge::Operation::Analyze, db.to_str().unwrap()).unwrap();
         let v: serde_json::Value = serde_json::from_str(&out).unwrap();
         assert!(v["totals"]["fileCount"].as_u64().unwrap() > 0);
 
         // Opening again replaces the previous download rather than failing on it.
-        assert_eq!(open(&cache, &url).unwrap(), db);
+        assert_eq!(open(&cache, &url, &|_| {}).unwrap(), db);
 
         // The downloaded source, opened as a local folder, scans the same way.
         let source = db.parent().unwrap().join("source");
-        let folder_db = open_folder_in(&cache, source.to_str().unwrap()).unwrap();
+        let folder_db = open_folder_in(&cache, source.to_str().unwrap(), &|_| {}).unwrap();
         assert_eq!(folder_db.file_name().unwrap(), "source.db");
         let out = bridge::run(&bridge::locate_sidecar().unwrap(), bridge::Operation::Analyze, folder_db.to_str().unwrap()).unwrap();
         let w: serde_json::Value = serde_json::from_str(&out).unwrap();

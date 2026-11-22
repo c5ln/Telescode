@@ -5,7 +5,7 @@
 import { invoke, isTauri } from '@tauri-apps/api/core'
 
 import { TelescodeError, fromNativeError } from '../bridge/errors'
-import { agentStatus, signIn, type AgentProvider, type AgentStatus } from '../agent'
+import { agentStatus, followRun, newRuns, signIn, type AgentProvider, type AgentRun, type AgentStatus, type OnToolCall } from '../agent'
 import type { QuizFeedback, QuizResponse, QuizSet, TourContext } from './model'
 
 export interface QuizAnswer {
@@ -18,7 +18,7 @@ export interface QuizAnswer {
 export interface QuizLibrary {
   list(): Promise<QuizSet[]>
   /** Have a quiz written for one tour step; resolves once it is saved. */
-  generate?(target: TourContext & { dbPath: string }): Promise<void>
+  generate?(target: TourContext & { dbPath: string }, onToolCall?: OnToolCall): AgentRun
   /** Grade and record an answer. */
   respond(answer: QuizAnswer): Promise<{ response: QuizResponse; feedback: QuizFeedback }>
   /** Whether the agent is installed and signed in. Asked only when a quiz must be written. */
@@ -39,7 +39,7 @@ async function invokeQuizzes<T>(command: string, args?: Record<string, unknown>)
 }
 
 /** Generations under way, by tour step: asking again joins the one already running. */
-const generating = new Map<string, Promise<void>>()
+const generating = newRuns()
 
 export function createQuizLibrary(provider: AgentProvider): QuizLibrary {
   return {
@@ -47,14 +47,9 @@ export function createQuizLibrary(provider: AgentProvider): QuizLibrary {
     respond: (answer) => invokeQuizzes('record_quiz_response', { ...answer }),
     agentStatus: () => agentStatus(provider),
     signIn: () => signIn(provider),
-    generate(target) {
+    generate(target, onToolCall) {
       const key = `${provider}\n${target.dbPath}\n${target.tourId}\n${target.tourRevision}\n${target.stopIndex}`
-      let run = generating.get(key)
-      if (!run) {
-        run = invokeQuizzes<void>('generate_quiz', { target, provider }).finally(() => generating.delete(key))
-        generating.set(key, run)
-      }
-      return run
+      return followRun(generating, key, (progressId) => invokeQuizzes<void>('generate_quiz', { target, provider, progressId }), onToolCall)
     },
   }
 }

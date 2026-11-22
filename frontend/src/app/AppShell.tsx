@@ -1,9 +1,9 @@
 // Top bar over a full-bleed canvas. No sidebar: orientation comes from the
 // breadcrumbs, which follow where the user is in the code map.
 
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { savedAgent, saveAgent } from '../agent'
+import { savedAgent, saveAgent, whileRunning, type AgentProvider, type AgentRun } from '../agent'
 import type { RepositoryOpener, RepositorySource, TelescodeApi } from '../bridge'
 import { TopBar } from '../components/TopBar'
 import { WorkspaceCanvas } from '../components/WorkspaceCanvas'
@@ -20,6 +20,8 @@ import { useSearch } from './useSearch'
 import { useTutorial } from './useTutorial'
 import { createLearningLibrary, type LearningLibrary } from '../learning/api'
 import { useLearning } from './useLearning'
+import { exampleFor, type ExampleRepository } from '../components/examples'
+import { loadExample, withExample, type ExampleData } from '../examples'
 import { sourceLocation, useWorkspace, workspaceName, type WorkspaceState } from './useWorkspace'
 
 interface AppShellProps {
@@ -52,27 +54,48 @@ export function AppShell({
   const [pending, setPending] = useState(0)
   const libraries = useMemo(() => {
     // Capture the provider for the whole request, even if the panel is closed.
-    const track = <T,>(work: () => Promise<T>): Promise<T> => {
+    // Kept stoppable, so the progress view can still offer Cancel.
+    const track = <T,>(work: () => AgentRun<T>): AgentRun<T> => {
       setPending(count => count + 1)
-      return work().finally(() => setPending(count => count - 1))
+      return whileRunning(work(), () => setPending(count => count - 1))
     }
     const tour = createTourLibrary(provider)
     const quiz = createQuizLibrary(provider)
     const learning = createLearningLibrary(provider)
     return {
-      tour: { ...tour, signIn: () => track(tour.signIn!), generate: (dbPath: string) => track(() => tour.generate!(dbPath)) },
-      quiz: { ...quiz, signIn: () => track(quiz.signIn!), generate: (target: Parameters<NonNullable<QuizLibrary['generate']>>[0]) => track(() => quiz.generate!(target)) },
+      tour: { ...tour, signIn: () => track(tour.signIn!), generate: (...args: Parameters<NonNullable<TourLibrary['generate']>>) => track(() => tour.generate!(...args)) },
+      quiz: { ...quiz, signIn: () => track(quiz.signIn!), generate: (...args: Parameters<NonNullable<QuizLibrary['generate']>>) => track(() => quiz.generate!(...args)) },
       learning: { ...learning, start: (input: Parameters<LearningLibrary['start']>[0]) => track(() => learning.start(input)),
-        prepare: (input: Parameters<LearningLibrary['prepare']>[0]) => track(() => learning.prepare(input)) },
+        prepare: (...args: Parameters<LearningLibrary['prepare']>) => track(() => learning.prepare(...args)) },
     }
   }, [provider])
   const workspace = useWorkspace(api, initialState, repositories)
   const { state } = workspace
   const graphRef = useRef<GraphHandle | null>(null)
   const ready = state.status === 'ready' ? state : null
-  const tutorial = useTutorial(tours ?? libraries.tour, ready?.snapshot ?? null, ready?.dbPath ?? null, graphRef)
-  const quiz = useQuiz(quizzes ?? libraries.quiz, ready?.snapshot ?? null, ready?.dbPath ?? null, graphRef)
-  const learning = useLearning(providedLearning ?? libraries.learning, ready?.snapshot ?? null, ready?.dbPath ?? null, graphRef)
+
+  // An example repository plays the tour, quizzes and learning material
+  // written for it in advance.
+  const example = state.status !== 'empty' && state.source?.kind === 'github' ? exampleFor(state.source.url) : undefined
+  const [loadedExample, setLoadedExample] = useState<{ example: ExampleRepository; data: ExampleData } | null>(null)
+  useEffect(() => {
+    if (!example) return
+    let live = true
+    loadExample(example).then(
+      (data) => { if (live && data) setLoadedExample({ example, data }) },
+      () => {},
+    )
+    return () => { live = false }
+  }, [example])
+  const exampleData = loadedExample?.example === example ? loadedExample?.data : undefined
+  const content = useMemo(
+    () => (exampleData && ready ? withExample(libraries, exampleData, ready.snapshot) : libraries),
+    [exampleData, ready, libraries],
+  )
+
+  const tutorial = useTutorial(tours ?? content.tour, ready?.snapshot ?? null, ready?.dbPath ?? null, graphRef)
+  const quiz = useQuiz(quizzes ?? content.quiz, ready?.snapshot ?? null, ready?.dbPath ?? null, graphRef)
+  const learning = useLearning(providedLearning ?? content.learning, ready?.snapshot ?? null, ready?.dbPath ?? null, graphRef)
   const search = useSearch(ready?.snapshot ?? null, ready?.dbPath ?? null)
   /** Where the user is in the map, below the repository. */
   const [trail, setTrail] = useState<Crumb[]>([])
@@ -109,9 +132,36 @@ export function AppShell({
       onSelect: workspace.reload,
       disabled: state.status === 'empty' || state.status === 'loading',
     },
-    { type: 'separator', id: 'view' },
-    { type: 'toggle', id: 'complexity', label: 'Complexity', checked: complexity, onChange: setComplexity },
   ]
+
+  const switchAgent = (next: AgentProvider) => { saveAgent(next); setProvider(next) }
+
+  const toggleTour =
+    tutorial.state.status === 'off'
+      ? tutorial.open
+      : () => {
+          quiz.close()
+          learning.close()
+          tutorial.exit()
+        }
+  const tourDisabled = state.status !== 'ready'
+
+  // T starts or leaves the code tour, unless the user is typing.
+  const tourShortcut = useRef<(() => void) | null>(null)
+  tourShortcut.current = tourDisabled ? null : toggleTour
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 't' && e.key !== 'T') return
+      if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return
+      const target = e.target as HTMLElement | null
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return
+      if (!tourShortcut.current) return
+      e.preventDefault()
+      tourShortcut.current()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
 
   const onSearchSelect = (result: SearchResult) => {
     if (tutorial.state.status === 'playing' && tutorial.state.playing) {
@@ -125,7 +175,7 @@ export function AppShell({
       <TopBar
         crumbs={crumbs}
         agent={{ provider, disabled: pending > 0 || tutorial.state.status === 'searching' || quiz.state.status === 'searching',
-          onChange: (next) => { saveAgent(next); setProvider(next) } }}
+          onChange: switchAgent }}
         onNavigate={(crumb) => graphRef.current?.navigate(crumb.id)}
         menuItems={menuItems}
         search={{
@@ -137,18 +187,7 @@ export function AppShell({
           emptyMessage: '검색 결과가 없습니다',
           footer: search.skipped > 0 ? `용량 상한으로 ${search.skipped}개 파일은 이름·경로만 검색됩니다` : undefined,
         }}
-        tutorial={{
-          active: tutorial.state.status !== 'off',
-          disabled: state.status !== 'ready',
-          onToggle:
-            tutorial.state.status === 'off'
-              ? tutorial.open
-              : () => {
-                  quiz.close()
-                  learning.close()
-                  tutorial.exit()
-                },
-        }}
+        tutorial={{ active: tutorial.state.status !== 'off', disabled: tourDisabled, onToggle: toggleTour }}
       />
       <WorkspaceCanvas
         state={state}
@@ -160,9 +199,12 @@ export function AppShell({
         graphRef={graphRef}
         onContextChange={onContextChange}
         complexity={complexity}
+        onComplexityChange={setComplexity}
         tutorial={tutorial}
         quiz={quiz}
         provider={provider}
+        onSwitchAgent={switchAgent}
+        suggestedRequirements={example?.requirements}
         learning={learning}
       />
     </div>

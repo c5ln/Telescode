@@ -1,14 +1,14 @@
 // Repository URL entry: the product's front door.
 //
-// URL → download and scan → internal database → analysis. The form only
-// checks that the URL names a GitHub repository; everything after that
-// happens once it is submitted.
+// URL → download and scan → internal database → analysis. The form reads the
+// common ways people write a repository and says how to fix anything else;
+// everything after that happens once it is submitted.
 
 import { useState, type FormEvent } from 'react'
 
 import { Button } from '../ui/Button'
 import styles from './InlineForm.module.css'
-import { parseGitHubRepositoryUrl } from './repositoryUrl'
+import { readRepositoryInput } from './repositoryUrl'
 
 interface RepositoryUrlFormProps {
   onSubmit: (url: string) => void
@@ -18,29 +18,30 @@ interface RepositoryUrlFormProps {
 
 export function RepositoryUrlForm({ onSubmit, initialUrl = '' }: RepositoryUrlFormProps) {
   const [url, setUrl] = useState(initialUrl)
-  const [invalid, setInvalid] = useState(false)
+  const [problem, setProblem] = useState<string | null>(null)
   const trimmed = url.trim()
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    if (parseGitHubRepositoryUrl(trimmed)) onSubmit(trimmed)
-    else setInvalid(true)
+    const input = readRepositoryInput(trimmed)
+    if ('url' in input) onSubmit(input.url)
+    else setProblem(input.problem)
   }
 
   return (
     <div className={styles.stack}>
-      <form className={styles.form} onSubmit={submit}>
+      <form className={styles.form} data-size="large" onSubmit={submit}>
         <input
           className={styles.input}
           value={url}
           onChange={(e) => {
             setUrl(e.target.value)
-            setInvalid(false)
+            setProblem(null)
           }}
-          placeholder="https://github.com/owner/repo"
+          placeholder="Paste a public GitHub URL of a Python project"
           aria-label="Repository URL"
-          aria-invalid={invalid || undefined}
-          aria-describedby={invalid ? 'repository-url-notice' : undefined}
+          aria-invalid={problem ? true : undefined}
+          aria-describedby={problem ? 'repository-url-notice' : undefined}
           spellCheck={false}
           autoComplete="off"
           autoFocus
@@ -49,9 +50,9 @@ export function RepositoryUrlForm({ onSubmit, initialUrl = '' }: RepositoryUrlFo
           Analyze
         </Button>
       </form>
-      {invalid && (
+      {problem && (
         <p id="repository-url-notice" className={styles.notice} data-kind="invalid" role="status">
-          Enter a public GitHub repository URL, such as https://github.com/owner/repo.
+          {problem}
         </p>
       )}
     </div>

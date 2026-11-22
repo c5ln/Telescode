@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState, type RefObject } from 'react'
+import { addCall, recordDuration, startActivity, withRun, type AgentActivity } from '../agent'
 import type { AnalysisSnapshot } from '../bridge'
 import type { GraphHandle, MapView } from '../graph/GraphCanvas'
 import type { GoalSeed, LearningLibrary } from '../learning/api'
@@ -6,7 +7,7 @@ import type { LearningAnswer, LearningResult, LearningView } from '../learning/c
 import { snapshotHash } from '../tour/tutorial'
 import { defaultGoal, requirementsGoal } from '../learning/goal'
 
-type State = { status: 'off' } | { status: 'loading'; error?: string; pending?: LearningView } | { status: 'ready'; view: LearningView;
+type State = { status: 'off' } | { status: 'loading'; error?: string; pending?: LearningView; activity?: AgentActivity; prepared?: boolean } | { status: 'ready'; view: LearningView;
   question: LearningView['question']; selected: number | null; result: LearningResult | null; busy: boolean; error: string | null }
 const message = (e: unknown) => e instanceof Error ? e.message : String(e)
 
@@ -32,14 +33,18 @@ export function useLearning(library: LearningLibrary, snapshot: AnalysisSnapshot
     if (move && view.session.current) graph.current?.spotlight(view.session.current.nodeId)
   }
   const current = (id: number) => id === sequence.current && context.current === snapshot
+  /** Whether the goal's material ships with the app, so no agent writes more of it. */
+  const isPrepared = (goalId: string) => goalId === library.preparedGoalId?.()
   const start = async (input: GoalSeed | string = defaultGoal()) => {
     if (!snapshot || !dbPath || busy.current) return
     const id = ++sequence.current; busy.current = true
     savedView.current = graph.current?.saveView() ?? null
     lastGoal.current = input
     setState({ status: 'loading' })
+    let goalId: string | undefined
     try {
       const goal = typeof input === 'string' ? await requirementsGoal(input) : input
+      goalId = goal.goalId
       const hash = await snapshotHash(snapshot)
       if (!current(id)) return
       const key = `telescode.learning.${JSON.stringify([dbPath, hash, goal])}`
@@ -55,11 +60,22 @@ export function useLearning(library: LearningLibrary, snapshot: AnalysisSnapshot
       if (!current(id)) return
       try { localStorage.setItem(key, view.session.id) } catch { /* State is also persisted by the server. */ }
       if (view.session.status === 'preparing') {
-        setState({ status: 'loading', pending: view })
-        view = await library.prepare({ sessionId: view.session.id, revision: view.session.revision })
+        const pending = view
+        let activity = startActivity()
+        setState({ status: 'loading', pending, activity })
+        const run = library.prepare({ sessionId: view.session.id, revision: view.session.revision }, (call) => {
+          if (!current(id)) return
+          activity = addCall(activity, call)
+          setState({ status: 'loading', pending, activity })
+        })
+        activity = withRun(activity, run)
+        if (current(id)) setState({ status: 'loading', pending, activity })
+        view = await run
+        // Only an agent's run says how long the next one takes; bundled material saves at once.
+        if (activity.calls.length) recordDuration('learning path', Date.now() - activity.startedMs)
       }
       if (current(id)) show(view)
-    } catch (e) { if (current(id)) { busy.current = false; setState({ status: 'loading', error: message(e) }) } }
+    } catch (e) { if (current(id)) { busy.current = false; setState({ status: 'loading', error: message(e), prepared: goalId !== undefined && isPrepared(goalId) }) } }
   }
   const close = () => {
     sequence.current++; busy.current = false; request.current = null
@@ -119,6 +135,6 @@ export function useLearning(library: LearningLibrary, snapshot: AnalysisSnapshot
       if (current(id)) show(view)
     } catch (e) { if (current(id)) { busy.current = false; setState({ ...state, busy: false, error: message(e) }) } }
   }
-  return { state, start, close, retry, select, submit, advance, prepareMore, showNode: (nodeId: string) => graph.current?.spotlight(nodeId) }
+  return { state, start, close, retry, select, submit, advance, prepareMore, isPrepared, showNode: (nodeId: string) => graph.current?.spotlight(nodeId) }
 }
 export type Learning = ReturnType<typeof useLearning>

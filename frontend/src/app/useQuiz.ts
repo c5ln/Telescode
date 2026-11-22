@@ -3,6 +3,7 @@
 // record each answer. Recording and grading happen in the MCP server; this
 // only keeps what the panel shows.
 
+import { addCall, recordDuration, startActivity, withRun, type AgentActivity } from '../agent'
 import { useCallback, useRef, useState, type RefObject } from 'react'
 
 import type { AnalysisSnapshot } from '../bridge'
@@ -22,7 +23,7 @@ export type QuizState =
   | { status: 'off' }
   | { status: 'searching'; at: TourContext }
   /** No quiz for the step yet, so one is written, as for tutorials. */
-  | { status: 'setup'; at: TourContext; phase: SetupPhase; error: string | null }
+  | { status: 'setup'; at: TourContext; phase: SetupPhase; error: string | null; activity?: AgentActivity }
   | {
       status: 'ready'
       at: TourContext
@@ -43,7 +44,7 @@ export interface Quiz {
   setDifficulty: (difficulty: Difficulty) => void
   select: (choice: number) => void
   submit: () => void
-  /** Answer the same question again, as a new attempt. */
+  /** Answer the same question again, as a new attempt; after a failed write, write the quiz again. */
   retry: () => void
   next: () => void
   /** Show one of the nodes an answer rests on. */
@@ -72,6 +73,8 @@ export function useQuiz(
   // When the current question was put in front of the user, for response time.
   const shownAt = useRef(0)
   const moved = useRef(false)
+  // The step last opened, so a failed write can be tried again.
+  const lastOpened = useRef<{ tour: SavedTour; stopIndex: number } | null>(null)
 
   const show = useCallback(
     (next: Extract<QuizState, { status: 'ready' }>) => {
@@ -93,6 +96,7 @@ export function useQuiz(
     (tour: SavedTour, stopIndex: number) => {
       const stop = tour.plan.stops[stopIndex]
       if (!snapshot || !stop) return
+      lastOpened.current = { tour, stopIndex }
       const at: TourContext = { tourId: tour.plan.id, tourRevision: tour.plan.revision, stopIndex, nodeId: stop.nodeId }
       const id = ++searchId.current
       const current = () => id === searchId.current
@@ -121,7 +125,17 @@ export function useQuiz(
           if (!current()) return
         }
         setup('generating')
-        await library.generate({ ...at, dbPath })
+        let activity = startActivity()
+        setState({ status: 'setup', at, phase, error: null, activity })
+        const run = library.generate({ ...at, dbPath }, (call) => {
+          if (!current()) return
+          activity = addCall(activity, call)
+          setState({ status: 'setup', at, phase: 'generating', error: null, activity })
+        })
+        activity = withRun(activity, run)
+        if (current()) setState({ status: 'setup', at, phase: 'generating', error: null, activity })
+        await run
+        recordDuration('quiz', Date.now() - activity.startedMs)
         const saved = await find()
         if (!current()) return
         if (!saved) throw new Error('Generation finished without saving a quiz.')
@@ -182,9 +196,11 @@ export function useQuiz(
   }, [state, library, setState])
 
   const retry = useCallback(() => {
+    // A failed write is started over for the same step; a ready quiz asks the same question again.
+    if (state.status === 'setup' && lastOpened.current) return open(lastOpened.current.tour, lastOpened.current.stopIndex)
     if (state.status !== 'ready') return
     show({ ...state, selected: null, answer: { status: 'open' } })
-  }, [state, show])
+  }, [state, show, open])
 
   const next = useCallback(() => {
     if (state.status !== 'ready') return

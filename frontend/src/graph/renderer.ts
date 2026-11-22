@@ -33,6 +33,8 @@ export interface RendererCallbacks {
   /** The path from the root (exclusive) to the current navigation context. */
   onContextChange?: (path: GraphNode[]) => void
   onSelectionChange?: (node: GraphNode | null) => void
+  /** The node under the pointer changed. */
+  onHoverChange?: (node: GraphNode | null) => void
   onError?: (error: unknown) => void
 }
 
@@ -155,6 +157,8 @@ export class GraphRenderer {
   /** Nodes related to the focus (see `relationFocus`) and to the selection, by order. */
   private related = new Set<number>()
   private selectionRelated = new Set<number>()
+  /** What the AI agent has read while it writes, the latest last. */
+  private reading: GraphNode[] = []
   /** The hovered node is dimmed against the selection, so it does not take the focus. */
   private hoverMuted = false
   private hasCamera = false
@@ -245,6 +249,14 @@ export class GraphRenderer {
   setComplexityMode(on: boolean) {
     if (on === this.complexityMode) return
     this.complexityMode = on
+    this.invalidate()
+  }
+
+  /** Outline the nodes the AI agent has read, by ID, the latest last; [] clears them. */
+  setReading(ids: readonly string[]) {
+    const nodes = ids.map((id) => this.model.byId.get(id)).filter((n): n is GraphNode => n !== undefined)
+    if (nodes.length === this.reading.length && nodes.every((n, i) => n === this.reading[i])) return
+    this.reading = nodes
     this.invalidate()
   }
 
@@ -479,6 +491,7 @@ export class GraphRenderer {
     this.hoverMuted = this.dimmedBySelection(node)
     this.updateRelated()
     this.invalidate()
+    this.callbacks.onHoverChange?.(node)
   }
 
   /**
@@ -1018,6 +1031,9 @@ export class GraphRenderer {
       ctx.lineWidth = width
       strokeRect(ctx, inset(b, -(width - 1) / 2), n.kind === 'file' ? 3 : 2, color)
     }
+    const latest = this.reading[this.reading.length - 1]
+    for (const n of this.reading) if (n !== latest) outline(n, t.reading, 1.5, RELATED_STRENGTH)
+    if (latest) outline(latest, t.reading, 2.5)
     for (const n of this.relatedHighlights()) outline(n, t.selected, 1.5, RELATED_STRENGTH)
     if (this.hovered && this.hovered !== this.selected) outline(this.hovered, t.hover, 1)
     if (this.selected) outline(this.selected, t.selected, 2)

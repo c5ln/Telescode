@@ -20,6 +20,8 @@ export interface GraphTheme {
   hoverFill: string
   selected: string
   selectedFill: string
+  /** Outlines the parts of the code an AI agent has read while it writes. */
+  reading: string
   tipBackground: string
   tipText: string
   /** File fills in complexity mode, lightest first. */
@@ -44,6 +46,7 @@ const TOKENS: Record<Exclude<keyof GraphTheme, 'font' | 'complexity'>, string> =
   hoverFill: '--graph-hover-fill',
   selected: '--graph-selected',
   selectedFill: '--graph-selected-fill',
+  reading: '--graph-reading',
   tipBackground: '--surface-inverse',
   tipText: '--text-inverse',
 }
