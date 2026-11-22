@@ -128,8 +128,6 @@ export function AppShell({
       onSelect: workspace.reload,
       disabled: state.status === 'empty' || state.status === 'loading',
     },
-    { type: 'separator', id: 'view' },
-    { type: 'toggle', id: 'complexity', label: 'Complexity', checked: complexity, onChange: setComplexity },
   ]
 
   const switchAgent = (next: AgentProvider) => { saveAgent(next); setProvider(next) }
@@ -181,6 +179,7 @@ export function AppShell({
         graphRef={graphRef}
         onContextChange={onContextChange}
         complexity={complexity}
+        onComplexityChange={setComplexity}
         tutorial={tutorial}
         quiz={quiz}
         provider={provider}

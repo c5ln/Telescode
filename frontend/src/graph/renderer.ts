@@ -33,6 +33,8 @@ export interface RendererCallbacks {
   /** The path from the root (exclusive) to the current navigation context. */
   onContextChange?: (path: GraphNode[]) => void
   onSelectionChange?: (node: GraphNode | null) => void
+  /** The node under the pointer changed. */
+  onHoverChange?: (node: GraphNode | null) => void
   onError?: (error: unknown) => void
 }
 
@@ -479,6 +481,7 @@ export class GraphRenderer {
     this.hoverMuted = this.dimmedBySelection(node)
     this.updateRelated()
     this.invalidate()
+    this.callbacks.onHoverChange?.(node)
   }
 
   /**

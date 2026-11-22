@@ -154,7 +154,7 @@ describe('AppShell', () => {
     expect(screen.getByRole('status').textContent).toBe('Analyzing c5ln/Telescode…')
 
     pending[0]!.resolve(snapshot)
-    expect(await screen.findByText('16 files · 11 classes')).toBeTruthy()
+    expect(await screen.findByText('16 files, 11 classes')).toBeTruthy()
     expect(screen.getByText('Telescode').getAttribute('aria-current')).toBe('location')
   })
 
@@ -172,7 +172,7 @@ describe('AppShell', () => {
     expect(within(alert).getByText(/c5ln\/private does not exist or is private\./, { selector: 'pre' })).toBeTruthy()
     // Trying the same address again cannot help.
     expect(within(alert).queryByRole('button', { name: 'Try again' })).toBeNull()
-    expect(screen.queryByText('16 files · 11 classes')).toBeNull()
+    expect(screen.queryByText('16 files, 11 classes')).toBeNull()
 
     // An example opens in one click.
     await userEvent.click(within(alert).getByRole('button', { name: 'Try an example' }))
@@ -228,7 +228,7 @@ describe('AppShell', () => {
     expect(screen.getByRole('status').textContent).toBe('Analyzing project…')
 
     pending[0]!.resolve(snapshot)
-    expect(await screen.findByText('16 files · 11 classes')).toBeTruthy()
+    expect(await screen.findByText('16 files, 11 classes')).toBeTruthy()
     expect(screen.getByText('project').getAttribute('aria-current')).toBe('location')
     expect(canvasButtons().every((b) => !b.disabled)).toBe(true)
   })
@@ -257,7 +257,7 @@ describe('AppShell', () => {
     await openFolder('C:/x/project')
     await vi.waitFor(() => expect(analyze).toHaveBeenCalledTimes(1))
     pending[0]!.resolve(snapshot)
-    await screen.findByText('16 files · 11 classes')
+    await screen.findByText('16 files, 11 classes')
 
     await userEvent.click(screen.getByRole('button', { name: 'More actions' }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Reload analysis' }))
@@ -272,7 +272,7 @@ describe('AppShell', () => {
     await openFolder('C:/x/project')
     await vi.waitFor(() => expect(pending).toHaveLength(1))
     pending[0]!.resolve(snapshot)
-    await screen.findByText('16 files · 11 classes')
+    await screen.findByText('16 files, 11 classes')
 
     await userEvent.click(screen.getByRole('button', { name: 'More actions' }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Open repository…' }))
@@ -294,7 +294,7 @@ describe('AppShell', () => {
     await vi.waitFor(() => expect(pending).toHaveLength(2))
 
     pending[1]!.resolve(snapshot)
-    await screen.findByText('16 files · 11 classes')
+    await screen.findByText('16 files, 11 classes')
     pending[0]!.reject(new TelescodeError('db_invalid', 'late failure'))
     await new Promise((r) => setTimeout(r, 0))
     expect(screen.queryByRole('alert')).toBeNull()
@@ -303,7 +303,7 @@ describe('AppShell', () => {
   it('shows the code map when ready, and its breadcrumbs follow navigation in the map', async () => {
     render(<AppShell api={deferredApi().api} initialState={{ status: 'ready', dbPath: 'C:/x/project.db', snapshot }} />)
     expect(screen.getByRole('application', { name: /^Code map/ })).toBeTruthy()
-    expect(screen.getByText('16 files · 11 classes')).toBeTruthy()
+    expect(screen.getByText('16 files, 11 classes')).toBeTruthy()
 
     const nav = screen.getByRole('navigation', { name: 'Breadcrumb' })
     expect(nav.textContent).toBe('project')
@@ -334,7 +334,7 @@ describe('AppShell', () => {
     expect(renderer.camera.k).toBeCloseTo(k)
   })
 
-  it('colours files by complexity by default, and only while the Complexity toggle is on, without moving anything', async () => {
+  it('colours files by complexity by default, and only while the complexity switch in the legend is on, without moving anything', async () => {
     render(<AppShell api={deferredApi().api} initialState={{ status: 'ready', dbPath: 'C:/x/project.db', snapshot }} />)
     const renderer = (window as { __telescode?: GraphRenderer }).__telescode!
     renderer.resize(1200, 750)
@@ -342,11 +342,12 @@ describe('AppShell', () => {
     const before = { camera: { ...renderer.camera }, box: [hotspot.x, hotspot.y, hotspot.w, hotspot.h] }
     expect(renderer.complexityLevel(hotspot)).toBe(3)
 
-    await userEvent.click(screen.getByRole('button', { name: 'More actions' }))
-    const toggle = screen.getByRole('menuitemcheckbox', { name: 'Complexity' })
-    expect(toggle.getAttribute('aria-checked')).toBe('true')
+    // The switch lives in the legend, one click away from the map.
+    await userEvent.click(screen.getByRole('button', { name: /Legend/ }))
+    const toggle = screen.getByRole('switch', { name: 'Show complexity' }) as HTMLInputElement
+    expect(toggle.checked).toBe(true)
     await userEvent.click(toggle)
-    expect(toggle.getAttribute('aria-checked')).toBe('false')
+    expect(toggle.checked).toBe(false)
     expect(renderer.complexityLevel(hotspot)).toBe(-1)
 
     await userEvent.click(toggle)

@@ -40,6 +40,7 @@ interface WorkspaceCanvasProps {
   onContextChange: (path: GraphNode[]) => void
   /** Shade files by complexity. */
   complexity: boolean
+  onComplexityChange: (on: boolean) => void
   tutorial: Tutorial
   quiz: Quiz
   provider?: AgentProvider
@@ -68,6 +69,7 @@ export function WorkspaceCanvas({
   graphRef,
   onContextChange,
   complexity,
+  onComplexityChange,
   tutorial,
   quiz,
   provider,
@@ -86,6 +88,8 @@ export function WorkspaceCanvas({
             onRetry={onRetry}
             graphRef={graphRef}
             complexity={complexity}
+            onComplexityChange={onComplexityChange}
+            hintAllowed={tutorial.state.status === 'off' && quiz.state.status === 'off' && (!learning || learning.state.status === 'off')}
           />
         )}
       </div>
