@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Provider {
     #[default]
@@ -94,8 +94,147 @@ pub fn agent_cancel(progress_id: String) {
     cancel(&progress_id)
 }
 
+/// Which model writes: the agent's own default, or a lighter, faster one for
+/// bounded, server-validated writing: a step's two quiz questions and the
+/// learning path's material.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Model {
+    Default,
+    Light,
+}
+
+/// Claude Code's light model, by its alias so it follows Claude Code's updates.
+const CLAUDE_LIGHT_MODEL: &str = "sonnet";
+/// Codex's light model and the reasoning effort it runs at.
+const CODEX_LIGHT_MODEL: &str = "gpt-6-luna";
+const CODEX_LIGHT_EFFORT: &str = "medium";
+
+/// The arguments that pick `model` for `provider`; none for the default.
+pub fn model_args(provider: Provider, model: Model) -> Vec<OsString> {
+    match (provider, model) {
+        (_, Model::Default) => Vec::new(),
+        (Provider::Claude, Model::Light) => vec!["--model".into(), CLAUDE_LIGHT_MODEL.into()],
+        (Provider::Codex, Model::Light) => vec![
+            "-m".into(),
+            CODEX_LIGHT_MODEL.into(),
+            "-c".into(),
+            format!("model_reasoning_effort=\"{CODEX_LIGHT_EFFORT}\"").into(),
+        ],
+    }
+}
+
+/// What one agent run used, read from its JSON event stream. Input read from
+/// the prompt cache is counted apart from new input, the same way for both agents.
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Usage {
+    pub input_tokens: u64,
+    pub cached_input_tokens: u64,
+    pub output_tokens: u64,
+    /// What Claude Code reports the run cost; Codex reports none.
+    pub cost_usd: Option<f64>,
+}
+
+impl Usage {
+    /// Adds what one event line reports: Claude Code's closing `result`, or a
+    /// Codex `turn.completed`. Other lines change nothing.
+    pub fn read(&mut self, line: &str) {
+        let Ok(event) = serde_json::from_str::<serde_json::Value>(line.trim()) else { return };
+        let count = |usage: &serde_json::Value, key: &str| usage.get(key).and_then(|v| v.as_u64()).unwrap_or(0);
+        match event.get("type").and_then(|t| t.as_str()) {
+            Some("result") => {
+                let Some(usage) = event.get("usage") else { return };
+                self.input_tokens += count(usage, "input_tokens") + count(usage, "cache_creation_input_tokens");
+                self.cached_input_tokens += count(usage, "cache_read_input_tokens");
+                self.output_tokens += count(usage, "output_tokens");
+                if let Some(cost) = event.get("total_cost_usd").and_then(|c| c.as_f64()) {
+                    self.cost_usd = Some(self.cost_usd.unwrap_or(0.0) + cost);
+                }
+            }
+            Some("turn.completed") => {
+                let Some(usage) = event.get("usage") else { return };
+                let cached = count(usage, "cached_input_tokens");
+                self.input_tokens += count(usage, "input_tokens").saturating_sub(cached);
+                self.cached_input_tokens += cached;
+                self.output_tokens += count(usage, "output_tokens");
+            }
+            _ => {}
+        }
+    }
+}
+
+/// One finished run, as the usage log keeps it.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UsageRecord {
+    pub at_ms: u128,
+    /// What was written: "tour", "quiz" or "learning".
+    pub work: &'static str,
+    pub provider: Provider,
+    pub model: Model,
+    pub duration_ms: u128,
+    pub ok: bool,
+    pub usage: Usage,
+}
+
+/// The usage log, one JSON line per run, next to the server's saved tours and quizzes.
+pub const USAGE_LOG: &str = "agent-usage.jsonl";
+
+/// Appends `record` to the usage log in `dir`.
+pub fn record_usage(dir: &Path, record: &UsageRecord) -> std::io::Result<()> {
+    use std::io::Write;
+    std::fs::create_dir_all(dir)?;
+    let mut file = std::fs::OpenOptions::new().create(true).append(true).open(dir.join(USAGE_LOG))?;
+    writeln!(file, "{}", serde_json::to_string(record).map_err(std::io::Error::other)?)
+}
+
+/// Where the server keeps its output: TELESCODE_TOUR_OUTPUT, or mcp/artifacts as server.ts does.
+fn output_dir() -> Option<PathBuf> {
+    match std::env::var_os("TELESCODE_TOUR_OUTPUT").filter(|p| !p.is_empty()) {
+        Some(dir) => Some(PathBuf::from(dir)),
+        None => mcp::mcp_dir().ok().map(|dir| dir.join("artifacts")),
+    }
+}
+
+/// Handles each event line: its tool calls go to the follower, when there is
+/// one, and what it reports using is added to `usage`.
+fn line_handler(followed: Option<&Followed>, usage: Arc<Mutex<Usage>>) -> OnLine {
+    let report = followed.map(|f| f.on_tool_call.clone());
+    Arc::new(move |line: &str| {
+        if let Some(report) = &report {
+            for call in tool_calls(line) {
+                report(call)
+            }
+        }
+        usage.lock().unwrap_or_else(|e| e.into_inner()).read(line);
+    })
+}
+
+/// `args` with the agent printing each event as a JSON line, which is how its
+/// tool calls are followed and its usage read.
+fn with_events(provider: Provider, mut args: Vec<OsString>) -> Vec<OsString> {
+    match provider {
+        Provider::Claude => args.extend(["--output-format".into(), "stream-json".into(), "--verbose".into()]),
+        Provider::Codex => args.insert(1, "--json".into()),
+    }
+    args
+}
+
+/// `args` with the arguments for `model`, before Codex's trailing prompt
+/// (Claude Code takes options anywhere).
+fn with_model(provider: Provider, mut args: Vec<OsString>, model: Model) -> Vec<OsString> {
+    let at = args.len().saturating_sub(usize::from(provider == Provider::Codex));
+    args.splice(at..at, model_args(provider, model));
+    args
+}
+
+/// Runs the agent once and records what it used in the usage log; `work`
+/// names what it writes there ("tour", "quiz" or "learning").
 pub fn generate(
     provider: Provider,
+    work: &'static str,
+    model: Model,
     prompt: &str,
     tools: &[&str],
     timeout: Duration,
@@ -110,24 +249,25 @@ pub fn generate(
         Provider::Codex => (codex::find().ok_or_else(codex::not_installed)?, "Codex"),
     };
     let mut cmd = command(&path);
-    let mut args = generation_args(provider, prompt, &server, tools);
-    if followed.is_some() {
-        // Print each event as a JSON line, so tool calls can be followed as they happen.
-        match provider {
-            Provider::Claude => args.extend(["--output-format".into(), "stream-json".into(), "--verbose".into()]),
-            Provider::Codex => args.insert(1, "--json".into()),
-        }
+    cmd.args(with_events(provider, with_model(provider, generation_args(provider, prompt, &server, tools), model)));
+    let usage = Arc::new(Mutex::new(Usage::default()));
+    let on_line = line_handler(followed.as_ref(), usage.clone());
+    let started = Instant::now();
+    let result = run_streaming(cmd, timeout, name, Some(on_line), followed.as_ref().map(|f| &*f.cancelled));
+    if let Some(dir) = output_dir() {
+        let record = UsageRecord {
+            at_ms: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0),
+            work,
+            provider,
+            model,
+            duration_ms: started.elapsed().as_millis(),
+            ok: result.is_ok(),
+            usage: usage.lock().unwrap_or_else(|e| e.into_inner()).clone(),
+        };
+        // Measuring is best effort; a log that cannot be written never fails the run.
+        let _ = record_usage(&dir, &record);
     }
-    cmd.args(args);
-    let on_line = followed.as_ref().map(|f| -> OnLine {
-        let report = f.on_tool_call.clone();
-        Arc::new(move |line: &str| {
-            for call in tool_calls(line) {
-                report(call)
-            }
-        })
-    });
-    run_streaming(cmd, timeout, name, on_line, followed.as_ref().map(|f| &*f.cancelled))
+    result
 }
 
 /// The Telescode tool calls in one line of an agent's JSON event stream:
@@ -477,6 +617,93 @@ mod tests {
         };
         assert!(message.contains("did not finish in time"), "{message}");
         assert!(started.elapsed() < Duration::from_secs(2));
+    }
+
+    #[test]
+    fn claude_usage_is_read_from_its_result_event() {
+        let mut usage = Usage::default();
+        usage.read(r#"{"type":"assistant","message":{"content":[]}}"#);
+        usage.read(r#"{"type":"result","subtype":"success","duration_ms":4200,"total_cost_usd":0.031,"usage":{"input_tokens":12,"cache_creation_input_tokens":3000,"cache_read_input_tokens":40000,"output_tokens":850}}"#);
+        // Input read from the prompt cache is kept apart from new input.
+        assert_eq!(usage, Usage { input_tokens: 3012, cached_input_tokens: 40000, output_tokens: 850, cost_usd: Some(0.031) });
+    }
+
+    #[test]
+    fn codex_usage_is_summed_over_its_turns() {
+        let mut usage = Usage::default();
+        for line in [
+            r#"{"type":"thread.started","thread_id":"t"}"#,
+            r#"{"type":"turn.completed","usage":{"input_tokens":1000,"cached_input_tokens":600,"output_tokens":200,"reasoning_output_tokens":50}}"#,
+            "not json",
+            r#"{"type":"turn.completed","usage":{"input_tokens":500,"cached_input_tokens":100,"output_tokens":80}}"#,
+        ] {
+            usage.read(line)
+        }
+        // Codex counts cached input inside input_tokens; it is kept apart here as for Claude.
+        assert_eq!(usage, Usage { input_tokens: 800, cached_input_tokens: 700, output_tokens: 280, cost_usd: None });
+    }
+
+    #[test]
+    fn each_run_is_appended_to_the_usage_log_as_one_json_line() {
+        let dir = std::env::temp_dir().join(format!("telescode-usage-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let run = |work: &'static str, ok: bool| UsageRecord {
+            at_ms: 1, work, provider: Provider::Claude, model: Model::Light, duration_ms: 4200, ok,
+            usage: Usage { input_tokens: 10, cached_input_tokens: 20, output_tokens: 30, cost_usd: Some(0.5) },
+        };
+        record_usage(&dir, &run("quiz", true)).unwrap();
+        record_usage(&dir, &run("learning", false)).unwrap();
+        let text = std::fs::read_to_string(dir.join(USAGE_LOG)).unwrap();
+        let lines: Vec<serde_json::Value> = text.lines().map(|l| serde_json::from_str(l).unwrap()).collect();
+        assert_eq!(lines.len(), 2);
+        assert_eq!(lines[0]["work"], "quiz");
+        assert_eq!(lines[0]["model"], "light");
+        assert_eq!(lines[0]["provider"], "claude");
+        assert_eq!(lines[0]["durationMs"], 4200);
+        assert_eq!(lines[0]["usage"]["cachedInputTokens"], 20);
+        assert_eq!(lines[1]["ok"], false);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn one_line_reports_its_tool_calls_and_counts_its_usage() {
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let seen = calls.clone();
+        let tracked = follow("usage-line-test".into(), Arc::new(move |c| seen.lock().unwrap().push(c)));
+        let usage = Arc::new(Mutex::new(Usage::default()));
+        let on_line = line_handler(Some(&tracked), usage.clone());
+        on_line(r#"{"type":"assistant","message":{"content":[{"type":"tool_use","name":"mcp__telescode__create_quiz","input":{}}]}}"#);
+        on_line(r#"{"type":"result","usage":{"input_tokens":5,"output_tokens":7}}"#);
+        assert_eq!(calls.lock().unwrap().iter().map(|c| c.tool.clone()).collect::<Vec<_>>(), ["create_quiz"]);
+        assert_eq!(usage.lock().unwrap().output_tokens, 7);
+        // Without a follower, usage is still counted.
+        let quiet = Arc::new(Mutex::new(Usage::default()));
+        line_handler(None, quiet.clone())(r#"{"type":"result","usage":{"input_tokens":5,"output_tokens":9}}"#);
+        assert_eq!(quiet.lock().unwrap().output_tokens, 9);
+    }
+
+    #[test]
+    fn every_run_prints_json_events_so_its_usage_can_be_read() {
+        let server = mcp::ServerCommand { program: "node".into(), args: vec!["/t/server.ts".into()], env: vec![] };
+        let claude = with_events(Provider::Claude, generation_args(Provider::Claude, "x", &server, &[]));
+        assert!(claude.windows(2).any(|w| w[0] == "--output-format" && w[1] == "stream-json"));
+        assert!(claude.iter().any(|a| a == "--verbose"));
+        let codex = with_events(Provider::Codex, generation_args(Provider::Codex, "x", &server, &[]));
+        assert_eq!(codex[1], "--json");
+        assert_eq!(codex.last().unwrap(), "x");
+    }
+
+    #[test]
+    fn the_model_goes_before_codex_prompt() {
+        let server = mcp::ServerCommand { program: "node".into(), args: vec!["/t/server.ts".into()], env: vec![] };
+        let codex = with_model(Provider::Codex, generation_args(Provider::Codex, "Write a quiz.", &server, &["create_quiz"]), Model::Light);
+        assert_eq!(codex.last().unwrap(), "Write a quiz.");
+        let m = codex.iter().position(|a| a == "-m").unwrap();
+        assert_eq!(codex[m + 1], "gpt-6-luna");
+        let claude = with_model(Provider::Claude, generation_args(Provider::Claude, "Write a quiz.", &server, &["create_quiz"]), Model::Light);
+        assert_eq!(&claude[..2], ["-p", "Write a quiz."]);
+        assert!(claude.windows(2).any(|w| w[0] == "--model" && w[1] == "sonnet"));
+        assert_eq!(with_model(Provider::Codex, generation_args(Provider::Codex, "x", &server, &[]), Model::Default), generation_args(Provider::Codex, "x", &server, &[]));
     }
 
     #[cfg(unix)]

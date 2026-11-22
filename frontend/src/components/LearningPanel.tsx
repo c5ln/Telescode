@@ -73,13 +73,17 @@ export function LearningPanel({ learning, provider = 'claude', onSwitchAgent }: 
         <Button variant="primary" disabled={state.busy || Boolean(state.question && !state.result)} onClick={() => learning.advance('continue')}>Continue learning</Button>
       </div>
     </>}
-    {!step && session.status === 'generation-needed' && learning.isPrepared(session.goal.goalId) && <>
+    {!step && session.status === 'generation-needed' && learning.isPrepared(session.goal.goalId) && concepts.length > 0 && <>
       <p className={panel.text}>You have answered every question prepared for this example. End the session to see how it went.</p>
       <div className={panel.actions}>
         <Button variant="primary" disabled={state.busy} onClick={() => learning.advance('stop')}>End session</Button>
       </div>
     </>}
-    {!step && session.status === 'generation-needed' && !learning.isPrepared(session.goal.goalId) && <>
+    {!step && state.waiting && <>
+      <p className={panel.waiting}><Spinner /> Writing the next question for your level…</p>
+      <AgentProgress work="next question" agent={agents[provider].name} activity={state.waiting} />
+    </>}
+    {!step && !state.waiting && session.status === 'generation-needed' && !learning.isPrepared(session.goal.goalId) && <>
       <p className={panel.text}>More independent material is needed. Your answers and remaining budget are saved.</p>
       <div className={panel.actions}>
         <Button disabled={state.busy} onClick={() => learning.advance('stop')}>End session</Button>

@@ -10,11 +10,14 @@ export interface LearningLibrary {
    * waiting and its deadline belong to the native side, so callers never poll. */
   prepare(input: { sessionId: string; revision: number; curriculum?: unknown }, onToolCall?: OnToolCall): AgentRun<LearningView>
   respond(input: LearningAnswer): Promise<LearningResult>
+  /** Writes, in the background, what the session's next step may need while the learner answers; resolves with the session as it then is. */
+  prepareMaterial?(input: { sessionId: string }, onToolCall?: OnToolCall): AgentRun<LearningView>
   /** The goal whose material ships with the app (an example's suggested goal), once known. It is never
    * written by an agent, so a session for it ends when that material is used up. */
   preparedGoalId?(): string | null
   advance(input: { sessionId: string; revision: number; stopId: string; outcome: 'continue' | 'skip' | 'stop' }): Promise<LearningView>
 }
+const materialRuns = newRuns()
 export function createLearningLibrary(provider: AgentProvider): LearningLibrary {
   return { start: input => agentInvoke('start_learning_session', input), get: sessionId => agentInvoke('get_learning_session', { sessionId }),
     prepare: (input, onToolCall) => {
@@ -22,6 +25,14 @@ export function createLearningLibrary(provider: AgentProvider): LearningLibrary 
       // The shell already joins duplicate preparations, so each call follows its own run.
       const run = followRun(newRuns(), 'prepare', async (progressId) => {
         view = await agentInvoke<LearningView>('prepare_learning_session', { ...input, provider, progressId })
+      }, onToolCall)
+      return stoppable(run.then(() => view!), run.cancel)
+    },
+    prepareMaterial: (input, onToolCall) => {
+      let view: LearningView | undefined
+      // One background run per session; asking again joins it.
+      const run = followRun(materialRuns, input.sessionId, async (progressId) => {
+        view = await agentInvoke<LearningView>('prepare_learning_material', { ...input, provider, progressId })
       }, onToolCall)
       return stoppable(run.then(() => view!), run.cancel)
     },

@@ -525,3 +525,20 @@ test('a cached material that no longer applies falls back to an AI run instead o
     assert.equal((await f.store.get(next.session.id)).session.status, 'active')
   } finally { f.store.close() }
 })
+
+test('material the app brings itself is saved even when another curriculum is cached for the goal', async () => {
+  const f = await fixture()
+  try {
+    // An earlier app version prepared this goal and its material was cached.
+    const first = await f.store.requestPreparation(f.started.session.id, f.started.session.revision, 'codex', process.pid)
+    await f.store.saveJobCurriculum(first.id, curriculum())
+    const next = await f.store.start(f.project, f.goal, 'another')
+    // The app brings the example's own material: the cache must not stand in for it.
+    const job = await f.store.requestPreparation(next.session.id, next.session.revision, 'codex', process.pid, { useCache: false })
+    assert.equal(job.shouldRun, true)
+    const bundled = curriculum(); bundled.items[0]!.questions = [question('a newer bundled question')]
+    await f.store.saveJobCurriculum(job.id, { ...bundled, version: 1 })
+    const view = await f.store.get(next.session.id)
+    assert.equal(view.question!.question, 'Why preserve the result before notifying? a newer bundled question')
+  } finally { f.store.close() }
+})

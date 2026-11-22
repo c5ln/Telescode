@@ -60,6 +60,7 @@ describe('stopping and timing a run', () => {
     recordDuration('quiz', 185_000)
     expect(usualNote('quiz')).toBe('A quiz usually takes 1:10 to 3:05 here.')
     expect(usualNote('tour', { min: 40_000, max: 45_000 })).toBe('A tour usually takes about 43 s here. You can keep exploring the map meanwhile.')
+    expect(usualNote('next question', { min: 20_000, max: 50_000 })).toBe('New questions usually take 20 s to 50 s here.')
     localStorage.clear()
   })
 

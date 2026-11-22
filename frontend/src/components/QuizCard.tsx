@@ -9,7 +9,6 @@ import { AgentProgress } from './AgentProgress'
 import { agents, type AgentProvider } from '../agent'
 import { questionsOf, type Quiz } from '../app/useQuiz'
 import type { SetupPhase } from '../app/useTutorial'
-import { DIFFICULTIES, type Difficulty } from '../quiz/model'
 import { Button } from '../ui/Button'
 import { CloseIcon } from '../ui/icons'
 import { IconButton } from '../ui/IconButton'
@@ -23,7 +22,6 @@ const SETUP_TITLES: Record<SetupPhase, (account: string, name: string) => string
   'not-installed': (_account, name) => `${name} is needed to write quizzes`,
 }
 
-const LABELS: Record<Difficulty, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' }
 
 interface QuizCardProps {
   provider?: AgentProvider
@@ -90,7 +88,7 @@ export function QuizCard({ quiz, stepTitle, provider = 'claude', onSwitchAgent }
     )
   }
 
-  const questions = questionsOf(state.set, state.difficulty)
+  const questions = questionsOf(state.set)
   const question = questions[state.index]
   const { answer } = state
   const feedback = answer.status === 'answered' ? answer.feedback : null
@@ -99,23 +97,6 @@ export function QuizCard({ quiz, stepTitle, provider = 'claude', onSwitchAgent }
   return (
     <section className={panel.panel} aria-label="Quiz" onKeyDown={onKeyDown}>
       {header}
-      <div className={styles.difficulties} role="group" aria-label="Difficulty">
-        {DIFFICULTIES.map((d) => {
-          const count = questionsOf(state.set, d).length
-          return (
-            <button
-              key={d}
-              type="button"
-              className={styles.difficulty}
-              aria-pressed={d === state.difficulty}
-              disabled={count === 0 || answer.status === 'submitting'}
-              onClick={() => quiz.setDifficulty(d)}
-            >
-              {LABELS[d]}
-            </button>
-          )
-        })}
-      </div>
       {question && (
         <>
           <p className={styles.meta}>

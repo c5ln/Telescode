@@ -78,7 +78,7 @@ export function withRun(activity: AgentActivity, run: AgentRun<unknown>): AgentA
 }
 
 /** What an agent writes. */
-export type AgentWork = 'tour' | 'quiz' | 'learning path'
+export type AgentWork = 'tour' | 'quiz' | 'learning path' | 'next question'
 
 const DURATIONS_KEY = 'telescode.agentDurations'
 /** How many finished runs of each kind the usual range is taken from. */

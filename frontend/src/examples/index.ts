@@ -130,5 +130,25 @@ export function withExample(libraries: Libraries, data: ExampleData, snapshot: A
     },
   }
 
+  const material = libraries.learning.prepareMaterial
+  if (material) {
+    // The suggested goal's material all ships with the example, so no agent writes more of it.
+    learning.prepareMaterial = (input, onToolCall) => {
+      let cancel: (() => void) | undefined
+      let cancelled = false
+      const run = Promise.all([libraries.learning.get(input.sessionId), suggested]).then(([view, goalId]) => {
+        if (view.session.goal.goalId === goalId) return view
+        const written = material(input, onToolCall)
+        cancel = written.cancel
+        if (cancelled) cancel?.()
+        return written
+      })
+      return stoppable(run, () => {
+        cancelled = true
+        cancel?.()
+      })
+    }
+  }
+
   return { tour, quiz, learning }
 }

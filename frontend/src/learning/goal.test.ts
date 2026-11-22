@@ -21,6 +21,14 @@ describe('requirementsGoal', () => {
     expect(auth.targetConcepts[0]!.conceptId).not.toBe(defaultGoal().targetConcepts[0]!.conceptId)
   })
 
+  it('aims at the goal concept at every level, so learning climbs to hard within the same step budget', async () => {
+    for (const goal of [await requirementsGoal('Explain authentication'), defaultGoal()]) {
+      const concept = goal.targetConcepts[0]!.conceptId
+      expect(goal.targetConcepts).toEqual(['easy', 'medium', 'hard'].map((level) => ({ conceptId: concept, level, weight: 1 })))
+      expect(goal.budget).toBe(12)
+    }
+  })
+
   it('accepts the server length limit and rejects overflow, including normalization expansion', async () => {
     await expect(requirementsGoal('a'.repeat(MAX_REQUIREMENTS_LENGTH))).resolves.toBeDefined()
     await expect(requirementsGoal('a'.repeat(MAX_REQUIREMENTS_LENGTH + 1))).rejects.toThrow(/4,000/)

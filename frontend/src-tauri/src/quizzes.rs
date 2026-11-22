@@ -41,11 +41,11 @@ fn generation_prompt(db: &Path, target: &QuizTarget) -> String {
         "Create Telescode comprehension quiz questions for stop {stop} (node {node}) of tour {tour} \
          revision {revision}, for the repository analyzed in the database {db}.\n\
          Use the telescode MCP tools: open_project with exactly that path, then get_quiz_context for \
-         the node at each difficulty (easy, medium, hard), and save with create_quiz. Write two \
-         interview-style questions per difficulty where the source supports them: easy at a newbie \
-         level, medium at a junior level, hard at a senior level, about what the code does and \
-         why, never counts or metrics. Follow the server's quiz instructions on question style and \
-         grounding, and write the questions in English.\n\
+         the node at the easy and the medium difficulty only, and save with create_quiz. Write \
+         exactly two interview-style questions: one easy at a newbie level and one medium at a \
+         junior level, about what the code does and why, never counts or metrics. Do not write \
+         hard questions. Follow the server's quiz instructions on question style and grounding, \
+         and write the questions in English.\n\
          Only save the quiz. Reply with the quiz set ID.",
         stop = target.stop_index,
         node = target.node_id,
@@ -64,7 +64,7 @@ fn claude_args(db: &Path, target: &QuizTarget, server: &mcp::ServerCommand) -> V
 
 fn generate(target: &QuizTarget, provider: agent::Provider, followed: Option<agent::Followed>) -> Result<(), BridgeError> {
     let db = validate_db_path(&target.db_path)?;
-    agent::generate(provider, &generation_prompt(&db, target), AGENT_TOOLS, GENERATION_TIMEOUT, followed)
+    agent::generate(provider, "quiz", agent::Model::Light, &generation_prompt(&db, target), AGENT_TOOLS, GENERATION_TIMEOUT, followed)
 }
 
 async fn blocking<T: Send + 'static>(f: impl FnOnce() -> Result<T, BridgeError> + Send + 'static) -> Result<T, BridgeError> {
@@ -141,5 +141,18 @@ mod tests {
         let allowed = &args[args.iter().position(|a| a == "--allowedTools").unwrap() + 1];
         assert!(allowed.contains("mcp__telescode__get_quiz_context") && allowed.contains("mcp__telescode__create_quiz"));
         assert!(!allowed.contains("record_quiz_response") && !allowed.contains("create_tour_draft"));
+        // Two questions, easy and medium, so a step's quiz is quick to write.
+        assert!(args[1].contains("exactly two") && args[1].contains("easy and the medium difficulty only"));
+        assert!(!args[1].contains("each difficulty"));
+    }
+
+    #[test]
+    fn quizzes_are_written_by_the_light_model() {
+        let claude: Vec<String> = agent::model_args(agent::Provider::Claude, agent::Model::Light).iter().map(|a| a.to_string_lossy().into_owned()).collect();
+        assert_eq!(claude, ["--model", "sonnet"]);
+        let codex: Vec<String> = agent::model_args(agent::Provider::Codex, agent::Model::Light).iter().map(|a| a.to_string_lossy().into_owned()).collect();
+        assert_eq!(codex, ["-m", "gpt-6-luna", "-c", "model_reasoning_effort=\"medium\""]);
+        assert!(agent::model_args(agent::Provider::Claude, agent::Model::Default).is_empty());
+        assert!(agent::model_args(agent::Provider::Codex, agent::Model::Default).is_empty());
     }
 }

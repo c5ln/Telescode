@@ -5,7 +5,7 @@
 ## Context 구성 (GraphRAG)
 
 1. `open_project`로 투어와 같은 DB를 연다.
-2. 난이도마다 `get_quiz_context(projectId, nodeId, difficulty)`를 호출한다. 이 결과가 해당 난이도 문제가 사용할 수 있는 유일한 근거이다.
+2. 요청받은 난이도마다 `get_quiz_context(projectId, nodeId, difficulty)`를 호출한다(투어 퀴즈는 easy와 medium). 요청받지 않은 난이도의 context는 받지도, 문제를 쓰지도 않는다. 이 결과가 해당 난이도 문제가 사용할 수 있는 유일한 근거이다.
    - `excerpts`는 실제 소스 코드이다(줄 번호 포함). 문제는 주로 여기서 나온다.
    - `relations`는 코드 그래프(포함, import, 클래스 관계)이고, `nodes[].facts`는 시그니처 같은 구조 정보이다.
    - `learning`은 reading sequence 기반 학습 순서이다. import 관계를 학습 선행 관계라고 단정하지 않는다.

@@ -116,3 +116,9 @@ tool('record_quiz_response', "Grade the user's answer to one question, append it
 tool('list_quiz_responses', 'Read recorded quiz responses, oldest first, optionally for one quiz set.', { quizSetId: z.string().optional() }, true, ({ quizSetId }) => quizzes.responses(quizSetId))
 console.error(`Telescode review server: ${http.baseUrl}`)
 await server.connect(new StdioServerTransport())
+// The app talks to this server over stdin; once its end closes (it quit or
+// crashed) no one is left to serve, and the review web server must not keep
+// the process alive.
+const quit = () => process.exit(0)
+process.stdin.once('end', quit)
+process.stdin.once('close', quit)

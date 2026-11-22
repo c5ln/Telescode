@@ -1,11 +1,15 @@
 import type { GoalSeed } from './api'
 
 export const MAX_REQUIREMENTS_LENGTH = 4000
+/** The goal concept at every level: learning climbs easy, medium, hard, and is met at hard. */
+const levels = (conceptId: string): GoalSeed['targetConcepts'] =>
+  (['easy', 'medium', 'hard'] as const).map((level) => ({ conceptId, level, weight: 1 }))
+
 const DEFAULT_QUERY = 'Understand the application architecture, main entry points, core modules, configuration, dependencies, and how to load, process and return data.'
 
 export const defaultGoal = (): GoalSeed => ({
   goalId: 'repository-onboarding', goalRevision: 1, rawQuery: DEFAULT_QUERY, retrievalQuery: DEFAULT_QUERY,
-  targetConcepts: [{ conceptId: 'goal:architecture', level: 'easy', weight: 1 }], budget: 12,
+  targetConcepts: levels('goal:architecture'), budget: 12,
 })
 
 /** Canonical requirements identify a single assessment target across session resumes. */
@@ -19,6 +23,6 @@ export async function requirementsGoal(requirements: string): Promise<GoalSeed> 
   const id = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('')
   return {
     goalId: `requirements:${id}`, goalRevision: 1, rawQuery: query, retrievalQuery: query,
-    targetConcepts: [{ conceptId: `goal:requirements:${id}`, level: 'easy', weight: 1 }], budget: 12,
+    targetConcepts: levels(`goal:requirements:${id}`), budget: 12,
   }
 }

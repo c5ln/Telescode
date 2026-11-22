@@ -4,7 +4,7 @@ import { resolve } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import type { TourStore, Project } from './store.ts'
 import { sourceReader, type QuizStore } from './quiz.ts'
-import { buildQuizContext, feedbackFor, makeQuestions, DIFFICULTIES, QUESTION_LIMITS, type QuizQuestion, type SourceExcerpt } from '../../frontend/src/quiz/model.ts'
+import { buildQuizContext, feedbackFor, makeQuestions, DIFFICULTIES, QUESTION_LIMITS, type Difficulty, type QuizQuestion, type SourceExcerpt } from '../../frontend/src/quiz/model.ts'
 import { chooseAction, goalScore, mastery, observe, predict, MODEL_VERSION, PRIOR, validateGoal, type LearningGoal, type Knowledge, type LearningAction } from '../../frontend/src/learning/model.ts'
 import type { Curriculum, LearningAnswer, LearningResult, LearningView, PreparationJob, LearningSession, PreparedItem } from '../../frontend/src/learning/contracts.ts'
 
@@ -46,7 +46,24 @@ type CompiledItem = PreparedItem & { compiled: QuizQuestion[]; evidence: Record<
 type Stored = { session: LearningSession; project: Project; curriculum: Curriculum | null; items: CompiledItem[];
   knowledge: Knowledge[]; evidenceKeys: Record<string, string>; questionId?: string; responseId?: string
   /** Per concept/level: source excerpts (node -> content hash) of the actions that produced the stored estimate. */
-  knowledgeEvidence: Record<string, Record<string, string>> }
+  knowledgeEvidence: Record<string, Record<string, string>>
+  /** Only on a simulated outcome: the question just answered, not yet recorded as exposed. */
+  pendingExposed?: string[] }
+/** A question the next step needs, for one outcome of the current question ('now' when the learner is already waiting). */
+export type MaterialSlot = { branch: 'correct' | 'incorrect' | 'now'; conceptId: string; level: Difficulty }
+export type MaterialJob = { id: string; sessionId: string; status: 'running' | 'ready' | 'failed'; shouldRun: boolean; slots: MaterialSlot[]; error?: string }
+type StoredMaterialJob = MaterialJob & { provider: string; ownerPid: number; createdMs: number }
+/** Material written by a running job is merged into the cache under this version; bump it when the material prompt changes. */
+const MATERIAL_VERSION = 'learning-material-v1'
+/** Source contexts offered per asked level: the concept's own nodes first, then the goal's ranking. */
+const MATERIAL_CONTEXTS = 3
+/** What a session's first preparation writes: two questions at the starting level, over a few concepts. */
+const START_QUESTIONS = 2
+const START_CONCEPTS = 4
+/** An outcome of the current question less likely than this is not written ahead; it is written if the learner reaches it. */
+const MATERIAL_MIN_OUTCOME = .2
+/** A level whose material failed this often is not asked for again in the session. */
+const MATERIAL_ATTEMPTS = 2
 type Job = PreparationJob & { provider: string; createdMs: number; baseVersion: number; sourceEvidence: Record<string, string>; ownerPid: number }
 /** Whether the app process running a job's CLI worker still exists (EPERM means it exists under another user). */
 function alive(pid: number) {
@@ -72,6 +89,7 @@ export class LearningStore {
       CREATE TABLE IF NOT EXISTS learning_events(seq INTEGER PRIMARY KEY,session TEXT NOT NULL,data TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS learning_jobs(id TEXT PRIMARY KEY,data TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS learning_material_cache(key TEXT PRIMARY KEY,data TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS learning_material_jobs(id TEXT PRIMARY KEY,session TEXT NOT NULL,data TEXT NOT NULL);
     `)
   }
   close() { if (!this.closed) { this.db.close(); this.closed = true } }
@@ -145,18 +163,36 @@ export class LearningStore {
     if (JSON.stringify(this.jobEvidence(s)) !== JSON.stringify(job.sourceEvidence)) throw new Error('Source evidence changed after preparation was requested')
   }
   private exposed(s: Stored, q: QuizQuestion) {
-    return (s.session.learnerId === 'local' && this.legacyExposed.has(fingerprint(q))) ||
+    return Boolean(s.pendingExposed?.includes(fingerprint(q))) || (s.session.learnerId === 'local' && this.legacyExposed.has(fingerprint(q))) ||
       Boolean(this.db.prepare('SELECT 1 FROM learning_exposures WHERE learner=? AND repository=? AND fingerprint=?')
         .get(s.session.learnerId, s.session.goal.repositoryId, fingerprint(q)))
   }
   private fresh(s: Stored, item: CompiledItem) { return item.compiled.find(q => !this.exposed(s, q)) }
+  /** The lowest goal level, where a session starts. */
+  private startLevel(s: Stored): Difficulty {
+    return DIFFICULTIES.find(level => s.session.goal.targetConcepts.some(t => t.level === level)) ?? 'easy'
+  }
+  /** Understood at a level: two independent answers and a confident estimate, as the goal is met. */
+  private confirmed(s: Stored, conceptId: string, level: Difficulty) {
+    return mastery(s.knowledge, conceptId, level) >= .8 && (s.knowledge.find(k => k.conceptId === conceptId && k.level === level)?.observations ?? 0) >= 2
+  }
+  /**
+   * The level ladder: an item is open while its own level is not yet
+   * confirmed (a confirmed level is not asked again), once every level below
+   * it, for its concept, is confirmed or has no questions to confirm it with.
+   * The server keeps this order whatever prerequisites the curriculum states.
+   */
+  private open(s: Stored, item: CompiledItem) {
+    return !this.confirmed(s, item.conceptId, item.level) && DIFFICULTIES.slice(0, DIFFICULTIES.indexOf(item.level)).every(level => this.confirmed(s, item.conceptId, level) ||
+      !s.items.some(other => other.conceptId === item.conceptId && other.level === level && other.compiled.length > 0))
+  }
   private candidates(s: Stored, completingCurrent = false): CompiledItem[] {
     const needed = new Set(s.session.goal.targetConcepts.map(t => t.conceptId))
     for (let i = 0; i < 8; i++) for (const r of s.curriculum?.relations ?? []) if (needed.has(r.to)) needed.add(r.from)
     for (let i = 0; i < 8; i++) for (const a of s.items) if (a.effects.some(e => needed.has(e.conceptId)))
       for (const e of a.effects) for (const p of e.prerequisites ?? []) needed.add(p.conceptId)
     const skipped = new Set(s.session.history.filter(h => h.outcome === 'skip').map(h => h.step.conceptId))
-    return s.items.filter(a => needed.has(a.conceptId) && !skipped.has(a.conceptId) &&
+    return s.items.filter(a => needed.has(a.conceptId) && !skipped.has(a.conceptId) && this.open(s, a) &&
       s.session.history.filter(h => h.step.actionId === a.id).length + Number(completingCurrent && s.session.current?.actionId === a.id) < 2 &&
       (a.compiled.length === 0 || this.fresh(s, a)))
       .sort((a, b) => Number(s.session.goal.targetConcepts.some(t => t.conceptId === b.conceptId)) - Number(s.session.goal.targetConcepts.some(t => t.conceptId === a.conceptId)))
@@ -179,8 +215,7 @@ export class LearningStore {
     if (!item) {
       s.session.current = null; delete s.questionId; delete s.responseId
       const skipped = new Set(s.session.history.filter(h => h.outcome === 'skip').map(h => h.step.conceptId))
-      const unresolved = s.session.goal.targetConcepts.some(t => t.weight > 0 && !skipped.has(t.conceptId) &&
-        (mastery(s.knowledge, t.conceptId, t.level) < .8 || (s.knowledge.find(k => k.conceptId === t.conceptId && k.level === t.level)?.observations ?? 0) < 2))
+      const unresolved = s.session.goal.targetConcepts.some(t => t.weight > 0 && !skipped.has(t.conceptId) && !this.confirmed(s, t.conceptId, t.level))
       s.session.status = s.session.spent >= s.session.goal.budget ? 'budget-exhausted' : unresolved ? 'generation-needed' : 'finished'
       return
     }
@@ -188,6 +223,23 @@ export class LearningStore {
     s.questionId = this.fresh(s, item)?.id
     delete s.responseId
     s.session.status = 'active'
+  }
+  /** Validates one prepared action against the concepts `ids` and compiles its questions; `itemIds` holds the IDs taken so far. */
+  private compileItem(s: Stored, item: PreparedItem, ids: Set<string>, itemIds: Set<string>): CompiledItem {
+    if (!item.id?.trim() || itemIds.has(item.id) || !ids.has(item.conceptId) || !levels.includes(item.level) ||
+      !['read', 'explain', 'compare', 'diagnose'].includes(item.kind) || !item.caption?.trim() || item.caption.length > CURRICULUM_LIMITS.chars.caption || !Number.isFinite(item.cost) || item.cost <= 0 || !Array.isArray(item.effects)) throw new Error('Invalid curriculum action/concept/level/cost')
+    itemIds.add(item.id)
+    buildQuizContext(s.project.snapshot, item.nodeId, item.level)
+    const dimensions = item.effects.map(e => dim(e.conceptId, e.level))
+    if (new Set(dimensions).size !== dimensions.length) throw new Error('Duplicate effect dimension')
+    if (item.effects.some(e => !ids.has(e.conceptId) || !levels.includes(e.level) || (e.prerequisites ?? []).some(p => !ids.has(p.conceptId) || !levels.includes(p.level)))) throw new Error('Invalid effect concept/level')
+    if (item.observation && (item.observation.conceptId !== item.conceptId || item.observation.level !== item.level)) throw new Error('Observation must match the action primary concept and level')
+    if (!Array.isArray(item.questions) || item.questions.some(q => q.difficulty !== item.level)) throw new Error('Question level must match the action')
+    const compiled = item.questions.length ? makeQuestions(s.project.snapshot, randomUUID(), item.nodeId, item.questions) : []
+    const evidence = this.evidence(s.project, [item.nodeId, ...compiled.flatMap(q => q.evidence.map(e => e.nodeId))])
+    // Reuse the optimizer's probability/cost validation on a single trusted-size input.
+    chooseAction(s.session.goal, [], [item], { depth: 0, maxNodes: 1 })
+    return { ...structuredClone(item), compiled, evidence }
   }
   /** The session's answers, counted by the concept and level each question checked. */
   private answers(s: Stored): LearningView['answers'] {
@@ -252,22 +304,12 @@ export class LearningStore {
       }
       if (s.session.goal.targetConcepts.some(t => !ids.has(t.conceptId))) throw new Error('Goal concept missing from curriculum')
       const itemIds = new Set<string>()
-      const items: CompiledItem[] = curriculum.items.map(item => {
-        if (!item.id?.trim() || itemIds.has(item.id) || !ids.has(item.conceptId) || !levels.includes(item.level) ||
-          !['read', 'explain', 'compare', 'diagnose'].includes(item.kind) || !item.caption?.trim() || item.caption.length > CURRICULUM_LIMITS.chars.caption || !Number.isFinite(item.cost) || item.cost <= 0 || !Array.isArray(item.effects)) throw new Error('Invalid curriculum action/concept/level/cost')
-        itemIds.add(item.id)
-        buildQuizContext(s.project.snapshot, item.nodeId, item.level)
-        const dimensions = item.effects.map(e => dim(e.conceptId, e.level))
-        if (new Set(dimensions).size !== dimensions.length) throw new Error('Duplicate effect dimension')
-        if (item.effects.some(e => !ids.has(e.conceptId) || !levels.includes(e.level) || (e.prerequisites ?? []).some(p => !ids.has(p.conceptId) || !levels.includes(p.level)))) throw new Error('Invalid effect concept/level')
-        if (item.observation && (item.observation.conceptId !== item.conceptId || item.observation.level !== item.level)) throw new Error('Observation must match the action primary concept and level')
-        if (!Array.isArray(item.questions) || item.questions.some(q => q.difficulty !== item.level)) throw new Error('Question level must match the action')
-        const compiled = item.questions.length ? makeQuestions(s.project.snapshot, randomUUID(), item.nodeId, item.questions) : []
-        const evidence = this.evidence(s.project, [item.nodeId, ...compiled.flatMap(q => q.evidence.map(e => e.nodeId))])
-        // Reuse the optimizer's probability/cost validation on a single trusted-size input.
-        chooseAction(s.session.goal, [], [item], { depth: 0, maxNodes: 1 })
-        return { ...structuredClone(item), compiled, evidence }
-      })
+      const items: CompiledItem[] = curriculum.items.map(item => this.compileItem(s, item, ids, itemIds))
+      // The planner works toward the goal concepts, so a first curriculum only about other concepts leaves the learner nothing to do.
+      // An action may still be reading alone where the source supports no question.
+      const level = this.startLevel(s)
+      if (!s.curriculum && !items.some(i => s.session.goal.targetConcepts.some(t => t.conceptId === i.conceptId) && i.level === level))
+        throw new Error(`The first preparation must include an action about a goal concept (rules.start.concepts) at the ${level} level`)
       for (const r of curriculum.relations) {
         if (!ids.has(r.from) || !ids.has(r.to) || r.from === r.to || !['prerequisite', 'similar'].includes(r.kind) || !r.reason?.trim() || !r.evidenceNodeIds?.length) throw new Error('Invalid learning relation')
         for (const n of r.evidenceNodeIds) buildQuizContext(s.project.snapshot, n, 'easy')
@@ -331,6 +373,7 @@ export class LearningStore {
           const job = JSON.parse(row.data as string) as Job
           if (job.sessionId === id && job.status === 'running') { job.status = 'failed'; job.error = 'Session ended'; this.saveJob(job) }
         }
+        for (const job of this.materialJobs(id)) if (job.status === 'running') { job.status = 'failed'; job.error = 'Session ended'; this.saveMaterialJob(job) }
       }
       else {
         if (!['continue', 'skip'].includes(outcome)) throw new Error('Invalid learning outcome')
@@ -358,7 +401,8 @@ export class LearningStore {
       g.goalRevision, g.targetConcepts, g.budget, job.provider, 'learning-prompt-v1', job.baseVersion]))
   }
   /** `ownerPid` is the app process that will run the CLI when `shouldRun`; a crashed owner's job is expired rather than joined. */
-  async requestPreparation(sessionId: string, revision: number, provider: string, ownerPid: number): Promise<PreparationJob> {
+  /** With `useCache: false` the caller saves material of its own (an example's), so no cached curriculum stands in for it. */
+  async requestPreparation(sessionId: string, revision: number, provider: string, ownerPid: number, options: { useCache?: boolean } = {}): Promise<PreparationJob> {
     if (!Number.isSafeInteger(ownerPid) || ownerPid <= 0) throw new Error('Invalid preparation owner pid')
     const result = this.transaction<PreparationJob>(() => {
       const s = this.load(sessionId)
@@ -388,7 +432,7 @@ export class LearningStore {
       this.saveJob(job); this.save(s, { type: 'generation-requested', jobId: job.id })
       return job
     })
-    if (result.shouldRun) {
+    if (result.shouldRun && options.useCache !== false) {
       const s = this.load(sessionId), job = this.job(result.id)
       const cached = this.db.prepare('SELECT data FROM learning_material_cache WHERE key=?').get(this.materialKey(s, job))
       if (cached) {
@@ -414,6 +458,182 @@ export class LearningStore {
       if (s.session.revision === job.revision) { s.session.status = 'generation-needed'; s.session.revision++; this.save(s, { type: 'generation-failed', jobId: id, error: job.error }) }
     })
   }
+  // ---- Material written while the learner answers ----
+
+  private materialJobs(sessionId: string): StoredMaterialJob[] {
+    return this.db.prepare('SELECT data FROM learning_material_jobs WHERE session=? ORDER BY rowid').all(sessionId).map(r => JSON.parse(r.data as string) as StoredMaterialJob)
+  }
+  private materialJob(id: string): StoredMaterialJob {
+    const row = this.db.prepare('SELECT data FROM learning_material_jobs WHERE id=?').get(id)
+    if (!row) throw new Error('Material job not found')
+    return JSON.parse(row.data as string)
+  }
+  private saveMaterialJob(job: StoredMaterialJob) {
+    this.db.prepare('INSERT OR REPLACE INTO learning_material_jobs VALUES(?,?,?)').run(job.id, job.sessionId, JSON.stringify(job))
+  }
+  private slotKey(s: Stored, slot: { conceptId: string; level: Difficulty }) {
+    return hash(JSON.stringify([MATERIAL_VERSION, s.session.goal.repositoryId, s.session.goal.sourceSnapshotHash, slot.conceptId, s.evidenceKeys[slot.conceptId], slot.level]))
+  }
+  /** The state after the current question is answered `correct`ly or not, and the step is continued, as respond and advance would leave it. */
+  private outcome(s: Stored, correct: boolean): Stored {
+    const sim = structuredClone(s)
+    const item = sim.items.find(a => a.id === sim.session.current?.actionId)
+    if (!item) return sim
+    const question = item.compiled.find(q => q.id === sim.questionId)
+    if (!sim.responseId) {
+      sim.knowledge = predict(sim.knowledge, item)
+      if (question) {
+        sim.knowledge = observe(sim.knowledge, { conceptId: item.conceptId, level: item.level, guess: 1 / question.choices.length, slip: .1 }, correct)
+        sim.pendingExposed = [...(sim.pendingExposed ?? []), fingerprint(question)]
+      }
+    }
+    sim.session.spent += item.cost
+    sim.session.history.push({ step: sim.session.current!, outcome: 'continue' })
+    sim.session.current = null; delete sim.responseId; delete sim.questionId
+    return sim
+  }
+  /** The concept and level the learner would need next in `s` with nothing prepared for it: the lowest unconfirmed level of the weightiest goal concept. */
+  private gap(s: Stored): { conceptId: string; level: Difficulty } | null {
+    if (s.session.spent >= s.session.goal.budget) return null
+    if (this.candidates(s).some(item => this.fresh(s, item))) return null
+    const skipped = new Set(s.session.history.filter(h => h.outcome === 'skip').map(h => h.step.conceptId))
+    const targets = [...s.session.goal.targetConcepts].filter(t => t.weight > 0 && !skipped.has(t.conceptId) && !this.confirmed(s, t.conceptId, t.level))
+      .sort((a, b) => DIFFICULTIES.indexOf(a.level) - DIFFICULTIES.indexOf(b.level) || b.weight - a.weight)
+    return targets[0] ? { conceptId: targets[0].conceptId, level: targets[0].level } : null
+  }
+  /** How likely the current question is answered right, under the same model the planner and respond use. */
+  private chanceRight(s: Stored): number {
+    const item = s.items.find(a => a.id === s.session.current?.actionId)
+    const question = item?.compiled.find(q => q.id === s.questionId)
+    if (!item || !question) return 1
+    const known = mastery(predict(s.knowledge, item), item.conceptId, item.level)
+    const guess = 1 / question.choices.length, slip = .1
+    return known * (1 - slip) + (1 - known) * guess
+  }
+  /** What the next step needs written: for each outcome of the current question, or for now when the learner is waiting. */
+  private slots(s: Stored): MaterialSlot[] {
+    const found: MaterialSlot[] = []
+    const add = (branch: MaterialSlot['branch'], gap: ReturnType<LearningStore['gap']>) => {
+      if (gap && !found.some(f => f.conceptId === gap.conceptId && f.level === gap.level)) found.push({ branch, ...gap })
+    }
+    if (s.session.status === 'generation-needed') add('now', this.gap(s))
+    else if (s.session.status === 'active' && s.session.current) {
+      if (s.responseId) add('now', this.gap(this.outcome(s, true)))
+      else {
+        // The chance of a right answer, as the planner models it: the estimate after this step, with guessing and slips.
+        const right = this.chanceRight(s)
+        if (right >= MATERIAL_MIN_OUTCOME) add('correct', this.gap(this.outcome(s, true)))
+        if (1 - right >= MATERIAL_MIN_OUTCOME) add('incorrect', this.gap(this.outcome(s, false)))
+      }
+    }
+    return found
+  }
+  /** Adds compiled `items` to the session; a learner who was waiting for them moves on. */
+  private addItems(s: Stored, items: PreparedItem[]) {
+    const ids = new Set((s.curriculum?.concepts ?? []).map(c => c.id))
+    const itemIds = new Set(s.items.map(i => i.id))
+    const compiled = items.map(item => {
+      if (!item.questions?.length) throw new Error('Material must ask at least one question')
+      return this.compileItem(s, item, ids, itemIds)
+    })
+    s.items.push(...compiled)
+    s.curriculum!.items.push(...structuredClone(items))
+    if (s.session.status === 'generation-needed') { s.session.revision++; this.move(s) }
+  }
+  /** Cached material for `slots` this session does not hold yet, keeping only items that still ask something new. */
+  private cached(s: Stored, slots: MaterialSlot[]): PreparedItem[] {
+    const held = new Set(s.items.flatMap(i => i.questions.map(q => norm(q.question))))
+    const ids = new Set(s.items.map(i => i.id))
+    return slots.flatMap(slot => {
+      const row = this.db.prepare('SELECT data FROM learning_material_cache WHERE key=?').get(this.slotKey(s, slot))
+      const items = row ? JSON.parse(row.data as string) as PreparedItem[] : []
+      return items.filter(item => !ids.has(item.id) && item.questions.some(q => !held.has(norm(q.question))))
+    })
+  }
+  /**
+   * Asks for the material the next step may need. Cached material is added at
+   * once; what is still missing becomes a job for the app's agent, at most one
+   * at a time per session. Never changes the learner's revision while they answer.
+   */
+  async requestMaterial(sessionId: string, provider: string, ownerPid: number): Promise<MaterialJob> {
+    if (!Number.isSafeInteger(ownerPid) || ownerPid <= 0) throw new Error('Invalid material owner pid')
+    if (!['codex', 'claude'].includes(provider)) throw new Error('Unknown AI provider')
+    await this.legacy()
+    return this.transaction<MaterialJob>(() => {
+      const s = this.load(sessionId)
+      if (!['active', 'generation-needed'].includes(s.session.status) || !s.curriculum) throw new Error('Material is written only for a prepared, ongoing session')
+      const jobs = this.materialJobs(sessionId)
+      const running = jobs.find(j => j.status === 'running' && Date.now() - j.createdMs < 10 * 60_000 && alive(j.ownerPid))
+      if (running) return { ...this.publicJob(running), shouldRun: false }
+      let slots = this.slots(s)
+      const reused = this.cached(s, slots)
+      if (reused.length) {
+        this.addItems(s, reused)
+        this.save(s, { type: 'material-reused', items: reused.map(i => i.id) })
+        slots = this.slots(s)
+      }
+      const failures = (slot: MaterialSlot) => jobs.filter(j => j.status === 'failed' && j.slots.some(f => f.conceptId === slot.conceptId && f.level === slot.level)).length
+      const open = slots.filter(slot => failures(slot) < MATERIAL_ATTEMPTS)
+      if (!slots.length) return { id: randomUUID(), sessionId, status: 'ready', shouldRun: false, slots: [] }
+      if (!open.length) return { id: randomUUID(), sessionId, status: 'failed', shouldRun: false, slots, error: 'AI material budget exhausted' }
+      const job: StoredMaterialJob = { id: randomUUID(), sessionId, status: 'running', shouldRun: true, slots: open, provider, ownerPid, createdMs: Date.now() }
+      this.saveMaterialJob(job)
+      this.save(s, { type: 'material-requested', jobId: job.id, slots: open })
+      return this.publicJob(job)
+    })
+  }
+  private publicJob(job: StoredMaterialJob): MaterialJob {
+    return { id: job.id, sessionId: job.sessionId, status: job.status, shouldRun: job.shouldRun, slots: job.slots, ...(job.error ? { error: job.error } : {}) }
+  }
+  /** What the agent needs for a material job: the concepts, and per asked level the questions written so far and the source it may cite. */
+  async materialContext(jobId: string) {
+    const job = this.materialJob(jobId)
+    if (job.status !== 'running') throw new Error('Stale material job')
+    const s = this.load(job.sessionId)
+    const all = this.candidateContexts(s)
+    const slots = job.slots.map(slot => {
+      const own = s.items.filter(i => i.conceptId === slot.conceptId)
+      const used = new Set(own.map(i => i.nodeId))
+      const contexts = [...all.filter(c => used.has(c.nodeId)), ...all.filter(c => !used.has(c.nodeId))].slice(0, MATERIAL_CONTEXTS)
+        .map(c => ({ nodeId: c.nodeId, title: c.title, facts: c.facts, excerpts: c.excerpts, evidence: { [slot.level]: c.evidence[slot.level] } }))
+      return { ...slot, written: own.filter(i => i.level === slot.level).flatMap(i => i.questions.map(q => q.question)), contexts,
+        cite: `An action's questions may cite only evidence.${slot.level} of the context whose nodeId is the action's nodeId, and must include that nodeId; nodes seen in other contexts or in excerpts are not citable.` }
+    })
+    const concepts = (s.curriculum?.concepts ?? []).filter(c => job.slots.some(slot => slot.conceptId === c.id))
+    return { job: { id: job.id }, goal: { rawQuery: s.session.goal.rawQuery }, concepts, slots, rules: PREPARATION_RULES }
+  }
+  /** Saves an agent's material for its job: one or more items, each for an asked concept and level. */
+  async saveMaterial(jobId: string, items: PreparedItem[]): Promise<LearningView> {
+    await this.legacy()
+    return this.transaction(() => {
+      const job = this.materialJob(jobId)
+      if (job.status !== 'running') throw new Error('Stale material job')
+      const s = this.load(job.sessionId)
+      if (!['active', 'generation-needed'].includes(s.session.status)) throw new Error('The session ended before the material was saved')
+      if (!Array.isArray(items) || !items.length || items.length > job.slots.length * 2) throw new Error('Invalid material')
+      for (const item of items) if (!job.slots.some(slot => slot.conceptId === item.conceptId && slot.level === item.level)) throw new Error(`Material outside the asked slots: ${item.conceptId} ${item.level}`)
+      this.addItems(s, items)
+      for (const slot of job.slots) {
+        const key = this.slotKey(s, slot)
+        const row = this.db.prepare('SELECT data FROM learning_material_cache WHERE key=?').get(key)
+        const kept = row ? JSON.parse(row.data as string) as PreparedItem[] : []
+        const mine = items.filter(i => i.conceptId === slot.conceptId && i.level === slot.level)
+        if (mine.length) this.db.prepare('INSERT OR REPLACE INTO learning_material_cache VALUES(?,?)').run(key, JSON.stringify([...kept, ...structuredClone(mine)]))
+      }
+      job.status = 'ready'; job.shouldRun = false; this.saveMaterialJob(job)
+      this.save(s, { type: 'material-saved', jobId, items: items.map(i => i.id) })
+      return this.view(s)
+    })
+  }
+  /** Ends a material job; one that saved nothing counts as a failed attempt for its levels. */
+  async finishMaterial(jobId: string, error?: string): Promise<void> {
+    this.transaction(() => {
+      const job = this.materialJob(jobId)
+      if (job.status !== 'running') return
+      job.status = 'failed'; job.shouldRun = false; job.error = error ?? 'AI finished without saving material'
+      this.saveMaterialJob(job)
+    })
+  }
   /** Goal-ranked candidate nodes with their own source and, per level, exactly the evidence nodes the validator accepts. */
   private candidateContexts(s: Stored) {
     const { snapshot } = s.project
@@ -431,7 +651,10 @@ export class LearningStore {
   async context(id: string) {
     const s = this.load(id)
     const contexts = this.candidateContexts(s)
-    const out = { sessionId: s.session.id, revision: s.session.revision, goal: s.session.goal, rules: PREPARATION_RULES, contexts,
+    // The first preparation starts at the lowest goal level; the levels above are written as material while the learner answers.
+    const start = { levels: [this.startLevel(s)], questions: START_QUESTIONS, maxConcepts: START_CONCEPTS,
+      concepts: [...new Set(s.session.goal.targetConcepts.map(t => t.conceptId))] }
+    const out = { sessionId: s.session.id, revision: s.session.revision, goal: s.session.goal, rules: { ...PREPARATION_RULES, start }, contexts,
       priorConcepts: s.curriculum?.concepts ?? s.session.goal.targetConcepts.flatMap(t => {
         const row = this.db.prepare('SELECT id,version,definition FROM learning_concepts WHERE repository=? AND id=? ORDER BY version DESC LIMIT 1')
           .get(s.session.goal.repositoryId, t.conceptId)

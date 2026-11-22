@@ -92,6 +92,19 @@ describe('withExample', () => {
     expect(vi.mocked(base.learning.start).mock.calls[2]![0]).toEqual({ dbPath: '/db', goal: other })
   })
 
+  it('never has an agent write material for the suggested goal, and leaves other goals to it', async () => {
+    const base = libraries()
+    base.learning.goals.s1 = (await requirementsGoal('Show me sessions.')).goalId
+    base.learning.goals.s2 = (await requirementsGoal('Something else entirely.')).goalId
+    const prepareMaterial = vi.fn(() => Object.assign(Promise.resolve({}), { cancel: vi.fn() }))
+    Object.assign(base.learning, { prepareMaterial })
+    const example = withExample(base, data, snapshot)
+    expect(await example.learning.prepareMaterial!({ sessionId: 's1' })).toEqual(await base.learning.get('s1'))
+    expect(prepareMaterial).not.toHaveBeenCalled()
+    await example.learning.prepareMaterial!({ sessionId: 's2' })
+    expect(prepareMaterial).toHaveBeenCalledWith({ sessionId: 's2' }, undefined)
+  })
+
   it('saves the prewritten material once, and runs no agent once it is used up', async () => {
     const base = libraries()
     base.learning.goals.s1 = (await requirementsGoal('Show me sessions.')).goalId

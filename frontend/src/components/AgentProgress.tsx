@@ -38,6 +38,10 @@ const STEPS: Record<AgentWork, Step[]> = {
     { label: 'Read your goal and the code', tools: ['get_learning_preparation_context'] },
     { label: 'Write the learning path', tools: ['save_learning_curriculum'] },
   ],
+  'next question': [
+    { label: 'Read the code for your level', tools: ['get_learning_material_context'] },
+    { label: 'Write the questions', tools: ['save_learning_material'] },
+  ],
 }
 
 /** Until a run has finished on this computer, the usual time is described. */
@@ -45,6 +49,7 @@ const NOTES: Record<AgentWork, string> = {
   tour: 'Writing a tour can take a few minutes. You can keep exploring the map meanwhile.',
   quiz: 'Writing a quiz can take a minute or two.',
   'learning path': 'Preparing a learning path can take a few minutes.',
+  'next question': 'New questions are usually ready in under a minute.',
 }
 
 /** "Usually 1:20 to 3:05 here", from the recent finished runs; the note before there are any. */
@@ -52,7 +57,8 @@ export function usualNote(work: AgentWork, range = usualRange(work)): string {
   if (!range) return NOTES[work]
   const minutes = (ms: number) => duration(Math.round(ms / 1000) * 1000).replace(/\.0 s$/, ' s')
   const span = range.max - range.min < 10_000 ? `about ${minutes((range.min + range.max) / 2)}` : `${minutes(range.min)} to ${minutes(range.max)}`
-  return `A ${work} usually takes ${span} here.${work === 'tour' ? ' You can keep exploring the map meanwhile.' : ''}`
+  const subject = work === 'next question' ? 'New questions usually take' : `A ${work} usually takes`
+  return `${subject} ${span} here.${work === 'tour' ? ' You can keep exploring the map meanwhile.' : ''}`
 }
 
 /** A node as the user knows it: its path, without the kind prefix. */

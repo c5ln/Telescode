@@ -282,32 +282,6 @@
      ]
     },
     {
-     "id": "51698f67-8aa3-4b8a-a444-67aa93422c65:2",
-     "type": "multiple_choice",
-     "difficulty": "easy",
-     "concept": "Optional dependency fallback",
-     "question": "Why are charset_normalizer, chardet and urllib3's pyopenssl imported inside try/except ImportError blocks that set the name to None?",
-     "answer": "So the report can still be produced when an optional library is not installed, showing it as absent instead of crashing",
-     "distractors": [
-      "So that a missing library makes the helper stop early and tell the user to install it",
-      "So that the import is delayed until the report is printed, which makes the helper start faster",
-      "So that the helper can download a compatible version when the installed one is too old"
-     ],
-     "choices": [
-      "So the report can still be produced when an optional library is not installed, showing it as absent instead of crashing",
-      "So that the import is delayed until the report is printed, which makes the helper start faster",
-      "So that the helper can download a compatible version when the installed one is too old",
-      "So that a missing library makes the helper stop early and tell the user to install it"
-     ],
-     "explanation": "Each failed import binds the name to None (src/requests/help.py:14-32), and info() later checks those names, reporting a None or empty version instead of failing (src/requests/help.py:84-97). Nothing stops, defers or downloads; the except branch simply records absence.",
-     "evidence": [
-      {
-       "nodeId": "file:src/requests/help.py",
-       "title": "src/requests/help.py"
-      }
-     ]
-    },
-    {
      "id": "51698f67-8aa3-4b8a-a444-67aa93422c65:3",
      "type": "multiple_choice",
      "difficulty": "medium",
@@ -334,92 +308,6 @@
       {
        "nodeId": "file:src/requests/__init__.py",
        "title": "src/requests/__init__.py"
-      }
-     ]
-    },
-    {
-     "id": "51698f67-8aa3-4b8a-a444-67aa93422c65:4",
-     "type": "multiple_choice",
-     "difficulty": "medium",
-     "concept": "Tolerating packages without __version__",
-     "question": "The test patches the helper's idna reference with None and expects {\"version\": \"\"}. Which part of info() makes that pass instead of raising?",
-     "answer": "The idna version is read with getattr and an empty-string default, so a module without __version__ yields \"\"",
-     "distractors": [
-      "The idna import is wrapped in try/except ImportError, which catches the missing attribute",
-      "info() wraps the whole report in a try/except that replaces any failing entry with \"\"",
-      "json.dumps in main() converts a None version to an empty string before printing"
-     ],
-     "choices": [
-      "The idna import is wrapped in try/except ImportError, which catches the missing attribute",
-      "The idna version is read with getattr and an empty-string default, so a module without __version__ yields \"\"",
-      "info() wraps the whole report in a try/except that replaces any failing entry with \"\"",
-      "json.dumps in main() converts a None version to an empty string before printing"
-     ],
-     "explanation": "info() uses getattr(idna, \"__version__\", \"\") (src/requests/help.py:101-103), which the test exercises by patching requests.help.idna to None (tests/test_help.py:16-21). idna is a plain import with no ImportError guard (src/requests/help.py:9), the only try/except in info() covers platform calls, and the test calls info() directly, never main().",
-     "evidence": [
-      {
-       "nodeId": "file:src/requests/help.py",
-       "title": "src/requests/help.py"
-      },
-      {
-       "nodeId": "file:tests/test_help.py",
-       "title": "tests/test_help.py"
-      }
-     ]
-    },
-    {
-     "id": "51698f67-8aa3-4b8a-a444-67aa93422c65:5",
-     "type": "true_false",
-     "difficulty": "hard",
-     "concept": "Availability vs. activation of pyOpenSSL",
-     "question": "True or false: if the report says \"using_pyopenssl\": true, requests has injected pyOpenSSL into urllib3 for this process.",
-     "answer": "False",
-     "distractors": [
-      "True"
-     ],
-     "choices": [
-      "True",
-      "False"
-     ],
-     "explanation": "help.py sets the flag whenever `from urllib3.contrib import pyopenssl` succeeds (src/requests/help.py:24-27, src/requests/help.py:112), while the package injects pyOpenSSL only when the standard ssl module lacks SNI (src/requests/__init__.py:135-138). On a modern ssl with SNI the flag can be true while no injection happened, so it shows availability, not activation.",
-     "evidence": [
-      {
-       "nodeId": "file:src/requests/help.py",
-       "title": "src/requests/help.py"
-      },
-      {
-       "nodeId": "file:src/requests/__init__.py",
-       "title": "src/requests/__init__.py"
-      }
-     ]
-    },
-    {
-     "id": "51698f67-8aa3-4b8a-a444-67aa93422c65:6",
-     "type": "multiple_choice",
-     "difficulty": "hard",
-     "concept": "Separating data collection from output",
-     "question": "info() returns a dict and main() only serializes and prints it. What does this split, together with binding each dependency as a module-level name, make possible?",
-     "answer": "Tests can call info() and assert on fields directly, swapping a dependency by patching names like requests.help.idna, without capturing stdout or uninstalling packages",
-     "distractors": [
-      "The report can be cached after the first call, so later bug reports reuse the same versions",
-      "main() can rerun the compatibility checks on the dict and warn when a version is unsupported",
-      "Callers can pass their own dependency modules to info() as arguments to override detection"
-     ],
-     "choices": [
-      "main() can rerun the compatibility checks on the dict and warn when a version is unsupported",
-      "Tests can call info() and assert on fields directly, swapping a dependency by patching names like requests.help.idna, without capturing stdout or uninstalling packages",
-      "Callers can pass their own dependency modules to info() as arguments to override detection",
-      "The report can be cached after the first call, so later bug reports reuse the same versions"
-     ],
-     "explanation": "The tests call info() and compare dict entries, and use mock.patch on the module-level idna name to simulate old or versioned packages (tests/test_help.py:3-27; src/requests/help.py:9, src/requests/help.py:67-128). info() takes no arguments and caches nothing, and main() only does json.dumps; compatibility checking is a separate concern in the package init.",
-     "evidence": [
-      {
-       "nodeId": "file:src/requests/help.py",
-       "title": "src/requests/help.py"
-      },
-      {
-       "nodeId": "file:tests/test_help.py",
-       "title": "tests/test_help.py"
       }
      ]
     }
@@ -466,36 +354,6 @@
      ]
     },
     {
-     "id": "12b8487e-1491-43a2-8f26-b7b334fdb786:2",
-     "type": "multiple_choice",
-     "difficulty": "easy",
-     "concept": "Duck-typed file-like detection",
-     "question": "has_read() checks isinstance(obj, SupportsRead) and then also falls back to hasattr(obj, \"read\"). Which kind of object is the fallback meant to catch?",
-     "answer": "Proxy objects that provide read through __getattr__ and so may not pass the protocol isinstance check",
-     "distractors": [
-      "Objects whose read() returns str instead of bytes",
-      "Objects that are not file-like but have a read attribute set to None",
-      "Subclasses of SupportsRead that override read with a different signature"
-     ],
-     "choices": [
-      "Objects whose read() returns str instead of bytes",
-      "Subclasses of SupportsRead that override read with a different signature",
-      "Proxy objects that provide read through __getattr__ and so may not pass the protocol isinstance check",
-      "Objects that are not file-like but have a read attribute set to None"
-     ],
-     "explanation": "The docstring says the function also handles \"__getattr__ based proxies\" (src/requests/_types.py:32-34). Whether read returns str or bytes is a type parameter of SupportsRead (line 28-29), not something the hasattr fallback is for.",
-     "evidence": [
-      {
-       "nodeId": "file:src/requests/_types.py",
-       "title": "src/requests/_types.py"
-      },
-      {
-       "nodeId": "class:src/requests/_types.py::SupportsRead",
-       "title": "SupportsRead"
-      }
-     ]
-    },
-    {
      "id": "12b8487e-1491-43a2-8f26-b7b334fdb786:3",
      "type": "multiple_choice",
      "difficulty": "medium",
@@ -526,120 +384,6 @@
       {
        "nodeId": "class:src/requests/_types.py::_ValidatedRequest",
        "title": "_ValidatedRequest"
-      }
-     ]
-    },
-    {
-     "id": "12b8487e-1491-43a2-8f26-b7b334fdb786:4",
-     "type": "multiple_choice",
-     "difficulty": "medium",
-     "concept": "Typing-only imports vs runtime imports",
-     "question": "adapters.py imports `_types as _t` only inside `if typing.TYPE_CHECKING`, but imports is_prepared from _types at normal runtime. Why the split?",
-     "answer": "Aliases like TimeoutType and VerifyType are only defined under TYPE_CHECKING in _types.py, but is_prepared is a real function that build_response calls",
-     "distractors": [
-      "is_prepared is defined under TYPE_CHECKING too, so it has to be imported separately",
-      "Importing _t at runtime is allowed, but the guard makes start-up faster",
-      "_t is only used in docstrings, so it doesn't need a runtime import"
-     ],
-     "choices": [
-      "Importing _t at runtime is allowed, but the guard makes start-up faster",
-      "_t is only used in docstrings, so it doesn't need a runtime import",
-      "is_prepared is defined under TYPE_CHECKING too, so it has to be imported separately",
-      "Aliases like TimeoutType and VerifyType are only defined under TYPE_CHECKING in _types.py, but is_prepared is a real function that build_response calls"
-     ],
-     "explanation": "In _types.py, TimeoutType, VerifyType and CertType are defined inside `if TYPE_CHECKING:` (src/requests/_types.py:55, 140-144), so they don't exist at runtime. adapters.py only uses them in annotations, which `from __future__ import annotations` never evaluates (src/requests/adapters.py:9, 70-74, 132-134). is_prepared is defined at module level (src/requests/_types.py:47) and is called at runtime (src/requests/adapters.py:77, 375).",
-     "evidence": [
-      {
-       "nodeId": "file:src/requests/_types.py",
-       "title": "src/requests/_types.py"
-      },
-      {
-       "nodeId": "file:src/requests/adapters.py",
-       "title": "src/requests/adapters.py"
-      }
-     ]
-    },
-    {
-     "id": "12b8487e-1491-43a2-8f26-b7b334fdb786:5",
-     "type": "multiple_choice",
-     "difficulty": "hard",
-     "concept": "Static guarantees without changing runtime behavior",
-     "question": "A reviewer suggests replacing the is_prepared/_ValidatedRequest pattern with plain runtime checks such as `assert req.url is not None` in the adapter. What does the current design give you that this suggestion would lose?",
-     "answer": "Type checkers see url/method as str after the guard, and runtime behavior stays the same, with no new AssertionError for requests that worked before",
-     "distractors": [
-      "A clearer runtime error when an unprepared request reaches HTTPAdapter.send",
-      "A guarantee that PreparedRequest.url can never be reassigned after preparation",
-      "A faster connection lookup, because _ValidatedRequest instances are cached by the pool manager"
-     ],
-     "choices": [
-      "Type checkers see url/method as str after the guard, and runtime behavior stays the same, with no new AssertionError for requests that worked before",
-      "A clearer runtime error when an unprepared request reaches HTTPAdapter.send",
-      "A guarantee that PreparedRequest.url can never be reassigned after preparation",
-      "A faster connection lookup, because _ValidatedRequest instances are cached by the pool manager"
-     ],
-     "explanation": "is_prepared is a no-op at runtime precisely \"to avoid AssertionError\" (src/requests/_types.py:49-52). The narrowing comes from _ValidatedRequest, a subclass that exists only for type checking and redeclares url/method as str (lines 69-79), and it is used before url is consumed in src/requests/adapters.py:375 and 481-483. The trade-off is that no runtime safety is added: there is no clearer error and no immutability, and nothing is cached.",
-     "evidence": [
-      {
-       "nodeId": "file:src/requests/_types.py",
-       "title": "src/requests/_types.py"
-      },
-      {
-       "nodeId": "file:src/requests/adapters.py",
-       "title": "src/requests/adapters.py"
-      },
-      {
-       "nodeId": "class:src/requests/_types.py::_ValidatedRequest",
-       "title": "_ValidatedRequest"
-      },
-      {
-       "nodeId": "class:src/requests/models.py::PreparedRequest",
-       "title": "PreparedRequest"
-      }
-     ]
-    },
-    {
-     "id": "12b8487e-1491-43a2-8f26-b7b334fdb786:6",
-     "type": "multiple_choice",
-     "difficulty": "hard",
-     "concept": "Per-method kwargs TypedDict hierarchy",
-     "question": "GetKwargs adds data and json on top of BaseRequestKwargs, PostKwargs adds only params, and DataKwargs (put/patch) adds params and json. What explains these different additions?",
-     "answer": "Each TypedDict adds only the options that the matching Session method doesn't already take as named parameters, so no keyword is declared twice",
-     "distractors": [
-      "They record which options the HTTP standard allows for each method, e.g. GET has no params",
-      "They restrict which options adapters can forward, so PostKwargs stops data from reaching the adapter",
-      "They are runtime validators that reject keyword arguments not listed for that method"
-     ],
-     "choices": [
-      "They record which options the HTTP standard allows for each method, e.g. GET has no params",
-      "Each TypedDict adds only the options that the matching Session method doesn't already take as named parameters, so no keyword is declared twice",
-      "They are runtime validators that reject keyword arguments not listed for that method",
-      "They restrict which options adapters can forward, so PostKwargs stops data from reaching the adapter"
-     ],
-     "explanation": "Session.get takes (url, params), post takes (url, data, json), and put/patch take (url, data) (Session in src/requests/sessions.py). So each TypedDict (src/requests/_types.py:177-188) supplies the remaining options, and shared options sit in BaseRequestKwargs (lines 157-168). These are typing-only TypedDicts for Unpack (lines 55, 155), so they don't validate at runtime or limit what adapters receive.",
-     "evidence": [
-      {
-       "nodeId": "file:src/requests/_types.py",
-       "title": "src/requests/_types.py"
-      },
-      {
-       "nodeId": "class:src/requests/_types.py::BaseRequestKwargs",
-       "title": "BaseRequestKwargs"
-      },
-      {
-       "nodeId": "class:src/requests/_types.py::GetKwargs",
-       "title": "GetKwargs"
-      },
-      {
-       "nodeId": "class:src/requests/_types.py::PostKwargs",
-       "title": "PostKwargs"
-      },
-      {
-       "nodeId": "class:src/requests/_types.py::DataKwargs",
-       "title": "DataKwargs"
-      },
-      {
-       "nodeId": "class:src/requests/sessions.py::Session",
-       "title": "Session"
       }
      ]
     }
@@ -690,36 +434,6 @@
      ]
     },
     {
-     "id": "2757ab54-47ea-4276-aa84-0e8b65679d57:2",
-     "type": "multiple_choice",
-     "difficulty": "easy",
-     "concept": "Pickling and rebuilding non-serializable state",
-     "question": "When an HTTPAdapter is unpickled, __setstate__ restores the saved attributes and then calls init_poolmanager again. Why does it need to do this?",
-     "answer": "The pool manager isn't saved with the pickled state because it can't be pickled, so a fresh one has to be built from the saved pool settings.",
-     "distractors": [
-      "Unpickling corrupts the existing pool manager's sockets, so the old manager must be closed and replaced.",
-      "init_poolmanager resets max_retries to its default, which is required after unpickling.",
-      "The pickled state contains the original pool manager, but it must be re-registered with the Session before use."
-     ],
-     "choices": [
-      "init_poolmanager resets max_retries to its default, which is required after unpickling.",
-      "Unpickling corrupts the existing pool manager's sockets, so the old manager must be closed and replaced.",
-      "The pool manager isn't saved with the pickled state because it can't be pickled, so a fresh one has to be built from the saved pool settings.",
-      "The pickled state contains the original pool manager, but it must be re-registered with the Session before use."
-     ],
-     "explanation": "__getstate__ saves only the names in __attrs__ (max_retries, config and the pool settings), so poolmanager is left out (src/requests/adapters.py:185-191, 223-224). The comment in __setstate__ says it isn't pickleable, and the method rebuilds it from _pool_connections, _pool_maxsize and _pool_block (src/requests/adapters.py:226-237). Nothing in that code touches sockets, resets retries or registers with a Session.",
-     "evidence": [
-      {
-       "nodeId": "file:src/requests/adapters.py",
-       "title": "src/requests/adapters.py"
-      },
-      {
-       "nodeId": "class:src/requests/adapters.py::HTTPAdapter",
-       "title": "HTTPAdapter"
-      }
-     ]
-    },
-    {
      "id": "2757ab54-47ea-4276-aa84-0e8b65679d57:3",
      "type": "multiple_choice",
      "difficulty": "medium",
@@ -758,116 +472,6 @@
       {
        "nodeId": "file:src/requests/cookies.py",
        "title": "src/requests/cookies.py"
-      }
-     ]
-    },
-    {
-     "id": "2757ab54-47ea-4276-aa84-0e8b65679d57:4",
-     "type": "multiple_choice",
-     "difficulty": "medium",
-     "concept": "Optional dependency fallback for SOCKS proxies",
-     "question": "A user sets a socks5:// proxy and gets InvalidSchema(\"Missing dependencies for SOCKS support.\") as soon as the request starts. Where should you look first?",
-     "answer": "At the module-level import of urllib3.contrib.socks. If that import fails, SOCKSProxyManager is replaced by a stub that raises InvalidSchema, and proxy_manager_for calls that stub for any proxy URL that starts with 'socks'.",
-     "distractors": [
-      "At proxy_headers, because it raises InvalidSchema when the proxy URL contains no username for Proxy-Authorization.",
-      "At request_url, because it rejects SOCKS proxies for HTTPS requests and raises InvalidSchema.",
-      "At cert_verify, because SOCKS proxies need a CA bundle and a missing bundle is reported as InvalidSchema."
-     ],
-     "choices": [
-      "At request_url, because it rejects SOCKS proxies for HTTPS requests and raises InvalidSchema.",
-      "At the module-level import of urllib3.contrib.socks. If that import fails, SOCKSProxyManager is replaced by a stub that raises InvalidSchema, and proxy_manager_for calls that stub for any proxy URL that starts with 'socks'.",
-      "At cert_verify, because SOCKS proxies need a CA bundle and a missing bundle is reported as InvalidSchema.",
-      "At proxy_headers, because it raises InvalidSchema when the proxy URL contains no username for Proxy-Authorization."
-     ],
-     "explanation": "The try/except ImportError at src/requests/adapters.py:62-67 defines a stand-in SOCKSProxyManager that raises InvalidSchema (an exception from exceptions.py). proxy_manager_for sends proxies starting with 'socks' to it (src/requests/adapters.py:283-293). proxy_headers only builds an auth header, request_url only picks a URL form, and cert_verify raises OSError, not InvalidSchema (src/requests/adapters.py:331-335).",
-     "evidence": [
-      {
-       "nodeId": "file:src/requests/adapters.py",
-       "title": "src/requests/adapters.py"
-      },
-      {
-       "nodeId": "class:src/requests/adapters.py::HTTPAdapter",
-       "title": "HTTPAdapter"
-      },
-      {
-       "nodeId": "file:src/requests/exceptions.py",
-       "title": "src/requests/exceptions.py"
-      }
-     ]
-    },
-    {
-     "id": "2757ab54-47ea-4276-aa84-0e8b65679d57:5",
-     "type": "multiple_choice",
-     "difficulty": "hard",
-     "concept": "Extending the transport layer through adapters",
-     "question": "Your team wants Requests to talk to a new kind of backend (for example, an in-process test transport) without changing the Session's public API. Based on how adapters are designed, what is the cleanest extension point?",
-     "answer": "Write a class that implements BaseAdapter's send() and close() contract and returns a Response, then mount it on the Session for the URL prefix it should handle.",
-     "distractors": [
-      "Subclass Session and override request() so it skips adapters entirely for the new backend, since adapters are tied to urllib3.",
-      "Change HTTPAdapter.init_poolmanager to return a custom manager, because every request must go through HTTPAdapter's urllib3 pool.",
-      "Add the new backend as a case inside _urllib3_request_context, since that function chooses which transport handles a URL."
-     ],
-     "choices": [
-      "Write a class that implements BaseAdapter's send() and close() contract and returns a Response, then mount it on the Session for the URL prefix it should handle.",
-      "Add the new backend as a case inside _urllib3_request_context, since that function chooses which transport handles a URL.",
-      "Subclass Session and override request() so it skips adapters entirely for the new backend, since adapters are tied to urllib3.",
-      "Change HTTPAdapter.init_poolmanager to return a custom manager, because every request must go through HTTPAdapter's urllib3 pool."
-     ],
-     "explanation": "BaseAdapter defines a transport-agnostic send()/close() contract (src/requests/adapters.py:122-155). HTTPAdapter's docstring shows adapters being attached to a Session with s.mount('http://', a) (src/requests/adapters.py:177-182), and Session exposes mount() and get_adapter() and holds an adapters field. _urllib3_request_context only builds pool-key parameters for urllib3 and doesn't choose a transport (src/requests/adapters.py:85-119), so changing it or forcing the change through HTTPAdapter's pool ties the new backend to urllib3 for no reason.",
-     "evidence": [
-      {
-       "nodeId": "file:src/requests/adapters.py",
-       "title": "src/requests/adapters.py"
-      },
-      {
-       "nodeId": "class:src/requests/adapters.py::BaseAdapter",
-       "title": "BaseAdapter"
-      },
-      {
-       "nodeId": "class:src/requests/adapters.py::HTTPAdapter",
-       "title": "HTTPAdapter"
-      },
-      {
-       "nodeId": "class:src/requests/sessions.py::Session",
-       "title": "Session"
-      }
-     ]
-    },
-    {
-     "id": "2757ab54-47ea-4276-aa84-0e8b65679d57:6",
-     "type": "multiple_choice",
-     "difficulty": "hard",
-     "concept": "Layering of redirect handling",
-     "question": "HTTPAdapter.send calls conn.urlopen(..., redirect=False). What would most likely go wrong if someone changed this so urllib3 followed redirects itself?",
-     "answer": "Redirects would happen inside the transport, out of sight of the session layer, so its own redirect logic (resolve_redirects, rebuild_auth, should_strip_auth, rebuild_proxies) would be skipped and things like credential stripping and per-hop cookies could be bypassed.",
-     "distractors": [
-      "Nothing important, because urllib3 and the Session apply the same redirect rules; the flag only affects performance.",
-      "Retries would stop working, because max_retries is ignored by urllib3 whenever redirect handling is enabled.",
-      "build_response would crash, because it can only handle responses whose status code is a redirect."
-     ],
-     "choices": [
-      "Retries would stop working, because max_retries is ignored by urllib3 whenever redirect handling is enabled.",
-      "Nothing important, because urllib3 and the Session apply the same redirect rules; the flag only affects performance.",
-      "Redirects would happen inside the transport, out of sight of the session layer, so its own redirect logic (resolve_redirects, rebuild_auth, should_strip_auth, rebuild_proxies) would be skipped and things like credential stripping and per-hop cookies could be bypassed.",
-      "build_response would crash, because it can only handle responses whose status code is a redirect."
-     ],
-     "explanation": "The adapter sends exactly one hop and turns it into a Response with the request and cookies attached (src/requests/adapters.py:696-708, 365-401). Redirect policy belongs to the session layer, which has resolve_redirects, rebuild_auth, should_strip_auth and rebuild_proxies on SessionRedirectMixin. If urllib3 followed redirects internally, those hooks would never see the intermediate hops. The retries and build_response options aren't supported by the code: build_response handles any status, with a fallback to None (src/requests/adapters.py:379).",
-     "evidence": [
-      {
-       "nodeId": "file:src/requests/adapters.py",
-       "title": "src/requests/adapters.py"
-      },
-      {
-       "nodeId": "class:src/requests/adapters.py::HTTPAdapter",
-       "title": "HTTPAdapter"
-      },
-      {
-       "nodeId": "class:src/requests/sessions.py::SessionRedirectMixin",
-       "title": "SessionRedirectMixin"
-      },
-      {
-       "nodeId": "class:src/requests/sessions.py::Session",
-       "title": "Session"
       }
      ]
     }
@@ -910,32 +514,6 @@
      ]
     },
     {
-     "id": "f8356d72-5f29-42dd-87c0-c3d3e2711417:2",
-     "type": "multiple_choice",
-     "difficulty": "easy",
-     "concept": "TLS verification configuration",
-     "question": "For an https URL, cert_verify is called with verify set to a string path that does not exist on disk. What does the adapter do?",
-     "answer": "It raises an OSError saying it could not find a suitable CA bundle, before any request is sent.",
-     "distractors": [
-      "It silently falls back to the default CA bundle and continues with verification enabled.",
-      "It turns certificate verification off for this connection, because the custom bundle is unusable.",
-      "It passes the path to urllib3 as-is and lets the TLS handshake fail later."
-     ],
-     "choices": [
-      "It turns certificate verification off for this connection, because the custom bundle is unusable.",
-      "It raises an OSError saying it could not find a suitable CA bundle, before any request is sent.",
-      "It silently falls back to the default CA bundle and continues with verification enabled.",
-      "It passes the path to urllib3 as-is and lets the TLS handshake fail later."
-     ],
-     "explanation": "If verify is not True, the string becomes cert_loc. If that path does not exist, the method raises OSError (src/requests/adapters.py:325-335). The default bundle is used only when cert_loc is empty (src/requests/adapters.py:328-329), so the path is never silently swapped out. Verification is turned off (CERT_NONE) only when verify is falsy or the URL is not https (src/requests/adapters.py:343-346).",
-     "evidence": [
-      {
-       "nodeId": "class:src/requests/adapters.py::HTTPAdapter",
-       "title": "HTTPAdapter"
-      }
-     ]
-    },
-    {
      "id": "f8356d72-5f29-42dd-87c0-c3d3e2711417:3",
      "type": "multiple_choice",
      "difficulty": "medium",
@@ -966,112 +544,6 @@
       {
        "nodeId": "class:src/requests/structures.py::CaseInsensitiveDict",
        "title": "CaseInsensitiveDict"
-      }
-     ]
-    },
-    {
-     "id": "f8356d72-5f29-42dd-87c0-c3d3e2711417:4",
-     "type": "multiple_choice",
-     "difficulty": "medium",
-     "concept": "Error translation while selecting a connection",
-     "question": "A user reports that a request fails with requests' InvalidURL, raised while the adapter is getting a connection (get_connection_with_tls_context), before anything goes over the network. What should you suspect first?",
-     "answer": "Building the connection-pool key attributes from the prepared request raised a ValueError, and the adapter re-raised it as InvalidURL with the request attached.",
-     "distractors": [
-      "The proxy URL had no host, because a malformed proxy is reported as InvalidURL.",
-      "The server answered with a redirect to an invalid location, and the adapter converted it into InvalidURL.",
-      "The CA bundle path was invalid, and certificate errors are reported as InvalidURL."
-     ],
-     "choices": [
-      "Building the connection-pool key attributes from the prepared request raised a ValueError, and the adapter re-raised it as InvalidURL with the request attached.",
-      "The server answered with a redirect to an invalid location, and the adapter converted it into InvalidURL.",
-      "The CA bundle path was invalid, and certificate errors are reported as InvalidURL.",
-      "The proxy URL had no host, because a malformed proxy is reported as InvalidURL."
-     ],
-     "explanation": "get_connection_with_tls_context wraps build_connection_pool_key_attributes in try/except ValueError and raises InvalidURL(e, request=request) (src/requests/adapters.py:484-491). InvalidURL belongs to the RequestException family. A proxy with no host raises a different error, InvalidProxyURL (src/requests/adapters.py:495-499). A bad CA path raises OSError in cert_verify (src/requests/adapters.py:331-335).",
-     "evidence": [
-      {
-       "nodeId": "class:src/requests/adapters.py::HTTPAdapter",
-       "title": "HTTPAdapter"
-      },
-      {
-       "nodeId": "class:src/requests/exceptions.py::RequestException",
-       "title": "RequestException"
-      }
-     ]
-    },
-    {
-     "id": "f8356d72-5f29-42dd-87c0-c3d3e2711417:5",
-     "type": "multiple_choice",
-     "difficulty": "hard",
-     "concept": "Who handles redirects: Session or transport",
-     "question": "HTTPAdapter.send always calls urlopen with redirect=False. What would go wrong if the adapter let urllib3 follow redirects itself?",
-     "answer": "The Session's redirect logic (resolve_redirects, with rebuild_auth, should_strip_auth and rebuild_proxies) would never see the intermediate responses, so Requests could no longer decide per hop what to keep or strip.",
-     "distractors": [
-      "Nothing important would change, because SessionRedirectMixin only counts redirects for the history list.",
-      "Responses would no longer be streamable, because redirect=False is what makes preload_content=False work.",
-      "Connection pooling would break, because urllib3 cannot reuse a pool after following a redirect."
-     ],
-     "choices": [
-      "The Session's redirect logic (resolve_redirects, with rebuild_auth, should_strip_auth and rebuild_proxies) would never see the intermediate responses, so Requests could no longer decide per hop what to keep or strip.",
-      "Connection pooling would break, because urllib3 cannot reuse a pool after following a redirect.",
-      "Nothing important would change, because SessionRedirectMixin only counts redirects for the history list.",
-      "Responses would no longer be streamable, because redirect=False is what makes preload_content=False work."
-     ],
-     "explanation": "send passes redirect=False and preload_content=False as separate settings (src/requests/adapters.py:696-708), so each adapter call returns exactly one hop as a Response. Session depends on SessionRedirectMixin, which has resolve_redirects, rebuild_auth, should_strip_auth and rebuild_proxies. Those methods need each redirect response to apply per-hop policy. Redirect following is therefore the Session's job, not the transport's, and the mixin does more than keep a history list.",
-     "evidence": [
-      {
-       "nodeId": "class:src/requests/adapters.py::HTTPAdapter",
-       "title": "HTTPAdapter"
-      },
-      {
-       "nodeId": "class:src/requests/sessions.py::Session",
-       "title": "Session"
-      },
-      {
-       "nodeId": "class:src/requests/sessions.py::SessionRedirectMixin",
-       "title": "SessionRedirectMixin"
-      }
-     ]
-    },
-    {
-     "id": "f8356d72-5f29-42dd-87c0-c3d3e2711417:6",
-     "type": "multiple_choice",
-     "difficulty": "hard",
-     "concept": "Exception boundary between requests and urllib3",
-     "question": "In send, the adapter catches urllib3 errors such as ProtocolError, MaxRetryError, ClosedPoolError and urllib3's SSL and HTTP errors, and re-raises them as requests exceptions with the request attached. What is the main design benefit of translating errors at this layer?",
-     "answer": "Callers can handle transport failures through the requests exception hierarchy rooted at RequestException, without depending on urllib3 exception types that are an implementation detail of this adapter.",
-     "distractors": [
-      "It makes urllib3 retry the request automatically, because only requests exceptions trigger the Retry policy.",
-      "It lets Session suppress errors and return a Response with status_code None instead of raising.",
-      "It is required for pickling, because urllib3 exceptions cannot be serialized across processes."
-     ],
-     "choices": [
-      "Callers can handle transport failures through the requests exception hierarchy rooted at RequestException, without depending on urllib3 exception types that are an implementation detail of this adapter.",
-      "It lets Session suppress errors and return a Response with status_code None instead of raising.",
-      "It makes urllib3 retry the request automatically, because only requests exceptions trigger the Retry policy.",
-      "It is required for pickling, because urllib3 exceptions cannot be serialized across processes."
-     ],
-     "explanation": "send maps each low-level failure to a requests exception such as ConnectionError, RetryError, SSLError, ReadTimeout or InvalidHeader, and attaches the request (src/requests/adapters.py:710-746). Exceptions such as ConnectionError, RetryError and InvalidHeader inherit from RequestException, so one except clause covers them all and urllib3 stays hidden behind the adapter. The translation happens after urlopen has already applied self.max_retries (src/requests/adapters.py:705), so it does not cause retries, and the code re-raises rather than suppressing errors.",
-     "evidence": [
-      {
-       "nodeId": "class:src/requests/adapters.py::HTTPAdapter",
-       "title": "HTTPAdapter"
-      },
-      {
-       "nodeId": "class:src/requests/exceptions.py::RequestException",
-       "title": "RequestException"
-      },
-      {
-       "nodeId": "class:src/requests/exceptions.py::ConnectionError",
-       "title": "ConnectionError"
-      },
-      {
-       "nodeId": "class:src/requests/exceptions.py::RetryError",
-       "title": "RetryError"
-      },
-      {
-       "nodeId": "class:src/requests/exceptions.py::InvalidHeader",
-       "title": "InvalidHeader"
       }
      ]
     }
@@ -1118,36 +590,6 @@
      ]
     },
     {
-     "id": "2e76e8be-5a4b-4717-b9a0-809bf2d9319b:2",
-     "type": "multiple_choice",
-     "difficulty": "easy",
-     "concept": "LookupDict's lenient item access vs strict attribute access",
-     "question": "Given a `LookupDict` with no value set for 'teapot', how do `lookup['teapot']` and `lookup.teapot` behave?",
-     "answer": "`lookup['teapot']` returns None, while `lookup.teapot` raises AttributeError",
-     "distractors": [
-      "Both raise KeyError, just like a normal dict lookup on a missing key",
-      "Both return None, because missing values always fall through to a default",
-      "`lookup['teapot']` raises KeyError, while `lookup.teapot` returns None"
-     ],
-     "choices": [
-      "Both raise KeyError, just like a normal dict lookup on a missing key",
-      "`lookup['teapot']` returns None, while `lookup.teapot` raises AttributeError",
-      "`lookup['teapot']` raises KeyError, while `lookup.teapot` returns None",
-      "Both return None, because missing values always fall through to a default"
-     ],
-     "explanation": "`__getitem__` deliberately falls through with `self.__dict__.get(key, None)`, so item access on a missing key yields None (src/requests/structures.py:118-121). `__getattr__` only returns names that exist in `__dict__` and otherwise raises AttributeError (src/requests/structures.py:108-116), so the two access styles are not symmetric and neither one raises KeyError.",
-     "evidence": [
-      {
-       "nodeId": "file:src/requests/structures.py",
-       "title": "src/requests/structures.py"
-      },
-      {
-       "nodeId": "class:src/requests/structures.py::LookupDict",
-       "title": "LookupDict"
-      }
-     ]
-    },
-    {
      "id": "2e76e8be-5a4b-4717-b9a0-809bf2d9319b:3",
      "type": "multiple_choice",
      "difficulty": "medium",
@@ -1174,108 +616,6 @@
       {
        "nodeId": "class:src/requests/structures.py::CaseInsensitiveDict",
        "title": "CaseInsensitiveDict"
-      }
-     ]
-    },
-    {
-     "id": "2e76e8be-5a4b-4717-b9a0-809bf2d9319b:4",
-     "type": "multiple_choice",
-     "difficulty": "medium",
-     "concept": "How copy() rebuilds the internal store",
-     "question": "`CaseInsensitiveDict.copy()` returns `CaseInsensitiveDict(self._store.values())`. What data flows into the new object's constructor, and what does the copy look like?",
-     "answer": "An iterable of (original-cased key, value) pairs, which `update` re-inserts, so the copy keeps the original casing and has its own separate store",
-     "distractors": [
-      "The lowercase keys with their values, so the copy reports every key in lowercase",
-      "A reference to the same OrderedDict, so changes to the copy also appear in the original",
-      "Only the values without keys, so the copy has to regenerate keys from the values"
-     ],
-     "choices": [
-      "A reference to the same OrderedDict, so changes to the copy also appear in the original",
-      "The lowercase keys with their values, so the copy reports every key in lowercase",
-      "Only the values without keys, so the copy has to regenerate keys from the values",
-      "An iterable of (original-cased key, value) pairs, which `update` re-inserts, so the copy keeps the original casing and has its own separate store"
-     ],
-     "explanation": "`_store` maps the lowercase key to a `(key, value)` tuple (src/requests/structures.py:47, :62), so `_store.values()` is an iterable of original-cased pairs, which the constructor accepts and feeds to `self.update` into a fresh `OrderedDict` (src/requests/structures.py:49-57, :89-90). Lowercase keys are what `lower_items()` exposes, not what `copy()` passes, and because a new `_store` is created the copy does not share state with the original.",
-     "evidence": [
-      {
-       "nodeId": "file:src/requests/structures.py",
-       "title": "src/requests/structures.py"
-      },
-      {
-       "nodeId": "class:src/requests/structures.py::CaseInsensitiveDict",
-       "title": "CaseInsensitiveDict"
-      }
-     ]
-    },
-    {
-     "id": "2e76e8be-5a4b-4717-b9a0-809bf2d9319b:5",
-     "type": "multiple_choice",
-     "difficulty": "hard",
-     "concept": "Why response headers are wrapped in CaseInsensitiveDict",
-     "question": "In `HTTPAdapter.build_response`, the raw urllib3 headers are wrapped with `CaseInsensitiveDict(...)` before `get_encoding_from_headers(response.headers)` runs. If this were changed to a plain `dict(...)`, what problem would most likely appear?",
-     "answer": "Header lookups would depend on the exact casing the server used, so a lookup such as 'content-type' could miss a header sent as 'Content-Type' and break encoding detection and user header access",
-     "distractors": [
-      "Nothing would change, because HTTP header names are already normalized to lowercase before they reach build_response",
-      "The response could no longer be pickled, because HTTPAdapter's `__getstate__` relies on CaseInsensitiveDict",
-      "Header values would lose their original casing, because CaseInsensitiveDict is what preserves value text"
-     ],
-     "choices": [
-      "The response could no longer be pickled, because HTTPAdapter's `__getstate__` relies on CaseInsensitiveDict",
-      "Nothing would change, because HTTP header names are already normalized to lowercase before they reach build_response",
-      "Header lookups would depend on the exact casing the server used, so a lookup such as 'content-type' could miss a header sent as 'Content-Type' and break encoding detection and user header access",
-      "Header values would lose their original casing, because CaseInsensitiveDict is what preserves value text"
-     ],
-     "explanation": "The adapter explicitly says 'Make headers case-insensitive' and builds `CaseInsensitiveDict(getattr(resp, 'headers', {}))` before reading the encoding from it (src/requests/adapters.py:381-385); the class exists so that `headers['content-encoding']` finds 'Content-Encoding' however it was stored (src/requests/structures.py:38-40). Nothing in the code lowercases names beforehand, the pickling state in `__getstate__` covers adapter attributes rather than headers (src/requests/adapters.py:223-224), and CaseInsensitiveDict only changes key lookup, not values.",
-     "evidence": [
-      {
-       "nodeId": "file:src/requests/structures.py",
-       "title": "src/requests/structures.py"
-      },
-      {
-       "nodeId": "class:src/requests/structures.py::CaseInsensitiveDict",
-       "title": "CaseInsensitiveDict"
-      },
-      {
-       "nodeId": "file:src/requests/adapters.py",
-       "title": "src/requests/adapters.py"
-      },
-      {
-       "nodeId": "class:src/requests/adapters.py::HTTPAdapter",
-       "title": "HTTPAdapter"
-      }
-     ]
-    },
-    {
-     "id": "2e76e8be-5a4b-4717-b9a0-809bf2d9319b:6",
-     "type": "multiple_choice",
-     "difficulty": "hard",
-     "concept": "Storage design trade-off: lowercase index plus original key",
-     "question": "CaseInsensitiveDict indexes `_store` by `key.lower()` but keeps the original key inside each stored tuple. Compared with simply lowercasing every key, or keeping keys as written and scanning on every lookup, what does this design achieve and what does it give up?",
-     "answer": "It keeps fast hash lookups in any casing while still showing callers the casing they wrote, but keys that differ only by case collapse into one entry, and the docstring calls that case undefined during construction and update",
-     "distractors": [
-      "It allows two headers that differ only in case, such as 'X-Id' and 'x-id', to be kept side by side, at the cost of slower lookups",
-      "It makes the mapping immutable after construction, which is why `copy()` is required to change any value",
-      "It saves memory compared with lowercasing keys, because only one form of each key is ever stored"
-     ],
-     "choices": [
-      "It keeps fast hash lookups in any casing while still showing callers the casing they wrote, but keys that differ only by case collapse into one entry, and the docstring calls that case undefined during construction and update",
-      "It saves memory compared with lowercasing keys, because only one form of each key is ever stored",
-      "It allows two headers that differ only in case, such as 'X-Id' and 'x-id', to be kept side by side, at the cost of slower lookups",
-      "It makes the mapping immutable after construction, which is why `copy()` is required to change any value"
-     ],
-     "explanation": "Lookups, deletes and sets all go through `key.lower()` on an OrderedDict, so access is a hash lookup rather than a scan, while `__iter__`/`items()` yield the stored original key, which lowercasing everything would lose (src/requests/structures.py:59-71). Because the index is the lowercased key, case-variant keys overwrite each other rather than coexisting, and the docstring marks colliding input during construction, `.update` or equality as undefined (src/requests/structures.py:42-44). The class is a MutableMapping with `__setitem__`/`__delitem__`, so it is not immutable, and it stores both the lowercase index and the original key, so it does not save memory.",
-     "evidence": [
-      {
-       "nodeId": "file:src/requests/structures.py",
-       "title": "src/requests/structures.py"
-      },
-      {
-       "nodeId": "class:src/requests/structures.py::CaseInsensitiveDict",
-       "title": "CaseInsensitiveDict"
-      },
-      {
-       "nodeId": "file:src/requests/adapters.py",
-       "title": "src/requests/adapters.py"
       }
      ]
     }
@@ -1322,36 +662,6 @@
      ]
     },
     {
-     "id": "f910ed80-a805-4421-8907-81141ceef6c5:2",
-     "type": "multiple_choice",
-     "difficulty": "easy",
-     "concept": "Auth stripping on redirect",
-     "question": "A request with an Authorization header is redirected from http://api.example.com/data to https://api.example.com/data. Both URLs use the default ports. What does should_strip_auth decide, and why?",
-     "answer": "It keeps the header, because an http-to-https upgrade on the same host with standard ports is treated as safe for backward compatibility",
-     "distractors": [
-      "It strips the header, because any change of scheme counts as a different origin",
-      "It strips the header, because credentials are always dropped on any redirect",
-      "It keeps the header only if the redirect status is 307 or 308"
-     ],
-     "choices": [
-      "It strips the header, because any change of scheme counts as a different origin",
-      "It keeps the header, because an http-to-https upgrade on the same host with standard ports is treated as safe for backward compatibility",
-      "It keeps the header only if the redirect status is 307 or 308",
-      "It strips the header, because credentials are always dropped on any redirect"
-     ],
-     "explanation": "The hostname is the same, so the first check does not strip. The special case for http on port 80 or None going to https on port 443 or None then returns False (src/requests/sessions.py:158-170). Other scheme or port changes still strip the header (src/requests/sessions.py:184), so 'any scheme change strips' is wrong for this case. The status code is not part of this decision at all.",
-     "evidence": [
-      {
-       "nodeId": "file:src/requests/sessions.py",
-       "title": "src/requests/sessions.py"
-      },
-      {
-       "nodeId": "class:src/requests/sessions.py::SessionRedirectMixin",
-       "title": "SessionRedirectMixin"
-      }
-     ]
-    },
-    {
      "id": "f910ed80-a805-4421-8907-81141ceef6c5:3",
      "type": "multiple_choice",
      "difficulty": "medium",
@@ -1386,116 +696,6 @@
       {
        "nodeId": "file:src/requests/structures.py",
        "title": "src/requests/structures.py"
-      }
-     ]
-    },
-    {
-     "id": "f910ed80-a805-4421-8907-81141ceef6c5:4",
-     "type": "multiple_choice",
-     "difficulty": "medium",
-     "concept": "Method rewriting and body purging during redirects",
-     "question": "A bug report says: 'Our POST gets a 302, and the server behind the redirect receives a GET with no body.' Where in the redirect flow should you look first to explain this?",
-     "answer": "resolve_redirects calls rebuild_method, which turns the 302 into a GET, and then drops the body and Content-Length, Content-Type and Transfer-Encoding headers because the status is not 307 or 308",
-     "distractors": [
-      "prepare_request drops the body when it merges session settings for the follow-up request",
-      "rebuild_auth removes the body together with the Authorization header when the URL changes",
-      "The adapter refuses to send a body on any request that has a non-empty history"
-     ],
-     "choices": [
-      "The adapter refuses to send a body on any request that has a non-empty history",
-      "prepare_request drops the body when it merges session settings for the follow-up request",
-      "rebuild_auth removes the body together with the Authorization header when the URL changes",
-      "resolve_redirects calls rebuild_method, which turns the 302 into a GET, and then drops the body and Content-Length, Content-Type and Transfer-Encoding headers because the status is not 307 or 308"
-     ],
-     "explanation": "For each hop, resolve_redirects calls rebuild_method (src/requests/sessions.py:247), which changes the method to GET on a 302 unless the method is HEAD (src/requests/sessions.py:384-385). Next, for any status other than temporary_redirect or permanent_redirect, it removes the body-related headers and sets body to None (src/requests/sessions.py:250-258). rebuild_auth only touches the Authorization header and netrc credentials (src/requests/sessions.py:324-332).",
-     "evidence": [
-      {
-       "nodeId": "file:src/requests/sessions.py",
-       "title": "src/requests/sessions.py"
-      },
-      {
-       "nodeId": "class:src/requests/sessions.py::SessionRedirectMixin",
-       "title": "SessionRedirectMixin"
-      },
-      {
-       "nodeId": "file:src/requests/status_codes.py",
-       "title": "src/requests/status_codes.py"
-      }
-     ]
-    },
-    {
-     "id": "f910ed80-a805-4421-8907-81141ceef6c5:5",
-     "type": "multiple_choice",
-     "difficulty": "hard",
-     "concept": "Redirect loop ownership",
-     "question": "Inside resolve_redirects, each follow-up hop is sent with self.send(..., allow_redirects=False). What would go wrong if that call let send follow redirects itself?",
-     "answer": "Each hop could start its own nested redirect chain. The single history list and max_redirects check, and the per-hop rebuilding of method, cookies, proxies and auth, would no longer cover the whole chain",
-     "distractors": [
-      "Nothing would change, because send ignores allow_redirects for prepared requests",
-      "Only performance would suffer, because connections would not be returned to the pool",
-      "Cookies would stop being stored, because extract_cookies_to_jar only runs when allow_redirects is False"
-     ],
-     "choices": [
-      "Each hop could start its own nested redirect chain. The single history list and max_redirects check, and the per-hop rebuilding of method, cookies, proxies and auth, would no longer cover the whole chain",
-      "Nothing would change, because send ignores allow_redirects for prepared requests",
-      "Only performance would suffer, because connections would not be returned to the pool",
-      "Cookies would stop being stored, because extract_cookies_to_jar only runs when allow_redirects is False"
-     ],
-     "explanation": "resolve_redirects runs the whole chain in one loop. It keeps one history list (hist) and raises TooManyRedirects when the history reaches max_redirects (src/requests/sessions.py:200-219). On every hop it rebuilds the method, cookies, proxies and auth before sending (src/requests/sessions.py:247-273), then looks for the next redirect target itself (src/requests/sessions.py:292-307). Passing allow_redirects=False keeps that loop in charge. Without it, a nested send could follow hops that this loop never counts or rebuilds. The mixin only declares send as a stub, and Session provides the real method (src/requests/sessions.py:132, 395).",
-     "evidence": [
-      {
-       "nodeId": "file:src/requests/sessions.py",
-       "title": "src/requests/sessions.py"
-      },
-      {
-       "nodeId": "class:src/requests/sessions.py::SessionRedirectMixin",
-       "title": "SessionRedirectMixin"
-      },
-      {
-       "nodeId": "class:src/requests/sessions.py::Session",
-       "title": "Session"
-      }
-     ]
-    },
-    {
-     "id": "f910ed80-a805-4421-8907-81141ceef6c5:6",
-     "type": "multiple_choice",
-     "difficulty": "hard",
-     "concept": "Transport extension via mounted adapters",
-     "question": "Your team needs requests sent to a special URL scheme to go through a custom transport instead of urllib3, while keeping session cookies, headers and redirect handling. Where is the right place to extend?",
-     "answer": "Write a BaseAdapter subclass that implements send and close, and register it on the Session's adapters with mount for that URL prefix",
-     "distractors": [
-      "Override Session.request to check the URL and open the connection directly",
-      "Subclass SessionRedirectMixin and replace resolve_redirects with the new transport",
-      "Change prepare_request so it returns a different PreparedRequest type for that scheme"
-     ],
-     "choices": [
-      "Write a BaseAdapter subclass that implements send and close, and register it on the Session's adapters with mount for that URL prefix",
-      "Override Session.request to check the URL and open the connection directly",
-      "Change prepare_request so it returns a different PreparedRequest type for that scheme",
-      "Subclass SessionRedirectMixin and replace resolve_redirects with the new transport"
-     ],
-     "explanation": "Session keeps its transports in adapters, a mapping from URL prefix to BaseAdapter. __init__ fills it by mounting an HTTPAdapter for 'https://' and 'http://' (src/requests/sessions.py:425, 500-503). BaseAdapter defines send and close, the contract that HTTPAdapter implements, so a new backend only needs to follow that contract and be mounted. Overriding request or resolve_redirects would duplicate the settings merging and per-hop redirect logic in src/requests/sessions.py:511-555 and 186-307 instead of reusing it.",
-     "evidence": [
-      {
-       "nodeId": "file:src/requests/sessions.py",
-       "title": "src/requests/sessions.py"
-      },
-      {
-       "nodeId": "class:src/requests/sessions.py::Session",
-       "title": "Session"
-      },
-      {
-       "nodeId": "class:src/requests/adapters.py::BaseAdapter",
-       "title": "BaseAdapter"
-      },
-      {
-       "nodeId": "class:src/requests/adapters.py::HTTPAdapter",
-       "title": "HTTPAdapter"
-      },
-      {
-       "nodeId": "file:src/requests/adapters.py",
-       "title": "src/requests/adapters.py"
       }
      ]
     }
@@ -1538,32 +738,6 @@
      ]
     },
     {
-     "id": "aca2134d-3cc6-4276-ad14-6cba07b9d069:2",
-     "type": "multiple_choice",
-     "difficulty": "easy",
-     "concept": "Merging request and session settings",
-     "question": "In prepare_request, when does the session fall back to looking up credentials from the user's netrc file?",
-     "answer": "Only when trust_env is enabled and neither the request nor the session already supplies auth",
-     "distractors": [
-      "Always, and the netrc credentials override any auth passed on the request",
-      "Whenever the session has auth set, to check it against the netrc entry",
-      "Only when the server answers with an authentication challenge"
-     ],
-     "choices": [
-      "Always, and the netrc credentials override any auth passed on the request",
-      "Only when the server answers with an authentication challenge",
-      "Only when trust_env is enabled and neither the request nor the session already supplies auth",
-      "Whenever the session has auth set, to check it against the netrc entry"
-     ],
-     "explanation": "The check `if self.trust_env and not auth and not self.auth: auth = get_netrc_auth(url)` (src/requests/sessions.py:536-538) makes netrc a last resort that never overrides explicit auth. It runs while the request is being prepared, before anything is sent, so it cannot react to a server challenge.",
-     "evidence": [
-      {
-       "nodeId": "class:src/requests/sessions.py::Session",
-       "title": "Session"
-      }
-     ]
-    },
-    {
      "id": "aca2134d-3cc6-4276-ad14-6cba07b9d069:3",
      "type": "multiple_choice",
      "difficulty": "medium",
@@ -1594,104 +768,6 @@
       {
        "nodeId": "class:src/requests/models.py::PreparedRequest",
        "title": "PreparedRequest"
-      }
-     ]
-    },
-    {
-     "id": "aca2134d-3cc6-4276-ad14-6cba07b9d069:4",
-     "type": "multiple_choice",
-     "difficulty": "medium",
-     "concept": "Cookie persistence across redirects",
-     "question": "A login endpoint sets a cookie on a redirect response, then redirects to a dashboard. Why does a later `session.get()` still carry that cookie?",
-     "answer": "send copies cookies from every response in the history, plus the final one, into the session's cookie jar, and prepare_request merges that jar into each new request",
-     "distractors": [
-      "The HTTPAdapter's connection pool keeps cookies tied to the open socket and replays them",
-      "Only the final response's cookies are saved, and the redirect cookie survives because the server sends it again",
-      "The Request object stores cookies from its previous response and reuses them on the next call"
-     ],
-     "choices": [
-      "The Request object stores cookies from its previous response and reuses them on the next call",
-      "The HTTPAdapter's connection pool keeps cookies tied to the open socket and replays them",
-      "Only the final response's cookies are saved, and the redirect cookie survives because the server sends it again",
-      "send copies cookies from every response in the history, plus the final one, into the session's cookie jar, and prepare_request merges that jar into each new request"
-     ],
-     "explanation": "After sending, send calls extract_cookies_to_jar(self.cookies, ...) for each response in r.history and for the final response (src/requests/sessions.py:793-799). prepare_request then merges self.cookies with the request's own cookies (src/requests/sessions.py:530-533). The cookies live on the session, not on the connection pool or on the Request object.",
-     "evidence": [
-      {
-       "nodeId": "class:src/requests/sessions.py::Session",
-       "title": "Session"
-      },
-      {
-       "nodeId": "class:src/requests/sessions.py::SessionRedirectMixin",
-       "title": "SessionRedirectMixin"
-      },
-      {
-       "nodeId": "class:src/requests/models.py::PreparedRequest",
-       "title": "PreparedRequest"
-      }
-     ]
-    },
-    {
-     "id": "aca2134d-3cc6-4276-ad14-6cba07b9d069:5",
-     "type": "multiple_choice",
-     "difficulty": "hard",
-     "concept": "Adapter routing by longest prefix",
-     "question": "You mount a custom adapter with `s.mount('https://internal.example.com', MyAdapter())` on a session that already has the default 'https://' adapter. Why does mount reorder the adapters dict, and what would break without that reordering?",
-     "answer": "get_adapter returns the first prefix that matches, so mount moves shorter prefixes behind the new one; without it, the earlier 'https://' entry would match first and the custom adapter would never be used",
-     "distractors": [
-      "get_adapter picks the longest matching key on every call, so the reordering only saves a little lookup time",
-      "The reordering makes the newest mount win, so remounting 'https://' later would override the more specific adapter",
-      "The order only matters when the session is closed, so adapters are closed from most to least specific"
-     ],
-     "choices": [
-      "get_adapter returns the first prefix that matches, so mount moves shorter prefixes behind the new one; without it, the earlier 'https://' entry would match first and the custom adapter would never be used",
-      "get_adapter picks the longest matching key on every call, so the reordering only saves a little lookup time",
-      "The reordering makes the newest mount win, so remounting 'https://' later would override the more specific adapter",
-      "The order only matters when the session is closed, so adapters are closed from most to least specific"
-     ],
-     "explanation": "get_adapter walks self.adapters in order and returns on the first startswith match (src/requests/sessions.py:876-878), so the order decides which adapter wins. mount moves every shorter key to the end after inserting a prefix (src/requests/sessions.py:893-897), so more specific prefixes come first. That ordering lets any BaseAdapter subclass, such as HTTPAdapter, be layered over the default http:// and https:// mounts (src/requests/sessions.py:501-503). close just iterates the adapters, and its order does not matter.",
-     "evidence": [
-      {
-       "nodeId": "class:src/requests/sessions.py::Session",
-       "title": "Session"
-      },
-      {
-       "nodeId": "class:src/requests/adapters.py::HTTPAdapter",
-       "title": "HTTPAdapter"
-      },
-      {
-       "nodeId": "class:src/requests/adapters.py::BaseAdapter",
-       "title": "BaseAdapter"
-      }
-     ]
-    },
-    {
-     "id": "aca2134d-3cc6-4276-ad14-6cba07b9d069:6",
-     "type": "multiple_choice",
-     "difficulty": "hard",
-     "concept": "Pickling a session and its connection pools",
-     "question": "A Session is pickled and sent to a worker process. What does the worker's unpickled session have, and why?",
-     "answer": "Only the configuration listed in __attrs__, including the adapters; each HTTPAdapter drops its pool state and builds a fresh PoolManager in __setstate__, so no live connections are shared",
-     "distractors": [
-      "An exact copy, including open pooled connections, so the worker reuses the parent's sockets",
-      "The settings but no adapters, so get_adapter raises InvalidSchema until the worker calls mount again",
-      "Adapters whose pool managers are shared by reference with the parent process"
-     ],
-     "choices": [
-      "Adapters whose pool managers are shared by reference with the parent process",
-      "Only the configuration listed in __attrs__, including the adapters; each HTTPAdapter drops its pool state and builds a fresh PoolManager in __setstate__, so no live connections are shared",
-      "An exact copy, including open pooled connections, so the worker reuses the parent's sockets",
-      "The settings but no adapters, so get_adapter raises InvalidSchema until the worker calls mount again"
-     ],
-     "explanation": "Session.__getstate__ serializes only the attributes named in __attrs__, which includes 'adapters' (src/requests/sessions.py:427-440, 899-901). HTTPAdapter's __attrs__ lists config and pool sizing but not poolmanager or proxy_manager; its __setstate__ resets proxy_manager and config and calls init_poolmanager again, because the pool manager can't be pickled (src/requests/adapters.py:185-191, 226-237). So the adapters survive, but their connections are recreated rather than copied.",
-     "evidence": [
-      {
-       "nodeId": "class:src/requests/sessions.py::Session",
-       "title": "Session"
-      },
-      {
-       "nodeId": "class:src/requests/adapters.py::HTTPAdapter",
-       "title": "HTTPAdapter"
       }
      ]
     }
@@ -1738,36 +814,6 @@
      ]
     },
     {
-     "id": "2c0504e3-8dbc-4c08-bbae-0266f80c776d:2",
-     "type": "multiple_choice",
-     "difficulty": "easy",
-     "concept": "Form/query parameter encoding",
-     "question": "What does _encode_params produce when given the dict {\"tag\": [\"a\", \"b\"], \"page\": None}?",
-     "answer": "A URL-encoded string with one pair per list item, \"tag=a&tag=b\", with the None-valued key left out",
-     "distractors": [
-      "The string \"tag=['a', 'b']&page=None\", because each value is converted with str()",
-      "The original dict unchanged, because only strings and bytes are encoded",
-      "\"tag=a,b&page=\", joining list items with commas and keeping empty keys"
-     ],
-     "choices": [
-      "\"tag=a,b&page=\", joining list items with commas and keeping empty keys",
-      "The original dict unchanged, because only strings and bytes are encoded",
-      "The string \"tag=['a', 'b']&page=None\", because each value is converted with str()",
-      "A URL-encoded string with one pair per list item, \"tag=a&tag=b\", with the None-valued key left out"
-     ],
-     "explanation": "For iterable key/value data, each value that is a list is expanded into separate pairs and values that are None are skipped before urlencode is called (src/requests/models.py:165-178). Only str/bytes and file-like objects are returned unchanged (src/requests/models.py:161-164), so a dict is never passed through as-is.",
-     "evidence": [
-      {
-       "nodeId": "file:src/requests/models.py",
-       "title": "src/requests/models.py"
-      },
-      {
-       "nodeId": "class:src/requests/models.py::RequestEncodingMixin",
-       "title": "RequestEncodingMixin"
-      }
-     ]
-    },
-    {
      "id": "2c0504e3-8dbc-4c08-bbae-0266f80c776d:3",
      "type": "multiple_choice",
      "difficulty": "medium",
@@ -1800,108 +846,6 @@
        "title": "PreparedRequest"
       }
      ]
-    },
-    {
-     "id": "2c0504e3-8dbc-4c08-bbae-0266f80c776d:4",
-     "type": "multiple_choice",
-     "difficulty": "medium",
-     "concept": "URL and params merging flow",
-     "question": "A request is prepared with url=\"https://api.example.com/search?q=x\" and params={\"page\": 2}. How does PreparedRequest build the final URL?",
-     "answer": "It parses the URL, encodes params through the encoding mixin's _encode_params, and appends them to the existing query with \"&\", giving ...?q=x&page=2",
-     "distractors": [
-      "The params replace the existing query string, giving ...?page=2",
-      "The params are ignored because the URL already contains a query string",
-      "The params are stored separately in the body as form data instead of the URL"
-     ],
-     "choices": [
-      "It parses the URL, encodes params through the encoding mixin's _encode_params, and appends them to the existing query with \"&\", giving ...?q=x&page=2",
-      "The params replace the existing query string, giving ...?page=2",
-      "The params are ignored because the URL already contains a query string",
-      "The params are stored separately in the body as form data instead of the URL"
-     ],
-     "explanation": "prepare_url parses the URL into parts, calls self._encode_params(params) (inherited from RequestEncodingMixin), and if a query already exists joins them as f\"{query}&{enc_params}\" before rebuilding the URL (src/requests/models.py:510-563). The existing query is kept, not replaced, and params never go to the body.",
-     "evidence": [
-      {
-       "nodeId": "file:src/requests/models.py",
-       "title": "src/requests/models.py"
-      },
-      {
-       "nodeId": "class:src/requests/models.py::PreparedRequest",
-       "title": "PreparedRequest"
-      },
-      {
-       "nodeId": "class:src/requests/models.py::RequestEncodingMixin",
-       "title": "RequestEncodingMixin"
-      }
-     ]
-    },
-    {
-     "id": "2c0504e3-8dbc-4c08-bbae-0266f80c776d:5",
-     "type": "multiple_choice",
-     "difficulty": "hard",
-     "concept": "Preparation step ordering for auth",
-     "question": "Someone proposes reordering PreparedRequest.prepare so that prepare_auth runs before prepare_body. What is the main problem this would cause?",
-     "answer": "Auth handlers receive the request before its body and body-related headers exist, so schemes that need the fully prepared request (e.g. signing) would act on incomplete data, and prepare_body would then overwrite body/length state afterwards",
-     "distractors": [
-      "Nothing changes, because prepare_auth only reads the URL and never touches the request object",
-      "Basic auth tuples would stop being converted into HTTPBasicAuth handlers",
-      "Cookies would be sent twice, because prepare_auth also generates the Cookie header"
-     ],
-     "choices": [
-      "Basic auth tuples would stop being converted into HTTPBasicAuth handlers",
-      "Cookies would be sent twice, because prepare_auth also generates the Cookie header",
-      "Nothing changes, because prepare_auth only reads the URL and never touches the request object",
-      "Auth handlers receive the request before its body and body-related headers exist, so schemes that need the fully prepared request (e.g. signing) would act on incomplete data, and prepare_body would then overwrite body/length state afterwards"
-     ],
-     "explanation": "The code says prepare_auth must be last so authentication schemes such as OAuth work on a fully prepared request (src/requests/models.py:445-448). prepare_auth calls the handler with self, copies the handler's changes back via __dict__.update and recomputes Content-Length from the body (src/requests/models.py:690-697), which only makes sense once prepare_body has set the body (src/requests/models.py:576-652). Converting a 2-tuple into HTTPBasicAuth happens regardless of order (src/requests/models.py:683-685).",
-     "evidence": [
-      {
-       "nodeId": "file:src/requests/models.py",
-       "title": "src/requests/models.py"
-      },
-      {
-       "nodeId": "class:src/requests/models.py::PreparedRequest",
-       "title": "PreparedRequest"
-      },
-      {
-       "nodeId": "file:src/requests/auth.py",
-       "title": "src/requests/auth.py"
-      }
-     ]
-    },
-    {
-     "id": "2c0504e3-8dbc-4c08-bbae-0266f80c776d:6",
-     "type": "multiple_choice",
-     "difficulty": "hard",
-     "concept": "Rewindable stream bodies",
-     "question": "When the body is a file-like stream, prepare_body records body.tell() in _body_position, and if tell() raises OSError it stores a fresh object() instead of leaving None. Why this design?",
-     "answer": "So later code that rewinds the body (e.g. on a redirect) can tell \"stream whose position could not be recorded\" apart from \"no recorded position\", and detect the failed tell() instead of silently resending a partly consumed stream",
-     "distractors": [
-      "Because object() is cheaper to store than an integer file offset",
-      "So the body is read fully into memory once and the stream can be discarded",
-      "Because None would make Content-Length be set to 0 for the streamed body"
-     ],
-     "choices": [
-      "Because None would make Content-Length be set to 0 for the streamed body",
-      "So the body is read fully into memory once and the stream can be discarded",
-      "So later code that rewinds the body (e.g. on a redirect) can tell \"stream whose position could not be recorded\" apart from \"no recorded position\", and detect the failed tell() instead of silently resending a partly consumed stream",
-      "Because object() is cheaper to store than an integer file offset"
-     ],
-     "explanation": "The comments say the position is recorded so the file can be rewound in the event of a redirect, and that object() \"differentiates from None, allowing us to catch a failed tell() later when trying to rewind the body\" (src/requests/models.py:611-620). The stream is kept as the body, not read into memory (src/requests/models.py:609), and the length header for streams comes from super_len or chunked encoding, not from _body_position (src/requests/models.py:627-630).",
-     "evidence": [
-      {
-       "nodeId": "file:src/requests/models.py",
-       "title": "src/requests/models.py"
-      },
-      {
-       "nodeId": "class:src/requests/models.py::PreparedRequest",
-       "title": "PreparedRequest"
-      },
-      {
-       "nodeId": "class:src/requests/sessions.py::SessionRedirectMixin",
-       "title": "SessionRedirectMixin"
-      }
-     ]
     }
    ],
    "createdMs": 1795335200777
@@ -1912,55 +856,32 @@
   "concepts": [
    {
     "id": "goal:requirements:637236e6c89a016c6e336e0d07a45a4c568175d6648d9b2c2b16f82ff9603cbc",
-    "name": "Path of requests.get() through Session to adapter",
-    "definition": "requests.get(url, params, **kwargs) in api.py forwards to request('get', ...), which opens a short-lived sessions.Session() in a with-block and delegates to session.request(); the session is closed afterwards. A Session is the object meant to persist settings (cookies, auth, proxies) across requests, sends PreparedRequest objects and gets back Response objects, and sessions.py imports HTTPAdapter, the transport-level component that works on prepared requests.",
-    "version": 1
-   },
-   {
-    "id": "concept:session-setting-merge",
-    "name": "Merging session and per-request settings",
-    "definition": "sessions.merge_setting(request_setting, session_setting) decides the effective value of a setting: if either side is None the other is used; if both are not mappings the per-request value wins; if both are mappings they are merged with request keys overriding session keys, and keys whose merged value is None are removed.",
-    "version": 1
-   },
-   {
-    "id": "concept:adapter-prepared-request",
-    "name": "Adapters work on prepared requests",
-    "definition": "An HTTPAdapter operates on a PreparedRequest (a Request after .prepare()), not on the raw arguments to requests.get(). For example, HTTPAdapter.request_url(prepared, {}) derives the path portion of the prepared URL, keeping a leading '//' intact, as shown in tests/test_adapters.py.",
-    "version": 1
+    "name": "requests.get() to HTTP request, sessions and adapters",
+    "definition": "How a top-level call such as requests.get() is routed through the api module into a Session, how Session merges per-request and session-level settings, and where adapters fit in the sending path.",
+    "version": 2
    }
   ],
   "items": [
    {
-    "id": "item-api-get-flow",
+    "id": "a-easy-api",
     "kind": "read",
     "nodeId": "file:src/requests/api.py",
     "conceptId": "goal:requirements:637236e6c89a016c6e336e0d07a45a4c568175d6648d9b2c2b16f82ff9603cbc",
     "level": "easy",
-    "caption": "Start in src/requests/api.py. get() (line 74) does no HTTP work itself: it calls request(\"get\", url, params=params, **kwargs) (line 87). request() then opens a fresh sessions.Session() inside a with-block and returns session.request(...) (lines 70-71). The comment on lines 67-69 explains the with-block: closing the session avoids leaving sockets open. So every module-level call creates and closes its own Session.",
+    "caption": "Read api.py: get() is a thin wrapper, and request() owns a short-lived Session.",
     "questions": [
      {
       "type": "multiple_choice",
       "difficulty": "easy",
-      "concept": "Module-level get() delegates to a temporary Session",
-      "question": "You call requests.get(url, params={'q': 'x'}) without creating any session yourself. What does the library do with that call before any network work happens?",
-      "answer": "Forwards it to request() with method 'get', which creates a new Session in a with-block and delegates to session.request()",
+      "concept": "get() delegation",
+      "question": "What does requests.get(url, params=...) actually do with the call?",
+      "answer": "It forwards to request() with the method string \"get\" and the same params and kwargs.",
       "distractors": [
-       "get() builds the HTTP request bytes itself and writes them straight to a socket",
-       "get() hands the call to one global Session that every module-level call shares",
-       "get() creates an HTTPAdapter directly and bypasses Session entirely"
+       "It opens a socket itself and writes the GET line directly.",
+       "It builds a Response object by itself without any other function.",
+       "It looks up a cached Session shared by all module-level calls."
       ],
-      "explanation": "get() just calls request(\"get\", url, params=params, **kwargs) (src/requests/api.py:87), and request() does `with sessions.Session() as session: return session.request(...)` (src/requests/api.py:70-71). There is no shared global session, and get() never touches sockets or adapters directly.",
-      "evidenceNodeIds": [
-       "file:src/requests/api.py"
-      ]
-     },
-     {
-      "type": "true_false",
-      "difficulty": "easy",
-      "concept": "Session lifetime of module-level calls",
-      "question": "True or false: two consecutive requests.get() calls share the same underlying Session object, so state from the first call is still there for the second.",
-      "answer": "False",
-      "explanation": "Each call goes through request(), which constructs a new sessions.Session() in a with-block and closes it when the block ends (src/requests/api.py:70-71). The second call therefore gets a brand-new Session; thinking they are shared confuses module-level calls with an explicitly reused Session.",
+      "explanation": "get() ends with `return request(\"get\", url, params=params, **kwargs)`, so it only delegates. The other options attribute work to get() that it does not do.",
       "evidenceNodeIds": [
        "file:src/requests/api.py"
       ]
@@ -1968,15 +889,15 @@
      {
       "type": "multiple_choice",
       "difficulty": "easy",
-      "concept": "Why request() uses a with-block",
-      "question": "Why does request() wrap the Session in a `with` statement instead of just creating it and calling session.request()?",
-      "answer": "So the session is guaranteed to be closed, avoiding open sockets that can cause ResourceWarnings or look like memory leaks",
+      "concept": "Session lifetime in request()",
+      "question": "Why does request() use a `with sessions.Session() as session:` block?",
+      "answer": "So the session is closed when the call finishes, avoiding leftover open sockets and ResourceWarnings.",
       "distractors": [
-       "So the request is automatically retried if the first attempt raises an exception",
-       "So the session is locked and the call becomes thread-safe",
-       "So the Response is cached and reused by the next call with the same URL"
+       "So the session's cookies are saved for the next top-level call.",
+       "So the request is sent asynchronously in the background.",
+       "So redirects are disabled for the call."
       ],
-      "explanation": "The comment directly above the with-block says it ensures the session is closed to avoid leaving sockets open, which can trigger a ResourceWarning or look like a memory leak (src/requests/api.py:67-71). Nothing in this code retries, locks, or caches.",
+      "explanation": "The comment at api.py:67-69 says the with statement ensures the session is closed to avoid open sockets. Nothing there persists state or changes redirects.",
       "evidenceNodeIds": [
        "file:src/requests/api.py"
       ]
@@ -1984,81 +905,84 @@
     ]
    },
    {
-    "id": "item-session-role",
+    "id": "a-easy-sessions",
     "kind": "explain",
     "nodeId": "file:src/requests/sessions.py",
     "conceptId": "goal:requirements:637236e6c89a016c6e336e0d07a45a4c568175d6648d9b2c2b16f82ff9603cbc",
     "level": "easy",
-    "caption": "Next, src/requests/sessions.py. Its docstring (lines 5-6) says a Session manages and persists settings across requests: cookies, auth, proxies. It imports HTTPAdapter from .adapters (line 21), and SessionRedirectMixin declares send(request: PreparedRequest) -> Response (line 132). So a Session sends already-prepared requests and receives Response objects.",
+    "caption": "Read merge_setting in sessions.py: how a request's settings combine with the session's.",
     "questions": [
      {
       "type": "multiple_choice",
       "difficulty": "easy",
-      "concept": "Session as holder of persistent settings",
-      "question": "Your backend service calls the same API many times and needs the same cookies, auth and proxy configuration on every call. Based on sessions.py, which component is designed to carry those settings across requests?",
-      "answer": "A Session object that you create once and reuse",
+      "concept": "merge_setting fallback",
+      "question": "A session has a timeout-like setting configured, but a particular request passes None for it. What does merge_setting return?",
+      "answer": "The session's setting.",
       "distractors": [
-       "The HTTPAdapter, which stores per-user cookies and auth",
-       "Each PreparedRequest, which remembers settings from the previous request",
-       "The module-level requests.get() function, which keeps settings between calls"
+       "None, because the request value wins.",
+       "An empty OrderedDict.",
+       "It raises an error because the values conflict."
       ],
-      "explanation": "The sessions module docstring states it provides a Session object to manage and persist settings across requests (cookies, auth, proxies) (src/requests/sessions.py:5-6). The adapter is imported as a separate transport component (src/requests/sessions.py:21), and nothing here says a PreparedRequest or module function persists state.",
+      "explanation": "`if request_setting is None: return session_setting` (sessions.py:87-88). The request value only takes priority when it is not None.",
       "evidenceNodeIds": [
-       "file:src/requests/sessions.py",
-       "class:src/requests/sessions.py::Session"
+       "file:src/requests/sessions.py"
       ]
      },
      {
       "type": "multiple_choice",
       "difficulty": "easy",
-      "concept": "Session sends prepared requests",
-      "question": "SessionRedirectMixin declares `send(self, request: PreparedRequest, **kwargs) -> Response`. What does this tell you about what a Session's send step works with?",
-      "answer": "It takes a request that has already been prepared into its final form and returns a Response object",
+      "concept": "merge_setting dict merge",
+      "question": "Session headers and request headers are both mappings. How does merge_setting combine them?",
+      "answer": "It copies the session's items, then updates them with the request's items so request values override on the same key.",
       "distractors": [
-       "It takes the raw url and keyword arguments exactly as passed to requests.get()",
-       "It returns raw socket bytes that the caller must parse into a response",
-       "It takes a Response and converts it into the next redirect request"
+       "It returns only the request headers and drops the session ones.",
+       "It returns only the session headers and ignores the request ones.",
+       "It concatenates values of the same key into one string."
       ],
-      "explanation": "The declared signature accepts a PreparedRequest and returns a Response (src/requests/sessions.py:132), and both types are imported from models (src/requests/sessions.py:39-45). Raw get() arguments are handled earlier, and the result is a Response object rather than bytes.",
+      "explanation": "Lines 96-97 build a dict from session_setting and call update with request_setting, so request wins on collisions while other session keys remain.",
       "evidenceNodeIds": [
-       "file:src/requests/sessions.py",
-       "class:src/requests/sessions.py::SessionRedirectMixin"
+       "file:src/requests/sessions.py"
       ]
      }
     ]
    },
    {
-    "id": "item-get-vs-session-diagnose",
-    "kind": "diagnose",
+    "id": "a-medium-api",
+    "kind": "explain",
     "nodeId": "file:src/requests/api.py",
     "conceptId": "goal:requirements:637236e6c89a016c6e336e0d07a45a4c568175d6648d9b2c2b16f82ff9603cbc",
     "level": "medium",
-    "caption": "Put api.py and sessions.py together: module-level helpers create a throwaway Session per call (api.py:70-71), while a Session is what persists cookies, auth and proxies across requests (sessions.py:5-6). Whether you reuse a Session changes what carries over between calls.",
+    "caption": "Follow requests.get() into Session: what the module-level call creates and returns.",
     "questions": [
      {
       "type": "multiple_choice",
       "difficulty": "medium",
-      "concept": "Lost state between module-level calls",
-      "question": "A script logs in with requests.post(login_url, ...) and the server sets a session cookie. The next call, requests.get(profile_url), is rejected as unauthenticated. What should you suspect first?",
-      "answer": "Each module-level call uses its own new Session that is closed afterwards, so the login cookie is not carried to the next call; reuse one Session",
+      "concept": "get() call flow",
+      "question": "Trace requests.get(url): which sequence matches the code?",
+      "answer": "get() calls request(\"get\", ...), which creates a Session and calls session.request(method=..., url=..., **kwargs), returning its Response.",
       "distractors": [
-       "CaseInsensitiveDict lowercases the cookie name so the server no longer recognizes it",
-       "HTTPAdapter strips all cookies from GET requests before sending them",
-       "merge_setting deletes the cookie because the GET call did not pass cookies"
+       "get() calls Session.get on a module-level Session created at import time.",
+       "get() builds a PreparedRequest itself and hands it to an adapter.",
+       "get() calls session.send directly and request() is only used for POST."
       ],
-      "explanation": "request() creates `sessions.Session()` in a with-block for every call (src/requests/api.py:70-71), while persisting cookies across requests is exactly the Session's job (src/requests/sessions.py:5-6). The other options blame components for behaviour not shown in the code.",
+      "explanation": "api.py:87 delegates to request, and api.py:70-71 creates a Session and returns session.request(...). Preparing and sending happen inside the session, not in api.py.",
       "evidenceNodeIds": [
        "file:src/requests/api.py",
        "file:src/requests/sessions.py"
       ]
      },
      {
-      "type": "true_false",
+      "type": "multiple_choice",
       "difficulty": "medium",
-      "concept": "Module calls vs reused Session",
-      "question": "True or false: replacing repeated requests.get() calls in a loop with one Session reused for every call makes no difference to which cookies, auth and proxy settings carry over between iterations.",
-      "answer": "False",
-      "explanation": "Module-level calls build and close a fresh Session each time (src/requests/api.py:70-71), whereas one reused Session persists cookies, auth and proxies across its requests (src/requests/sessions.py:5-6). So reusing the Session does change what persists.",
+      "concept": "No state across top-level calls",
+      "question": "A developer calls requests.get(a) then requests.get(b) expecting cookies set by the first response to be sent with the second. What explains why that is not guaranteed by this code?",
+      "answer": "Each top-level call creates and closes its own Session, and sessions are what persist cookies, auth and proxies.",
+      "distractors": [
+       "get() strips cookies from every response before returning it.",
+       "Cookies are only supported for POST requests.",
+       "The api module keeps a single global Session but resets it after each call."
+      ],
+      "explanation": "The sessions module docstring says Session persists settings such as cookies across requests, while api.py:70 makes a new Session per call inside a with block.",
       "evidenceNodeIds": [
        "file:src/requests/api.py",
        "file:src/requests/sessions.py"
@@ -2067,123 +991,138 @@
     ]
    },
    {
-    "id": "item-merge-setting",
+    "id": "a-medium-sessions",
     "kind": "diagnose",
     "nodeId": "file:src/requests/sessions.py",
-    "conceptId": "concept:session-setting-merge",
-    "level": "easy",
-    "caption": "merge_setting() in src/requests/sessions.py (lines 76-105) combines a per-request value with the session's value. A None on one side means use the other; non-mapping values (like verify) take the request's value; for two mappings the request's keys override the session's, then any key whose value is None is deleted.",
+    "conceptId": "goal:requirements:637236e6c89a016c6e336e0d07a45a4c568175d6648d9b2c2b16f82ff9603cbc",
+    "level": "medium",
+    "caption": "Why merge_hooks exists next to merge_setting, and how non-mapping settings are handled.",
     "questions": [
      {
       "type": "multiple_choice",
-      "difficulty": "easy",
-      "concept": "Dropping a session header with None",
-      "question": "The session setting is {'Accept': 'application/json', 'X-Trace': '1'} and the request setting is {'X-Trace': None}. What does merge_setting(request_setting, session_setting) return?",
-      "answer": "{'Accept': 'application/json'} - X-Trace is removed and Accept is kept",
+      "difficulty": "medium",
+      "concept": "merge_hooks purpose",
+      "question": "Why does merge_hooks return one side early when the other has an empty 'response' list, instead of always calling merge_setting?",
+      "answer": "Because merging {'response': []} through merge_setting would break the session's hooks, so the non-empty side is returned directly.",
       "distractors": [
-       "{'Accept': 'application/json', 'X-Trace': '1'} because the session value wins",
-       "{'X-Trace': None} because the request mapping replaces the session mapping entirely",
-       "{'Accept': 'application/json', 'X-Trace': ''} because None becomes an empty value"
+       "Because hooks must never be merged, only the session's hooks are ever used.",
+       "Because empty lists are invalid and raise an error in merge_setting.",
+       "Because merge_hooks must always prefer the request hooks over session hooks."
       ],
-      "explanation": "Both are mappings, so the session items are copied and then updated with the request items, making X-Trace None (src/requests/sessions.py:96-97); keys whose value is None are then deleted (src/requests/sessions.py:101-103). Accept survives because the request did not override it.",
+      "explanation": "The docstring at sessions.py:113-116 states that when request_hooks == {'response': []} the merge breaks Session hooks entirely, hence the early returns.",
       "evidenceNodeIds": [
+       "file:src/requests/sessions.py",
+       "file:src/requests/hooks.py"
+      ]
+     },
+     {
+      "type": "multiple_choice",
+      "difficulty": "medium",
+      "concept": "merge_setting non-dict values",
+      "question": "A session sets verify to one value and a request sets a different non-mapping value. What does merge_setting return, and why?",
+      "answer": "The request's value, because the merge is bypassed when either side is not a Mapping.",
+      "distractors": [
+       "The session's value, because session settings are authoritative.",
+       "A dict containing both values.",
+       "None, because the two values conflict."
+      ],
+      "explanation": "Lines 90-94 return request_setting if the two are not both Mappings (the comment mentions verify). Only dict-like settings are merged key by key.",
+      "evidenceNodeIds": [
+       "file:src/requests/sessions.py",
+       "file:src/requests/utils.py"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "a-hard-api",
+    "kind": "compare",
+    "nodeId": "file:src/requests/api.py",
+    "conceptId": "goal:requirements:637236e6c89a016c6e336e0d07a45a4c568175d6648d9b2c2b16f82ff9603cbc",
+    "level": "hard",
+    "caption": "Design trade-off: a fresh Session per top-level call versus a shared one.",
+    "questions": [
+     {
+      "type": "multiple_choice",
+      "difficulty": "hard",
+      "concept": "Per-call Session trade-off",
+      "question": "Suppose api.request were changed to reuse one module-level Session for all requests.get() calls. Which consequence follows from the Session's role shown in the code?",
+      "answer": "Cookies, auth and other settings persisted on that Session would leak between unrelated calls, and the closing guarantee of the with block would be lost.",
+      "distractors": [
+       "Nothing would change, since Session stores no state between requests.",
+       "Per-request keyword arguments would stop being merged with session settings.",
+       "get() would no longer be able to return a Response object."
+      ],
+      "explanation": "sessions.py documents that Session persists cookies, auth and proxies, and api.py:67-71 uses a with block per call to close it. A shared session would carry state across callers and never be closed per call.",
+      "evidenceNodeIds": [
+       "file:src/requests/api.py",
        "file:src/requests/sessions.py"
       ]
      },
      {
       "type": "multiple_choice",
-      "difficulty": "easy",
-      "concept": "Non-mapping settings: request wins",
-      "question": "A Session-level setting is False and the same setting passed on one request is True (both plain booleans, e.g. verify). What does merge_setting return?",
-      "answer": "True, because for non-mapping values the per-request value is returned",
+      "difficulty": "hard",
+      "concept": "Shared code path for verb helpers",
+      "question": "get() and options() both end by calling request(). What design benefit does this give when a new keyword such as a new transport option must be supported?",
+      "answer": "It needs to be handled only in the request path through Session, and every verb helper that forwards **kwargs picks it up.",
       "distractors": [
-       "False, because the session setting always takes priority",
-       "An OrderedDict containing both values",
-       "None, because the two values conflict"
+       "Each verb helper must be edited separately to forward it.",
+       "Only get() can accept it because it has an explicit params argument.",
+       "It must be added to the Response class so helpers can return it."
       ],
-      "explanation": "Neither value is None, and since they are not both Mappings the function returns request_setting directly; the comment names verify as the example (src/requests/sessions.py:90-94). Dict merging only happens when both sides are mappings (src/requests/sessions.py:96).",
+      "explanation": "api.py:87 and api.py:99 both forward **kwargs to request(), which forwards them to session.request, so helpers share one path rather than duplicating logic.",
       "evidenceNodeIds": [
-       "file:src/requests/sessions.py"
-      ]
-     },
-     {
-      "type": "true_false",
-      "difficulty": "easy",
-      "concept": "None falls back to the other side",
-      "question": "True or false: if a request passes None for a setting while the session has a value for it, merge_setting returns None and the session value is ignored.",
-      "answer": "False",
-      "explanation": "When request_setting is None the function returns session_setting (src/requests/sessions.py:87-88); likewise a None session setting returns the request value (src/requests/sessions.py:84-85). None at the top level means 'not specified', not 'clear it'.",
-      "evidenceNodeIds": [
+       "file:src/requests/api.py",
        "file:src/requests/sessions.py"
       ]
      }
     ]
    },
    {
-    "id": "item-adapter-prepared",
-    "kind": "read",
-    "nodeId": "file:tests/test_adapters.py",
-    "conceptId": "concept:adapter-prepared-request",
-    "level": "easy",
-    "caption": "tests/test_adapters.py shows the adapter layer in isolation: a Request is built and .prepare()d into a PreparedRequest, then HTTPAdapter().request_url(p, {}) is asked for the URL to use. For http://127.0.0.1:10000//v:h it must return '//v:h' (issue #6643), i.e. the path part with the leading '//' kept.",
+    "id": "a-hard-sessions",
+    "kind": "diagnose",
+    "nodeId": "file:src/requests/sessions.py",
+    "conceptId": "goal:requirements:637236e6c89a016c6e336e0d07a45a4c568175d6648d9b2c2b16f82ff9603cbc",
+    "level": "hard",
+    "caption": "What would break if merge_hooks lacked its guards, and how None unsets session defaults.",
     "questions": [
      {
       "type": "multiple_choice",
-      "difficulty": "easy",
-      "concept": "Adapter input is a prepared request",
-      "question": "In this test, what has to happen to the Request before HTTPAdapter.request_url can work with it?",
-      "answer": "It is converted with .prepare() into a PreparedRequest, which is what the adapter receives",
+      "difficulty": "hard",
+      "concept": "Removing merge_hooks guards",
+      "question": "If the early-return guards in merge_hooks were removed and it always called merge_setting, what would happen when the session has {'response': [hook]} and the request passes {'response': []}?",
+      "answer": "The request's empty list would overwrite the session's 'response' key, so the session's hook would silently not run.",
       "distractors": [
-       "It is passed to the adapter as a plain Request with only method and url set",
-       "It must first be sent through a Session, which returns the object the adapter uses",
-       "It is turned into a dict of method, url and headers for the adapter"
+       "The two lists would be concatenated so the hook runs once.",
+       "merge_setting would raise a TypeError for list values.",
+       "The session's hook would run twice."
       ],
-      "explanation": "The test builds `requests.Request(method=\"GET\", url=...).prepare()` and passes that prepared object to `a.request_url(p, {})` (tests/test_adapters.py:6-8). No Session is involved, and the adapter receives the prepared object, not a dict.",
+      "explanation": "merge_setting copies session items then updates with request items (sessions.py:96-97), so the same key from the request replaces the session's value, which is the breakage described at lines 115-116.",
       "evidenceNodeIds": [
-       "file:tests/test_adapters.py"
+       "file:src/requests/sessions.py",
+       "file:src/requests/structures.py"
       ]
      },
      {
       "type": "multiple_choice",
-      "difficulty": "easy",
-      "concept": "What request_url derives",
-      "question": "For the prepared URL http://127.0.0.1:10000//v:h the test expects request_url to return '//v:h'. What behaviour is the test protecting?",
-      "answer": "The adapter extracts the path part of the URL and keeps the leading '//' instead of collapsing it or reading it as a host",
+      "difficulty": "hard",
+      "concept": "None as unset marker",
+      "question": "What capability does the loop that deletes keys whose value is None in merge_setting give callers?",
+      "answer": "A request can pass None for a key to suppress a default that the session would otherwise send.",
       "distractors": [
-       "The adapter returns the full absolute URL including scheme, host and port",
-       "The adapter normalizes '//' to a single '/' before the request is sent",
-       "The adapter returns the host and port to connect to, here 127.0.0.1:10000"
+       "It lets the session delete its own defaults permanently.",
+       "It prevents the request from overriding any session key.",
+       "It converts None values into empty strings."
       ],
-      "explanation": "The assertion is `\"//v:h\" == a.request_url(p, {})` (tests/test_adapters.py:8), so the result is only the path with its leading double slash intact; the test name refers to handling leading path separators (tests/test_adapters.py:4). A full URL, a collapsed '/v:h', or a host:port would all fail this assertion.",
+      "explanation": "After merging, keys with None values are removed (sessions.py:99-103), so a per-request None overrides the session value and then drops the key from the merged result.",
       "evidenceNodeIds": [
-       "file:tests/test_adapters.py"
+       "file:src/requests/sessions.py",
+       "file:src/requests/utils.py"
       ]
      }
     ]
    }
   ],
-  "relations": [
-   {
-    "from": "concept:session-setting-merge",
-    "to": "goal:requirements:637236e6c89a016c6e336e0d07a45a4c568175d6648d9b2c2b16f82ff9603cbc",
-    "kind": "prerequisite",
-    "reason": "Knowing how session-level and per-request settings are merged (sessions.py merge_setting) explains what a Session contributes to a call made through requests.get().",
-    "evidenceNodeIds": [
-     "file:src/requests/sessions.py",
-     "file:src/requests/api.py"
-    ]
-   },
-   {
-    "from": "concept:adapter-prepared-request",
-    "to": "goal:requirements:637236e6c89a016c6e336e0d07a45a4c568175d6648d9b2c2b16f82ff9603cbc",
-    "kind": "prerequisite",
-    "reason": "sessions.py imports HTTPAdapter and the Session's send step works on PreparedRequest objects; understanding that adapters operate on prepared requests locates the adapter in the requests.get() path.",
-    "evidenceNodeIds": [
-     "file:src/requests/sessions.py",
-     "file:tests/test_adapters.py",
-     "file:src/requests/adapters.py"
-    ]
-   }
-  ]
+  "relations": []
  }
 }
