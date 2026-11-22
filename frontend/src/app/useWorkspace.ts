@@ -12,6 +12,7 @@ import {
   telescode,
   TelescodeError,
   type AnalysisSnapshot,
+  type OpenProgress,
   type RepositoryOpener,
   type RepositorySource,
   type TelescodeApi,
@@ -25,9 +26,34 @@ import { parseGitHubRepositoryUrl } from '../components/repositoryUrl'
  */
 export type WorkspaceState =
   | { status: 'empty' }
-  | { status: 'loading'; dbPath: string; source?: RepositorySource }
+  | { status: 'loading'; dbPath: string; source?: RepositorySource; progress?: LoadingProgress }
   | { status: 'error'; dbPath: string; source?: RepositorySource; error: TelescodeError }
   | { status: 'ready'; dbPath: string; source?: RepositorySource; snapshot: AnalysisSnapshot }
+
+/** Opening's stages: download (GitHub only), read the code, rank files, draw the map. */
+export type LoadingStage = 'download' | 'read' | 'rank' | 'draw'
+
+export interface LoadingProgress {
+  startedMs: number
+  /** Each stage reached so far, in order, with when it started. */
+  stages: { stage: LoadingStage; startedMs: number }[]
+  /** Bytes of the archive received. */
+  bytes?: number
+  /** Python files in the repository, once unpacked. */
+  pythonFiles?: number | null
+}
+
+/** The progress after `event`, at time `now`. */
+export function advance(progress: LoadingProgress, event: OpenProgress | { stage: 'draw' }, now = Date.now()): LoadingProgress {
+  const last = progress.stages[progress.stages.length - 1]
+  const stages = last?.stage === event.stage ? progress.stages : [...progress.stages, { stage: event.stage, startedMs: now }]
+  return {
+    ...progress,
+    stages,
+    ...(event.stage === 'download' && { bytes: event.bytes }),
+    ...(event.stage === 'read' && { pythonFiles: event.pythonFiles }),
+  }
+}
 
 export interface Workspace {
   state: WorkspaceState
@@ -55,8 +81,10 @@ export function useWorkspace(
   const requestId = useRef(0)
 
   const analyze = useCallback(
-    async (id: number, dbPath: string, source?: RepositorySource) => {
-      setState({ status: 'loading', dbPath, source })
+    async (id: number, dbPath: string, source?: RepositorySource, before?: LoadingProgress) => {
+      const now = Date.now()
+      const progress = advance(before ?? { startedMs: now, stages: [] }, { stage: 'draw' }, now)
+      setState({ status: 'loading', dbPath, source, progress })
       try {
         const snapshot = await api.analyze(dbPath)
         if (id === requestId.current) setState({ status: 'ready', dbPath, source, snapshot })
@@ -70,15 +98,21 @@ export function useWorkspace(
   const open = useCallback(
     async (source: RepositorySource) => {
       const id = ++requestId.current
-      setState({ status: 'loading', dbPath: '', source })
+      const now = Date.now()
+      let progress: LoadingProgress = advance({ startedMs: now, stages: [] }, source.kind === 'github' ? { stage: 'download', bytes: 0 } : { stage: 'read', pythonFiles: null }, now)
+      setState({ status: 'loading', dbPath: '', source, progress })
       let dbPath: string
       try {
-        dbPath = await repositories(source)
+        dbPath = await repositories(source, (event) => {
+          if (id !== requestId.current) return
+          progress = advance(progress, event)
+          setState({ status: 'loading', dbPath: '', source, progress })
+        })
       } catch (e) {
         if (id === requestId.current) setState({ status: 'error', dbPath: '', source, error: toTelescodeError(e) })
         return
       }
-      if (id === requestId.current) await analyze(id, dbPath, source)
+      if (id === requestId.current) await analyze(id, dbPath, source, progress)
     },
     [repositories, analyze],
   )

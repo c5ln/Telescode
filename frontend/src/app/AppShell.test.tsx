@@ -124,7 +124,7 @@ describe('AppShell', () => {
     await userEvent.clear(url)
     await userEvent.type(url, 'https://github.com/c5ln/Telescode/pull/1')
     await userEvent.click(screen.getByRole('button', { name: 'Analyze' }))
-    expect(repositories).toHaveBeenCalledWith({ kind: 'github', url: 'https://github.com/c5ln/Telescode' })
+    expect(repositories).toHaveBeenCalledWith({ kind: 'github', url: 'https://github.com/c5ln/Telescode' }, expect.any(Function))
     expect(opened).toHaveLength(1)
   })
 
@@ -135,7 +135,7 @@ describe('AppShell', () => {
 
     expect(within(screen.getByRole('list', { name: 'How it works' })).getAllByRole('listitem')).toHaveLength(3)
     await userEvent.click(screen.getByRole('button', { name: 'Open psf/requests' }))
-    expect(repositories).toHaveBeenCalledWith({ kind: 'github', url: 'https://github.com/psf/requests/tree/3c7baaa05ab4aa49cc819ce3a819d260de19c157' })
+    expect(repositories).toHaveBeenCalledWith({ kind: 'github', url: 'https://github.com/psf/requests/tree/3c7baaa05ab4aa49cc819ce3a819d260de19c157' }, expect.any(Function))
   })
 
   it('downloads a repository, then analyzes it like a local database', async () => {
@@ -144,14 +144,15 @@ describe('AppShell', () => {
     render(<AppShell api={api} repositories={repositories} />)
     await openRepository('https://github.com/c5ln/Telescode')
 
-    expect(screen.getByRole('status').textContent).toBe('Downloading and scanning c5ln/Telescode…')
+    expect(screen.getByRole('status').textContent).toBe('Download…')
+    expect(screen.getByRole('heading', { name: 'c5ln/Telescode' })).toBeTruthy()
     expect(screen.getByRole('main', { name: 'Workspace' }).getAttribute('aria-busy')).toBe('true')
     expect(screen.getByText('Telescode').getAttribute('aria-current')).toBe('location')
     expect(analyze).not.toHaveBeenCalled()
 
     opened[0]!.resolve('/cache/repositories/c5ln/telescode/Telescode.db')
     await vi.waitFor(() => expect(analyze).toHaveBeenCalledWith('/cache/repositories/c5ln/telescode/Telescode.db'))
-    expect(screen.getByRole('status').textContent).toBe('Analyzing c5ln/Telescode…')
+    expect(screen.getByRole('status').textContent).toBe('Draw the map…')
 
     pending[0]!.resolve(snapshot)
     expect(await screen.findByText('16 files, 11 classes')).toBeTruthy()
@@ -176,7 +177,7 @@ describe('AppShell', () => {
 
     // An example opens in one click.
     await userEvent.click(within(alert).getByRole('button', { name: 'Try an example' }))
-    expect(repositories).toHaveBeenLastCalledWith({ kind: 'github', url: 'https://github.com/psf/requests/tree/3c7baaa05ab4aa49cc819ce3a819d260de19c157' })
+    expect(repositories).toHaveBeenLastCalledWith({ kind: 'github', url: 'https://github.com/psf/requests/tree/3c7baaa05ab4aa49cc819ce3a819d260de19c157' }, expect.any(Function))
     expect(analyze).not.toHaveBeenCalled()
 
     opened[1]!.reject(new TelescodeError('repository_unreachable', 'Could not reach GitHub: timed out'))
@@ -219,13 +220,15 @@ describe('AppShell', () => {
     expect(canvasButtons().every((b) => b.disabled)).toBe(true)
 
     await openFolder('C:/x/project')
-    expect(repositories).toHaveBeenCalledWith({ kind: 'folder', path: 'C:/x/project' })
-    expect(screen.getByRole('status').textContent).toBe('Scanning project…')
+    expect(repositories).toHaveBeenCalledWith({ kind: 'folder', path: 'C:/x/project' }, expect.any(Function))
+    expect(screen.getByRole('status').textContent).toBe('Read the code…')
+    // A folder is read in place: no download step.
+    expect(screen.queryByText('Download')).toBeNull()
     expect(screen.getByRole('main', { name: 'Workspace' }).getAttribute('aria-busy')).toBe('true')
 
     opened[0]!.resolve('C:/cache/project.db')
     await vi.waitFor(() => expect(analyze).toHaveBeenCalledWith('C:/cache/project.db'))
-    expect(screen.getByRole('status').textContent).toBe('Analyzing project…')
+    expect(screen.getByRole('status').textContent).toBe('Draw the map…')
 
     pending[0]!.resolve(snapshot)
     expect(await screen.findByText('16 files, 11 classes')).toBeTruthy()

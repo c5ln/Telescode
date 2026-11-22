@@ -80,8 +80,23 @@ async function readState(search: string): Promise<ShellPreview | null> {
   switch (params.get('preview')) {
     case 'empty':
       return { initialState: { status: 'empty' } }
-    case 'loading':
-      return { initialState: { status: 'loading', dbPath: DB_PATH } }
+    case 'loading': {
+      // Part way through opening a GitHub repository: downloaded, now reading the code.
+      const now = Date.now()
+      return {
+        initialState: {
+          status: 'loading',
+          dbPath: '',
+          source: { kind: 'github', url: 'https://github.com/sherlock-project/sherlock' },
+          progress: {
+            startedMs: now - 1900,
+            stages: [{ stage: 'download', startedMs: now - 1900 }, { stage: 'read', startedMs: now - 700 }],
+            bytes: 1_067 * 1024,
+            pythonFiles: 17,
+          },
+        },
+      }
+    }
     case 'error':
       return {
         initialState: {

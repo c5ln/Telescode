@@ -12,6 +12,7 @@ import type { Quiz } from '../app/useQuiz'
 import type { Tutorial } from '../app/useTutorial'
 import type { Learning } from '../app/useLearning'
 import { LearningPanel } from './LearningPanel'
+import { LoadingProgress } from './LoadingProgress'
 import { baseName, sourceLabel, workspaceName, type WorkspaceState } from '../app/useWorkspace'
 import type { GraphHandle } from '../graph/GraphCanvas'
 import type { GraphNode } from '../graph/model'
@@ -49,6 +50,11 @@ interface WorkspaceCanvasProps {
   /** A goal to suggest when starting a tour, e.g. an example repository's. */
   suggestedRequirements?: string
   learning?: Learning
+}
+
+/** What is being opened, by name. */
+function loadingName(state: Extract<WorkspaceState, { status: 'loading' }>): string {
+  return state.source ? sourceLabel(state.source) : baseName(state.dbPath)
 }
 
 /** What the loading state says is happening. */
@@ -102,10 +108,19 @@ export function WorkspaceCanvas({
 
       {state.status === 'loading' && (
         <div className={styles.center}>
-          <p className={styles.loading} role="status">
-            <Spinner />
-            {loadingText(state)}
-          </p>
+          {state.progress ? (
+            <LoadingProgress
+              name={loadingName(state)}
+              downloads={state.source?.kind === 'github'}
+              progress={state.progress}
+              onCancel={onClose}
+            />
+          ) : (
+            <p className={styles.loading} role="status">
+              <Spinner />
+              {loadingText(state)}
+            </p>
+          )}
         </div>
       )}
 
