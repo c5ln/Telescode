@@ -3,7 +3,7 @@
 // record each answer. Recording and grading happen in the MCP server; this
 // only keeps what the panel shows.
 
-import { addCall, startActivity, type AgentActivity } from '../agent'
+import { addCall, recordDuration, startActivity, withRun, type AgentActivity } from '../agent'
 import { useCallback, useRef, useState, type RefObject } from 'react'
 
 import type { AnalysisSnapshot } from '../bridge'
@@ -127,11 +127,15 @@ export function useQuiz(
         setup('generating')
         let activity = startActivity()
         setState({ status: 'setup', at, phase, error: null, activity })
-        await library.generate({ ...at, dbPath }, (call) => {
+        const run = library.generate({ ...at, dbPath }, (call) => {
           if (!current()) return
           activity = addCall(activity, call)
           setState({ status: 'setup', at, phase: 'generating', error: null, activity })
         })
+        activity = withRun(activity, run)
+        if (current()) setState({ status: 'setup', at, phase: 'generating', error: null, activity })
+        await run
+        recordDuration('quiz', Date.now() - activity.startedMs)
         const saved = await find()
         if (!current()) return
         if (!saved) throw new Error('Generation finished without saving a quiz.')

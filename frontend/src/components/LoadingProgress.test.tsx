@@ -35,6 +35,12 @@ describe('opening a repository', () => {
     const steps = within(screen.getByRole('list', { name: 'Steps' })).getAllByRole('listitem')
     expect(steps.map((s) => s.getAttribute('data-state'))).toEqual(['done', 'now', 'pending', 'pending'])
 
+    act(() => report({ stage: 'read', pythonFiles: 37, found: ['setup.py', 'src/requests/api.py', 'src/requests/models.py'] }))
+    act(() => report({ stage: 'read', pythonFiles: 37, files: ['src/requests/models.py'] }))
+    expect(screen.getByText('1 of 3 files read')).toBeTruthy()
+    act(() => report({ stage: 'read', pythonFiles: 37, files: ['setup.py', 'src/requests/api.py'] }))
+    expect(screen.getByText('3 of 3 files read')).toBeTruthy()
+
     act(() => report({ stage: 'rank' }))
     expect(screen.getByRole('status').textContent).toBe('Rank files…')
 

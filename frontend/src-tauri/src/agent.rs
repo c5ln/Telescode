@@ -3,7 +3,9 @@ use crate::{bridge::BridgeError, claude, codex, mcp};
 use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
 use std::io::Read;
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
@@ -37,16 +39,59 @@ pub struct ToolCall {
 /// Where tool calls go as they happen.
 pub type OnToolCall = Arc<dyn Fn(ToolCall) + Send + Sync>;
 
+/// A run the app follows: its tool calls go to the app, and the app can
+/// cancel it by its progress ID (`agent_cancel`) while it is registered.
+pub struct Followed {
+    id: String,
+    on_tool_call: OnToolCall,
+    cancelled: Arc<AtomicBool>,
+}
+
+impl Drop for Followed {
+    fn drop(&mut self) {
+        followed().lock().unwrap_or_else(|e| e.into_inner()).remove(&self.id);
+    }
+}
+
+/// The cancel flags of the runs being followed, by progress ID.
+fn followed() -> &'static Mutex<HashMap<String, Arc<AtomicBool>>> {
+    static RUNS: OnceLock<Mutex<HashMap<String, Arc<AtomicBool>>>> = OnceLock::new();
+    RUNS.get_or_init(Default::default)
+}
+
+/// Registers the run `id`, sending its tool calls to `on_tool_call`.
+pub fn follow(id: String, on_tool_call: OnToolCall) -> Followed {
+    let cancelled = Arc::new(AtomicBool::new(false));
+    followed().lock().unwrap_or_else(|e| e.into_inner()).insert(id.clone(), cancelled.clone());
+    Followed { id, on_tool_call, cancelled }
+}
+
+/// Stops the followed run `id`; a run that already ended is left alone.
+pub fn cancel(id: &str) {
+    if let Some(flag) = followed().lock().unwrap_or_else(|e| e.into_inner()).get(id) {
+        flag.store(true, Ordering::SeqCst);
+    }
+}
+
 /// Sends each tool call to the app as an `agent-progress` event tagged with
-/// `progress_id`, which the caller chose so it can tell its own run apart.
-/// Without an ID nothing is followed and the agent runs as before.
-pub fn emit_progress<R: tauri::Runtime>(app: &tauri::AppHandle<R>, progress_id: Option<String>) -> Option<OnToolCall> {
+/// `progress_id`, which the caller chose so it can tell its own run apart and
+/// cancel it. Without an ID nothing is followed and the agent runs as before.
+pub fn emit_progress<R: tauri::Runtime>(app: &tauri::AppHandle<R>, progress_id: Option<String>) -> Option<Followed> {
     use tauri::Emitter;
     let id = progress_id?;
     let app = app.clone();
-    Some(Arc::new(move |call: ToolCall| {
-        let _ = app.emit("agent-progress", serde_json::json!({ "progressId": id, "tool": call.tool, "nodeId": call.node_id }));
-    }))
+    let tag = id.clone();
+    Some(follow(id, Arc::new(move |call: ToolCall| {
+        let _ = app.emit("agent-progress", serde_json::json!({ "progressId": tag, "tool": call.tool, "nodeId": call.node_id }));
+    })))
+}
+
+/// IPC entry point: `invoke("agent_cancel", { progressId })`. Stops the
+/// tour, quiz or learning path being written under that progress ID; the
+/// run then fails with `agent_cancelled`.
+#[tauri::command]
+pub fn agent_cancel(progress_id: String) {
+    cancel(&progress_id)
 }
 
 pub fn generate(
@@ -54,7 +99,7 @@ pub fn generate(
     prompt: &str,
     tools: &[&str],
     timeout: Duration,
-    on_tool_call: Option<OnToolCall>,
+    followed: Option<Followed>,
 ) -> Result<(), BridgeError> {
     let server = mcp::server_command()?;
     let (path, name) = match provider {
@@ -66,7 +111,7 @@ pub fn generate(
     };
     let mut cmd = command(&path);
     let mut args = generation_args(provider, prompt, &server, tools);
-    if on_tool_call.is_some() {
+    if followed.is_some() {
         // Print each event as a JSON line, so tool calls can be followed as they happen.
         match provider {
             Provider::Claude => args.extend(["--output-format".into(), "stream-json".into(), "--verbose".into()]),
@@ -74,14 +119,15 @@ pub fn generate(
         }
     }
     cmd.args(args);
-    let on_line = on_tool_call.map(|report| -> OnLine {
+    let on_line = followed.as_ref().map(|f| -> OnLine {
+        let report = f.on_tool_call.clone();
         Arc::new(move |line: &str| {
             for call in tool_calls(line) {
                 report(call)
             }
         })
     });
-    run_streaming(cmd, timeout, name, on_line)
+    run_streaming(cmd, timeout, name, on_line, followed.as_ref().map(|f| &*f.cancelled))
 }
 
 /// The Telescode tool calls in one line of an agent's JSON event stream:
@@ -217,11 +263,18 @@ pub type OnLine = Arc<dyn Fn(&str) + Send + Sync>;
 
 /// Runs `cmd` to completion, stopping it after `timeout`.
 pub fn run(cmd: Command, timeout: Duration, what: &str) -> Result<(), BridgeError> {
-    run_streaming(cmd, timeout, what, None)
+    run_streaming(cmd, timeout, what, None, None)
 }
 
-/// `run`, handing each stdout line to `on_line` as it is printed.
-pub fn run_streaming(mut cmd: Command, timeout: Duration, what: &str, on_line: Option<OnLine>) -> Result<(), BridgeError> {
+/// `run`, handing each stdout line to `on_line` as it is printed, and
+/// stopping the process once `cancelled` is set.
+pub fn run_streaming(
+    mut cmd: Command,
+    timeout: Duration,
+    what: &str,
+    on_line: Option<OnLine>,
+    cancelled: Option<&AtomicBool>,
+) -> Result<(), BridgeError> {
     let mut child = cmd
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -239,6 +292,13 @@ pub fn run_streaming(mut cmd: Command, timeout: Duration, what: &str, on_line: O
             message: format!("Lost track of {what}: {e}"),
         })? {
             break status;
+        }
+        if cancelled.is_some_and(|c| c.load(Ordering::SeqCst)) {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(BridgeError::AgentCancelled {
+                message: format!("{what} was stopped before it finished."),
+            });
         }
         if started.elapsed() > timeout {
             let _ = child.kill();
@@ -332,7 +392,7 @@ mod tests {
         let lines = Arc::new(std::sync::Mutex::new(Vec::new()));
         let seen = lines.clone();
         let on_line: OnLine = Arc::new(move |line: &str| seen.lock().unwrap().push(line.to_owned()));
-        run_streaming(shell("printf 'one\\ntwo\\n'"), Duration::from_secs(3), "test", Some(on_line)).unwrap();
+        run_streaming(shell("printf 'one\\ntwo\\n'"), Duration::from_secs(3), "test", Some(on_line), None).unwrap();
         assert_eq!(*lines.lock().unwrap(), vec!["one", "two"]);
     }
     #[cfg(unix)]
@@ -417,5 +477,25 @@ mod tests {
         };
         assert!(message.contains("did not finish in time"), "{message}");
         assert!(started.elapsed() < Duration::from_secs(2));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn cancelling_a_followed_run_stops_the_child() {
+        let tracked = follow("cancel-test".into(), Arc::new(|_| {}));
+        let flag = tracked.cancelled.clone();
+        let canceller = std::thread::spawn(|| {
+            std::thread::sleep(Duration::from_millis(100));
+            cancel("cancel-test");
+        });
+        let started = Instant::now();
+        let error = run_streaming(shell("exec sleep 10"), Duration::from_secs(30), "Claude Code", None, Some(&flag)).unwrap_err();
+        canceller.join().unwrap();
+        assert!(matches!(error, BridgeError::AgentCancelled { .. }), "{error:?}");
+        assert!(started.elapsed() < Duration::from_secs(2));
+        // A finished run is forgotten, so a late cancel finds nothing.
+        drop(tracked);
+        assert!(!followed().lock().unwrap().contains_key("cancel-test"));
+        cancel("cancel-test");
     }
 }

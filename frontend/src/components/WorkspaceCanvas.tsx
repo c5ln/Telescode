@@ -4,9 +4,9 @@
 // states are overlays in the same place, so the layout stays the same in
 // every state.
 
-import type { RefObject } from 'react'
+import { useMemo, type RefObject } from 'react'
 
-import type { AgentProvider } from '../agent'
+import { readNodes, type AgentActivity, type AgentProvider } from '../agent'
 import type { RepositorySource, TelescodeError } from '../bridge'
 import type { Quiz } from '../app/useQuiz'
 import type { Tutorial } from '../app/useTutorial'
@@ -83,6 +83,11 @@ export function WorkspaceCanvas({
   suggestedRequirements,
   learning,
 }: WorkspaceCanvasProps) {
+  // While an agent writes, the map outlines what it has read.
+  const activity = [tutorial.state, quiz.state, learning?.state]
+    .map((s): AgentActivity | undefined => (s && 'activity' in s ? s.activity : undefined))
+    .find(Boolean)
+  const reading = useMemo(() => readNodes(activity), [activity])
   return (
     <main className={styles.canvas} aria-label="Workspace" aria-busy={state.status === 'loading'}>
       <div className={styles.viewport}>
@@ -96,6 +101,7 @@ export function WorkspaceCanvas({
             complexity={complexity}
             onComplexityChange={onComplexityChange}
             hintAllowed={tutorial.state.status === 'off' && quiz.state.status === 'off' && (!learning || learning.state.status === 'off')}
+            reading={reading}
           />
         )}
       </div>

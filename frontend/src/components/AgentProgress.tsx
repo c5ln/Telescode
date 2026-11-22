@@ -1,17 +1,19 @@
 // What the AI agent is doing while it writes a tour, a quiz or a learning
 // path: the step it is on, read from the Telescode tools it calls (nothing is
 // asked of the agent for this), the file it is reading, and how long it has
-// been at it. Writing takes minutes, so this is where the waiting is.
+// been at it, how long it usually takes here, and a way to stop it. Writing
+// takes minutes, so this is where the waiting is.
 
 import { useEffect, useState } from 'react'
 
-import type { AgentActivity } from '../agent'
+import { usualRange, type AgentActivity, type AgentWork } from '../agent'
+import { Button } from '../ui/Button'
 import { CheckIcon } from '../ui/icons'
 import { Spinner } from '../ui/Spinner'
 import { duration } from './LoadingProgress'
 import styles from './AgentProgress.module.css'
 
-export type AgentWork = 'tour' | 'quiz' | 'learning path'
+export type { AgentWork }
 
 interface Step {
   label: string
@@ -38,10 +40,19 @@ const STEPS: Record<AgentWork, Step[]> = {
   ],
 }
 
+/** Until a run has finished on this computer, the usual time is described. */
 const NOTES: Record<AgentWork, string> = {
   tour: 'Writing a tour can take a few minutes. You can keep exploring the map meanwhile.',
   quiz: 'Writing a quiz can take a minute or two.',
   'learning path': 'Preparing a learning path can take a few minutes.',
+}
+
+/** "Usually 1:20 to 3:05 here", from the recent finished runs; the note before there are any. */
+export function usualNote(work: AgentWork, range = usualRange(work)): string {
+  if (!range) return NOTES[work]
+  const minutes = (ms: number) => duration(Math.round(ms / 1000) * 1000).replace(/\.0 s$/, ' s')
+  const span = range.max - range.min < 10_000 ? `about ${minutes((range.min + range.max) / 2)}` : `${minutes(range.min)} to ${minutes(range.max)}`
+  return `A ${work} usually takes ${span} here.${work === 'tour' ? ' You can keep exploring the map meanwhile.' : ''}`
 }
 
 /** A node as the user knows it: its path, without the kind prefix. */
@@ -110,8 +121,13 @@ export function AgentProgress({ work, agent, activity }: AgentProgressProps) {
         <span>
           Elapsed <strong>{duration(now - activity.startedMs)}</strong>
         </span>
-        <span>{NOTES[work]}</span>
+        <span>{usualNote(work)}</span>
       </p>
+      {activity.cancel && (
+        <div className={styles.actions}>
+          <Button onClick={activity.cancel}>Cancel</Button>
+        </div>
+      )}
     </div>
   )
 }

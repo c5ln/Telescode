@@ -30,7 +30,7 @@ function view(nodeId = nodeA): LearningView {
     decision: { actionId: 'review-B', value: .8, expectedGain: .5, nodes: 3, truncated: false },
     question: { id: 'q1', question: 'Why preserve the result before notifying?', choices: ['To inspect the outcome', 'To restart the request', 'To configure a site'],
       difficulty: 'easy', concept: 'Notification state', evidence: [{ nodeId: nodeA, title: 'notify.py' }] }, score: .3,
-    reason: 'Understanding estimates use a provisional model.' }
+    reason: 'Understanding estimates use a provisional model.', answers: [] }
 }
 function library() {
   const active = view()
@@ -202,7 +202,7 @@ it('closing and reopening resumes the saved active session without resetting its
   await within(await screen.findByRole('region', { name: 'Adaptive learning' })).findByText('Why preserve the result before notifying?')
   expect(learning.start).toHaveBeenCalledTimes(1)
   expect(learning.get).toHaveBeenCalledWith('session')
-  expect(within(screen.getByRole('region', { name: 'Adaptive learning' })).getByText('2 / 12 steps used')).toBeTruthy()
+  expect(within(screen.getByRole('region', { name: 'Adaptive learning' })).getByText('Step 3 of up to 12')).toBeTruthy()
 })
 
 it('can end during preparation and ignores the worker completion afterward', async () => {

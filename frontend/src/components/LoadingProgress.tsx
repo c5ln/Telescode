@@ -1,5 +1,6 @@
 // Opening a repository, step by step: what is happening now, how long each
-// step took, and how long a repository like this one usually takes. Most open
+// step took, a small map that fills in as the code is read, and how long a
+// repository like this one usually takes. Most open
 // in a few seconds, so the screen stays light; it is there for the larger
 // ones and for slow connections.
 
@@ -9,6 +10,7 @@ import type { LoadingProgress as Progress, LoadingStage } from '../app/useWorksp
 import { Button } from '../ui/Button'
 import { CheckIcon } from '../ui/icons'
 import { Spinner } from '../ui/Spinner'
+import { ReadMap } from './ReadMap'
 import styles from './LoadingProgress.module.css'
 
 const LABELS: Record<LoadingStage, string> = {
@@ -93,6 +95,7 @@ export function LoadingProgress({ name, downloads, progress, onCancel }: Loading
           )
         })}
       </ol>
+      {progress.found?.length ? <ReadMap found={progress.found} read={progress.read ?? []} /> : null}
       <p className={styles.foot}>
         <span>
           Elapsed <strong>{duration(now - progress.startedMs)}</strong>

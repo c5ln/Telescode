@@ -189,6 +189,20 @@ export class LearningStore {
     delete s.responseId
     s.session.status = 'active'
   }
+  /** The session's answers, counted by the concept and level each question checked. */
+  private answers(s: Stored): LearningView['answers'] {
+    const counts = new Map<string, LearningView['answers'][number]>()
+    for (const { data } of this.db.prepare('SELECT data FROM learning_events WHERE session=? ORDER BY seq').all(s.session.id) as { data: string }[]) {
+      const { event } = JSON.parse(data) as { event: { type?: string; correct?: boolean; observation?: { conceptId: string; level: LearningView['answers'][number]['level'] } } }
+      if (event?.type !== 'answered' || !event.observation) continue
+      const key = `${event.observation.conceptId}\n${event.observation.level}`
+      const count = counts.get(key) ?? { conceptId: event.observation.conceptId, level: event.observation.level, asked: 0, correct: 0 }
+      count.asked++
+      if (event.correct) count.correct++
+      counts.set(key, count)
+    }
+    return [...counts.values()]
+  }
   private view(s: Stored): LearningView {
     const item = s.items.find(i => i.id === s.session.current?.actionId)
     const question = !s.responseId && item?.compiled.find(q => q.id === s.questionId && !this.exposed(s, q))
@@ -198,7 +212,8 @@ export class LearningStore {
       score: goalScore(s.session.goal, s.knowledge),
       reason: s.session.status === 'preparing' ? 'Preparing grounded learning materials.' :
         s.session.status === 'generation-needed' ? 'More learning material is needed; recorded answers are preserved.' :
-        'Expected goal improvement under a provisional action-learning model; understanding needs independent evidence.' }
+        'Expected goal improvement under a provisional action-learning model; understanding needs independent evidence.',
+      answers: this.answers(s) }
   }
   async start(project: Project, goal: LearningGoal, learnerId = 'local'): Promise<LearningView> {
     validateGoal(goal)

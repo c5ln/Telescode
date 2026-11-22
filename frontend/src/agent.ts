@@ -44,6 +44,72 @@ export type OnToolCall = (call: ToolCall) => void
 export interface AgentActivity {
   startedMs: number
   calls: { call: ToolCall; atMs: number }[]
+  /** Stops the run, when it can be stopped; it then fails with `agent_cancelled`. */
+  cancel?: () => void
+}
+
+/** The nodes `activity` has read, each once, the latest last: what the map outlines. */
+export function readNodes(activity: AgentActivity | undefined): string[] {
+  const ids = new Set<string>()
+  for (const { call } of activity?.calls ?? []) {
+    if (!call.nodeId) continue
+    ids.delete(call.nodeId)
+    ids.add(call.nodeId)
+  }
+  return [...ids]
+}
+
+/** A run the shell follows: settles when the agent is done, and can be stopped meanwhile. */
+export type AgentRun<T = void> = Promise<T> & { cancel?: () => void }
+
+/** `promise`, stoppable with `cancel`. */
+export function stoppable<T>(promise: Promise<T>, cancel: (() => void) | undefined): AgentRun<T> {
+  return Object.assign(promise, { cancel })
+}
+
+/** `run`, calling `done` once it settles, still stoppable. */
+export function whileRunning<T>(run: Promise<T> & { cancel?: () => void }, done: () => void): AgentRun<T> {
+  return stoppable(run.finally(done), run.cancel)
+}
+
+/** The activity once its run is known, so the progress view can offer to stop it. */
+export function withRun(activity: AgentActivity, run: AgentRun<unknown>): AgentActivity {
+  return run.cancel ? { ...activity, cancel: run.cancel } : activity
+}
+
+/** What an agent writes. */
+export type AgentWork = 'tour' | 'quiz' | 'learning path'
+
+const DURATIONS_KEY = 'telescode.agentDurations'
+/** How many finished runs of each kind the usual range is taken from. */
+const DURATIONS_KEPT = 5
+
+function savedDurations(): Partial<Record<AgentWork, number[]>> {
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(DURATIONS_KEY) ?? '{}')
+    return saved && typeof saved === 'object' ? (saved as Partial<Record<AgentWork, number[]>>) : {}
+  } catch {
+    return {}
+  }
+}
+
+/** Remembers how long a finished run took, for the range the next one shows. */
+export function recordDuration(work: AgentWork, ms: number) {
+  if (!(ms > 0)) return
+  const all = savedDurations()
+  all[work] = [...(all[work] ?? []), Math.round(ms)].slice(-DURATIONS_KEPT)
+  try { localStorage.setItem(DURATIONS_KEY, JSON.stringify(all)) } catch { /* The range is a hint; without storage it is not shown. */ }
+}
+
+/** The shortest and longest of the recent finished runs of `work` on this computer, if any. */
+export function usualRange(work: AgentWork): { min: number; max: number } | null {
+  const times = (savedDurations()[work] ?? []).filter((t) => typeof t === 'number' && t > 0)
+  return times.length ? { min: Math.min(...times), max: Math.max(...times) } : null
+}
+
+/** Whether `error` is the user stopping the agent rather than the agent failing. */
+export function isCancelled(error: unknown): boolean {
+  return error instanceof TelescodeError && error.code === 'agent_cancelled'
 }
 
 export function startActivity(now = Date.now()): AgentActivity {
@@ -56,6 +122,7 @@ export function addCall(activity: AgentActivity, call: ToolCall, now = Date.now(
 
 interface FollowedRun {
   promise: Promise<void>
+  cancel: () => void
   listeners: Set<OnToolCall>
   calls: ToolCall[]
 }
@@ -70,7 +137,7 @@ export function followRun(
   key: string,
   start: (progressId: string) => Promise<void>,
   onToolCall?: OnToolCall,
-): Promise<void> {
+): AgentRun {
   let run = runs.get(key)
   if (!run) {
     const listeners = new Set<OnToolCall>()
@@ -90,7 +157,9 @@ export function followRun(
         unlisten()
       }
     })().finally(() => runs.delete(key))
-    run = { promise, listeners, calls }
+    // Joined runs share the agent, so stopping it stops it for every caller.
+    const cancel = () => void agentInvoke<void>('agent_cancel', { progressId }).catch(() => {})
+    run = { promise, cancel, listeners, calls }
     runs.set(key, run)
   }
   const joined = run
@@ -98,7 +167,7 @@ export function followRun(
     joined.calls.forEach(onToolCall)
     joined.listeners.add(onToolCall)
   }
-  return joined.promise.finally(() => onToolCall && joined.listeners.delete(onToolCall))
+  return stoppable(joined.promise.finally(() => onToolCall && joined.listeners.delete(onToolCall)), joined.cancel)
 }
 
 export function newRuns(): Map<string, FollowedRun> {

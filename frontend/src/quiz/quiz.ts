@@ -5,7 +5,7 @@
 import { invoke, isTauri } from '@tauri-apps/api/core'
 
 import { TelescodeError, fromNativeError } from '../bridge/errors'
-import { agentStatus, followRun, newRuns, signIn, type AgentProvider, type AgentStatus, type OnToolCall } from '../agent'
+import { agentStatus, followRun, newRuns, signIn, type AgentProvider, type AgentRun, type AgentStatus, type OnToolCall } from '../agent'
 import type { QuizFeedback, QuizResponse, QuizSet, TourContext } from './model'
 
 export interface QuizAnswer {
@@ -18,7 +18,7 @@ export interface QuizAnswer {
 export interface QuizLibrary {
   list(): Promise<QuizSet[]>
   /** Have a quiz written for one tour step; resolves once it is saved. */
-  generate?(target: TourContext & { dbPath: string }, onToolCall?: OnToolCall): Promise<void>
+  generate?(target: TourContext & { dbPath: string }, onToolCall?: OnToolCall): AgentRun
   /** Grade and record an answer. */
   respond(answer: QuizAnswer): Promise<{ response: QuizResponse; feedback: QuizFeedback }>
   /** Whether the agent is installed and signed in. Asked only when a quiz must be written. */

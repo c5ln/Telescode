@@ -13,6 +13,7 @@ export type NativeErrorCode =
   | 'output_not_utf8'
   | 'tours_unavailable'
   | 'tour_generation_failed'
+  | 'agent_cancelled'
   | 'invalid_repository_url'
   | 'repository_not_found'
   | 'repository_unreachable'
@@ -67,6 +68,7 @@ const NATIVE_CODES: ReadonlySet<string> = new Set<NativeErrorCode>([
   'output_not_utf8',
   'tours_unavailable',
   'tour_generation_failed',
+  'agent_cancelled',
   'invalid_repository_url',
   'repository_not_found',
   'repository_unreachable',

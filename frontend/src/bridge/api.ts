@@ -65,7 +65,8 @@ export type RepositoryOpener = (source: RepositorySource, onProgress?: (progress
 /** How far opening has come, as the shell reports it (repository.rs `Progress`). */
 export type OpenProgress =
   | { stage: 'download'; bytes: number }
-  | { stage: 'read'; pythonFiles: number | null }
+  /** Since the last report, relative to the source root: `found`, the files to read; `files`, the files read. */
+  | { stage: 'read'; pythonFiles: number | null; found?: string[]; files?: string[] }
   | { stage: 'rank' }
 
 /** The opener used inside the desktop app: the `open_repository` and `open_folder` Tauri commands. */

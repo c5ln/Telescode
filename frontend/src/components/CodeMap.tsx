@@ -26,6 +26,8 @@ interface CodeMapProps {
   onComplexityChange: (on: boolean) => void
   /** Whether the first-time hint may show; off while a tour or quiz holds the bottom of the map. */
   hintAllowed?: boolean
+  /** Node IDs the AI agent has read while it writes, the latest last. */
+  reading?: readonly string[]
 }
 
 /** How long the pointer rests on a file before its card shows. */
@@ -44,6 +46,7 @@ export function CodeMap({
   complexity,
   onComplexityChange,
   hintAllowed = true,
+  reading,
 }: CodeMapProps) {
   const built = useMemo<Built>(() => {
     try {
@@ -95,6 +98,7 @@ export function CodeMap({
         complexity={complexity}
         onHover={card.hover}
         describe={card.describe}
+        reading={reading}
         onInteract={(kind) => {
           card.hide()
           hint.interacted(kind)

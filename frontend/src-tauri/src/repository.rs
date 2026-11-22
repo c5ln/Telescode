@@ -18,7 +18,7 @@ use std::fs;
 use std::io::{self, Read};
 use std::path::{Component, Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use tauri::Manager;
 
@@ -173,8 +173,16 @@ fn too_large(name: &str) -> BridgeError {
 pub enum Progress {
     /// Bytes of the archive received so far.
     Download { bytes: u64 },
-    /// The core is reading the code; the Python file count when known.
-    Read { python_files: Option<u64> },
+    /// The core is reading the code; the Python file count when known. Since
+    /// the last report: the files it found to read, and the files it read
+    /// (both relative to the source root).
+    Read {
+        python_files: Option<u64>,
+        #[serde(skip_serializing_if = "Vec::is_empty")]
+        found: Vec<String>,
+        #[serde(skip_serializing_if = "Vec::is_empty")]
+        files: Vec<String>,
+    },
     /// Computing the reading order.
     Rank,
 }
@@ -314,6 +322,13 @@ fn download(repo: &RepositoryRef, info: &RepositoryInfo, dest: &Path, report: Re
     unpack(reader, dest, &info.full_name)
 }
 
+/// How `scan` reports each file it will read, then each file it read, with TELESCODE_SCAN_PROGRESS set.
+const FOUND_PREFIX: &str = "[scan] found ";
+const READ_PREFIX: &str = "[scan] read ";
+/// Files are reported every READ_BATCH_FILES files or READ_BATCH_INTERVAL, whichever comes first.
+const READ_BATCH_FILES: usize = 200;
+const READ_BATCH_INTERVAL: Duration = Duration::from_millis(100);
+
 /// Number of files `scan` reports parsing, from its `[scan] Parsed N files.` line.
 fn parsed_file_count(stdout: &str) -> Option<u64> {
     stdout.lines().find_map(|line| {
@@ -339,8 +354,31 @@ fn scan(sidecar: &Path, source: &Path, db: &Path, name: &str, python_files: Opti
         remove_if_present(Path::new(&path))?;
     }
 
-    report(Progress::Read { python_files });
-    let out = bridge::run_sidecar(sidecar, &[OsStr::new("scan"), source.as_os_str(), db.as_os_str()])?;
+    report(Progress::Read { python_files, found: Vec::new(), files: Vec::new() });
+    // The files found and read go to the app's loading map in batches, not one message per file.
+    let (mut found, mut files) = (Vec::new(), Vec::new());
+    let mut sent = Instant::now();
+    let out = bridge::run_sidecar_streaming(
+        sidecar,
+        &[OsStr::new("scan"), source.as_os_str(), db.as_os_str()],
+        &[("TELESCODE_SCAN_PROGRESS", "1")],
+        &mut |line| {
+            if let Some(file) = line.strip_prefix(FOUND_PREFIX) {
+                found.push(file.to_string());
+            } else if let Some(file) = line.strip_prefix(READ_PREFIX) {
+                files.push(file.to_string());
+            } else {
+                return;
+            }
+            if found.len() + files.len() >= READ_BATCH_FILES || sent.elapsed() >= READ_BATCH_INTERVAL {
+                report(Progress::Read { python_files, found: std::mem::take(&mut found), files: std::mem::take(&mut files) });
+                sent = Instant::now();
+            }
+        },
+    )?;
+    if !found.is_empty() || !files.is_empty() {
+        report(Progress::Read { python_files, found, files });
+    }
     if parsed_file_count(&out) == Some(0) {
         return Err(BridgeError::RepositoryEmpty {
             message: format!("{name} has no source files Telescode can analyze."),

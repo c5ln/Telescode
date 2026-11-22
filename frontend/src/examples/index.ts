@@ -6,6 +6,7 @@
 // The data (examples/data/<name>.json) comes from scripts/build-examples.ts.
 // It is loaded only when an example is opened.
 
+import { stoppable } from '../agent'
 import type { AnalysisSnapshot } from '../bridge'
 import type { ExampleRepository } from '../components/examples'
 import type { LearningLibrary } from '../learning/api'
@@ -93,11 +94,39 @@ export function withExample(libraries: Libraries, data: ExampleData, snapshot: A
   // The session's own goal decides, so a session started before this wrapper
   // existed, or with another goal since, is never given the wrong material.
   const suggested = requirementsGoal(data.requirements).then((g) => g.goalId)
+  let preparedGoal: string | null = null
+  void suggested.then((goalId) => { preparedGoal = goalId })
   const learning: LearningLibrary = {
     ...libraries.learning,
-    async prepare(input, onToolCall) {
-      const [view, goalId] = await Promise.all([libraries.learning.get(input.sessionId), suggested])
-      return libraries.learning.prepare(view.session.goal.goalId === goalId ? { ...input, curriculum: data.curriculum } : input, onToolCall)
+    preparedGoalId: () => preparedGoal,
+    // The server never asks a learner a question twice, across sessions too,
+    // so each try of the prepared path is its own learner: a second try gets
+    // the same questions instead of none.
+    async start(input) {
+      const goalId = await suggested
+      return libraries.learning.start(input.goal.goalId === goalId ? { ...input, learnerId: `example-${crypto.randomUUID()}` } : input)
+    },
+    prepare(input, onToolCall) {
+      // Kept stoppable: the agent's run is known only once the goal is, and a
+      // stop asked for before then stops it as soon as it starts.
+      let cancel: (() => void) | undefined
+      let cancelled = false
+      const run = Promise.all([libraries.learning.get(input.sessionId), suggested]).then(([view, goalId]) => {
+        if (view.session.goal.goalId === goalId) {
+          // The material is saved once. Saving it again would offer no new
+          // questions, so a path that has used it up ends there (the panel
+          // offers End session) and no agent is ever run for this goal.
+          return view.concepts.length ? view : libraries.learning.prepare({ ...input, curriculum: data.curriculum }, onToolCall)
+        }
+        const prepared = libraries.learning.prepare(input, onToolCall)
+        cancel = prepared.cancel
+        if (cancelled) cancel?.()
+        return prepared
+      })
+      return stoppable(run, () => {
+        cancelled = true
+        cancel?.()
+      })
     },
   }
 

@@ -25,6 +25,8 @@ export interface LearningView {
   question: { id: string; question: string; choices: string[]; difficulty: Difficulty; concept: string; evidence: QuizEvidence[] } | null
   score: number
   reason: string
+  /** The answers given in this session, by the concept and level each question checked. */
+  answers: { conceptId: string; level: Difficulty; asked: number; correct: number }[]
 }
 export interface LearningAnswer {
   sessionId: string; revision: number; stopId: string; submissionId: string; questionId: string; selectedIndex: number

@@ -42,6 +42,8 @@ interface GraphCanvasProps {
   onInteract?: (kind: MapInteraction) => void
   /** More to announce about a selected node, after its kind and name (e.g. a file's numbers). */
   describe?: (node: GraphNode) => string | null
+  /** Node IDs the AI agent has read while it writes, the latest last. */
+  reading?: readonly string[]
   ref?: Ref<GraphHandle>
 }
 
@@ -49,16 +51,18 @@ export type MapInteraction = 'zoom' | 'pan' | 'select' | 'open'
 
 /** Movement (px) before a press becomes a drag instead of a click. */
 const DRAG_THRESHOLD = 3
+const NONE: readonly string[] = []
 const ARROW_PAN = 80
 
 const KIND_NAMES = { root: 'repository', dir: 'directory', file: 'file', class: 'class', member: 'member' } as const
 
-export function GraphCanvas({ model, onContextChange, onError, complexity = false, onHover, onInteract, describe, ref }: GraphCanvasProps) {
+export function GraphCanvas({ model, onContextChange, onError, complexity = false, onHover, onInteract, describe, reading = NONE, ref }: GraphCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rendererRef = useRef<GraphRenderer | null>(null)
   const [announcement, setAnnouncement] = useState('')
   // Read when the renderer is (re)created; later changes go through setComplexityMode.
   const complexityRef = useRef(complexity)
+  const readingRef = useRef(reading)
 
   // Latest callbacks without re-creating the renderer when they change.
   const callbacks = useRef({ onContextChange, onError, onHover, onInteract, describe })
@@ -134,6 +138,7 @@ export function GraphCanvas({ model, onContextChange, onError, complexity = fals
       return
     }
     rendererRef.current = renderer
+    renderer.setReading(readingRef.current)
 
     // ---- Size ----
     const resize = () => {
@@ -292,6 +297,11 @@ export function GraphCanvas({ model, onContextChange, onError, complexity = fals
     complexityRef.current = complexity
     rendererRef.current?.setComplexityMode(complexity)
   }, [complexity])
+
+  useEffect(() => {
+    readingRef.current = reading
+    rendererRef.current?.setReading(reading)
+  }, [reading])
 
   return (
     <>

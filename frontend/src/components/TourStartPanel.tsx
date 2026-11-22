@@ -41,6 +41,9 @@ export function TourStartPanel({ suggested, onStart, onClose }: TourStartPanelPr
         aria-describedby={`${id}-hint`} maxLength={MAX_REQUIREMENTS_LENGTH} disabled={submitted}
         placeholder="I'm a backend developer who just joined this project. Show me how a request flows from the entry point to the response, and how errors are handled."
         onChange={event => setRequirements(event.target.value)} />
+      {suggested && requirements.trim() && requirements.trim() !== suggested.trim() && (
+        <p className={panel.text} role="status">A changed goal gets a new learning path, written by your AI agent with your account.</p>
+      )}
       <div className={panel.actions}><Button type="submit" variant="primary" disabled={submitted}>Start tour</Button></div>
     </form>
   </section>

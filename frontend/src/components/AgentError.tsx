@@ -20,6 +20,7 @@ interface AgentErrorProps {
 
 /** Why the agent stopped, from the shell's message. */
 function cause(message: string, name: string, what: string): string {
+  if (/was stopped before it finished/i.test(message)) return `You stopped ${name} before it saved the ${what}.`
   if (/did not finish in time/i.test(message)) return `${name} ran past the time limit and stopped before saving the ${what}.`
   if (/without saving/i.test(message)) return `${name} finished without saving a ${what}.`
   if (/could not start/i.test(message)) return `${name} could not be started.`

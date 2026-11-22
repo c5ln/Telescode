@@ -41,6 +41,10 @@ export interface LoadingProgress {
   bytes?: number
   /** Python files in the repository, once unpacked. */
   pythonFiles?: number | null
+  /** The files the core will read, relative to the source root. */
+  found?: string[]
+  /** The files it has read so far, in the order it read them. */
+  read?: string[]
 }
 
 /** The progress after `event`, at time `now`. */
@@ -52,6 +56,8 @@ export function advance(progress: LoadingProgress, event: OpenProgress | { stage
     stages,
     ...(event.stage === 'download' && { bytes: event.bytes }),
     ...(event.stage === 'read' && { pythonFiles: event.pythonFiles }),
+    ...(event.stage === 'read' && event.found?.length && { found: [...(progress.found ?? []), ...event.found] }),
+    ...(event.stage === 'read' && event.files?.length && { read: [...(progress.read ?? []), ...event.files] }),
   }
 }
 

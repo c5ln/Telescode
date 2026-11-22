@@ -97,6 +97,9 @@ test('answer is server-graded once; duplicate submission survives restart and cu
     assert.equal(result.feedback.correct, true)
     assert.equal(result.counted, true)
     assert.equal(result.view.knowledge.find(k => k.conceptId === 'A' && k.level === 'easy')!.observations, 1)
+    // The session counts its answers by the concept each one checked, for the end summary.
+    assert.deepEqual(f.view.answers, [])
+    assert.deepEqual(result.view.answers, [{ conceptId: 'A', level: 'easy', asked: 1, correct: 1 }])
     assert.equal(result.view.session.current!.id, f.view.session.current!.id)
     assert.equal(result.view.session.current!.nodeId, nodeA)
     assert.ok(result.view.session.revision > f.view.session.revision)
@@ -107,6 +110,7 @@ test('answer is server-graded once; duplicate submission survives restart and cu
       assert.deepEqual(await restarted.respond(input), result)
       const restored = await restarted.get(result.view.session.id)
       assert.equal(restored.knowledge[0]!.observations, 1)
+      assert.deepEqual(restored.answers, result.view.answers)
       await assert.rejects(restarted.respond({ ...input, selectedIndex: (correctIndex + 1) % 3 }), /submission/i)
     } finally { restarted.close() }
   } finally { f.store.close() }

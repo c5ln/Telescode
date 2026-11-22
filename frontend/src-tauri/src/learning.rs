@@ -20,10 +20,14 @@ async fn blocking<T: Send + 'static>(work: impl FnOnce() -> Result<T, BridgeErro
 }
 
 #[tauri::command]
-pub async fn start_learning_session(db_path: String, goal: Value) -> Result<Value, BridgeError> {
+/// `learner_id` keeps what this learner was already asked apart from other
+/// learners'; without it the server's default local learner is used.
+pub async fn start_learning_session(db_path: String, goal: Value, learner_id: Option<String>) -> Result<Value, BridgeError> {
     blocking(move || {
         let db = validate_db_path(&db_path)?;
-        mcp::call("start_learning_session", json!({"path":db,"goal":goal}))
+        let mut input = json!({"path":db,"goal":goal});
+        if let Some(learner) = learner_id { input["learnerId"] = json!(learner); }
+        mcp::call("start_learning_session", input)
     }).await
 }
 #[tauri::command]
@@ -51,7 +55,7 @@ pub async fn prepare_learning_session<R: tauri::Runtime>(
     curriculum: Option<Value>,
     progress_id: Option<String>,
 ) -> Result<Value, BridgeError> {
-    let on_tool_call = agent::emit_progress(&app, progress_id);
+    let followed = agent::emit_progress(&app, progress_id);
     blocking(move || {
         // Includes reservation so queued duplicates observe the first worker's saved materials.
         let serial = PREPARATION.lock().unwrap_or_else(|e| e.into_inner());
@@ -72,7 +76,7 @@ pub async fn prepare_learning_session<R: tauri::Runtime>(
             saved?;
         } else if job["shouldRun"] == true {
             let prompt = format!("Prepare Telescode adaptive learning job {job_id}. Call get_learning_preparation_context with exactly this job ID, inspect its grounded code excerpts and immutable goal, then save_learning_curriculum with the same job ID. Follow the server's adaptive learning instructions. Prepare at least two independent scenario questions per target when supported. Use the requested target levels and existing concept definitions exactly. Save only material; never answer or advance a learner session. Reply with the job ID.");
-            let result = agent::generate(provider, &prompt, PREPARATION_TOOLS, Duration::from_secs(10 * 60), on_tool_call);
+            let result = agent::generate(provider, &prompt, PREPARATION_TOOLS, Duration::from_secs(10 * 60), followed);
             let error = result.as_ref().err().map(|e| bounded_error(&format!("{e:?}")));
             let completion = match error {
                 Some(error) => json!({"jobId":job_id,"error":error}),

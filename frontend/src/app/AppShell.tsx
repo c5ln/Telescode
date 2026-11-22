@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { savedAgent, saveAgent, type AgentProvider } from '../agent'
+import { savedAgent, saveAgent, whileRunning, type AgentProvider, type AgentRun } from '../agent'
 import type { RepositoryOpener, RepositorySource, TelescodeApi } from '../bridge'
 import { TopBar } from '../components/TopBar'
 import { WorkspaceCanvas } from '../components/WorkspaceCanvas'
@@ -52,9 +52,10 @@ export function AppShell({
   const [pending, setPending] = useState(0)
   const libraries = useMemo(() => {
     // Capture the provider for the whole request, even if the panel is closed.
-    const track = <T,>(work: () => Promise<T>): Promise<T> => {
+    // Kept stoppable, so the progress view can still offer Cancel.
+    const track = <T,>(work: () => AgentRun<T>): AgentRun<T> => {
       setPending(count => count + 1)
-      return work().finally(() => setPending(count => count - 1))
+      return whileRunning(work(), () => setPending(count => count - 1))
     }
     const tour = createTourLibrary(provider)
     const quiz = createQuizLibrary(provider)

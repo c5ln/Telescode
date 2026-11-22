@@ -26,12 +26,15 @@ function libraries() {
   const tour: TourLibrary = { list: vi.fn(() => Promise.reject(new Error('no desktop app'))) }
   const quiz: QuizLibrary = { list: vi.fn(async () => []), respond: vi.fn() }
   const goals: Record<string, string> = {}
+  /** Sessions whose curriculum is already saved. */
+  const prepared = new Set<string>()
   const learning = {
     start: vi.fn(async () => ({})),
-    get: vi.fn(async (sessionId: string) => ({ session: { goal: { goalId: goals[sessionId] } } })),
-    prepare: vi.fn(async () => ({})),
+    get: vi.fn(async (sessionId: string) => ({ session: { goal: { goalId: goals[sessionId] } }, concepts: prepared.has(sessionId) ? [{ id: 'c' }] : [] })),
+    prepare: vi.fn(() => Object.assign(Promise.resolve({}), { cancel: vi.fn() })),
     goals,
-  } as unknown as LearningLibrary & { goals: Record<string, string> }
+    prepared,
+  } as unknown as LearningLibrary & { goals: Record<string, string>; prepared: Set<string> }
   return { tour, quiz, learning }
 }
 
@@ -71,5 +74,42 @@ describe('withExample', () => {
 
     await example.learning.prepare({ sessionId: 's1', revision: 1 })
     expect(base.learning.prepare).toHaveBeenLastCalledWith({ sessionId: 's1', revision: 1, curriculum: { version: 1 } }, undefined)
+    expect(example.learning.preparedGoalId?.()).toBe(base.learning.goals.s1)
+  })
+
+  it('starts each try of the suggested goal as its own learner, so a second try still gets questions', async () => {
+    const base = libraries()
+    const example = withExample(base, data, snapshot)
+    const suggested = await requirementsGoal('Show me sessions.')
+    await example.learning.start({ dbPath: '/db', goal: suggested })
+    await example.learning.start({ dbPath: '/db', goal: suggested })
+    const learners = vi.mocked(base.learning.start).mock.calls.map(([input]) => input.learnerId)
+    expect(learners[0]).toMatch(/^example-/)
+    expect(learners[1]).toMatch(/^example-/)
+    expect(learners[0]).not.toBe(learners[1])
+    const other = await requirementsGoal('Something else entirely.')
+    await example.learning.start({ dbPath: '/db', goal: other })
+    expect(vi.mocked(base.learning.start).mock.calls[2]![0]).toEqual({ dbPath: '/db', goal: other })
+  })
+
+  it('saves the prewritten material once, and runs no agent once it is used up', async () => {
+    const base = libraries()
+    base.learning.goals.s1 = (await requirementsGoal('Show me sessions.')).goalId
+    base.learning.prepared.add('s1')
+    const example = withExample(base, data, snapshot)
+    const view = await example.learning.prepare({ sessionId: 's1', revision: 4 })
+    expect(base.learning.prepare).not.toHaveBeenCalled()
+    expect(view).toEqual(await base.learning.get('s1'))
+  })
+
+  it('stops an agent run asked to stop before it started', async () => {
+    const base = libraries()
+    base.learning.goals.s2 = (await requirementsGoal('Something else entirely.')).goalId
+    const example = withExample(base, data, snapshot)
+    const run = example.learning.prepare({ sessionId: 's2', revision: 1 })
+    run.cancel?.()
+    await run
+    const started = vi.mocked(base.learning.prepare).mock.results[0]!.value as { cancel: () => void }
+    expect(started.cancel).toHaveBeenCalledTimes(1)
   })
 })

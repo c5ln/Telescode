@@ -98,3 +98,7 @@ li[data-state='pending'] .label {
   font-weight: var(--weight-medium);
   font-variant-numeric: tabular-nums;
 }
+
+.actions {
+  margin-top: var(--space-3);
+}

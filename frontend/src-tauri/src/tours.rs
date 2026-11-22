@@ -55,9 +55,9 @@ fn claude_args(db: &Path, server: &mcp::ServerCommand) -> Vec<OsString> {
 }
 
 /// Runs the selected agent until it has saved a tour for `db_path`, or fails.
-fn generate(db_path: &str, provider: agent::Provider, on_tool_call: Option<agent::OnToolCall>) -> Result<(), BridgeError> {
+fn generate(db_path: &str, provider: agent::Provider, followed: Option<agent::Followed>) -> Result<(), BridgeError> {
     let db = validate_db_path(db_path)?;
-    agent::generate(provider, &generation_prompt(&db), AGENT_TOOLS, GENERATION_TIMEOUT, on_tool_call)
+    agent::generate(provider, &generation_prompt(&db), AGENT_TOOLS, GENERATION_TIMEOUT, followed)
 }
 
 /// IPC entry point: `invoke("list_tours")`. Every tour the server has saved;
@@ -81,8 +81,8 @@ pub async fn generate_tour<R: tauri::Runtime>(
     provider: Option<agent::Provider>,
     progress_id: Option<String>,
 ) -> Result<(), BridgeError> {
-    let on_tool_call = agent::emit_progress(&app, progress_id);
-    tauri::async_runtime::spawn_blocking(move || generate(&db_path, provider.unwrap_or_default(), on_tool_call))
+    let followed = agent::emit_progress(&app, progress_id);
+    tauri::async_runtime::spawn_blocking(move || generate(&db_path, provider.unwrap_or_default(), followed))
         .await
         .map_err(|e| BridgeError::Internal {
             message: format!("Tour worker failed: {e}"),

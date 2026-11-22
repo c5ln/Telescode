@@ -7,7 +7,7 @@
 // repository.
 
 import { invoke, isTauri } from '@tauri-apps/api/core'
-import { agentStatus, followRun, newRuns, signIn, type AgentProvider, type AgentStatus, type OnToolCall } from '../agent'
+import { agentStatus, followRun, newRuns, signIn, type AgentProvider, type AgentRun, type AgentStatus, type OnToolCall } from '../agent'
 export type { AgentStatus } from '../agent'
 
 import type { AnalysisSnapshot } from '../bridge'
@@ -29,7 +29,7 @@ export interface TourLibrary {
   /** Live desktop onboarding regenerates tours made before model integration. */
   requireRankedOrder?: boolean
   /** Have a tour written for the repository analyzed in `dbPath`; resolves once it is saved. */
-  generate?(dbPath: string, onToolCall?: OnToolCall): Promise<void>
+  generate?(dbPath: string, onToolCall?: OnToolCall): AgentRun
   /** Whether the agent is installed and signed in. Asked only when a tour must be written. */
   agentStatus?(): Promise<AgentStatus>
   /** Start the agent's sign-in in the browser; resolves once signed in. */

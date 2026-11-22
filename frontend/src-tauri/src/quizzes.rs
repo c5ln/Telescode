@@ -62,9 +62,9 @@ fn claude_args(db: &Path, target: &QuizTarget, server: &mcp::ServerCommand) -> V
     agent::generation_args(agent::Provider::Claude, &generation_prompt(db, target), server, AGENT_TOOLS)
 }
 
-fn generate(target: &QuizTarget, provider: agent::Provider, on_tool_call: Option<agent::OnToolCall>) -> Result<(), BridgeError> {
+fn generate(target: &QuizTarget, provider: agent::Provider, followed: Option<agent::Followed>) -> Result<(), BridgeError> {
     let db = validate_db_path(&target.db_path)?;
-    agent::generate(provider, &generation_prompt(&db, target), AGENT_TOOLS, GENERATION_TIMEOUT, on_tool_call)
+    agent::generate(provider, &generation_prompt(&db, target), AGENT_TOOLS, GENERATION_TIMEOUT, followed)
 }
 
 async fn blocking<T: Send + 'static>(f: impl FnOnce() -> Result<T, BridgeError> + Send + 'static) -> Result<T, BridgeError> {
@@ -90,8 +90,8 @@ pub async fn generate_quiz<R: tauri::Runtime>(
     provider: Option<agent::Provider>,
     progress_id: Option<String>,
 ) -> Result<(), BridgeError> {
-    let on_tool_call = agent::emit_progress(&app, progress_id);
-    blocking(move || generate(&target, provider.unwrap_or_default(), on_tool_call)).await
+    let followed = agent::emit_progress(&app, progress_id);
+    blocking(move || generate(&target, provider.unwrap_or_default(), followed)).await
 }
 
 /// IPC entry point: `invoke("record_quiz_response", { ... })`. The server

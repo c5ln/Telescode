@@ -3,6 +3,7 @@ import type { Learning } from '../app/useLearning'
 import { Button } from '../ui/Button'
 import { IconButton } from '../ui/IconButton'
 import { CloseIcon } from '../ui/icons'
+import { ErrorState } from '../ui/ErrorState'
 import { Spinner } from '../ui/Spinner'
 import { AgentError } from './AgentError'
 import { AgentProgress } from './AgentProgress'
@@ -19,7 +20,10 @@ export function LearningPanel({ learning, provider = 'claude', onSwitchAgent }: 
   const close = <IconButton label="Back to tour" tooltipAlign="end" onClick={learning.close}><CloseIcon /></IconButton>
   if (state.status === 'loading') return <section className={panel.panel} aria-label="Adaptive learning">
     <header className={panel.header}><p className={panel.eyebrow}>Adaptive learning</p>{close}</header>
-    {state.error
+    {state.error && state.prepared
+      ? <ErrorState layout="inline" title="The learning path did not open" cause="Telescode could not load this example's prepared learning path."
+          next="Try again." details={state.error}><Button variant="primary" onClick={learning.retry}>Try again</Button></ErrorState>
+      : state.error
       ? <AgentError what="learning path" message={state.error} provider={provider} onRetry={learning.retry} onSwitchAgent={onSwitchAgent} />
       : state.activity
         ? <AgentProgress work="learning path" agent={agents[provider].name} activity={state.activity} />
@@ -31,9 +35,16 @@ export function LearningPanel({ learning, provider = 'claude', onSwitchAgent }: 
   const concept = concepts.find(c => c.id === step?.conceptId)
   const estimate = knowledge.find(k => k.conceptId === step?.conceptId && k.level === step?.level)
   const locked = state.busy || Boolean(state.result)
+  // An example's path is as long as its prepared material, so the step budget is not shown for it.
+  const prepared = learning.isPrepared(session.goal.goalId)
+  const progress = step
+    ? prepared ? `Step ${session.spent + 1}` : `Step ${session.spent + 1} of up to ${session.goal.budget}`
+    : prepared ? `${session.spent} ${session.spent === 1 ? 'step' : 'steps'} done` : `${session.spent} of up to ${session.goal.budget} steps done`
+  const asked = state.view.answers.reduce((n, a) => n + a.asked, 0)
+  const correct = state.view.answers.reduce((n, a) => n + a.correct, 0)
   return <section className={panel.panel} aria-label="Adaptive learning">
     <header className={panel.header}><p className={panel.eyebrow}>Adaptive learning</p>{close}</header>
-    <p className={panel.text}>{session.spent} / {session.goal.budget} steps used</p>
+    <p className={panel.text}>{progress}</p>
     <h2 className={panel.title}>{concept?.name ?? 'Learning path'}</h2>
     <p className={panel.text}>{session.goal.rawQuery}</p>
     {step && <>
@@ -62,7 +73,13 @@ export function LearningPanel({ learning, provider = 'claude', onSwitchAgent }: 
         <Button variant="primary" disabled={state.busy || Boolean(state.question && !state.result)} onClick={() => learning.advance('continue')}>Continue learning</Button>
       </div>
     </>}
-    {!step && session.status === 'generation-needed' && <>
+    {!step && session.status === 'generation-needed' && learning.isPrepared(session.goal.goalId) && <>
+      <p className={panel.text}>You have answered every question prepared for this example. End the session to see how it went.</p>
+      <div className={panel.actions}>
+        <Button variant="primary" disabled={state.busy} onClick={() => learning.advance('stop')}>End session</Button>
+      </div>
+    </>}
+    {!step && session.status === 'generation-needed' && !learning.isPrepared(session.goal.goalId) && <>
       <p className={panel.text}>More independent material is needed. Your answers and remaining budget are saved.</p>
       <div className={panel.actions}>
         <Button disabled={state.busy} onClick={() => learning.advance('stop')}>End session</Button>
@@ -71,10 +88,18 @@ export function LearningPanel({ learning, provider = 'claude', onSwitchAgent }: 
     </>}
     {!step && session.status === 'preparing' && <p className={panel.waiting}><Spinner /> Preparing learning material…</p>}
     {!step && ['finished', 'budget-exhausted', 'stopped'].includes(session.status) && <>
-      <p className={panel.text}>{session.status === 'budget-exhausted' ? 'Step budget reached.' : session.status === 'stopped' ? 'Session ended.' : 'Planned steps complete.'}</p>
+      <p className={panel.text}>{session.status === 'budget-exhausted' ? (prepared ? "You reached the end of this example's learning path." : 'Step budget reached.')
+        : session.status === 'stopped' ? 'Session ended.' : 'Planned steps complete.'}</p>
+      {asked > 0 && <p className={panel.text}>You answered {correct} of {asked} {asked === 1 ? 'question' : 'questions'} correctly.</p>}
       <ul className={panel.text}>{session.goal.targetConcepts.map(t => {
         const k = knowledge.find(k => k.conceptId === t.conceptId && k.level === t.level)
-        return <li key={`${t.conceptId}:${t.level}`}>{concepts.find(c => c.id === t.conceptId)?.name ?? t.conceptId}: {(k?.observations ?? 0) >= 2 && (k?.probability ?? 0) >= .8 ? 'supporting evidence' : 'needs more independent evidence'}</li>
+        const about = state.view.answers.find(a => a.conceptId === t.conceptId && a.level === t.level)
+        // Understood takes two independent answers and a confident estimate, as the planner's goal does.
+        const understood = (k?.observations ?? 0) >= 2 && (k?.probability ?? 0) >= .8
+        return <li key={`${t.conceptId}:${t.level}`}>
+          <strong>{concepts.find(c => c.id === t.conceptId)?.name ?? t.conceptId}</strong>: {understood ? 'Understood' : 'Not confirmed yet'}
+          {about ? ` (${about.correct} of ${about.asked} ${about.asked === 1 ? 'answer' : 'answers'} about it correct)` : ' (no questions answered about it yet)'}
+        </li>
       })}</ul>
     </>}
     {state.busy && <p className={panel.waiting}><Spinner /> Working…</p>}
