@@ -62,3 +62,46 @@
 }
 
 .agent:disabled .chevron { color: inherit; }
+
+/* The way into a code tour: labelled, since an icon alone did not read as one. */
+.tour {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: var(--control-height);
+  padding: 0 var(--space-3) 0 var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+  line-height: 1;
+  white-space: nowrap;
+  transition:
+    background-color var(--duration-fast) var(--ease),
+    border-color var(--duration-fast) var(--ease);
+}
+
+.tour:hover:not(:disabled) { background: var(--surface-subtle); }
+.tour:active:not(:disabled),
+.tour[aria-pressed='true'] { background: var(--active); }
+
+.tour:disabled {
+  border-color: var(--border);
+  background: var(--surface-subtle);
+  color: var(--text-disabled);
+}
+
+.tourIcon {
+  width: 14px;
+  height: 14px;
+}
+
+.signedIn {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+}

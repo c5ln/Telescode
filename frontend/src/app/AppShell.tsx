@@ -1,7 +1,7 @@
 // Top bar over a full-bleed canvas. No sidebar: orientation comes from the
 // breadcrumbs, which follow where the user is in the code map.
 
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { savedAgent, saveAgent } from '../agent'
 import type { RepositoryOpener, RepositorySource, TelescodeApi } from '../bridge'
@@ -110,6 +110,33 @@ export function AppShell({
     { type: 'toggle', id: 'complexity', label: 'Complexity', checked: complexity, onChange: setComplexity },
   ]
 
+  const toggleTour =
+    tutorial.state.status === 'off'
+      ? tutorial.open
+      : () => {
+          quiz.close()
+          learning.close()
+          tutorial.exit()
+        }
+  const tourDisabled = state.status !== 'ready'
+
+  // T starts or leaves the code tour, unless the user is typing.
+  const tourShortcut = useRef<(() => void) | null>(null)
+  tourShortcut.current = tourDisabled ? null : toggleTour
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 't' && e.key !== 'T') return
+      if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return
+      const target = e.target as HTMLElement | null
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return
+      if (!tourShortcut.current) return
+      e.preventDefault()
+      tourShortcut.current()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
+
   return (
     <div className={styles.shell}>
       <TopBar
@@ -118,18 +145,7 @@ export function AppShell({
           onChange: (next) => { saveAgent(next); setProvider(next) } }}
         onNavigate={(crumb) => graphRef.current?.navigate(crumb.id)}
         menuItems={menuItems}
-        tutorial={{
-          active: tutorial.state.status !== 'off',
-          disabled: state.status !== 'ready',
-          onToggle:
-            tutorial.state.status === 'off'
-              ? tutorial.open
-              : () => {
-                  quiz.close()
-                  learning.close()
-                  tutorial.exit()
-                },
-        }}
+        tutorial={{ active: tutorial.state.status !== 'off', disabled: tourDisabled, onToggle: toggleTour }}
       />
       <WorkspaceCanvas
         state={state}

@@ -47,18 +47,18 @@ const renderer = () => (window as { __telescode?: GraphRenderer }).__telescode!
 beforeEach(() => localStorage.clear())
 afterEach(cleanup)
 async function submitRequirements(requirements: string) {
-  const start = await screen.findByRole('region', { name: 'Start tutorial' })
-  if (requirements) await userEvent.type(within(start).getByRole('textbox', { name: /requirements/i }), requirements)
+  const start = await screen.findByRole('region', { name: 'Start a code tour' })
+  if (requirements) await userEvent.type(within(start).getByRole('textbox', { name: /about you and your goal/i }), requirements)
   await userEvent.click(within(start).getByRole('button', { name: 'Start tour' }))
 }
 
 async function begin(learning: ReturnType<typeof library>, api?: TelescodeApi, requirements = '') {
   const rendered = render(<AppShell api={api} initialState={ready} tours={{ list: async () => [tour] }} learning={learning} />)
   renderer().resize(1200, 750)
-  await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
+  await userEvent.click(within(screen.getByRole('banner')).getByRole('button', { name: 'Start tour' }))
   await submitRequirements(requirements)
   if (requirements) return rendered
-  const tutorial = await screen.findByRole('region', { name: 'Tutorial' })
+  const tutorial = await screen.findByRole('region', { name: 'Code tour' })
   await within(tutorial).findByText('Understand how the application works.')
   await userEvent.click(within(tutorial).getByRole('button', { name: 'Learn adaptively' }))
   return rendered
@@ -92,7 +92,7 @@ it('separates requirements sessions and resumes the original requirements after 
   const learning = library()
   await begin(learning, undefined, 'Explain notifications')
   await screen.findByRole('button', { name: 'Check answer' })
-  await userEvent.click(screen.getByRole('button', { name: 'Back to tutorial' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Back to tour' }))
   await submitRequirements('Explain search results')
   await screen.findByRole('button', { name: 'Check answer' })
 
@@ -101,7 +101,7 @@ it('separates requirements sessions and resumes the original requirements after 
   expect(goals[0]!.goalId).not.toBe(goals[1]!.goalId)
   expect(learning.get).not.toHaveBeenCalled()
 
-  await userEvent.click(screen.getByRole('button', { name: 'Back to tutorial' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Back to tour' }))
   await submitRequirements('  Explain   notifications  ')
   await screen.findByRole('button', { name: 'Check answer' })
   expect(learning.start).toHaveBeenCalledTimes(2)
@@ -147,9 +147,9 @@ it('drops preparation that finishes after the workspace changes', async () => {
   await userEvent.click(screen.getByRole('menuitem', { name: 'Reload analysis' }))
   await act(async () => finish(view()))
   expect(screen.queryByRole('region', { name: 'Adaptive learning' })).toBeNull()
-  await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
-  await userEvent.click(within(await screen.findByRole('region', { name: 'Start tutorial' })).getByRole('button', { name: 'Start tour' }))
-  const nextTutorial = await screen.findByRole('region', { name: 'Tutorial' })
+  await userEvent.click(within(screen.getByRole('banner')).getByRole('button', { name: 'Start tour' }))
+  await userEvent.click(within(await screen.findByRole('region', { name: 'Start a code tour' })).getByRole('button', { name: 'Start tour' }))
+  const nextTutorial = await screen.findByRole('region', { name: 'Code tour' })
   await within(nextTutorial).findByText('Understand how the application works.')
   await userEvent.click(within(nextTutorial).getByRole('button', { name: 'Learn adaptively' }))
   await within(await screen.findByRole('region', { name: 'Adaptive learning' })).findByText('Why preserve the result before notifying?')
@@ -196,8 +196,8 @@ it('closing and reopening resumes the saved active session without resetting its
   await begin(learning)
   const panel = await screen.findByRole('region', { name: 'Adaptive learning' })
   await within(panel).findByText('Why preserve the result before notifying?')
-  await userEvent.click(within(panel).getByRole('button', { name: 'Back to tutorial' }))
-  const tutorial = await screen.findByRole('region', { name: 'Tutorial' })
+  await userEvent.click(within(panel).getByRole('button', { name: 'Back to tour' }))
+  const tutorial = await screen.findByRole('region', { name: 'Code tour' })
   await userEvent.click(within(tutorial).getByRole('button', { name: 'Learn adaptively' }))
   await within(await screen.findByRole('region', { name: 'Adaptive learning' })).findByText('Why preserve the result before notifying?')
   expect(learning.start).toHaveBeenCalledTimes(1)

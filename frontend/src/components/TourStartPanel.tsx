@@ -15,25 +15,25 @@ export function TourStartPanel({ onStart, onClose }: TourStartPanelProps) {
   const id = useId()
   const [requirements, setRequirements] = useState('')
   const [submitted, setSubmitted] = useState(false)
-  return <section className={panel.panel} aria-label="Start tutorial" onKeyDown={event => {
+  return <section className={panel.panel} aria-label="Start a code tour" onKeyDown={event => {
     if (event.key === 'Escape') { event.preventDefault(); onClose() }
   }}>
     <div className={panel.header}>
-      <p className={panel.eyebrow}>Tutorial</p>
+      <p className={panel.eyebrow}>Code tour</p>
       <IconButton label="Close tour setup" tooltipAlign="end" onClick={onClose}><CloseIcon /></IconButton>
     </div>
     <h2 className={panel.title}>What would you like to learn?</h2>
-    <p className={panel.text} id={`${id}-hint`}>Leave blank for onboarding, or describe a feature or code flow to explore.</p>
+    <p className={panel.text} id={`${id}-hint`}>Leave it blank for a general onboarding tour. Or tell us who you are and what you want to understand, and the tour starts from there.</p>
     <form onSubmit={event => {
       event.preventDefault()
       if (submitted) return
       setSubmitted(true)
       onStart(requirements.trim())
     }}>
-      <label className={styles.label} htmlFor={id}>Requirements <span>(optional)</span></label>
-      <textarea id={id} className={styles.input} rows={3} value={requirements}
+      <label className={styles.label} htmlFor={id}>About you and your goal <span>(optional)</span></label>
+      <textarea id={id} className={styles.input} rows={4} value={requirements}
         aria-describedby={`${id}-hint`} maxLength={MAX_REQUIREMENTS_LENGTH} disabled={submitted}
-        placeholder="Explain how a login request is authenticated."
+        placeholder="I'm a backend developer who just joined this project. Show me how a request flows from the entry point to the response, and how errors are handled."
         onChange={event => setRequirements(event.target.value)} />
       <div className={panel.actions}><Button type="submit" variant="primary" disabled={submitted}>Start tour</Button></div>
     </form>

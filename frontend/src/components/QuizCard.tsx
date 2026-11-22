@@ -44,7 +44,7 @@ export function QuizCard({ quiz, stepTitle, provider = 'claude' }: QuizCardProps
   const header = (
     <header className={panel.header}>
       <p className={panel.eyebrow}>Quiz · {stepTitle}</p>
-      <IconButton label="Back to tutorial" tooltip="top" tooltipAlign="end" onClick={quiz.close}>
+      <IconButton label="Back to tour" tooltip="top" tooltipAlign="end" onClick={quiz.close}>
         <CloseIcon />
       </IconButton>
     </header>

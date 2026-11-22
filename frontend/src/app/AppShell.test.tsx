@@ -79,8 +79,8 @@ const canvasButtons = () =>
 
 /** Enter the default Tour through its optional requirements screen. */
 async function startOnboarding() {
-  await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
-  const start = await screen.findByRole('region', { name: 'Start tutorial' })
+  await userEvent.click(within(screen.getByRole('banner')).getByRole('button', { name: 'Start tour' }))
+  const start = await screen.findByRole('region', { name: 'Start a code tour' })
   await userEvent.click(within(start).getByRole('button', { name: 'Start tour' }))
 }
 
@@ -92,9 +92,9 @@ describe('AppShell', () => {
     expect(within(bar).getByRole('navigation', { name: 'Breadcrumb' })).toBeTruthy()
     expect(within(bar).getByRole('search')).toBeTruthy()
     expect(within(bar).getByPlaceholderText('Search files, classes, functions…')).toBeTruthy()
-    expect(within(bar).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual([
-      'AI agent',
-      'Tutorial',
+    expect(within(bar).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual([
+      'Connect MCP',
+      'Start tour',
       'More actions',
     ])
     expect(screen.queryByRole('complementary')).toBeNull()
@@ -339,7 +339,19 @@ describe('AppShell', () => {
 
     it('is only available once a repository is open', () => {
       render(<AppShell api={deferredApi().api} tours={library([])} />)
-      expect((screen.getByRole('button', { name: 'Tutorial' }) as HTMLButtonElement).disabled).toBe(true)
+      expect((within(screen.getByRole('banner')).getByRole('button', { name: 'Start tour' }) as HTMLButtonElement).disabled).toBe(true)
+    })
+
+    it('opens with T, but not while the user is typing', async () => {
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={library([])} />)
+      const search = screen.getByPlaceholderText('Search files, classes, functions…')
+      await userEvent.click(search)
+      await userEvent.keyboard('t')
+      expect(screen.queryByRole('region', { name: 'Start a code tour' })).toBeNull()
+
+      search.blur()
+      await userEvent.keyboard('t')
+      expect(await screen.findByRole('region', { name: 'Start a code tour' })).toBeTruthy()
     })
 
     it('plays the saved tour on the map, step by step, and puts the view back on exit', async () => {
@@ -349,11 +361,11 @@ describe('AppShell', () => {
       const before = { ...r.camera }
 
       await startOnboarding()
-      const panel = await screen.findByRole('region', { name: 'Tutorial' })
-      expect(screen.getByRole('button', { name: 'Exit tutorial', pressed: true })).toBeTruthy()
+      const panel = await screen.findByRole('region', { name: 'Code tour' })
+      expect(screen.getByRole('button', { name: 'Exit tour', pressed: true })).toBeTruthy()
       expect(within(panel).getByText('Sherlock finds a username across sites.')).toBeTruthy()
       expect(within(panel).getByText('1 / 3')).toBeTruthy()
-      expect(within(panel).getByText('Tutorial')).toBeTruthy()
+      expect(within(panel).getByText('Code tour')).toBeTruthy()
       expect(within(panel).queryByText(/Sherlock onboarding/)).toBeNull()
       expect(r.selected).toBeNull()
 
@@ -380,8 +392,8 @@ describe('AppShell', () => {
       await userEvent.click(within(panel).getByRole('button', { name: 'Previous step' }))
       expect(within(panel).getByText('2 / 3')).toBeTruthy()
 
-      await userEvent.click(within(panel).getByRole('button', { name: 'Exit tutorial' }))
-      expect(screen.queryByRole('region', { name: 'Tutorial' })).toBeNull()
+      await userEvent.click(within(panel).getByRole('button', { name: 'Exit tour' }))
+      expect(screen.queryByRole('region', { name: 'Code tour' })).toBeNull()
       expect(r.selected).toBeNull()
       r.step(performance.now() + 20_000, 16)
       expect(r.camera.x).toBeCloseTo(before.x)
@@ -392,7 +404,7 @@ describe('AppShell', () => {
     it('advances on its own while playing and stops at the last step', async () => {
       render(<AppShell api={deferredApi().api} initialState={ready} tours={library([sherlockTour(30)])} />)
       await startOnboarding()
-      const panel = await screen.findByRole('region', { name: 'Tutorial' })
+      const panel = await screen.findByRole('region', { name: 'Code tour' })
       await within(panel).findByText('3 / 3')
       // The last step plays out too, and its bar ends full.
       expect(within(panel).getByTestId('step-progress').style.animationPlayState).toBe('running')
@@ -416,20 +428,20 @@ describe('AppShell', () => {
         })),
       }
       render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
-      await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
-      const start = await screen.findByRole('region', { name: 'Start tutorial' })
+      await userEvent.click(within(screen.getByRole('banner')).getByRole('button', { name: 'Start tour' }))
+      const start = await screen.findByRole('region', { name: 'Start a code tour' })
       expect(tours.generate).not.toHaveBeenCalled()
 
       await userEvent.click(within(start).getByRole('button', { name: 'Start tour' }))
-      const panel = await screen.findByRole('region', { name: 'Tutorial' })
-      await within(panel).findByText('Generating a tutorial for project')
-      expect(within(panel).getByRole('status').textContent).toBe('Generating… It appears here as soon as it is ready.')
+      const panel = await screen.findByRole('region', { name: 'Code tour' })
+      await within(panel).findByText('Writing a tour for project')
+      expect(within(panel).getByRole('status').textContent).toBe('Writing… It appears here as soon as it is ready.')
       expect(tours.generate).toHaveBeenCalledWith('C:/x/project.db')
 
       await act(async () => finish())
-      await within(panel).findByText('Tutorial ready')
+      await within(panel).findByText('Tour ready')
       expect(within(panel).getByText('Sherlock onboarding · 3 steps')).toBeTruthy()
-      await userEvent.click(within(panel).getByRole('button', { name: 'Start tutorial' }))
+      await userEvent.click(within(panel).getByRole('button', { name: 'Start tour' }))
       expect(within(panel).getByText('1 / 3')).toBeTruthy()
     })
 
@@ -439,7 +451,7 @@ describe('AppShell', () => {
       render(<AppShell api={deferredApi().api} initialState={ready} tours={{ ...library([sherlockTour(60_000)]), agentStatus, generate }} />)
       expect(agentStatus).not.toHaveBeenCalled()
       await startOnboarding()
-      await within(await screen.findByRole('region', { name: 'Tutorial' })).findByText('1 / 3')
+      await within(await screen.findByRole('region', { name: 'Code tour' })).findByText('1 / 3')
       expect(agentStatus).not.toHaveBeenCalled()
       expect(generate).not.toHaveBeenCalled()
     })
@@ -451,16 +463,16 @@ describe('AppShell', () => {
       const tours = { ...library([]), agentStatus: async () => ({ installed: true, signedIn: false }), signIn, generate }
       render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
       await startOnboarding()
-      const panel = await screen.findByRole('region', { name: 'Tutorial' })
-      await within(panel).findByText('Sign in to Claude to generate a tutorial for project')
+      const panel = await screen.findByRole('region', { name: 'Code tour' })
+      await within(panel).findByText('Sign in to Claude to write a tour for project')
       expect(within(panel).getByRole('status').textContent).toBe(
-        'Finish signing in to Claude in your browser. The tutorial is generated right after.',
+        'Finish signing in to Claude in your browser. The tour is written right after.',
       )
       expect(signIn).toHaveBeenCalledTimes(1)
       expect(generate).not.toHaveBeenCalled()
 
       await act(async () => signedIn())
-      await within(panel).findByText('Generating a tutorial for project')
+      await within(panel).findByText('Writing a tour for project')
       expect(generate).toHaveBeenCalledWith('C:/x/project.db')
     })
 
@@ -470,7 +482,7 @@ describe('AppShell', () => {
       const tours = { ...library([]), agentStatus: async () => ({ installed: true, signedIn: true }), signIn, generate }
       render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
       await startOnboarding()
-      await within(await screen.findByRole('region', { name: 'Tutorial' })).findByText('Generating a tutorial for project')
+      await within(await screen.findByRole('region', { name: 'Code tour' })).findByText('Writing a tour for project')
       expect(signIn).not.toHaveBeenCalled()
       expect(generate).toHaveBeenCalled()
     })
@@ -480,8 +492,8 @@ describe('AppShell', () => {
       const tours = { ...library([]), agentStatus: async () => ({ installed: false, signedIn: false }), generate }
       render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
       await startOnboarding()
-      const panel = await screen.findByRole('region', { name: 'Tutorial' })
-      await within(panel).findByText('Claude Code is needed to generate tutorials')
+      const panel = await screen.findByRole('region', { name: 'Code tour' })
+      await within(panel).findByText('Claude Code is needed to write tours')
       expect(within(panel).getByText('curl -fsSL https://claude.ai/install.sh | bash')).toBeTruthy()
       expect(generate).not.toHaveBeenCalled()
     })
@@ -495,9 +507,9 @@ describe('AppShell', () => {
       }
       render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
       await startOnboarding()
-      const panel = await screen.findByRole('region', { name: 'Tutorial' })
-      expect(await within(panel).findByText('Cannot generate the tutorial: Signing in to Claude did not finish in time.')).toBeTruthy()
-      expect(within(panel).getByText('Sign in to Claude to generate a tutorial for project')).toBeTruthy()
+      const panel = await screen.findByRole('region', { name: 'Code tour' })
+      expect(await within(panel).findByText('Cannot write the tour: Signing in to Claude did not finish in time.')).toBeTruthy()
+      expect(within(panel).getByText('Sign in to Claude to write a tour for project')).toBeTruthy()
       expect(tours.generate).not.toHaveBeenCalled()
     })
 
@@ -507,13 +519,13 @@ describe('AppShell', () => {
         const tours = { ...library([], [], [sherlockTour(60_000)]), generate: vi.fn(() => new Promise<void>(() => {})) }
         render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
         await startOnboarding()
-        const panel = await screen.findByRole('region', { name: 'Tutorial' })
-        await within(panel).findByText('Generating a tutorial for project')
+        const panel = await screen.findByRole('region', { name: 'Code tour' })
+        await within(panel).findByText('Writing a tour for project')
 
         await act(async () => vi.advanceTimersByTime(3000))
-        expect(within(panel).queryByText('Tutorial ready')).toBeNull()
+        expect(within(panel).queryByText('Tour ready')).toBeNull()
         await act(async () => vi.advanceTimersByTime(3000))
-        await within(panel).findByText('Tutorial ready')
+        await within(panel).findByText('Tour ready')
         expect(tours.list).toHaveBeenCalledTimes(3)
       } finally {
         vi.useRealTimers()
@@ -529,19 +541,19 @@ describe('AppShell', () => {
       }
       render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
       await startOnboarding()
-      const panel = await screen.findByRole('region', { name: 'Tutorial' })
-      expect(await within(panel).findByText('Cannot generate the tutorial: Claude Code was not found.')).toBeTruthy()
+      const panel = await screen.findByRole('region', { name: 'Code tour' })
+      expect(await within(panel).findByText('Cannot write the tour: Claude Code was not found.')).toBeTruthy()
       expect(within(panel).queryByRole('status')).toBeNull()
       await userEvent.click(within(panel).getByRole('button', { name: 'Try again' }))
-      await within(panel).findByText('Tutorial ready')
+      await within(panel).findByText('Tour ready')
       expect(tours.generate).toHaveBeenCalledTimes(2)
     })
 
     it('reports a generation that saved nothing', async () => {
       render(<AppShell api={deferredApi().api} initialState={ready} tours={{ ...library([]), generate: async () => {} }} />)
       await startOnboarding()
-      const panel = await screen.findByRole('region', { name: 'Tutorial' })
-      expect(await within(panel).findByText('Cannot generate the tutorial: Generation finished without saving a tutorial.')).toBeTruthy()
+      const panel = await screen.findByRole('region', { name: 'Code tour' })
+      expect(await within(panel).findByText('Cannot write the tour: Generation finished without saving a tutorial.')).toBeTruthy()
     })
 
     it('reports when saved tours cannot be read, without generating', async () => {
@@ -549,8 +561,8 @@ describe('AppShell', () => {
       const tours: TourLibrary = { list: () => Promise.reject(new TelescodeError('tours_unavailable', 'No MCP server.')), generate }
       render(<AppShell api={deferredApi().api} initialState={ready} tours={tours} />)
       await startOnboarding()
-      const panel = await screen.findByRole('region', { name: 'Tutorial' })
-      expect(await within(panel).findByText('Cannot generate the tutorial: No MCP server.')).toBeTruthy()
+      const panel = await screen.findByRole('region', { name: 'Code tour' })
+      expect(await within(panel).findByText('Cannot write the tour: No MCP server.')).toBeTruthy()
       expect(generate).not.toHaveBeenCalled()
     })
   })
@@ -612,8 +624,8 @@ describe('AppShell', () => {
 
     async function openQuiz() {
       await startOnboarding()
-      const tutorial = await screen.findByRole('region', { name: 'Tutorial' })
-      await userEvent.click(within(tutorial).getByRole('button', { name: 'Quiz on this step' }))
+      const tutorial = await screen.findByRole('region', { name: 'Code tour' })
+      await userEvent.click(within(tutorial).getByRole('button', { name: 'Quiz' }))
       return screen.findByRole('region', { name: 'Quiz' })
     }
 
@@ -656,8 +668,8 @@ describe('AppShell', () => {
       expect(within(panel).queryByRole('button', { name: 'Next question' })).toBeNull()
 
       // Back to the tutorial: the same step, paused, with the map on it again.
-      await userEvent.click(within(panel).getByRole('button', { name: 'Back to tutorial' }))
-      const tutorial = screen.getByRole('region', { name: 'Tutorial' })
+      await userEvent.click(within(panel).getByRole('button', { name: 'Back to tour' }))
+      const tutorial = screen.getByRole('region', { name: 'Code tour' })
       expect(within(tutorial).getByText('1 / 3')).toBeTruthy()
       expect(within(tutorial).getByRole('button', { name: 'Play' })).toBeTruthy()
       // The root step selects nothing, as in the tutorial itself.
@@ -692,10 +704,10 @@ describe('AppShell', () => {
       render(<AppShell api={deferredApi().api} initialState={ready} tours={library([sherlockTour(60_000)])} quizzes={quizzes([quizSet]).library} />)
       const panel = await openQuiz()
       await within(panel).findByText('Which directory holds the tests?')
-      await userEvent.click(screen.getByRole('button', { name: 'Exit tutorial', pressed: true }))
+      await userEvent.click(screen.getByRole('button', { name: 'Exit tour', pressed: true }))
       expect(screen.queryByRole('region', { name: 'Quiz' })).toBeNull()
       await startOnboarding()
-      expect(await screen.findByRole('region', { name: 'Tutorial' })).toBeTruthy()
+      expect(await screen.findByRole('region', { name: 'Code tour' })).toBeTruthy()
       expect(screen.queryByRole('region', { name: 'Quiz' })).toBeNull()
     })
   })

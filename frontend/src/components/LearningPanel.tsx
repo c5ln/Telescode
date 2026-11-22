@@ -9,7 +9,7 @@ import quiz from './QuizCard.module.css'
 export function LearningPanel({ learning }: { learning: Learning }) {
   const { state } = learning
   if (state.status === 'off') return null
-  const close = <IconButton label="Back to tutorial" tooltipAlign="end" onClick={learning.close}><CloseIcon /></IconButton>
+  const close = <IconButton label="Back to tour" tooltipAlign="end" onClick={learning.close}><CloseIcon /></IconButton>
   if (state.status === 'loading') return <section className={panel.panel} aria-label="Adaptive learning">
     <header className={panel.header}><p className={panel.eyebrow}>Adaptive learning</p>{close}</header>
     {state.error ? <p className={panel.error} role="alert">{state.error}</p> : <p className={panel.waiting}><Spinner /> Preparing a learning path…</p>}

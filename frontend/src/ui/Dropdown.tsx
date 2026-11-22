@@ -30,6 +30,8 @@ export type DropdownItem =
       checked: boolean
       onSelect: () => void
       disabled?: boolean
+      /** Muted text on the right, e.g. a status. */
+      hint?: ReactNode
       title?: string
     }
   | {
@@ -60,10 +62,19 @@ interface DropdownProps {
   align?: 'start' | 'end'
   /** Accessible name for the menu; defaults to the trigger's name. */
   label?: string
+  /** A short note above the items: what the menu is for. */
+  header?: ReactNode
+  /** A short note below the items. */
+  footer?: ReactNode
+  /** Called when the menu opens or closes, e.g. to refresh what it shows. */
+  onOpenChange?: (open: boolean) => void
 }
 
-export function Dropdown({ trigger, items, align = 'start', label }: DropdownProps) {
+export function Dropdown({ trigger, items, align = 'start', label, header, footer, onOpenChange }: DropdownProps) {
   const [open, setOpen] = useState(false)
+  const onOpenChangeRef = useRef(onOpenChange)
+  onOpenChangeRef.current = onOpenChange
+  useEffect(() => { onOpenChangeRef.current?.(open) }, [open])
   const rootRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -152,6 +163,7 @@ export function Dropdown({ trigger, items, align = 'start', label }: DropdownPro
           data-align={align}
           onKeyDown={onMenuKeyDown}
         >
+          {header && <p className={styles.note}>{header}</p>}
           {items.map((item) =>
             item.type === 'separator' ? (
               <div key={item.id} role="separator" className={styles.separator} />
@@ -178,18 +190,25 @@ export function Dropdown({ trigger, items, align = 'start', label }: DropdownPro
                 tabIndex={-1}
                 disabled={item.disabled}
                 title={item.title}
+                aria-labelledby={item.hint ? `${menuId}-${item.id}-label` : undefined}
+                aria-describedby={item.hint ? `${menuId}-${item.id}-hint` : undefined}
                 className={styles.item}
                 onClick={() => {
                   close(true)
                   item.onSelect()
                 }}
               >
-                <span className={styles.label}>{item.label}</span>
-                {item.type === 'radio' ? (
-                  <CheckIcon className={styles.check} />
-                ) : item.hint && <span className={styles.hint}>{item.hint}</span>}
+                <span id={`${menuId}-${item.id}-label`} className={styles.label}>{item.label}</span>
+                {item.hint && <span id={`${menuId}-${item.id}-hint`} className={styles.hint}>{item.hint}</span>}
+                {item.type === 'radio' && <CheckIcon className={styles.check} />}
               </button>
             ),
+          )}
+          {footer && (
+            <>
+              <div role="separator" className={styles.separator} />
+              <p className={styles.note}>{footer}</p>
+            </>
           )}
         </div>
       )}

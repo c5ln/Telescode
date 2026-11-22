@@ -13,15 +13,16 @@ import { stepDurationMs } from '../tour/tutorial'
 import { Button } from '../ui/Button'
 import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, PauseIcon, PlayIcon, QuizIcon } from '../ui/icons'
 import { IconButton } from '../ui/IconButton'
+import { Tooltip } from '../ui/Tooltip'
 import { Spinner } from '../ui/Spinner'
 import { QuizCard } from './QuizCard'
 import { TourStartPanel } from './TourStartPanel'
 import styles from './TutorialPanel.module.css'
 
 const SETUP_TITLES: Record<SetupPhase, (repository: string, account: string, name: string) => string> = {
-  generating: (r) => `Generating a tutorial for ${r}`,
-  'signing-in': (r, account) => `Sign in to ${account} to generate a tutorial for ${r}`,
-  'not-installed': (_r, _account, name) => `${name} is needed to generate tutorials`,
+  generating: (r) => `Writing a tour for ${r}`,
+  'signing-in': (r, account) => `Sign in to ${account} to write a tour for ${r}`,
+  'not-installed': (_r, _account, name) => `${name} is needed to write tours`,
 }
 
 interface TutorialPanelProps {
@@ -62,17 +63,17 @@ export function TutorialPanel({ tutorial, quiz, repositoryName, provider = 'clau
   }
 
   const close = (
-    <IconButton label="Exit tutorial" tooltip="top" tooltipAlign="end" onClick={exit}>
+    <IconButton label="Exit tour" tooltip="top" tooltipAlign="end" onClick={exit}>
       <CloseIcon />
     </IconButton>
   )
 
   if (state.status === 'searching') {
     return (
-      <section className={styles.panel} aria-label="Tutorial" onKeyDown={onKeyDown}>
+      <section className={styles.panel} aria-label="Code tour" onKeyDown={onKeyDown}>
         <p className={styles.waiting} role="status">
           <Spinner />
-          Looking for a tutorial…
+          Looking for a tour…
         </p>
       </section>
     )
@@ -81,20 +82,20 @@ export function TutorialPanel({ tutorial, quiz, repositoryName, provider = 'clau
   if (state.status === 'setup') {
     const { ready, error } = state
     return (
-      <section className={styles.panel} aria-label="Tutorial" onKeyDown={onKeyDown}>
+      <section className={styles.panel} aria-label="Code tour" onKeyDown={onKeyDown}>
         <header className={styles.header}>
-          <p className={styles.eyebrow}>Tutorial</p>
+          <p className={styles.eyebrow}>Code tour</p>
           {close}
         </header>
         {ready ? (
           <>
-            <h2 className={styles.title}>Tutorial ready</h2>
+            <h2 className={styles.title}>Tour ready</h2>
             <p className={styles.text}>
               {ready.plan.title} · {ready.plan.stops.length} steps
             </p>
             <div className={styles.actions}>
               <Button variant="primary" onClick={() => tutorial.play(ready)}>
-                Start tutorial
+                Start tour
               </Button>
             </div>
           </>
@@ -104,21 +105,21 @@ export function TutorialPanel({ tutorial, quiz, repositoryName, provider = 'clau
             {state.phase === 'not-installed' ? (
               <>
                 <p className={styles.text}>
-                  Tutorials are written by {name} with your {account} account. Install it, then press ▷ again:
+                  Tours are written by {name} with your {account} account. Install it, then press Start tour again:
                 </p>
                 <code className={styles.command}>{installCommand(provider)}</code>
               </>
             ) : error ? (
               <>
-                <p className={styles.error}>Cannot generate the tutorial: {error}</p>
+                <p className={styles.error}>Cannot write the tour: {error}</p>
                 <div className={styles.actions}><Button onClick={tutorial.start}>Try again</Button></div>
               </>
             ) : (
               <p className={styles.waiting} role="status">
                 <Spinner />
                 {state.phase === 'signing-in'
-                  ? `Finish signing in to ${account} in your browser. The tutorial is generated right after.`
-                  : 'Generating… It appears here as soon as it is ready.'}
+                  ? `Finish signing in to ${account} in your browser. The tour is written right after.`
+                  : 'Writing… It appears here as soon as it is ready.'}
               </p>
             )}
           </>
@@ -136,12 +137,19 @@ export function TutorialPanel({ tutorial, quiz, repositoryName, provider = 'clau
     quiz.open(state.tour, state.index)
   }
   return (
-    <section className={styles.panel} aria-label="Tutorial" onKeyDown={onKeyDown}>
+    <section className={styles.panel} aria-label="Code tour" onKeyDown={onKeyDown}>
       <header className={styles.header}>
-        <p className={styles.eyebrow}>Tutorial</p>
-        <IconButton label="Quiz on this step" tooltip="top" onClick={startQuiz}>
-          <QuizIcon />
-        </IconButton>
+        <p className={styles.eyebrow}>Code tour</p>
+        <Tooltip
+          label="Quiz on this step"
+          description="One question about the code in this step. Pick easy, medium or hard, and see why the answer is right."
+          align="end"
+        >
+          <button type="button" className={styles.quiz} onClick={startQuiz}>
+            <QuizIcon />
+            Quiz
+          </button>
+        </Tooltip>
         {close}
       </header>
       <div aria-live="polite">
@@ -158,13 +166,22 @@ export function TutorialPanel({ tutorial, quiz, repositoryName, provider = 'clau
           </dl>
         )}
       </div>
-      {learning && <div className={styles.actions}><Button onClick={() => {
-        if (state.playing && !state.finished) tutorial.togglePlaying()
-        quiz.close()
-        void learning.start()
-      }}>Learn adaptively</Button></div>}
+      {learning && <div className={styles.actions}>
+        <Tooltip
+          label="Learn adaptively"
+          description="Tell it what you want to learn. Each quiz answer updates how well you seem to know each part, and the next step goes where that estimate can rise the most."
+          side="top"
+          align="end"
+        >
+          <Button onClick={() => {
+            if (state.playing && !state.finished) tutorial.togglePlaying()
+            quiz.close()
+            void learning.start()
+          }}>Learn adaptively</Button>
+        </Tooltip>
+      </div>}
       <footer className={styles.footer}>
-        <div className={styles.controls} role="toolbar" aria-label="Tutorial playback">
+        <div className={styles.controls} role="toolbar" aria-label="Tour playback">
           <IconButton label="Previous step" tooltip="top" tooltipAlign="start" disabled={state.index === 0} onClick={() => tutorial.goTo(state.index - 1)}>
             <ChevronLeftIcon />
           </IconButton>

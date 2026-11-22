@@ -114,3 +114,25 @@
   margin: var(--space-1) calc(-1 * var(--space-1));
   background: var(--border);
 }
+
+/* What the menu is for, in a sentence. Not an item: never focused. */
+.note {
+  max-width: 272px;
+  margin: 0;
+  padding: var(--space-2) var(--space-2) 6px;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  white-space: normal;
+}
+
+.separator + .note {
+  padding-top: 6px;
+  color: var(--text-muted);
+}
+
+.hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

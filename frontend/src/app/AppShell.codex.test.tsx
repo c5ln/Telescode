@@ -54,6 +54,8 @@ function native(options: {
       case 'list_tours': return hasTour ? [savedTour] : []
       case 'list_quizzes': return hasQuiz ? [savedQuiz] : []
       case 'agent_status':
+        // The Connect MCP menu looks up every agent; the flows below use Codex.
+        if (args?.provider === 'claude') return { installed: true, signedIn: true }
         expect(args).toEqual({ provider: 'codex' })
         return { installed: options.installed ?? true, signedIn: options.signedIn ?? true }
       case 'agent_sign_in':
@@ -82,8 +84,8 @@ function native(options: {
 }
 
 function agentSelector() {
-  const selector = screen.queryByRole('button', { name: 'AI agent' })
-  expect(selector, 'The app must let the user choose Claude Code or Codex using the AI agent selector').not.toBeNull()
+  const selector = screen.queryByRole('button', { name: 'Connect MCP' })
+  expect(selector, 'The app must let the user choose Claude Code or Codex using the Connect MCP selector').not.toBeNull()
   return selector as HTMLButtonElement
 }
 
@@ -93,9 +95,9 @@ async function chooseCodex() {
 }
 
 async function startTutorial() {
-  await userEvent.click(screen.getByRole('button', { name: 'Tutorial' }))
-  await userEvent.click(within(await screen.findByRole('region', { name: 'Start tutorial' })).getByRole('button', { name: 'Start tour' }))
-  return screen.findByRole('region', { name: 'Tutorial' })
+  await userEvent.click(within(screen.getByRole('banner')).getByRole('button', { name: 'Start tour' }))
+  await userEvent.click(within(await screen.findByRole('region', { name: 'Start a code tour' })).getByRole('button', { name: 'Start tour' }))
+  return screen.findByRole('region', { name: 'Code tour' })
 }
 
 beforeEach(() => {
@@ -116,16 +118,18 @@ describe('Codex in the app', () => {
     const invoke = native()
     const app = render(<AppShell initialState={ready} />)
     const selector = agentSelector()
-    expect(selector.textContent).toBe('Claude Code')
+    expect(selector.textContent).toBe('Connect MCP')
     await userEvent.click(selector)
     expect(screen.getByRole('menuitemradio', { name: 'Claude Code', checked: true })).toBeTruthy()
     expect(screen.getByRole('menuitemradio', { name: 'Codex', checked: false })).toBeTruthy()
     await userEvent.keyboard('{Escape}')
     await chooseCodex()
-    expect(invoke).not.toHaveBeenCalled() // Choosing does not start login or generation.
+    // Choosing only looks up each agent's status; it does not start login or generation.
+    expect(invoke.mock.calls.map(([command]) => command).filter(command => command !== 'agent_status')).toEqual([])
     app.unmount()
     render(<AppShell initialState={ready} />)
-    expect(agentSelector().textContent).toBe('Codex')
+    await userEvent.click(agentSelector())
+    expect(screen.getByRole('menuitemradio', { name: 'Codex', checked: true })).toBeTruthy()
   })
 
   it('signs in to the chosen Codex account before generating and plays the saved tutorial', async () => {
@@ -143,8 +147,8 @@ describe('Codex in the app', () => {
     await vi.waitFor(() => expect(invoke).toHaveBeenCalledWith('generate_tour', { dbPath, provider: 'codex' }))
     expect(agentSelector().disabled).toBe(true)
     await act(async () => generation.resolve())
-    await within(panel).findByText('Tutorial ready')
-    await userEvent.click(within(panel).getByRole('button', { name: 'Start tutorial' }))
+    await within(panel).findByText('Tour ready')
+    await userEvent.click(within(panel).getByRole('button', { name: 'Start tour' }))
     expect(within(panel).getByText(savedTour.plan.stops[0]!.caption)).toBeTruthy()
     expect(invoke.mock.calls.some(([command]) => command.startsWith('claude_'))).toBe(false)
   })
@@ -154,7 +158,7 @@ describe('Codex in the app', () => {
     render(<AppShell initialState={ready} />)
     await chooseCodex()
     const tutorial = await startTutorial()
-    await userEvent.click(await within(tutorial).findByRole('button', { name: 'Quiz on this step' }))
+    await userEvent.click(await within(tutorial).findByRole('button', { name: 'Quiz' }))
     const quiz = await screen.findByRole('region', { name: 'Quiz' })
     await within(quiz).findByText(savedQuiz.questions[0]!.question)
     expect(invoke).toHaveBeenCalledWith('generate_quiz', { provider: 'codex', target: {
@@ -184,7 +188,7 @@ describe('Codex in the app', () => {
     await chooseCodex()
     const panel = await startTutorial()
     await within(panel).findByText(/Codex account quota reached/)
-    expect(within(panel).queryByText('Tutorial ready')).toBeNull()
+    expect(within(panel).queryByText('Tour ready')).toBeNull()
     expect(invoke.mock.calls.filter(([command]) => command === 'generate_tour')).toHaveLength(1)
     expect(invoke.mock.calls.some(([command]) => command.startsWith('claude_'))).toBe(false)
   })
@@ -194,9 +198,10 @@ describe('Codex in the app', () => {
     render(<AppShell initialState={ready} />)
     await chooseCodex()
     const tutorial = await startTutorial()
-    await userEvent.click(await within(tutorial).findByRole('button', { name: 'Quiz on this step' }))
+    await userEvent.click(await within(tutorial).findByRole('button', { name: 'Quiz' }))
     const quiz = await screen.findByRole('region', { name: 'Quiz' })
     await within(quiz).findByText(savedQuiz.questions[0]!.question)
-    expect(invoke.mock.calls.every(([command]) => command === 'list_tours' || command === 'list_quizzes')).toBe(true)
+    // Opening the Connect MCP menu shows each agent's status; nothing else reaches an agent.
+    expect(invoke.mock.calls.every(([command]) => ['list_tours', 'list_quizzes', 'agent_status'].includes(command))).toBe(true)
   })
 })
