@@ -55,10 +55,10 @@ describe('withExample', () => {
 
     await example.learning.start({ dbPath: 'x.db', goal: await requirementsGoal('Show me sessions.') })
     await example.learning.prepare({ sessionId: 's1', revision: 1 })
-    expect(base.learning.prepare).toHaveBeenLastCalledWith({ sessionId: 's1', revision: 1, curriculum: { version: 1 } })
+    expect(base.learning.prepare).toHaveBeenLastCalledWith({ sessionId: 's1', revision: 1, curriculum: { version: 1 } }, undefined)
 
     await example.learning.start({ dbPath: 'x.db', goal: await requirementsGoal('Something else entirely.') })
     await example.learning.prepare({ sessionId: 's2', revision: 1 })
-    expect(base.learning.prepare).toHaveBeenLastCalledWith({ sessionId: 's2', revision: 1 })
+    expect(base.learning.prepare).toHaveBeenLastCalledWith({ sessionId: 's2', revision: 1 }, undefined)
   })
 })

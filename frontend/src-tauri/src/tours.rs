@@ -55,9 +55,9 @@ fn claude_args(db: &Path, server: &mcp::ServerCommand) -> Vec<OsString> {
 }
 
 /// Runs the selected agent until it has saved a tour for `db_path`, or fails.
-fn generate(db_path: &str, provider: agent::Provider) -> Result<(), BridgeError> {
+fn generate(db_path: &str, provider: agent::Provider, on_tool_call: Option<agent::OnToolCall>) -> Result<(), BridgeError> {
     let db = validate_db_path(db_path)?;
-    agent::generate(provider, &generation_prompt(&db), AGENT_TOOLS, GENERATION_TIMEOUT)
+    agent::generate(provider, &generation_prompt(&db), AGENT_TOOLS, GENERATION_TIMEOUT, on_tool_call)
 }
 
 /// IPC entry point: `invoke("list_tours")`. Every tour the server has saved;
@@ -74,8 +74,15 @@ pub async fn list_tours() -> Result<Value, BridgeError> {
 /// IPC entry point: `invoke("generate_tour", { dbPath })`. Resolves once
 /// The agent has finished; the new tour is then in `list_tours`.
 #[tauri::command]
-pub async fn generate_tour(db_path: String, provider: Option<agent::Provider>) -> Result<(), BridgeError> {
-    tauri::async_runtime::spawn_blocking(move || generate(&db_path, provider.unwrap_or_default()))
+/// With a `progressId`, each tool the agent calls is sent as an `agent-progress` event.
+pub async fn generate_tour<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    db_path: String,
+    provider: Option<agent::Provider>,
+    progress_id: Option<String>,
+) -> Result<(), BridgeError> {
+    let on_tool_call = agent::emit_progress(&app, progress_id);
+    tauri::async_runtime::spawn_blocking(move || generate(&db_path, provider.unwrap_or_default(), on_tool_call))
         .await
         .map_err(|e| BridgeError::Internal {
             message: format!("Tour worker failed: {e}"),
@@ -124,7 +131,7 @@ mod tests {
         };
         let db = db.into_string().unwrap();
         let before = mcp::call("list_tours", json!({})).unwrap().as_array().unwrap().len();
-        generate(&db, agent::Provider::Claude).unwrap();
+        generate(&db, agent::Provider::Claude, None).unwrap();
         let tours = mcp::call("list_tours", json!({})).unwrap();
         assert_eq!(tours.as_array().unwrap().len(), before + 1);
     }

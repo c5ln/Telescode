@@ -96,8 +96,8 @@ export function withExample(libraries: Libraries, data: ExampleData, snapshot: A
       goalId = input.goal.goalId
       return libraries.learning.start(input)
     },
-    async prepare(input) {
-      return libraries.learning.prepare(goalId === (await suggested) ? { ...input, curriculum: data.curriculum } : input)
+    async prepare(input, onToolCall) {
+      return libraries.learning.prepare(goalId === (await suggested) ? { ...input, curriculum: data.curriculum } : input, onToolCall)
     },
   }
 

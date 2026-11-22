@@ -1,10 +1,11 @@
-import type { AgentProvider } from '../agent'
+import { agents, type AgentProvider } from '../agent'
 import type { Learning } from '../app/useLearning'
 import { Button } from '../ui/Button'
 import { IconButton } from '../ui/IconButton'
 import { CloseIcon } from '../ui/icons'
 import { Spinner } from '../ui/Spinner'
 import { AgentError } from './AgentError'
+import { AgentProgress } from './AgentProgress'
 import panel from './TutorialPanel.module.css'
 import quiz from './QuizCard.module.css'
 
@@ -20,7 +21,9 @@ export function LearningPanel({ learning, provider = 'claude', onSwitchAgent }: 
     <header className={panel.header}><p className={panel.eyebrow}>Adaptive learning</p>{close}</header>
     {state.error
       ? <AgentError what="learning path" message={state.error} provider={provider} onRetry={learning.retry} onSwitchAgent={onSwitchAgent} />
-      : <p className={panel.waiting}><Spinner /> Preparing a learning path…</p>}
+      : state.activity
+        ? <AgentProgress work="learning path" agent={agents[provider].name} activity={state.activity} />
+        : <p className={panel.waiting}><Spinner /> Preparing a learning path…</p>}
     {state.pending && <div className={panel.actions}><Button onClick={() => learning.advance('stop')}>End session</Button></div>}
   </section>
   const { session, concepts, knowledge } = state.view

@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState, type RefObject } from 'react'
+import { addCall, startActivity, type AgentActivity } from '../agent'
 import type { AnalysisSnapshot } from '../bridge'
 import type { GraphHandle, MapView } from '../graph/GraphCanvas'
 import type { GoalSeed, LearningLibrary } from '../learning/api'
@@ -6,7 +7,7 @@ import type { LearningAnswer, LearningResult, LearningView } from '../learning/c
 import { snapshotHash } from '../tour/tutorial'
 import { defaultGoal, requirementsGoal } from '../learning/goal'
 
-type State = { status: 'off' } | { status: 'loading'; error?: string; pending?: LearningView } | { status: 'ready'; view: LearningView;
+type State = { status: 'off' } | { status: 'loading'; error?: string; pending?: LearningView; activity?: AgentActivity } | { status: 'ready'; view: LearningView;
   question: LearningView['question']; selected: number | null; result: LearningResult | null; busy: boolean; error: string | null }
 const message = (e: unknown) => e instanceof Error ? e.message : String(e)
 
@@ -55,8 +56,14 @@ export function useLearning(library: LearningLibrary, snapshot: AnalysisSnapshot
       if (!current(id)) return
       try { localStorage.setItem(key, view.session.id) } catch { /* State is also persisted by the server. */ }
       if (view.session.status === 'preparing') {
-        setState({ status: 'loading', pending: view })
-        view = await library.prepare({ sessionId: view.session.id, revision: view.session.revision })
+        const pending = view
+        let activity = startActivity()
+        setState({ status: 'loading', pending, activity })
+        view = await library.prepare({ sessionId: view.session.id, revision: view.session.revision }, (call) => {
+          if (!current(id)) return
+          activity = addCall(activity, call)
+          setState({ status: 'loading', pending, activity })
+        })
       }
       if (current(id)) show(view)
     } catch (e) { if (current(id)) { busy.current = false; setState({ status: 'loading', error: message(e) }) } }

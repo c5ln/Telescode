@@ -12,7 +12,8 @@
 //   &tour=<url> | none
 //     The saved tours tutorial mode finds: a tour plan, or an MCP tour spec
 //     such as mcp/tours/sherlock-onboarding.json, fetched from the dev server.
-//     `none` has no tours, to show how a tutorial is made.
+//     `none` has no tours, to show how a tutorial is made; `writing` shows an
+//     agent part way through writing one.
 
 import { TelescodeError, type AnalysisSnapshot, type GraphResponse } from '../bridge'
 import { inspectNode, type StopInput, type TourPlan } from '../tour/model'
@@ -33,6 +34,7 @@ function asSnapshot(graph: GraphResponse): AnalysisSnapshot {
 /** Tours from `?tour=`, with titles and evidence filled in from the snapshot as the MCP server would. */
 function previewTours(tourUrl: string | null, initialState: WorkspaceState): TourLibrary | undefined {
   if (!tourUrl) return undefined
+  if (tourUrl === 'writing') return writingTour()
   return {
     async list() {
       if (tourUrl === 'none' || initialState.status !== 'ready') return []
@@ -47,6 +49,23 @@ function previewTours(tourUrl: string | null, initialState: WorkspaceState): Tou
       const plan: TourPlan = { schemaVersion: 1, id: tourUrl, revision: 1, title: spec.title ?? 'Tour', language: spec.language ?? 'en', snapshotHash: '', stops }
       return [{ plan, snapshotHash: '', state: 'draft', updatedMs: 0 }]
     },
+  }
+}
+
+/** A tour that is never finished: the agent's tool calls play out to show its progress. */
+function writingTour(): TourLibrary {
+  const calls = [
+    ['open_project', null], ['get_project_overview', null], ['get_reading_tour_order', null],
+    ['inspect_node', 'file:sherlock_project/sherlock.py'], ['inspect_node', 'file:sherlock_project/notify.py'],
+    ['inspect_node', 'class:sherlock_project/result.py::QueryResult'],
+  ] as const
+  return {
+    list: async () => [],
+    agentStatus: async () => ({ installed: true, signedIn: true }),
+    generate: (_dbPath, onToolCall) =>
+      new Promise(() => {
+        calls.forEach(([tool, nodeId], i) => setTimeout(() => onToolCall?.({ tool, nodeId }), 400 + i * 500))
+      }),
   }
 }
 

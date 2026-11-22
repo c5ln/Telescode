@@ -16,6 +16,7 @@ import { IconButton } from '../ui/IconButton'
 import { Tooltip } from '../ui/Tooltip'
 import { Spinner } from '../ui/Spinner'
 import { AgentError } from './AgentError'
+import { AgentProgress } from './AgentProgress'
 import { QuizCard } from './QuizCard'
 import { TourStartPanel } from './TourStartPanel'
 import styles from './TutorialPanel.module.css'
@@ -117,6 +118,8 @@ export function TutorialPanel({ tutorial, quiz, repositoryName, provider = 'clau
             ) : error ? (
               <AgentError what="tour" signingIn={state.phase === 'signing-in'} message={error} provider={provider}
                 onRetry={tutorial.start} onSwitchAgent={onSwitchAgent} />
+            ) : state.phase === 'generating' && state.activity ? (
+              <AgentProgress work="tour" agent={name} activity={state.activity} />
             ) : (
               <p className={styles.waiting} role="status">
                 <Spinner />

@@ -7,7 +7,7 @@
 // repository.
 
 import { invoke, isTauri } from '@tauri-apps/api/core'
-import { agentStatus, signIn, type AgentProvider, type AgentStatus } from '../agent'
+import { agentStatus, followRun, newRuns, signIn, type AgentProvider, type AgentStatus, type OnToolCall } from '../agent'
 export type { AgentStatus } from '../agent'
 
 import type { AnalysisSnapshot } from '../bridge'
@@ -29,7 +29,7 @@ export interface TourLibrary {
   /** Live desktop onboarding regenerates tours made before model integration. */
   requireRankedOrder?: boolean
   /** Have a tour written for the repository analyzed in `dbPath`; resolves once it is saved. */
-  generate?(dbPath: string): Promise<void>
+  generate?(dbPath: string, onToolCall?: OnToolCall): Promise<void>
   /** Whether the agent is installed and signed in. Asked only when a tour must be written. */
   agentStatus?(): Promise<AgentStatus>
   /** Start the agent's sign-in in the browser; resolves once signed in. */
@@ -48,7 +48,7 @@ async function invokeTours<T>(command: string, args?: Record<string, unknown>): 
 }
 
 /** Generations under way, by provider and database: asking again joins the one already running. */
-const generating = new Map<string, Promise<void>>()
+const generating = newRuns()
 
 /**
  * Tours kept by the Telescode MCP server, through the desktop shell: it lists
@@ -61,14 +61,9 @@ export function createTourLibrary(provider: AgentProvider): TourLibrary {
     list: () => invokeTours<SavedTour[]>('list_tours'),
     agentStatus: () => agentStatus(provider),
     signIn: () => signIn(provider),
-    generate(dbPath) {
-      const key = `${provider}\n${dbPath}`
-      let run = generating.get(key)
-      if (!run) {
-        run = invokeTours<void>('generate_tour', { dbPath, provider }).finally(() => generating.delete(key))
-        generating.set(key, run)
-      }
-      return run
+    generate(dbPath, onToolCall) {
+      return followRun(generating, `${provider}\n${dbPath}`,
+        (progressId) => invokeTours<void>('generate_tour', { dbPath, provider, progressId }), onToolCall)
     },
   }
 }

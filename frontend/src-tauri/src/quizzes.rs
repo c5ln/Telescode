@@ -62,9 +62,9 @@ fn claude_args(db: &Path, target: &QuizTarget, server: &mcp::ServerCommand) -> V
     agent::generation_args(agent::Provider::Claude, &generation_prompt(db, target), server, AGENT_TOOLS)
 }
 
-fn generate(target: &QuizTarget, provider: agent::Provider) -> Result<(), BridgeError> {
+fn generate(target: &QuizTarget, provider: agent::Provider, on_tool_call: Option<agent::OnToolCall>) -> Result<(), BridgeError> {
     let db = validate_db_path(&target.db_path)?;
-    agent::generate(provider, &generation_prompt(&db, target), AGENT_TOOLS, GENERATION_TIMEOUT)
+    agent::generate(provider, &generation_prompt(&db, target), AGENT_TOOLS, GENERATION_TIMEOUT, on_tool_call)
 }
 
 async fn blocking<T: Send + 'static>(f: impl FnOnce() -> Result<T, BridgeError> + Send + 'static) -> Result<T, BridgeError> {
@@ -83,8 +83,15 @@ pub async fn list_quizzes() -> Result<Value, BridgeError> {
 /// IPC entry point: `invoke("generate_quiz", { target })`. Resolves once
 /// The agent has finished; the new quiz is then in `list_quizzes`.
 #[tauri::command]
-pub async fn generate_quiz(target: QuizTarget, provider: Option<agent::Provider>) -> Result<(), BridgeError> {
-    blocking(move || generate(&target, provider.unwrap_or_default())).await
+/// With a `progressId`, each tool the agent calls is sent as an `agent-progress` event.
+pub async fn generate_quiz<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    target: QuizTarget,
+    provider: Option<agent::Provider>,
+    progress_id: Option<String>,
+) -> Result<(), BridgeError> {
+    let on_tool_call = agent::emit_progress(&app, progress_id);
+    blocking(move || generate(&target, provider.unwrap_or_default(), on_tool_call)).await
 }
 
 /// IPC entry point: `invoke("record_quiz_response", { ... })`. The server

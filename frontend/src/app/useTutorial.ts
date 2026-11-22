@@ -3,6 +3,7 @@
 // wait for it. The map itself is only steered through the graph handle, so leaving the
 // tutorial puts back the view the user had.
 
+import { addCall, startActivity, type AgentActivity } from '../agent'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 
 import type { AnalysisSnapshot } from '../bridge'
@@ -20,7 +21,7 @@ export type TutorialState =
    * (`signing-in`), then writes it (`generating`). `ready` once it is saved,
    * `error` if a step failed.
    */
-  | { status: 'setup'; phase: SetupPhase; ready: SavedTour | null; error: string | null }
+  | { status: 'setup'; phase: SetupPhase; ready: SavedTour | null; error: string | null; activity?: AgentActivity }
   /** `finished` once playback has run through the last step. */
   | { status: 'playing'; tour: SavedTour; index: number; playing: boolean; finished: boolean }
 
@@ -117,7 +118,13 @@ export function useTutorial(
         if (!current()) return
       }
       setup('generating')
-      await library.generate(dbPath)
+      let activity = startActivity()
+      setState({ status: 'setup', phase, ready: null, error: null, activity })
+      await library.generate(dbPath, (call) => {
+        if (!current()) return
+        activity = addCall(activity, call)
+        setState({ status: 'setup', phase: 'generating', ready: null, error: null, activity })
+      })
       // Once generation is done the tour is saved; offer it (polling may already have).
       const saved = await find()
       if (!current()) return

@@ -63,13 +63,13 @@ function native(options: {
         await options.login
         return
       case 'generate_tour':
-        expect(args).toEqual({ dbPath, provider: 'codex' })
+        expect(args).toEqual({ dbPath, provider: 'codex', progressId: expect.any(String) })
         if (options.failure) throw { code: 'tour_generation_failed', message: options.failure }
         await options.generation
         hasTour = true
         return
       case 'generate_quiz':
-        expect(args).toEqual({ provider: 'codex', target: { dbPath, tourId: savedTour.plan.id, tourRevision: 1, stopIndex: 0, nodeId } })
+        expect(args).toEqual({ provider: 'codex', progressId: expect.any(String), target: { dbPath, tourId: savedTour.plan.id, tourRevision: 1, stopIndex: 0, nodeId } })
         hasQuiz = true
         return
       case 'record_quiz_response':
@@ -144,7 +144,7 @@ describe('Codex in the app', () => {
     expect(agentSelector().disabled).toBe(true)
     expect(invoke.mock.calls.some(([command]) => command === 'generate_tour')).toBe(false)
     await act(async () => login.resolve())
-    await vi.waitFor(() => expect(invoke).toHaveBeenCalledWith('generate_tour', { dbPath, provider: 'codex' }))
+    await vi.waitFor(() => expect(invoke).toHaveBeenCalledWith('generate_tour', { dbPath, provider: 'codex', progressId: expect.any(String) }))
     expect(agentSelector().disabled).toBe(true)
     await act(async () => generation.resolve())
     await within(panel).findByText('Tour ready')
@@ -161,7 +161,7 @@ describe('Codex in the app', () => {
     await userEvent.click(await within(tutorial).findByRole('button', { name: 'Quiz' }))
     const quiz = await screen.findByRole('region', { name: 'Quiz' })
     await within(quiz).findByText(savedQuiz.questions[0]!.question)
-    expect(invoke).toHaveBeenCalledWith('generate_quiz', { provider: 'codex', target: {
+    expect(invoke).toHaveBeenCalledWith('generate_quiz', { provider: 'codex', progressId: expect.any(String), target: {
       dbPath, tourId: savedTour.plan.id, tourRevision: 1, stopIndex: 0, nodeId,
     } })
     expect(invoke.mock.calls.some(([command]) => command === 'generate_tour' || command === 'agent_sign_in' || command.startsWith('claude_'))).toBe(false)

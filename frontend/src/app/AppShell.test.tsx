@@ -460,8 +460,9 @@ describe('AppShell', () => {
       await userEvent.click(within(start).getByRole('button', { name: 'Start tour' }))
       const panel = await screen.findByRole('region', { name: 'Code tour' })
       await within(panel).findByText('Writing a tour for project')
-      expect(within(panel).getByRole('status').textContent).toBe('Writing… It appears here as soon as it is ready.')
-      expect(tours.generate).toHaveBeenCalledWith('C:/x/project.db')
+      // Until the agent calls its first tool, it is starting up.
+      expect(within(panel).getByRole('status').textContent).toBe('Start Claude Code…')
+      expect(tours.generate).toHaveBeenCalledWith('C:/x/project.db', expect.any(Function))
 
       await act(async () => finish())
       await within(panel).findByText('Tour ready')
@@ -498,7 +499,7 @@ describe('AppShell', () => {
 
       await act(async () => signedIn())
       await within(panel).findByText('Writing a tour for project')
-      expect(generate).toHaveBeenCalledWith('C:/x/project.db')
+      expect(generate).toHaveBeenCalledWith('C:/x/project.db', expect.any(Function))
     })
 
     it('does not sign in when already signed in', async () => {
@@ -711,7 +712,7 @@ describe('AppShell', () => {
       render(<AppShell api={deferredApi().api} initialState={ready} tours={library([sherlockTour(60_000)])} quizzes={{ ...quizLibrary, generate }} />)
       const panel = await openQuiz()
       await within(panel).findByText('Writing a quiz on this step')
-      expect(generate).toHaveBeenCalledWith({ tourId: 't1', tourRevision: 1, stopIndex: 0, nodeId: 'root', dbPath: 'C:/x/project.db' })
+      expect(generate).toHaveBeenCalledWith({ tourId: 't1', tourRevision: 1, stopIndex: 0, nodeId: 'root', dbPath: 'C:/x/project.db' }, expect.any(Function))
       await act(async () => finish())
       expect(await within(panel).findByText('Which directory holds the tests?')).toBeTruthy()
     })

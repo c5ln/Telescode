@@ -60,10 +60,10 @@ export function AppShell({
     const quiz = createQuizLibrary(provider)
     const learning = createLearningLibrary(provider)
     return {
-      tour: { ...tour, signIn: () => track(tour.signIn!), generate: (dbPath: string) => track(() => tour.generate!(dbPath)) },
-      quiz: { ...quiz, signIn: () => track(quiz.signIn!), generate: (target: Parameters<NonNullable<QuizLibrary['generate']>>[0]) => track(() => quiz.generate!(target)) },
+      tour: { ...tour, signIn: () => track(tour.signIn!), generate: (...args: Parameters<NonNullable<TourLibrary['generate']>>) => track(() => tour.generate!(...args)) },
+      quiz: { ...quiz, signIn: () => track(quiz.signIn!), generate: (...args: Parameters<NonNullable<QuizLibrary['generate']>>) => track(() => quiz.generate!(...args)) },
       learning: { ...learning, start: (input: Parameters<LearningLibrary['start']>[0]) => track(() => learning.start(input)),
-        prepare: (input: Parameters<LearningLibrary['prepare']>[0]) => track(() => learning.prepare(input)) },
+        prepare: (...args: Parameters<LearningLibrary['prepare']>) => track(() => learning.prepare(...args)) },
     }
   }, [provider])
   const workspace = useWorkspace(api, initialState, repositories)

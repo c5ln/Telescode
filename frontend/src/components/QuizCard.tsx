@@ -5,6 +5,7 @@
 import type { KeyboardEvent } from 'react'
 
 import { AgentError } from './AgentError'
+import { AgentProgress } from './AgentProgress'
 import { agents, type AgentProvider } from '../agent'
 import { questionsOf, type Quiz } from '../app/useQuiz'
 import type { SetupPhase } from '../app/useTutorial'
@@ -75,6 +76,8 @@ export function QuizCard({ quiz, stepTitle, provider = 'claude', onSwitchAgent }
         ) : state.error ? (
           <AgentError what="quiz" signingIn={state.phase === 'signing-in'} message={state.error} provider={provider}
             onRetry={quiz.retry} onSwitchAgent={onSwitchAgent} />
+        ) : state.phase === 'generating' && state.activity ? (
+          <AgentProgress work="quiz" agent={name} activity={state.activity} />
         ) : (
           <p className={panel.waiting} role="status">
             <Spinner />

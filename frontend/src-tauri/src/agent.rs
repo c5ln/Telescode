@@ -3,6 +3,7 @@ use crate::{bridge::BridgeError, claude, codex, mcp};
 use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
 use std::io::Read;
+use std::sync::Arc;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
@@ -22,11 +23,38 @@ pub struct Status {
     pub signed_in: bool,
 }
 
+/// One Telescode tool the agent called, read from its event stream: what the
+/// app shows as the agent's progress. Nothing is asked of the agent for it.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolCall {
+    /// The tool's name without the `mcp__telescode__` prefix, e.g. `inspect_node`.
+    pub tool: String,
+    /// The node it was about, when it names one.
+    pub node_id: Option<String>,
+}
+
+/// Where tool calls go as they happen.
+pub type OnToolCall = Arc<dyn Fn(ToolCall) + Send + Sync>;
+
+/// Sends each tool call to the app as an `agent-progress` event tagged with
+/// `progress_id`, which the caller chose so it can tell its own run apart.
+/// Without an ID nothing is followed and the agent runs as before.
+pub fn emit_progress<R: tauri::Runtime>(app: &tauri::AppHandle<R>, progress_id: Option<String>) -> Option<OnToolCall> {
+    use tauri::Emitter;
+    let id = progress_id?;
+    let app = app.clone();
+    Some(Arc::new(move |call: ToolCall| {
+        let _ = app.emit("agent-progress", serde_json::json!({ "progressId": id, "tool": call.tool, "nodeId": call.node_id }));
+    }))
+}
+
 pub fn generate(
     provider: Provider,
     prompt: &str,
     tools: &[&str],
     timeout: Duration,
+    on_tool_call: Option<OnToolCall>,
 ) -> Result<(), BridgeError> {
     let server = mcp::server_command()?;
     let (path, name) = match provider {
@@ -37,8 +65,67 @@ pub fn generate(
         Provider::Codex => (codex::find().ok_or_else(codex::not_installed)?, "Codex"),
     };
     let mut cmd = command(&path);
-    cmd.args(generation_args(provider, prompt, &server, tools));
-    run(cmd, timeout, name)
+    let mut args = generation_args(provider, prompt, &server, tools);
+    if on_tool_call.is_some() {
+        // Print each event as a JSON line, so tool calls can be followed as they happen.
+        match provider {
+            Provider::Claude => args.extend(["--output-format".into(), "stream-json".into(), "--verbose".into()]),
+            Provider::Codex => args.insert(1, "--json".into()),
+        }
+    }
+    cmd.args(args);
+    let on_line = on_tool_call.map(|report| -> OnLine {
+        Arc::new(move |line: &str| {
+            for call in tool_calls(line) {
+                report(call)
+            }
+        })
+    });
+    run_streaming(cmd, timeout, name, on_line)
+}
+
+/// The Telescode tool calls in one line of an agent's JSON event stream:
+/// Claude Code's `tool_use` blocks (`mcp__telescode__<tool>`) and Codex's
+/// `mcp_tool_call` items (`server: "telescode"`). Other lines yield nothing.
+pub fn tool_calls(line: &str) -> Vec<ToolCall> {
+    fn visit(value: &serde_json::Value, out: &mut Vec<ToolCall>) {
+        match value {
+            serde_json::Value::Object(map) => {
+                let claude = map.get("name").and_then(|n| n.as_str()).and_then(|n| n.strip_prefix("mcp__telescode__"));
+                let codex = map
+                    .get("tool")
+                    .and_then(|t| t.as_str())
+                    .filter(|_| map.get("server").and_then(|s| s.as_str()) == Some("telescode"));
+                if let Some(tool) = claude.or(codex) {
+                    let input = map.get("input").or_else(|| map.get("arguments"));
+                    // Codex may send the arguments as a JSON string.
+                    let parsed = input.and_then(|i| i.as_str()).and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok());
+                    let node_id = parsed
+                        .as_ref()
+                        .or(input)
+                        .and_then(|i| i.get("nodeId"))
+                        .and_then(|n| n.as_str())
+                        .map(str::to_owned);
+                    let call = ToolCall { tool: tool.to_owned(), node_id };
+                    // Codex reports a call when it starts and again when it ends.
+                    if out.last() != Some(&call) {
+                        out.push(call);
+                    }
+                    return;
+                }
+                for v in map.values() {
+                    visit(v, out)
+                }
+            }
+            serde_json::Value::Array(items) => items.iter().for_each(|v| visit(v, out)),
+            _ => {}
+        }
+    }
+    let mut out = Vec::new();
+    if let Ok(value) = serde_json::from_str::<serde_json::Value>(line.trim()) {
+        visit(&value, &mut out)
+    }
+    out
 }
 
 pub fn generation_args(
@@ -125,8 +212,16 @@ pub fn command(executable: &Path) -> Command {
     cmd
 }
 
+/// Called with each line the process prints on stdout.
+pub type OnLine = Arc<dyn Fn(&str) + Send + Sync>;
+
 /// Runs `cmd` to completion, stopping it after `timeout`.
-pub fn run(mut cmd: Command, timeout: Duration, what: &str) -> Result<(), BridgeError> {
+pub fn run(cmd: Command, timeout: Duration, what: &str) -> Result<(), BridgeError> {
+    run_streaming(cmd, timeout, what, None)
+}
+
+/// `run`, handing each stdout line to `on_line` as it is printed.
+pub fn run_streaming(mut cmd: Command, timeout: Duration, what: &str, on_line: Option<OnLine>) -> Result<(), BridgeError> {
     let mut child = cmd
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -136,8 +231,8 @@ pub fn run(mut cmd: Command, timeout: Duration, what: &str) -> Result<(), Bridge
         })?;
     // CLI errors may appear on stdout. Drain both pipes while it runs so
     // verbose output cannot fill a pipe and prevent the process from exiting.
-    let stdout = capture_tail(child.stdout.take().expect("piped stdout"));
-    let stderr = capture_tail(child.stderr.take().expect("piped stderr"));
+    let stdout = capture_tail(child.stdout.take().expect("piped stdout"), on_line);
+    let stderr = capture_tail(child.stderr.take().expect("piped stderr"), None);
     let started = Instant::now();
     let status = loop {
         if let Some(status) = child.try_wait().map_err(|e| BridgeError::Internal {
@@ -174,15 +269,27 @@ pub fn run(mut cmd: Command, timeout: Duration, what: &str) -> Result<(), Bridge
 }
 
 /// Keep bounded error context while draining arbitrarily long process output.
-fn capture_tail(mut reader: impl Read + Send + 'static) -> std::thread::JoinHandle<String> {
+/// With `on_line`, also hands over each complete line as it arrives.
+fn capture_tail(mut reader: impl Read + Send + 'static, on_line: Option<OnLine>) -> std::thread::JoinHandle<String> {
     std::thread::spawn(move || {
         const LIMIT: usize = 8192;
         let mut tail = Vec::new();
         let mut buffer = [0u8; LIMIT];
+        let mut line = Vec::new();
         loop {
             match reader.read(&mut buffer) {
                 Ok(0) => break,
                 Ok(n) => {
+                    if let Some(on_line) = &on_line {
+                        for &byte in &buffer[..n] {
+                            if byte == b'\n' {
+                                on_line(&String::from_utf8_lossy(&line));
+                                line.clear();
+                            } else {
+                                line.push(byte);
+                            }
+                        }
+                    }
                     tail.extend_from_slice(&buffer[..n]);
                     if tail.len() > LIMIT {
                         tail.drain(..tail.len() - LIMIT);
@@ -199,6 +306,35 @@ fn capture_tail(mut reader: impl Read + Send + 'static) -> std::thread::JoinHand
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn tool_calls_are_read_from_claude_code_events() {
+        let line = r#"{"type":"assistant","message":{"content":[{"type":"text","text":"Reading."},{"type":"tool_use","id":"t1","name":"mcp__telescode__inspect_node","input":{"projectId":"p","nodeId":"file:src/requests/sessions.py"}}]}}"#;
+        assert_eq!(tool_calls(line), vec![ToolCall { tool: "inspect_node".into(), node_id: Some("file:src/requests/sessions.py".into()) }]);
+        // Results, text and other servers are not tool calls.
+        assert!(tool_calls(r#"{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"..."}]}}"#).is_empty());
+        assert!(tool_calls(r#"{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{}}]}}"#).is_empty());
+        assert!(tool_calls("not json").is_empty());
+    }
+
+    #[test]
+    fn tool_calls_are_read_from_codex_events() {
+        let started = r#"{"type":"item.started","item":{"type":"mcp_tool_call","server":"telescode","tool":"get_reading_tour_order","arguments":"{\"projectId\":\"p\"}"}}"#;
+        assert_eq!(tool_calls(started), vec![ToolCall { tool: "get_reading_tour_order".into(), node_id: None }]);
+        let with_node = r#"{"type":"item.completed","item":{"type":"mcp_tool_call","server":"telescode","tool":"inspect_node","arguments":{"nodeId":"class:a.py::A"}}}"#;
+        assert_eq!(tool_calls(with_node)[0].node_id.as_deref(), Some("class:a.py::A"));
+        assert!(tool_calls(r#"{"item":{"type":"mcp_tool_call","server":"other","tool":"inspect_node"}}"#).is_empty());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn stdout_lines_are_handed_over_as_they_are_printed() {
+        let lines = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let seen = lines.clone();
+        let on_line: OnLine = Arc::new(move |line: &str| seen.lock().unwrap().push(line.to_owned()));
+        run_streaming(shell("printf 'one\\ntwo\\n'"), Duration::from_secs(3), "test", Some(on_line)).unwrap();
+        assert_eq!(*lines.lock().unwrap(), vec!["one", "two"]);
+    }
     #[cfg(unix)]
     fn shell(script: &str) -> Command {
         let mut cmd = Command::new("/bin/sh");
