@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Provider {
     #[default]
@@ -94,8 +94,46 @@ pub fn agent_cancel(progress_id: String) {
     cancel(&progress_id)
 }
 
+/// Which model writes: the agent's own default, or a lighter, faster one for
+/// bounded, server-validated writing: a step's two quiz questions and the
+/// learning path's material.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Model {
+    Default,
+    Light,
+}
+
+/// Claude Code's light model, by its alias so it follows Claude Code's updates.
+const CLAUDE_LIGHT_MODEL: &str = "sonnet";
+/// Codex's light model and the reasoning effort it runs at.
+const CODEX_LIGHT_MODEL: &str = "gpt-6-luna";
+const CODEX_LIGHT_EFFORT: &str = "medium";
+
+/// The arguments that pick `model` for `provider`; none for the default.
+pub fn model_args(provider: Provider, model: Model) -> Vec<OsString> {
+    match (provider, model) {
+        (_, Model::Default) => Vec::new(),
+        (Provider::Claude, Model::Light) => vec!["--model".into(), CLAUDE_LIGHT_MODEL.into()],
+        (Provider::Codex, Model::Light) => vec![
+            "-m".into(),
+            CODEX_LIGHT_MODEL.into(),
+            "-c".into(),
+            format!("model_reasoning_effort=\"{CODEX_LIGHT_EFFORT}\"").into(),
+        ],
+    }
+}
+
+/// `args` with the arguments for `model`, before Codex's trailing prompt
+/// (Claude Code takes options anywhere).
+fn with_model(provider: Provider, mut args: Vec<OsString>, model: Model) -> Vec<OsString> {
+    let at = args.len().saturating_sub(usize::from(provider == Provider::Codex));
+    args.splice(at..at, model_args(provider, model));
+    args
+}
+
 pub fn generate(
     provider: Provider,
+    model: Model,
     prompt: &str,
     tools: &[&str],
     timeout: Duration,
@@ -110,7 +148,7 @@ pub fn generate(
         Provider::Codex => (codex::find().ok_or_else(codex::not_installed)?, "Codex"),
     };
     let mut cmd = command(&path);
-    let mut args = generation_args(provider, prompt, &server, tools);
+    let mut args = with_model(provider, generation_args(provider, prompt, &server, tools), model);
     if followed.is_some() {
         // Print each event as a JSON line, so tool calls can be followed as they happen.
         match provider {
@@ -477,6 +515,19 @@ mod tests {
         };
         assert!(message.contains("did not finish in time"), "{message}");
         assert!(started.elapsed() < Duration::from_secs(2));
+    }
+
+    #[test]
+    fn the_model_goes_before_codex_prompt() {
+        let server = mcp::ServerCommand { program: "node".into(), args: vec!["/t/server.ts".into()], env: vec![] };
+        let codex = with_model(Provider::Codex, generation_args(Provider::Codex, "Write a quiz.", &server, &["create_quiz"]), Model::Light);
+        assert_eq!(codex.last().unwrap(), "Write a quiz.");
+        let m = codex.iter().position(|a| a == "-m").unwrap();
+        assert_eq!(codex[m + 1], "gpt-6-luna");
+        let claude = with_model(Provider::Claude, generation_args(Provider::Claude, "Write a quiz.", &server, &["create_quiz"]), Model::Light);
+        assert_eq!(&claude[..2], ["-p", "Write a quiz."]);
+        assert!(claude.windows(2).any(|w| w[0] == "--model" && w[1] == "sonnet"));
+        assert_eq!(with_model(Provider::Codex, generation_args(Provider::Codex, "x", &server, &[]), Model::Default), generation_args(Provider::Codex, "x", &server, &[]));
     }
 
     #[cfg(unix)]

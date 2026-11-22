@@ -38,6 +38,8 @@ const MINUTE = 60_000
 
 const TOUR_TOOLS = ['open_project', 'get_project_overview', 'search_nodes', 'get_reading_tour_order', 'inspect_node', 'create_tour_draft', 'revise_tour_draft', 'get_tour_status']
 const QUIZ_TOOLS = ['open_project', 'inspect_node', 'get_quiz_context', 'create_quiz']
+// The model the app writes quizzes and learning paths with (agent.rs Model::Light).
+const LIGHT_MODEL = ['--model', 'sonnet']
 const LEARNING_TOOLS = ['get_learning_preparation_context', 'save_learning_curriculum']
 
 function run(command: string, args: string[], options: { env?: NodeJS.ProcessEnv; cwd?: string; timeout?: number } = {}) {
@@ -118,9 +120,9 @@ async function writeQuizzes(db: string, artifacts: string, plan: { id: string; r
     for (let next = queue.shift(); next; next = queue.shift()) {
       const { stop, i } = next
       const prompt = `Create Telescode comprehension quiz questions for stop ${i} (node ${stop.nodeId}) of tour ${plan.id} revision ${plan.revision}, for the repository analyzed in the database ${db}.
-Use the telescode MCP tools: open_project with exactly that path, then get_quiz_context for the node at each difficulty (easy, medium, hard), and save with create_quiz. Write two interview-style questions per difficulty where the source supports them: easy at a newbie level, medium at a junior level, hard at a senior level, about what the code does and why, never counts or metrics. Follow the server's quiz instructions on question style and grounding, and write the questions in English.
+Use the telescode MCP tools: open_project with exactly that path, then get_quiz_context for the node at the easy and the medium difficulty only, and save with create_quiz. Write exactly two interview-style questions: one easy at a newbie level and one medium at a junior level, about what the code does and why, never counts or metrics. Do not write hard questions. Follow the server's quiz instructions on question style and grounding, and write the questions in English.
 Only save the quiz. Reply with the quiz set ID.`
-      await agent(prompt, artifacts, QUIZ_TOOLS).catch((e) => console.warn(`[${plan.id}] quiz ${i}: ${e.message}`))
+      await agent(prompt, artifacts, QUIZ_TOOLS, LIGHT_MODEL).catch((e) => console.warn(`[${plan.id}] quiz ${i}: ${e.message}`))
     }
   }))
   const left = await missing()
@@ -143,7 +145,7 @@ async function writeCurriculum(db: string, artifacts: string, requirements: stri
     const view = await call('start_learning_session', { path: db, goal: await requirementsGoal(requirements) })
     const job = await call('request_learning_preparation', { sessionId: view.session.id, revision: view.session.revision, provider: 'claude', ownerPid: process.pid })
     const prompt = `Prepare Telescode adaptive learning job ${job.id}. Call get_learning_preparation_context with exactly this job ID, inspect its grounded code excerpts and immutable goal, then save_learning_curriculum with the same job ID. Follow the server's adaptive learning instructions. Prepare at least two independent scenario questions per target when supported. Use the requested target levels and existing concept definitions exactly. Save only material; never answer or advance a learner session. Reply with the job ID.`
-    const stream = await agent(prompt, artifacts, LEARNING_TOOLS, ['--output-format', 'stream-json', '--verbose'])
+    const stream = await agent(prompt, artifacts, LEARNING_TOOLS, [...LIGHT_MODEL, '--output-format', 'stream-json', '--verbose'])
     await call('finish_learning_preparation', { jobId: job.id })
     // The last save the server accepted wins; earlier ones may have been rejected and retried.
     const saves = new Map<string, unknown>()

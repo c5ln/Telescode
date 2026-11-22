@@ -76,7 +76,7 @@ pub async fn prepare_learning_session<R: tauri::Runtime>(
             saved?;
         } else if job["shouldRun"] == true {
             let prompt = format!("Prepare Telescode adaptive learning job {job_id}. Call get_learning_preparation_context with exactly this job ID, inspect its grounded code excerpts and immutable goal, then save_learning_curriculum with the same job ID. Follow the server's adaptive learning instructions. Prepare at least two independent scenario questions per target when supported. Use the requested target levels and existing concept definitions exactly. Save only material; never answer or advance a learner session. Reply with the job ID.");
-            let result = agent::generate(provider, &prompt, PREPARATION_TOOLS, Duration::from_secs(10 * 60), followed);
+            let result = agent::generate(provider, agent::Model::Light, &prompt, PREPARATION_TOOLS, Duration::from_secs(10 * 60), followed);
             let error = result.as_ref().err().map(|e| bounded_error(&format!("{e:?}")));
             let completion = match error {
                 Some(error) => json!({"jobId":job_id,"error":error}),

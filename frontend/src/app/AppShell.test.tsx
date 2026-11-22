@@ -664,10 +664,9 @@ describe('AppShell', () => {
       const panel = await openQuiz()
       await within(panel).findByText('Which directory holds the tests?')
       expect(within(panel).getByText('Quiz · root')).toBeTruthy()
-      expect(within(panel).getByText('Question 1 of 2 · Repository layout')).toBeTruthy()
-      const difficulty = (name: string) => within(within(panel).getByRole('group', { name: 'Difficulty' })).getByRole('button', { name })
-      expect(difficulty('Easy').getAttribute('aria-pressed')).toBe('true')
-      expect((difficulty('Hard') as HTMLButtonElement).disabled).toBe(true)
+      // Every question of the step, easiest first; no difficulty to pick.
+      expect(within(panel).getByText('Question 1 of 3 · Repository layout')).toBeTruthy()
+      expect(within(panel).queryByRole('group', { name: 'Difficulty' })).toBeNull()
 
       const check = within(panel).getByRole('button', { name: 'Check answer' }) as HTMLButtonElement
       expect(check.disabled).toBe(true)
@@ -692,9 +691,12 @@ describe('AppShell', () => {
 
       await userEvent.click(within(panel).getByRole('button', { name: 'Next question' }))
       expect(within(panel).getByText('devel holds the package.')).toBeTruthy()
-      await userEvent.click(difficulty('Medium'))
+      await userEvent.click(within(panel).getByRole('radio', { name: 'False' }))
+      await userEvent.click(within(panel).getByRole('button', { name: 'Check answer' }))
+      await within(panel).findByText('Correct.')
+      await userEvent.click(within(panel).getByRole('button', { name: 'Next question' }))
       expect(within(panel).getByText('What does sherlock_project contain?')).toBeTruthy()
-      expect(within(panel).queryByRole('button', { name: 'Next question' })).toBeNull()
+      expect(within(panel).getByText('Question 3 of 3 · Packages')).toBeTruthy()
 
       // Back to the tutorial: the same step, paused, with the map on it again.
       await userEvent.click(within(panel).getByRole('button', { name: 'Back to tour' }))

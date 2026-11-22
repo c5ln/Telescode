@@ -1,5 +1,5 @@
 // A quiz on the current tutorial step: find the quiz set written for it, or
-// have one written, then ask its questions one difficulty at a time and
+// have one written, then ask its questions one after another and
 // record each answer. Recording and grading happen in the MCP server; this
 // only keeps what the panel shows.
 
@@ -8,7 +8,7 @@ import { useCallback, useRef, useState, type RefObject } from 'react'
 
 import type { AnalysisSnapshot } from '../bridge'
 import type { GraphHandle } from '../graph/GraphCanvas'
-import { DIFFICULTIES, type Difficulty, type QuizFeedback, type QuizQuestion, type QuizSet, type TourContext } from '../quiz/model'
+import { DIFFICULTIES, type QuizFeedback, type QuizQuestion, type QuizSet, type TourContext } from '../quiz/model'
 import { pickQuiz, type QuizLibrary } from '../quiz/quiz'
 import { snapshotHash, type SavedTour } from '../tour/tutorial'
 import type { SetupPhase } from './useTutorial'
@@ -28,8 +28,7 @@ export type QuizState =
       status: 'ready'
       at: TourContext
       set: QuizSet
-      difficulty: Difficulty
-      /** Position among the questions of `difficulty`. */
+      /** Position among the set's questions, easiest first. */
       index: number
       selected: number | null
       answer: AnswerState
@@ -41,7 +40,6 @@ export interface Quiz {
   open: (tour: SavedTour, stopIndex: number) => void
   /** Back to the tutorial, with the map on the step again. */
   close: () => void
-  setDifficulty: (difficulty: Difficulty) => void
   select: (choice: number) => void
   submit: () => void
   /** Answer the same question again, as a new attempt; after a failed write, write the quiz again. */
@@ -53,9 +51,14 @@ export interface Quiz {
 
 const OFF: QuizState = { status: 'off' }
 
-/** The questions of one difficulty, in the order the set holds them. */
-export function questionsOf(set: QuizSet, difficulty: Difficulty): QuizQuestion[] {
-  return set.questions.filter((q) => q.difficulty === difficulty)
+/**
+ * The set's questions in the order they are asked: easiest first, and within
+ * a difficulty in the order the set holds them. A step's quiz is a quick
+ * check, so its questions are asked one after another rather than picked by
+ * difficulty; adapting the level is what adaptive learning is for.
+ */
+export function questionsOf(set: QuizSet): QuizQuestion[] {
+  return DIFFICULTIES.flatMap((d) => set.questions.filter((q) => q.difficulty === d))
 }
 
 export function useQuiz(
@@ -86,8 +89,7 @@ export function useQuiz(
 
   const ready = useCallback(
     (at: TourContext, set: QuizSet) => {
-      const difficulty = DIFFICULTIES.find((d) => questionsOf(set, d).length > 0) ?? 'easy'
-      show({ status: 'ready', at, set, difficulty, index: 0, selected: null, answer: { status: 'open' } })
+      show({ status: 'ready', at, set, index: 0, selected: null, answer: { status: 'open' } })
     },
     [show],
   )
@@ -155,14 +157,6 @@ export function useQuiz(
     setState(OFF)
   }, [state, graphRef, setState])
 
-  const setDifficulty = useCallback(
-    (difficulty: Difficulty) => {
-      if (state.status !== 'ready' || state.answer.status === 'submitting') return
-      show({ ...state, difficulty, index: 0, selected: null, answer: { status: 'open' } })
-    },
-    [state, show],
-  )
-
   const select = useCallback(
     (choice: number) => {
       if (state.status !== 'ready' || state.answer.status === 'answered' || state.answer.status === 'submitting') return
@@ -173,7 +167,7 @@ export function useQuiz(
 
   const submit = useCallback(() => {
     if (state.status !== 'ready' || state.selected === null || state.answer.status === 'answered' || state.answer.status === 'submitting') return
-    const question = questionsOf(state.set, state.difficulty)[state.index]
+    const question = questionsOf(state.set)[state.index]
     if (!question) return
     const id = searchId.current
     const asked = state
@@ -204,7 +198,7 @@ export function useQuiz(
 
   const next = useCallback(() => {
     if (state.status !== 'ready') return
-    const count = questionsOf(state.set, state.difficulty).length
+    const count = questionsOf(state.set).length
     show({ ...state, index: (state.index + 1) % count, selected: null, answer: { status: 'open' } })
   }, [state, show])
 
@@ -216,7 +210,7 @@ export function useQuiz(
     [graphRef],
   )
 
-  return { state, open, close, setDifficulty, select, submit, retry, next, showNode }
+  return { state, open, close, select, submit, retry, next, showNode }
 }
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e))
