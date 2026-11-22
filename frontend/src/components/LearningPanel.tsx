@@ -44,12 +44,13 @@ export function LearningPanel({ learning, provider = 'claude', onSwitchAgent }: 
         <h3 className={panel.title}>{state.question.question}</h3>
         <fieldset className={quiz.choices} disabled={locked}>
           <legend className={quiz.hidden}>Choices</legend>
-          {state.question.choices.map((choice, i) => <label className={quiz.choice} key={i}>
+          {state.question.choices.map((choice, i) => <label className={quiz.choice} key={i}
+            data-state={state.result && (choice === state.result.feedback.answer ? 'correct' : i === state.selected ? 'incorrect' : undefined)}>
             <input type="radio" name={state.question!.id} checked={state.selected === i} onChange={() => learning.select(i)} />{choice}
           </label>)}
         </fieldset>
-        {state.result ? <div className={quiz.feedback} role="status">
-          <p className={quiz.verdict}>{state.result.feedback.correct ? 'Correct.' : `The answer is “${state.result.feedback.answer}”.`}</p>
+        {state.result ? <div className={quiz.feedback} role="status" data-correct={state.result.feedback.correct}>
+          <p className={quiz.verdict}>{state.result.feedback.correct ? 'Correct.' : `Not quite. The answer is “${state.result.feedback.answer}”.`}</p>
           <p className={panel.text}>{state.result.feedback.explanation}</p>
           <div className={quiz.evidence}>{state.result.feedback.evidence.map(e => <button className={quiz.node} key={e.nodeId} onClick={() => learning.showNode(e.nodeId)}>{e.title}</button>)}</div>
           <p className={panel.text}>The next step will use this answer. Continue when ready.</p>
