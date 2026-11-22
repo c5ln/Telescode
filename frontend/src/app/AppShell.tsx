@@ -12,7 +12,7 @@ import type { GraphNode } from '../graph/model'
 import type { Crumb } from '../ui/Breadcrumbs'
 import type { DropdownItem } from '../ui/Dropdown'
 import { createQuizLibrary, type QuizLibrary } from '../quiz/quiz'
-import type { SearchResult } from '../search/names'
+import type { SearchResult } from '../search/search'
 import { createTourLibrary, type TourLibrary } from '../tour/tutorial'
 import styles from './AppShell.module.css'
 import { useQuiz } from './useQuiz'
@@ -113,15 +113,12 @@ export function AppShell({
     { type: 'toggle', id: 'complexity', label: 'Complexity', checked: complexity, onChange: setComplexity },
   ]
 
-  const onSearchSelect = useCallback(
-    (result: SearchResult) => {
-      if (tutorial.state.status === 'playing' && tutorial.state.playing) {
-        tutorial.togglePlaying()
-      }
-      graphRef.current?.spotlight(result.id)
-    },
-    [tutorial],
-  )
+  const onSearchSelect = (result: SearchResult) => {
+    if (tutorial.state.status === 'playing' && tutorial.state.playing) {
+      tutorial.togglePlaying()
+    }
+    graphRef.current?.spotlight(result.id)
+  }
 
   return (
     <div className={styles.shell}>

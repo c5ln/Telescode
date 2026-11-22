@@ -1,7 +1,7 @@
 // Persistent chrome: breadcrumbs | search | AI agent | tutorial | overflow.
 
 import { agents, type AgentProvider } from '../agent'
-import type { SearchResult } from '../search/names'
+import type { SearchResult } from '../search/search'
 import { Breadcrumbs, type Crumb } from '../ui/Breadcrumbs'
 import { Dropdown, type DropdownItem } from '../ui/Dropdown'
 import { ChevronDownIcon, MoreIcon, PlayIcon } from '../ui/icons'

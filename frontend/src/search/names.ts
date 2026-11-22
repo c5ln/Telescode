@@ -1,16 +1,9 @@
 // Name-based search across graph nodes (files, classes, methods, and fields).
 
 import type { GraphModel, GraphNode } from '../graph/model'
+import type { ResultKind, SearchResult } from './search'
 
-export type ResultKind = 'file' | 'class' | 'method' | 'field'
-
-export interface SearchResult {
-  id: string
-  kind: ResultKind
-  label: string
-  subtitle: string
-  source: 'name' | 'content'
-}
+export type { ResultKind, SearchResult } from './search'
 
 export interface NameEntry {
   id: string

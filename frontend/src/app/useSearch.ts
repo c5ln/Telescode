@@ -8,7 +8,8 @@ import { useCallback, useMemo, useState } from 'react'
 
 import type { AnalysisSnapshot } from '../bridge'
 import { buildGraphModel } from '../graph/model'
-import { buildNameIndex, searchNames, type SearchResult } from '../search/names'
+import { buildNameIndex, searchNames } from '../search/names'
+import type { SearchResult } from '../search/search'
 
 export type SearchIndexStatus = 'idle' | 'indexing' | 'ready'
 

@@ -703,7 +703,7 @@ describe('AppShell', () => {
   describe('search', () => {
     const ready = { status: 'ready' as const, dbPath: 'C:/x/project.db', snapshot }
 
-    it('is disabled when no repository is open and enabled once ready', () => {
+    it('is disabled when no repository is open', () => {
       render(<AppShell api={deferredApi().api} />)
       const input = screen.getByRole('combobox', { name: 'Search' }) as HTMLInputElement
       expect(input.disabled).toBe(true)
@@ -728,7 +728,7 @@ describe('AppShell', () => {
       expect(input.value).toBe('QueryNotify')
     })
 
-    it('resets the search query when switching or reloading the repository', async () => {
+    it('resets the search query when reloading or closing the repository', async () => {
       const { api, pending } = deferredApi()
       render(<AppShell api={api} repositories={scanFolder()} allowLocalFolder />)
 
@@ -738,6 +738,18 @@ describe('AppShell', () => {
       await screen.findByText('16 files · 11 classes')
 
       const input = screen.getByRole('combobox', { name: 'Search' }) as HTMLInputElement
+      await userEvent.click(input)
+      await userEvent.keyboard('notify')
+      expect(input.value).toBe('notify')
+
+      await userEvent.click(screen.getByRole('button', { name: 'More actions' }))
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Reload analysis' }))
+      await vi.waitFor(() => expect(pending).toHaveLength(2))
+      pending[1]!.resolve({ ...snapshot })
+      await screen.findByText('16 files · 11 classes')
+      expect(input.value).toBe('')
+      expect(input.disabled).toBe(false)
+
       await userEvent.click(input)
       await userEvent.keyboard('notify')
       expect(input.value).toBe('notify')

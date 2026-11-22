@@ -7,7 +7,7 @@
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 
-import type { ResultKind, SearchResult } from '../search/names'
+import type { ResultKind, SearchResult } from '../search/search'
 import { ClassIcon, FieldIcon, FileIcon, MethodIcon, SearchIcon } from './icons'
 import styles from './SearchField.module.css'
 
@@ -111,6 +111,8 @@ export function SearchField({
   }, [isOpen, activeIndex])
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return
+
     if (hasCombobox && !disabled) {
       if (e.key === 'ArrowDown') {
         e.preventDefault()
@@ -159,7 +161,7 @@ export function SearchField({
           role={hasCombobox ? 'combobox' : undefined}
           aria-autocomplete={hasCombobox ? 'list' : undefined}
           aria-expanded={hasCombobox ? isOpen : undefined}
-          aria-controls={hasCombobox && isOpen ? listboxId : undefined}
+          aria-controls={hasCombobox && isOpen && resultCount > 0 ? listboxId : undefined}
           aria-activedescendant={hasCombobox && activeIndex >= 0 ? optionId(activeIndex) : undefined}
           value={query}
           disabled={disabled}
@@ -180,7 +182,7 @@ export function SearchField({
           spellCheck={false}
           autoComplete="off"
         />
-        {shortcut && !query && (
+        {shortcut && !disabled && !query && (
           <kbd className={styles.hint} aria-hidden="true">
             {SEARCH_SHORTCUT_LABEL}
           </kbd>
@@ -188,17 +190,16 @@ export function SearchField({
       </div>
 
       {isOpen && (
-        <div className={styles.popover}>
-          <ul ref={listRef} id={listboxId} role="listbox" className={styles.list}>
-            {resultCount > 0 ? (
-              results!.map((result, index) => (
+        <div className={styles.popover} onMouseDown={(e) => e.preventDefault()}>
+          {resultCount > 0 ? (
+            <ul ref={listRef} id={listboxId} role="listbox" className={styles.list}>
+              {results!.map((result, index) => (
                 <li
                   key={`${result.source}:${result.id}`}
                   id={optionId(index)}
                   role="option"
                   aria-selected={index === activeIndex}
                   className={styles.row}
-                  onMouseDown={(e) => e.preventDefault()}
                   onMouseEnter={() => setRawActiveIndex(index)}
                   onClick={() => selectResult(result)}
                 >
@@ -211,11 +212,15 @@ export function SearchField({
                     <span className={styles.rowSubtitle}>{result.subtitle}</span>
                   </span>
                 </li>
-              ))
-            ) : (
-              emptyMessage && <li className={styles.empty}>{emptyMessage}</li>
-            )}
-          </ul>
+              ))}
+            </ul>
+          ) : (
+            emptyMessage && (
+              <div className={styles.empty} role="status">
+                {emptyMessage}
+              </div>
+            )
+          )}
           {footer && <div className={styles.footer}>{footer}</div>}
         </div>
       )}

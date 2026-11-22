@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { SearchResult } from '../search/names'
+import type { SearchResult } from '../search/search'
 import { Breadcrumbs, type Crumb } from './Breadcrumbs'
 import { Dropdown } from './Dropdown'
 import { SearchField } from './SearchField'
@@ -296,7 +296,42 @@ describe('SearchField', () => {
     expect(input.value).toBe('al')
   })
 
-  it('shows emptyMessage when results are empty and renders footer when provided', async () => {
+  it('keeps the dropdown open when pressing mousedown on the listbox scrollbar or footer', async () => {
+    const onSelect = vi.fn()
+    render(<ControlledSearch onSelect={onSelect} footer="하단 안내" />)
+    const input = screen.getByRole('combobox', { name: 'Search' })
+
+    await userEvent.click(input)
+    await userEvent.keyboard('al')
+
+    const listbox = screen.getByRole('listbox')
+    const footer = screen.getByText('하단 안내')
+
+    // mousedown on listbox/footer must call preventDefault so input does not blur and close the popover.
+    expect(fireEvent.mouseDown(listbox)).toBe(false)
+    expect(fireEvent.mouseDown(footer)).toBe(false)
+    expect(document.activeElement).toBe(input)
+    expect(screen.getByRole('listbox')).toBeTruthy()
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
+  it('ignores Enter while IME composition is active', async () => {
+    const onSelect = vi.fn()
+    render(<ControlledSearch onSelect={onSelect} />)
+    const input = screen.getByRole('combobox', { name: 'Search' })
+
+    await userEvent.click(input)
+    await userEvent.keyboard('al')
+    expect(screen.getByRole('listbox')).toBeTruthy()
+
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true })
+    fireEvent.keyDown(input, { key: 'Enter', keyCode: 229 })
+
+    expect(onSelect).not.toHaveBeenCalled()
+    expect(screen.getByRole('listbox')).toBeTruthy()
+  })
+
+  it('shows emptyMessage outside listbox when results are empty and renders footer when provided', async () => {
     render(
       <ControlledSearch
         results={[]}
@@ -308,14 +343,17 @@ describe('SearchField', () => {
     await userEvent.click(input)
     await userEvent.keyboard('zzz')
 
-    expect(screen.getByText('검색 결과가 없습니다')).toBeTruthy()
+    expect(screen.queryByRole('listbox')).toBeNull()
+    expect(input.getAttribute('aria-controls')).toBeNull()
+    expect(screen.getByRole('status').textContent).toBe('검색 결과가 없습니다')
     expect(screen.getByText('용량 상한으로 2개 파일은 이름·경로만 검색됩니다')).toBeTruthy()
   })
 
-  it('ignores Ctrl+K when disabled', () => {
+  it('ignores Ctrl+K and hides shortcut hint when disabled', () => {
     render(<SearchField label="Search" disabled results={[]} />)
     const input = screen.getByRole('combobox', { name: 'Search' }) as HTMLInputElement
     expect(input.disabled).toBe(true)
+    expect(screen.queryByText('Ctrl K')).toBeNull()
 
     const event = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, cancelable: true })
     window.dispatchEvent(event)
