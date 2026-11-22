@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import type { SearchResult } from '../search/names'
 import { Breadcrumbs, type Crumb } from './Breadcrumbs'
 import { Dropdown } from './Dropdown'
 import { SearchField } from './SearchField'
@@ -196,6 +198,131 @@ describe('SearchField', () => {
     expect(document.activeElement).toBe(input)
 
     await userEvent.keyboard('{Escape}')
+    expect(document.activeElement).not.toBe(input)
+  })
+
+  const sampleResults: SearchResult[] = [
+    { id: 'class:a.py::Alpha', kind: 'class', label: 'Alpha', subtitle: 'a.py', source: 'name' },
+    { id: 'file:b.py', kind: 'file', label: 'b.py', subtitle: 'src/b.py', source: 'content' },
+    { id: 'member:a.py::Alpha::run', kind: 'method', label: 'run', subtitle: 'Alpha · a.py', source: 'name' },
+  ]
+
+  function ControlledSearch({
+    results = sampleResults,
+    onSelect = vi.fn(),
+    disabled = false,
+    emptyMessage = '검색 결과가 없습니다',
+    footer,
+  }: {
+    results?: SearchResult[]
+    onSelect?: (r: SearchResult) => void
+    disabled?: boolean
+    emptyMessage?: string
+    footer?: string
+  }) {
+    const [value, setValue] = useState('')
+    return (
+      <SearchField
+        label="Search"
+        value={value}
+        onChange={setValue}
+        disabled={disabled}
+        results={value.trim() ? results : []}
+        onSelect={onSelect}
+        emptyMessage={emptyMessage}
+        footer={footer}
+      />
+    )
+  }
+
+  it('supports combobox keyboard navigation (ArrowDown/ArrowUp/Enter) and 3-stage Escape', async () => {
+    const onSelect = vi.fn()
+    render(<ControlledSearch onSelect={onSelect} />)
+    const input = screen.getByRole('combobox', { name: 'Search' }) as HTMLInputElement
+    expect(input.getAttribute('aria-expanded')).toBe('false')
+
+    await userEvent.click(input)
+    await userEvent.keyboard('al')
+
+    expect(input.getAttribute('aria-expanded')).toBe('true')
+    const listbox = screen.getByRole('listbox')
+    expect(input.getAttribute('aria-controls')).toBe(listbox.id)
+    const options = within(listbox).getAllByRole('option')
+    expect(options).toHaveLength(3)
+    expect(options[0].getAttribute('aria-selected')).toBe('true')
+    expect(input.getAttribute('aria-activedescendant')).toBe(options[0].id)
+    expect(within(options[1]).getByText('내용 일치')).toBeTruthy()
+
+    // ArrowUp at top stays at 0; ArrowDown moves down and stops at the last item.
+    await userEvent.keyboard('{ArrowUp}')
+    expect(options[0].getAttribute('aria-selected')).toBe('true')
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}')
+    expect(options[2].getAttribute('aria-selected')).toBe('true')
+    expect(input.getAttribute('aria-activedescendant')).toBe(options[2].id)
+
+    await userEvent.keyboard('{ArrowUp}{Enter}')
+    expect(onSelect).toHaveBeenCalledWith(sampleResults[1])
+    expect(screen.queryByRole('listbox')).toBeNull()
+    expect(input.value).toBe('al')
+
+    // Reopen by typing, then test 3-stage Escape: close -> clear -> blur.
+    await userEvent.keyboard('p')
+    expect(screen.getByRole('listbox')).toBeTruthy()
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByRole('listbox')).toBeNull()
+    expect(input.value).toBe('alp')
+    expect(document.activeElement).toBe(input)
+
+    await userEvent.keyboard('{Escape}')
+    expect(input.value).toBe('')
+    expect(document.activeElement).toBe(input)
+
+    await userEvent.keyboard('{Escape}')
+    expect(document.activeElement).not.toBe(input)
+  })
+
+  it('selects an option on mouse click without losing selection to blur', async () => {
+    const onSelect = vi.fn()
+    render(<ControlledSearch onSelect={onSelect} />)
+    const input = screen.getByRole('combobox', { name: 'Search' }) as HTMLInputElement
+
+    await userEvent.click(input)
+    await userEvent.keyboard('al')
+    const options = screen.getAllByRole('option')
+
+    await userEvent.click(options[2])
+    expect(onSelect).toHaveBeenCalledWith(sampleResults[2])
+    expect(screen.queryByRole('listbox')).toBeNull()
+    expect(input.value).toBe('al')
+  })
+
+  it('shows emptyMessage when results are empty and renders footer when provided', async () => {
+    render(
+      <ControlledSearch
+        results={[]}
+        emptyMessage="검색 결과가 없습니다"
+        footer="용량 상한으로 2개 파일은 이름·경로만 검색됩니다"
+      />,
+    )
+    const input = screen.getByRole('combobox', { name: 'Search' })
+    await userEvent.click(input)
+    await userEvent.keyboard('zzz')
+
+    expect(screen.getByText('검색 결과가 없습니다')).toBeTruthy()
+    expect(screen.getByText('용량 상한으로 2개 파일은 이름·경로만 검색됩니다')).toBeTruthy()
+  })
+
+  it('ignores Ctrl+K when disabled', () => {
+    render(<SearchField label="Search" disabled results={[]} />)
+    const input = screen.getByRole('combobox', { name: 'Search' }) as HTMLInputElement
+    expect(input.disabled).toBe(true)
+
+    const event = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, cancelable: true })
+    window.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(false)
+    expect(document.activeElement).not.toBe(input)
+    // Ensure fireEvent doesn't focus it either
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true })
     expect(document.activeElement).not.toBe(input)
   })
 })

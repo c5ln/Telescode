@@ -699,4 +699,70 @@ describe('AppShell', () => {
       expect(screen.queryByRole('region', { name: 'Quiz' })).toBeNull()
     })
   })
+
+  describe('search', () => {
+    const ready = { status: 'ready' as const, dbPath: 'C:/x/project.db', snapshot }
+
+    it('is disabled when no repository is open and enabled once ready', () => {
+      render(<AppShell api={deferredApi().api} />)
+      const input = screen.getByRole('combobox', { name: 'Search' }) as HTMLInputElement
+      expect(input.disabled).toBe(true)
+    })
+
+    it('spotlights the selected graph node, closes the dropdown, and keeps the query', async () => {
+      render(<AppShell api={deferredApi().api} initialState={ready} />)
+      const input = screen.getByRole('combobox', { name: 'Search' }) as HTMLInputElement
+      expect(input.disabled).toBe(false)
+
+      await userEvent.click(input)
+      await userEvent.keyboard('QueryNotify')
+
+      const listbox = screen.getByRole('listbox')
+      const options = within(listbox).getAllByRole('option')
+      expect(options.length).toBeGreaterThan(0)
+      expect(within(options[0]).getByText('QueryNotify')).toBeTruthy()
+
+      await userEvent.keyboard('{Enter}')
+      expect(renderer().selected?.id).toBe('class:sherlock_project/notify.py::QueryNotify')
+      expect(screen.queryByRole('listbox')).toBeNull()
+      expect(input.value).toBe('QueryNotify')
+    })
+
+    it('resets the search query when switching or reloading the repository', async () => {
+      const { api, pending } = deferredApi()
+      render(<AppShell api={api} repositories={scanFolder()} allowLocalFolder />)
+
+      await openFolder('C:/x/project')
+      await vi.waitFor(() => expect(pending).toHaveLength(1))
+      pending[0]!.resolve(snapshot)
+      await screen.findByText('16 files · 11 classes')
+
+      const input = screen.getByRole('combobox', { name: 'Search' }) as HTMLInputElement
+      await userEvent.click(input)
+      await userEvent.keyboard('notify')
+      expect(input.value).toBe('notify')
+
+      await userEvent.click(screen.getByRole('button', { name: 'More actions' }))
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Open repository…' }))
+
+      expect(input.value).toBe('')
+      expect(input.disabled).toBe(true)
+    })
+
+    it('pauses an auto-playing tutorial when a search result is selected', async () => {
+      render(<AppShell api={deferredApi().api} initialState={ready} tours={library([sherlockTour(60_000)])} />)
+      await startOnboarding()
+      const panel = await screen.findByRole('region', { name: 'Tutorial' })
+      expect(within(panel).getByRole('button', { name: 'Pause' })).toBeTruthy()
+
+      const input = screen.getByRole('combobox', { name: 'Search' }) as HTMLInputElement
+      await userEvent.click(input)
+      await userEvent.keyboard('QueryNotify')
+      await userEvent.keyboard('{Enter}')
+
+      expect(renderer().selected?.id).toBe('class:sherlock_project/notify.py::QueryNotify')
+      expect(within(panel).getByRole('button', { name: 'Play' })).toBeTruthy()
+      expect(within(panel).getByTestId('step-progress').style.animationPlayState).toBe('paused')
+    })
+  })
 })
