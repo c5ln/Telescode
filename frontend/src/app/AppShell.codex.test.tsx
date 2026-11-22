@@ -53,6 +53,7 @@ function native(options: {
     switch (command) {
       case 'list_tours': return hasTour ? [savedTour] : []
       case 'list_quizzes': return hasQuiz ? [savedQuiz] : []
+      case 'read_sources': return { sources: {}, skipped: 0 }
       case 'agent_status':
         // The Connect MCP menu looks up every agent; the flows below use Codex.
         if (args?.provider === 'claude') return { installed: true, signedIn: true }
@@ -124,8 +125,9 @@ describe('Codex in the app', () => {
     expect(screen.getByRole('menuitemradio', { name: 'Codex', checked: false })).toBeTruthy()
     await userEvent.keyboard('{Escape}')
     await chooseCodex()
-    // Choosing only looks up each agent's status; it does not start login or generation.
-    expect(invoke.mock.calls.map(([command]) => command).filter(command => command !== 'agent_status')).toEqual([])
+    // Choosing only looks up each agent's status; it does not start login or generation
+    // (search indexing may read sources).
+    expect(invoke.mock.calls.every(([command]) => ['agent_status', 'read_sources'].includes(command))).toBe(true)
     app.unmount()
     render(<AppShell initialState={ready} />)
     await userEvent.click(agentSelector())
@@ -201,7 +203,8 @@ describe('Codex in the app', () => {
     await userEvent.click(await within(tutorial).findByRole('button', { name: 'Quiz' }))
     const quiz = await screen.findByRole('region', { name: 'Quiz' })
     await within(quiz).findByText(savedQuiz.questions[0]!.question)
-    // Opening the Connect MCP menu shows each agent's status; nothing else reaches an agent.
-    expect(invoke.mock.calls.every(([command]) => ['list_tours', 'list_quizzes', 'agent_status'].includes(command))).toBe(true)
+    // Opening the Connect MCP menu shows each agent's status, and search indexing may read
+    // sources; nothing else reaches an agent.
+    expect(invoke.mock.calls.every(([command]) => ['list_tours', 'list_quizzes', 'agent_status', 'read_sources'].includes(command))).toBe(true)
   })
 })

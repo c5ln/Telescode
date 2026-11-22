@@ -125,3 +125,30 @@ export const HelpIcon = (p: IconProps) => (
     <path d="M8 11.5h.01" />
   </Icon>
 )
+
+export const FileIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 2.5h5.25L12.5 5.75V13.5H4z" />
+    <path d="M9.25 2.5v3.25h3.25" />
+  </Icon>
+)
+
+export const ClassIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="2.75" y="2.75" width="10.5" height="10.5" rx="1.5" />
+    <path d="M2.75 6.5h10.5" />
+  </Icon>
+)
+
+export const MethodIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M5.25 4.25 2.5 8l2.75 3.75M10.75 4.25 13.5 8l-2.75 3.75M8.75 3.75l-1.5 8.5" />
+  </Icon>
+)
+
+export const FieldIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="4.75" cy="8" r="1.75" />
+    <path d="M8.25 8h5" />
+  </Icon>
+)

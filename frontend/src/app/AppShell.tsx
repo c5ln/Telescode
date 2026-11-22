@@ -12,9 +12,11 @@ import type { GraphNode } from '../graph/model'
 import type { Crumb } from '../ui/Breadcrumbs'
 import type { DropdownItem } from '../ui/Dropdown'
 import { createQuizLibrary, type QuizLibrary } from '../quiz/quiz'
+import type { SearchResult } from '../search/search'
 import { createTourLibrary, type TourLibrary } from '../tour/tutorial'
 import styles from './AppShell.module.css'
 import { useQuiz } from './useQuiz'
+import { useSearch } from './useSearch'
 import { useTutorial } from './useTutorial'
 import { createLearningLibrary, type LearningLibrary } from '../learning/api'
 import { useLearning } from './useLearning'
@@ -94,6 +96,7 @@ export function AppShell({
   const tutorial = useTutorial(tours ?? content.tour, ready?.snapshot ?? null, ready?.dbPath ?? null, graphRef)
   const quiz = useQuiz(quizzes ?? content.quiz, ready?.snapshot ?? null, ready?.dbPath ?? null, graphRef)
   const learning = useLearning(providedLearning ?? content.learning, ready?.snapshot ?? null, ready?.dbPath ?? null, graphRef)
+  const search = useSearch(ready?.snapshot ?? null, ready?.dbPath ?? null)
   /** Where the user is in the map, below the repository. */
   const [trail, setTrail] = useState<Crumb[]>([])
   /** Complexity mode: on by default, kept across repositories. */
@@ -160,6 +163,13 @@ export function AppShell({
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
 
+  const onSearchSelect = (result: SearchResult) => {
+    if (tutorial.state.status === 'playing' && tutorial.state.playing) {
+      tutorial.togglePlaying()
+    }
+    graphRef.current?.spotlight(result.id)
+  }
+
   return (
     <div className={styles.shell}>
       <TopBar
@@ -168,6 +178,15 @@ export function AppShell({
           onChange: switchAgent }}
         onNavigate={(crumb) => graphRef.current?.navigate(crumb.id)}
         menuItems={menuItems}
+        search={{
+          value: search.query,
+          onChange: search.setQuery,
+          results: search.results,
+          onSelect: onSearchSelect,
+          disabled: state.status !== 'ready',
+          emptyMessage: '검색 결과가 없습니다',
+          footer: search.skipped > 0 ? `용량 상한으로 ${search.skipped}개 파일은 이름·경로만 검색됩니다` : undefined,
+        }}
         tutorial={{ active: tutorial.state.status !== 'off', disabled: tourDisabled, onToggle: toggleTour }}
       />
       <WorkspaceCanvas

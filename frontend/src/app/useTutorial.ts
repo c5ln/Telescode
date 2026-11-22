@@ -170,10 +170,20 @@ export function useTutorial(
     // Play after the end starts over.
     if (state.finished) {
       remaining.current = null
+      if (state.index === 0) {
+        const first = state.tour.plan.stops[0]
+        if (first) graphRef.current?.spotlight(first.nodeId)
+      }
       setState({ ...state, index: 0, playing: true, finished: false })
+    } else {
+      const nextPlaying = !state.playing
+      if (nextPlaying) {
+        const current = state.tour.plan.stops[state.index]
+        if (current) graphRef.current?.spotlight(current.nodeId)
+      }
+      setState({ ...state, playing: nextPlaying })
     }
-    else setState({ ...state, playing: !state.playing })
-  }, [state, setState])
+  }, [state, setState, graphRef])
 
   // Move the map to the current step.
   const index = state.status === 'playing' ? state.index : -1
