@@ -66,3 +66,27 @@
 .link:hover {
   color: var(--text-primary);
 }
+
+/* The first screen's form: a roomier field, where the URL is the main thing. */
+.form[data-size='large'] .input,
+.form[data-size='large'] button {
+  height: 36px;
+}
+
+.form[data-size='large'] .input {
+  padding: 0 var(--space-3);
+}
+
+.form[data-size='large'] button {
+  padding: 0 var(--space-4);
+}
+
+.input::placeholder {
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+}
+
+.stack:has(> .form[data-size='large']) .notice {
+  align-self: stretch;
+  text-align: left;
+}

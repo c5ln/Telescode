@@ -105,26 +105,37 @@ describe('AppShell', () => {
     const { repositories, opened } = deferredRepositories()
     render(<AppShell api={api} repositories={repositories} />)
 
-    expect(screen.getByText('Open a repository')).toBeTruthy()
+    expect(screen.getByText('See a Python repository as a map')).toBeTruthy()
     const url = screen.getByRole('textbox', { name: 'Repository URL' })
     expect(screen.queryByRole('textbox', { name: 'Folder path' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Open a local folder (dev)' })).toBeNull()
     expect(screen.queryByText(/database/i)).toBeNull()
 
-    for (const bad of ['not a url', 'https://gitlab.com/c5ln/Telescode', 'https://github.com/c5ln/Telescode/pull/1']) {
+    for (const bad of ['not a url', 'https://gitlab.com/c5ln/Telescode', 'github.com/c5ln']) {
       await userEvent.clear(url)
       await userEvent.type(url, bad)
       await userEvent.click(screen.getByRole('button', { name: 'Analyze' }))
-      expect(screen.getByRole('status').textContent).toMatch(/^Enter a public GitHub repository URL/)
+      expect(screen.getByRole('status').textContent).toMatch(/github\.com\/owner\/repo\.$/)
       expect(url.getAttribute('aria-invalid')).toBe('true')
     }
     expect(repositories).not.toHaveBeenCalled()
 
+    // A link inside the repository opens the repository itself.
     await userEvent.clear(url)
-    await userEvent.type(url, 'https://github.com/c5ln/Telescode')
+    await userEvent.type(url, 'https://github.com/c5ln/Telescode/pull/1')
     await userEvent.click(screen.getByRole('button', { name: 'Analyze' }))
     expect(repositories).toHaveBeenCalledWith({ kind: 'github', url: 'https://github.com/c5ln/Telescode' })
     expect(opened).toHaveLength(1)
+  })
+
+  it('opens an example repository in one click', async () => {
+    const { api } = deferredApi()
+    const { repositories } = deferredRepositories()
+    render(<AppShell api={api} repositories={repositories} />)
+
+    expect(within(screen.getByRole('list', { name: 'How it works' })).getAllByRole('listitem')).toHaveLength(3)
+    await userEvent.click(screen.getByRole('button', { name: 'Open psf/requests' }))
+    expect(repositories).toHaveBeenCalledWith({ kind: 'github', url: 'https://github.com/psf/requests' })
   })
 
   it('downloads a repository, then analyzes it like a local database', async () => {
@@ -167,7 +178,7 @@ describe('AppShell', () => {
     expect(await screen.findByText('No supported source files')).toBeTruthy()
 
     await userEvent.click(screen.getByRole('button', { name: 'Back' }))
-    expect(screen.getByText('Open a repository')).toBeTruthy()
+    expect(screen.getByText('See a Python repository as a map')).toBeTruthy()
     expect((screen.getByRole('textbox', { name: 'Repository URL' }) as HTMLInputElement).value).toBe(
       'https://github.com/c5ln/private',
     )
@@ -185,7 +196,7 @@ describe('AppShell', () => {
     await new Promise((r) => setTimeout(r, 0))
 
     expect(analyze).not.toHaveBeenCalled()
-    expect(screen.getByText('Open a repository')).toBeTruthy()
+    expect(screen.getByText('See a Python repository as a map')).toBeTruthy()
   })
 
   it('starts empty, then scans a local folder and goes through loading to ready', async () => {
@@ -193,7 +204,7 @@ describe('AppShell', () => {
     const { repositories, opened } = deferredRepositories()
     render(<AppShell api={api} repositories={repositories} allowLocalFolder />)
 
-    expect(screen.getByText('Open a repository')).toBeTruthy()
+    expect(screen.getByText('See a Python repository as a map')).toBeTruthy()
     expect(canvasButtons().every((b) => b.disabled)).toBe(true)
 
     await openFolder('C:/x/project')

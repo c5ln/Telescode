@@ -110,6 +110,7 @@
   --text-sm: 12px;
   --text-md: 13px; /* default UI size */
   --text-lg: 15px;
+  --text-xl: 22px; /* the first screen's title */
 
   --weight-regular: 400;
   --weight-medium: 500;
