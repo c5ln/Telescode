@@ -57,7 +57,7 @@ fn claude_args(db: &Path, server: &mcp::ServerCommand) -> Vec<OsString> {
 /// Runs the selected agent until it has saved a tour for `db_path`, or fails.
 fn generate(db_path: &str, provider: agent::Provider, followed: Option<agent::Followed>) -> Result<(), BridgeError> {
     let db = validate_db_path(db_path)?;
-    agent::generate(provider, agent::Model::Default, &generation_prompt(&db), AGENT_TOOLS, GENERATION_TIMEOUT, followed)
+    agent::generate(provider, "tour", agent::Model::Default, &generation_prompt(&db), AGENT_TOOLS, GENERATION_TIMEOUT, followed)
 }
 
 /// IPC entry point: `invoke("list_tours")`. Every tour the server has saved;

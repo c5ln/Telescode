@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState, type RefObject } from 'react'
-import { addCall, recordDuration, startActivity, withRun, type AgentActivity } from '../agent'
+import { addCall, recordDuration, startActivity, withRun, type AgentActivity, type AgentRun } from '../agent'
 import type { AnalysisSnapshot } from '../bridge'
 import type { GraphHandle, MapView } from '../graph/GraphCanvas'
 import type { GoalSeed, LearningLibrary } from '../learning/api'
@@ -8,7 +8,9 @@ import { snapshotHash } from '../tour/tutorial'
 import { defaultGoal, requirementsGoal } from '../learning/goal'
 
 type State = { status: 'off' } | { status: 'loading'; error?: string; pending?: LearningView; activity?: AgentActivity; prepared?: boolean } | { status: 'ready'; view: LearningView;
-  question: LearningView['question']; selected: number | null; result: LearningResult | null; busy: boolean; error: string | null }
+  question: LearningView['question']; selected: number | null; result: LearningResult | null; busy: boolean; error: string | null
+  /** The questions ran out and the next ones are being written; what the agent has done so far. */
+  waiting?: AgentActivity }
 const message = (e: unknown) => e instanceof Error ? e.message : String(e)
 
 export function useLearning(library: LearningLibrary, snapshot: AnalysisSnapshot | null, dbPath: string | null, graph: RefObject<GraphHandle | null>) {
@@ -20,23 +22,71 @@ export function useLearning(library: LearningLibrary, snapshot: AnalysisSnapshot
   const lastGoal = useRef<GoalSeed | string | null>(null)
   const ending = useRef(false)
   const savedView = useRef<MapView | null>(null)
+  /** The background run writing what the next step may need, while the learner answers. */
+  const material = useRef<{ run: AgentRun<LearningView>; activity: AgentActivity } | null>(null)
+  /** While the learner waits for that run: the sequence they wait under and the view they wait on. */
+  const waiting = useRef<{ id: number; view: LearningView } | null>(null)
+  const stopMaterial = () => { material.current?.run.cancel?.(); material.current = null; waiting.current = null }
   useLayoutEffect(() => {
     const invalidate = () => { sequence.current++ }
     context.current = snapshot
     invalidate(); busy.current = false; ending.current = false; request.current = null; savedView.current = null; lastGoal.current = null
-    return invalidate
+    return () => { invalidate(); material.current?.run.cancel?.(); material.current = null; waiting.current = null }
   }, [snapshot])
   const setState = (state: State) => setOwned({ snapshot, state })
   const show = (view: LearningView, move = true) => {
     request.current = null; busy.current = false; ending.current = false
     setState({ status: 'ready', view, question: view.question, selected: null, result: null, busy: false, error: null })
     if (move && view.session.current) graph.current?.spotlight(view.session.current.nodeId)
+    // While a question is answered, what either answer leads to is written; once they run out, the learner waits for it.
+    if (view.session.status === 'active' && view.question) writeMaterial(view)
+    else if (view.session.status === 'generation-needed' && library.prepareMaterial && !isPrepared(view.session.goal.goalId)) awaitMaterial(view)
+  }
+  const failed = (view: LearningView, error: string) => {
+    busy.current = false
+    setState({ status: 'ready', view, question: view.question, selected: null, result: null, busy: false, error })
+  }
+  /** Starts the background run for `view`'s session, unless one is going or no agent writes for its goal. */
+  const writeMaterial = (view: LearningView) => {
+    if (!library.prepareMaterial || material.current || isPrepared(view.session.goal.goalId)) return
+    let activity = startActivity()
+    const run = library.prepareMaterial({ sessionId: view.session.id }, (call) => {
+      activity = addCall(activity, call)
+      if (material.current?.run === run) material.current.activity = activity
+      const wait = waiting.current
+      if (wait && current(wait.id)) setState({ status: 'ready', view: wait.view, question: null, selected: null, result: null, busy: false, error: null, waiting: activity })
+    })
+    activity = withRun(activity, run)
+    material.current = { run, activity }
+    run.then((next) => {
+      if (material.current?.run === run) material.current = null
+      const wait = waiting.current
+      if (!wait || !current(wait.id)) return
+      waiting.current = null
+      if (next.session.status === 'active') { recordDuration('next question', Date.now() - activity.startedMs); show(next) }
+      else failed(next, 'No new questions could be written for this step. Try again, or end the session.')
+    }, (e: unknown) => {
+      if (material.current?.run === run) material.current = null
+      const wait = waiting.current
+      if (!wait || !current(wait.id)) return
+      waiting.current = null
+      failed(wait.view, message(e))
+    })
+  }
+  /** The learner has nothing left to answer: wait for the background run, starting one if none is going. */
+  const awaitMaterial = (view: LearningView) => {
+    waiting.current = { id: sequence.current, view }
+    writeMaterial(view)
+    if (!material.current) { waiting.current = null; return }
+    busy.current = false
+    setState({ status: 'ready', view, question: null, selected: null, result: null, busy: false, error: null, waiting: material.current.activity })
   }
   const current = (id: number) => id === sequence.current && context.current === snapshot
   /** Whether the goal's material ships with the app, so no agent writes more of it. */
   const isPrepared = (goalId: string) => goalId === library.preparedGoalId?.()
   const start = async (input: GoalSeed | string = defaultGoal()) => {
     if (!snapshot || !dbPath || busy.current) return
+    stopMaterial()
     const id = ++sequence.current; busy.current = true
     savedView.current = graph.current?.saveView() ?? null
     lastGoal.current = input
@@ -78,6 +128,7 @@ export function useLearning(library: LearningLibrary, snapshot: AnalysisSnapshot
     } catch (e) { if (current(id)) { busy.current = false; setState({ status: 'loading', error: message(e), prepared: goalId !== undefined && isPrepared(goalId) }) } }
   }
   const close = () => {
+    stopMaterial()
     sequence.current++; busy.current = false; request.current = null
     if (context.current === snapshot && savedView.current) graph.current?.restoreView(savedView.current)
     savedView.current = null; setState({ status: 'off' })
@@ -105,6 +156,7 @@ export function useLearning(library: LearningLibrary, snapshot: AnalysisSnapshot
       const view = state.status === 'ready' ? state.view : state.status === 'loading' ? state.pending : null
       if (!view || ending.current) return
       ending.current = true
+      stopMaterial()
       const id = ++sequence.current
       if (state.status === 'ready') setState({ ...state, busy: true, error: null })
       else setState({ status: 'loading' })
@@ -128,6 +180,8 @@ export function useLearning(library: LearningLibrary, snapshot: AnalysisSnapshot
   }
   const prepareMore = async () => {
     if (state.status !== 'ready' || busy.current) return
+    // With background material, more is the next questions for this step, not a new learning path.
+    if (library.prepareMaterial && !isPrepared(state.view.session.goal.goalId)) return awaitMaterial(state.view)
     const id = sequence.current; busy.current = true
     setState({ ...state, busy: true, error: null })
     try {

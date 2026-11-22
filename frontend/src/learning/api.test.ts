@@ -29,3 +29,12 @@ it('passes response identity and exact revision through native IPC without gradi
   await library.advance({ sessionId: 's', revision: 10, stopId: 'stable-stop', outcome: 'skip' })
   expect(invoke).toHaveBeenLastCalledWith('advance_learning_session', { input: { sessionId: 's', revision: 10, stopId: 'stable-stop', outcome: 'skip' } })
 })
+
+it('writes material in the background through the native command, with the selected agent', async () => {
+  const invoke = vi.fn(async (..._args: unknown[]) => ({}))
+  mockIPC((command, args) => invoke(command, args))
+  const run = createLearningLibrary('codex').prepareMaterial!({ sessionId: 's' })
+  expect(run.cancel).toBeTypeOf('function')
+  await run
+  expect(invoke).toHaveBeenCalledWith('prepare_learning_material', { sessionId: 's', provider: 'codex', progressId: expect.any(String) })
+})

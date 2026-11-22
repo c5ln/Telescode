@@ -388,7 +388,8 @@ export function makeQuestions(snapshot: AnalysisSnapshot, setId: string, nodeId:
 
     const evidenceIds = [...new Set(Array.isArray(input.evidenceNodeIds) ? input.evidenceNodeIds : [])]
     const outside = evidenceIds.filter((id) => !titles.has(id))
-    if (outside.length) throw new Error(`${where}: evidence outside the ${input.difficulty} context: ${outside.join(', ')}`)
+    // Naming what may be cited lets the writer correct the question in one go.
+    if (outside.length) throw new Error(`${where}: evidence outside the ${input.difficulty} context: ${outside.join(', ')}. For ${nodeId} at ${input.difficulty} it may cite: ${[...titles.keys()].join(', ')}`)
     if (!evidenceIds.includes(nodeId)) throw new Error(`${where}: evidence must include the step's node ${nodeId}`)
     const min = QUESTION_LIMITS.minEvidence[input.difficulty]
     if (evidenceIds.length < min) throw new Error(`${where}: ${input.difficulty} questions rest on at least ${min} nodes`)

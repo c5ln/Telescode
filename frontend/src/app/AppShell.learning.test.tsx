@@ -10,6 +10,7 @@ import sherlock from '../graph/fixtures/sherlock.graph.json'
 import type { LearningView } from '../learning/contracts'
 import type { GraphRenderer } from '../graph/renderer'
 import type { SavedTour } from '../tour/tutorial'
+import { stoppable } from '../agent'
 
 const dbPath = '/repo/project.db'
 const snapshot: AnalysisSnapshot = { ...(sherlock as GraphResponse), dbPath, readingSequence: [] }
@@ -220,4 +221,101 @@ it('can end during preparation and ignores the worker completion afterward', asy
   await within(panel).findByText('Session ended.')
   await act(async () => finish(view()))
   expect(within(panel).queryByText('Why preserve the result before notifying?')).toBeNull()
+})
+
+/** A background run the test settles, stoppable like the real one. */
+function deferredRun() {
+  let resolve!: (view: LearningView) => void, reject!: (error: Error) => void
+  const promise = new Promise<LearningView>((ok, fail) => { resolve = ok; reject = fail })
+  const cancel = vi.fn()
+  return { run: stoppable(promise, cancel), resolve, reject, cancel }
+}
+/** The library with background material; `runs` are handed out one per call. */
+function withMaterial(...runs: ReturnType<typeof deferredRun>[]) {
+  const learning = library()
+  let call = 0
+  const prepareMaterial = vi.fn((..._args: unknown[]) => (runs[Math.min(call++, runs.length - 1)] ?? deferredRun()).run)
+  return Object.assign(learning, { prepareMaterial })
+}
+async function answerAndContinue(panel: HTMLElement) {
+  await userEvent.click(within(panel).getByRole('radio', { name: 'To restart the request' }))
+  await userEvent.click(within(panel).getByRole('button', { name: 'Check answer' }))
+  await within(panel).findByText('The receiver uses the stored result.')
+  await userEvent.click(within(panel).getByRole('button', { name: 'Continue learning' }))
+}
+function exhausted() {
+  const v = view(); v.session.status = 'generation-needed'; v.session.current = null; v.question = null; v.session.spent = 1; v.session.revision = 4
+  return v
+}
+
+it('writes the next questions in the background once a question is shown, one run at a time', async () => {
+  const learning = withMaterial(deferredRun())
+  await begin(learning)
+  const panel = await screen.findByRole('region', { name: 'Adaptive learning' })
+  await within(panel).findByText('Why preserve the result before notifying?')
+  await vi.waitFor(() => expect(learning.prepareMaterial).toHaveBeenCalledTimes(1))
+  expect(learning.prepareMaterial.mock.calls[0]![0]).toEqual({ sessionId: 'session' })
+  // The learner is not kept waiting for it.
+  expect(within(panel).queryByText(/Writing the next question/)).toBeNull()
+  await userEvent.click(within(panel).getByRole('radio', { name: 'To restart the request' }))
+  expect(learning.prepareMaterial).toHaveBeenCalledTimes(1)
+})
+
+it('a learner who runs out of questions waits for the background run, then continues', async () => {
+  const background = deferredRun()
+  const learning = withMaterial(background)
+  learning.advance.mockResolvedValueOnce(exhausted())
+  const next = view(nodeB); next.session.revision = 5; next.question!.id = 'q2'
+  learning.get.mockResolvedValue(next)
+  await begin(learning)
+  const panel = await screen.findByRole('region', { name: 'Adaptive learning' })
+  await within(panel).findByText('Why preserve the result before notifying?')
+  await answerAndContinue(panel)
+  expect(await within(panel).findByText(/Writing the next question/)).toBeTruthy()
+  expect(within(panel).queryByRole('button', { name: 'Prepare more material' })).toBeNull()
+  await act(async () => background.resolve(next))
+  await within(panel).findByText('Why preserve the result before notifying?')
+  expect(within(panel).queryByText(/Writing the next question/)).toBeNull()
+  expect(renderer().selected?.id).toBe(nodeB)
+})
+
+it('starts a run when the questions run out and none is going', async () => {
+  const done = deferredRun(), wanted = deferredRun()
+  const learning = withMaterial(done, wanted)
+  learning.advance.mockResolvedValueOnce(exhausted())
+  await begin(learning)
+  const panel = await screen.findByRole('region', { name: 'Adaptive learning' })
+  await within(panel).findByText('Why preserve the result before notifying?')
+  // The first run finished without anything this step needs.
+  await act(async () => done.resolve(view()))
+  await answerAndContinue(panel)
+  await within(panel).findByText(/Writing the next question/)
+  expect(learning.prepareMaterial).toHaveBeenCalledTimes(2)
+})
+
+it('offers to try again when the background run fails', async () => {
+  const failed = deferredRun(), retried = deferredRun()
+  const learning = withMaterial(failed, retried)
+  learning.advance.mockResolvedValueOnce(exhausted())
+  await begin(learning)
+  const panel = await screen.findByRole('region', { name: 'Adaptive learning' })
+  await within(panel).findByText('Why preserve the result before notifying?')
+  await answerAndContinue(panel)
+  await within(panel).findByText(/Writing the next question/)
+  await act(async () => failed.reject(new Error('Claude Code stopped before saving the material.')))
+  expect(await within(panel).findByRole('alert')).toBeTruthy()
+  await userEvent.click(within(panel).getByRole('button', { name: 'Prepare more material' }))
+  expect(learning.prepareMaterial).toHaveBeenCalledTimes(2)
+  expect(learning.prepare).toHaveBeenCalledTimes(1)
+})
+
+it('ending the session stops the background run', async () => {
+  const background = deferredRun()
+  const learning = withMaterial(background)
+  await begin(learning)
+  const panel = await screen.findByRole('region', { name: 'Adaptive learning' })
+  await within(panel).findByText('Why preserve the result before notifying?')
+  await vi.waitFor(() => expect(learning.prepareMaterial).toHaveBeenCalled())
+  await userEvent.click(within(panel).getByRole('button', { name: 'End session' }))
+  expect(background.cancel).toHaveBeenCalled()
 })

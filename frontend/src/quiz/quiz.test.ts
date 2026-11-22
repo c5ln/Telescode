@@ -77,3 +77,13 @@ describe('classLines', () => {
     expect(classLines(lines, 'Missing')).toBeNull()
   })
 })
+
+describe('evidence outside the context', () => {
+  it('names the evidence the question may cite, so a writer can correct it at once', () => {
+    const outside: QuestionInput = { type: 'multiple_choice', difficulty: 'easy', concept: 'Notification', question: 'Why is the result kept before notifying?',
+      answer: 'So the receiver can inspect it', distractors: ['To retry the request', 'To change the site list'], explanation: 'The receiver reads it.',
+      evidenceNodeIds: ['file:sherlock_project/notify.py', 'file:sherlock_project/result.py'] }
+    expect(() => makeQuestions(snapshot, 'set', 'file:sherlock_project/notify.py', [outside]))
+      .toThrow(/evidence outside the easy context: file:sherlock_project\/result\.py.*may cite: .*file:sherlock_project\/notify\.py/)
+  })
+})
