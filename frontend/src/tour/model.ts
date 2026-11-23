@@ -9,8 +9,9 @@ export interface StopInput {
 }
 export interface Evidence { label: string; value: string }
 export function formatEvidenceValue(evidence: Evidence) {
+  // Scores such as the complexity and LambdaRank scores are shown to two decimals; counts and ranks as they are.
   const value = Number(evidence.value)
-  return evidence.label === 'Complexity score' && evidence.value.trim() && Number.isFinite(value)
+  return evidence.value.trim() && Number.isFinite(value) && !Number.isInteger(value)
     ? value.toFixed(2)
     : evidence.value
 }
