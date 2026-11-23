@@ -267,6 +267,9 @@ test('quizzes are saved per tour stop, refuse ungrounded evidence, and record gr
   await assert.rejects(quizzes.create(project, at, 'en', [{ ...easy, evidenceNodeIds: ['dir:tests'] }]), /must include the step's node/)
   await assert.rejects(quizzes.create(project, at, 'en', [{ ...medium, evidenceNodeIds: ['root'] }]), /at least 2 nodes/)
   await assert.rejects(quizzes.create(project, at, 'en', [{ ...medium, distractors: ['devel', 'Sherlock_Project'] }]), /choices must all differ/)
+  // An answer whose length alone gives it away is refused, with the reason.
+  const telling = { ...medium, answer: 'sherlock_project, the package that holds the command line entry point and its site checks', distractors: ['devel, the scripts', 'tests, the unit tests'] }
+  await assert.rejects(quizzes.create(project, at, 'en', [telling]), /Question 1: the answer \(\d+ characters\) is much longer than every distractor/)
   await assert.rejects(quizzes.create(project, { ...at, stopIndex: 1 }, 'en', [easy]), /is not root/)
   await assert.rejects(quizzes.create(project, { ...at, tourRevision: 2 }, 'en', [easy]), /revision 1/)
 

@@ -575,6 +575,27 @@ export const QUESTION_LIMITS = {
   chars: { concept: 80, question: 500, answer: 300, distractor: 300, explanation: 900 },
 } as const
 
+/** How much longer than its longest distractor a multiple-choice answer may be. */
+export const ANSWER_LENGTH_RATIO = 1.25
+
+/**
+ * Refuses a multiple-choice answer much longer than every distractor: its
+ * length alone would give it away. Checked when an agent saves new questions,
+ * not on questions saved before, so earlier quizzes and material still load.
+ */
+export function checkAnswerLengths(inputs: QuestionInput[]) {
+  if (!Array.isArray(inputs)) return
+  inputs.forEach((q, i) => {
+    if (q?.type !== 'multiple_choice' || typeof q.answer !== 'string' || !Array.isArray(q.distractors) || !q.distractors.length) return
+    const answer = q.answer.trim().length
+    const longest = Math.max(...q.distractors.map((d) => (typeof d === 'string' ? d.trim().length : 0)))
+    // Short answers such as identifiers may differ by a few characters without giving anything away.
+    if (answer > longest * ANSWER_LENGTH_RATIO && answer - longest > 20) {
+      throw new Error(`Question ${i + 1}: the answer (${answer} characters) is much longer than every distractor (longest ${longest}), so its length gives it away. Write the choices about the same length and detail.`)
+    }
+  })
+}
+
 function text(value: unknown, what: string, max: number): string {
   if (typeof value !== 'string' || !value.trim() || value.length > max || [...value].some((c) => c.charCodeAt(0) < 9)) {
     throw new Error(`${what} must contain 1–${max} characters`)
