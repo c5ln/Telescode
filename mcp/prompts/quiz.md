@@ -5,8 +5,8 @@
 ## Context 구성 (GraphRAG)
 
 1. `open_project`로 투어와 같은 DB를 연다.
-2. 요청받은 난이도마다 `get_quiz_context(projectId, nodeId, difficulty)`를 호출한다(투어 퀴즈는 easy와 medium). 요청받지 않은 난이도의 context는 받지도, 문제를 쓰지도 않는다. 이 결과가 해당 난이도 문제가 사용할 수 있는 유일한 근거이다.
-   - `excerpts`는 실제 소스 코드이다(줄 번호 포함). 문제는 주로 여기서 나온다.
+2. 요청받은 난이도를 한 번에 `get_quiz_context(projectId, nodeId, difficulties: [...])`로 받는다(투어 퀴즈는 `["easy", "medium"]`). 공통 소스는 한 번만 온다. 요청받지 않은 난이도의 context는 받지도, 문제를 쓰지도 않는다. 이 결과가 유일한 근거이고, 난이도 L 문제의 `evidenceNodeIds`는 `evidence[L]`에서만 고른다.
+   - `excerpts`는 실제 소스 코드이다(`줄번호| 코드`). 문제는 주로 여기서 나온다. 긴 파일은 관련 정의만 남기고, 나머지는 `…| lines a–b omitted: 이름` 줄로 표시된다. 생략된 코드의 동작은 묻지 않는다.
    - `relations`는 코드 그래프(포함, import, 클래스 관계)이고, `nodes[].facts`는 시그니처 같은 구조 정보이다.
    - `learning`은 reading sequence 기반 학습 순서이다. import 관계를 학습 선행 관계라고 단정하지 않는다.
 3. `excerpts`가 비어 있으면(소스를 찾지 못한 프로젝트) 시그니처와 관계로 답할 수 있는 개념 문제만 만들고, 그것도 어렵다면 해당 난이도는 만들지 않는다.
@@ -46,7 +46,7 @@
 - 정답은 `excerpts`·`relations`·`facts`로 확인 가능해야 한다. 코드에 없는 동작, 외부 라이브러리 내부 구현, 작성자의 의도를 근거 없이 단정하지 않는다. 설계 의도를 묻는 문제는 코드에서 관찰되는 결과(무엇이 가능해지고 무엇이 막히는지)로 답할 수 있어야 한다.
 - `concept`에는 확인하려는 개념을 짧게 쓴다(예: "책임 분리", "요청 재시도 흐름", "결과 객체의 불변성").
 - `explanation`은 왜 정답인지와 대표 오답이 왜 틀렸는지를 2–3문장으로 설명하고, 근거 코드를 `파일:줄` 형식으로 인용한다(예: `sherlock_project/notify.py:120`).
-- `evidenceNodeIds`는 해당 난이도 context의 nodeId만 쓰고, 정차 노드를 반드시 포함한다.
+- `evidenceNodeIds`는 해당 난이도의 `evidence` 목록에 있는 nodeId만 쓰고, 정차 노드를 반드시 포함한다.
 - 근거 있는 좋은 문제를 만들 수 없다면 그 난이도는 만들지 않는다. 억지로 채우기 위해 위의 금지 유형으로 돌아가지 않는다.
 
 ## 저장

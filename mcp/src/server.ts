@@ -13,7 +13,7 @@ import { renderTour } from './render.ts'
 import { chromium } from './browser.ts'
 import { buildGraphModel } from '../../frontend/src/graph/model.ts'
 import { inspectNode, durationMs, readingTourOrder } from '../../frontend/src/tour/model.ts'
-import { buildQuizContext, DIFFICULTIES, MAX_QUESTIONS_PER_DIFFICULTY } from '../../frontend/src/quiz/model.ts'
+import { buildQuizContext, buildQuizContexts, DIFFICULTIES, MAX_QUESTIONS_PER_DIFFICULTY } from '../../frontend/src/quiz/model.ts'
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
 const store = new TourStore(resolve(process.env.TELESCODE_TOUR_OUTPUT ?? resolve(root, 'mcp/artifacts')))
@@ -103,9 +103,12 @@ tool('render_approved_tour', 'Start local Chromium/FFmpeg MP4 (or WebM via TELES
   }).finally(payload.dispose).catch(error => console.error('Could not persist render result:', error))
   return { tourId, jobId: d.jobId, state: d.state }
 })
-tool('get_quiz_context', 'GraphRAG retrieval for a quiz on one tour stop: the code-graph nodes, relations, numbered source excerpts and, for hard, reading order a question of this difficulty may draw on. Questions may only cite these nodes.', { projectId: z.string(), nodeId: z.string(), difficulty }, true, ({ projectId, nodeId, difficulty }) => {
+tool('get_quiz_context', 'GraphRAG retrieval for a quiz on one tour stop: the code-graph nodes, relations, numbered source excerpts and, for hard, reading order a question of this difficulty may draw on. Questions may only cite these nodes. Pass difficulties instead of difficulty to get one context for several levels with the shared source sent once; then a question of level L may cite only evidence[L].', { projectId: z.string(), nodeId: z.string(), difficulty: difficulty.optional(), difficulties: z.array(difficulty).min(1).max(DIFFICULTIES.length).optional() }, true, ({ projectId, nodeId, difficulty, difficulties }) => {
   const project = store.project(projectId)
-  return buildQuizContext(project.snapshot, nodeId, difficulty, sourceReader(project.sourceRoot))
+  const read = sourceReader(project.sourceRoot)
+  if (difficulties) return buildQuizContexts(project.snapshot, nodeId, difficulties, read)
+  if (!difficulty) throw new Error('Pass difficulty or difficulties')
+  return buildQuizContext(project.snapshot, nodeId, difficulty, read)
 })
 tool('create_quiz', `Save comprehension questions for one stop of a saved tour (1–${MAX_QUESTIONS_PER_DIFFICULTY} per difficulty). Each question's evidenceNodeIds must come from get_quiz_context for its difficulty and include the stop's node.`, { projectId: z.string(), tourId: z.string(), tourRevision: z.number().int(), stopIndex: z.number().int().min(0), nodeId: z.string(), language: z.enum(['ko', 'en']).default('en'), questions: z.array(question).min(1).max(DIFFICULTIES.length * MAX_QUESTIONS_PER_DIFFICULTY) }, false, async ({ projectId, tourId, tourRevision, stopIndex, nodeId, language, questions }) => {
   const set = await quizzes.create(store.project(projectId), { tourId, tourRevision, stopIndex, nodeId }, language, questions)
