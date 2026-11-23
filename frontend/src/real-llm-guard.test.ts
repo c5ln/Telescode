@@ -12,8 +12,11 @@ const scripts = (dir: string): Record<string, string> => JSON.parse(readFileSync
 
 describe('real agent runs stay out of the default checks', () => {
   it('no npm script runs the example generator', () => {
-    for (const [name, command] of Object.entries({ ...scripts(root), ...scripts(resolve(root, '../mcp')) })) {
-      expect(command, name).not.toMatch(/build-examples/)
+    // Each package on its own: both have a `test` script.
+    for (const dir of [root, resolve(root, '../mcp')]) {
+      for (const [name, command] of Object.entries(scripts(dir))) {
+        expect(command, `${dir} ${name}`).not.toMatch(/build-examples/)
+      }
     }
   })
 

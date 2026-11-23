@@ -33,9 +33,10 @@ export interface Summary {
   ok: number
   medianDurationMs: number
   meanDurationMs: number
-  meanInputTokens: number
-  meanCachedInputTokens: number
-  meanOutputTokens: number
+  /** Over the runs whose stream reported usage; `null` when none did. */
+  meanInputTokens: number | null
+  meanCachedInputTokens: number | null
+  meanOutputTokens: number | null
   /** Over the runs that reported it; `null` when none did. */
   meanReadyMs: number | null
   meanModelCalls: number | null
@@ -43,7 +44,7 @@ export interface Summary {
   meanToolResultBytes: number | null
   /** `null` when any run's count is unknown. */
   savedQuestions: number | null
-  /** New input and output tokens per saved question; `null` when not known. */
+  /** New input and output tokens per saved question; `null` when any run's usage or count is not known. */
   tokensPerQuestion: number | null
   /** Runs whose stream did not report usage, or that predate the metrics. */
   unknownUsage: number
@@ -84,22 +85,29 @@ export function summarize(runs: UsageLine[], withScenario = true): Summary[] {
   return [...groups].sort(([a], [b]) => a.localeCompare(b)).map(([key, group]) => {
     const saved = group.map((r) => r.metrics?.savedQuestions)
     const savedQuestions = saved.every((s) => typeof s === 'number') ? (saved as number[]).reduce((a, b) => a + b, 0) : null
-    const fresh = group.reduce((sum, r) => sum + r.usage.inputTokens + r.usage.outputTokens, 0)
+    // A run that did not report usage has zeros in its counts, not measurements.
+    const reported = (get: (u: UsageLine['usage']) => number) => group.map((r) => (r.metrics?.usageReported ? get(r.usage) : null))
+    const fresh = known(reported((u) => u.inputTokens + u.outputTokens))
+    // A run's result bytes are known only when every call's are.
+    const resultBytes = (r: UsageLine) => {
+      const sizes = r.metrics?.toolCalls.map((c) => c.resultBytes)
+      return sizes && sizes.every((b) => typeof b === 'number') ? (sizes as number[]).reduce((a, b) => a + b, 0) : null
+    }
     return {
       key,
       runs: group.length,
       ok: group.filter((r) => r.ok).length,
       medianDurationMs: median(group.map((r) => r.durationMs)),
       meanDurationMs: mean(group.map((r) => r.durationMs)),
-      meanInputTokens: mean(group.map((r) => r.usage.inputTokens)),
-      meanCachedInputTokens: mean(group.map((r) => r.usage.cachedInputTokens)),
-      meanOutputTokens: mean(group.map((r) => r.usage.outputTokens)),
+      meanInputTokens: meanKnown(reported((u) => u.inputTokens)),
+      meanCachedInputTokens: meanKnown(reported((u) => u.cachedInputTokens)),
+      meanOutputTokens: meanKnown(reported((u) => u.outputTokens)),
       meanReadyMs: meanKnown(group.map((r) => r.metrics?.readyMs)),
       meanModelCalls: meanKnown(group.map((r) => r.metrics?.modelCalls)),
       meanToolCalls: meanKnown(group.map((r) => r.metrics?.toolCalls.length)),
-      meanToolResultBytes: meanKnown(group.map((r) => (r.metrics ? r.metrics.toolCalls.reduce((sum, c) => sum + (c.resultBytes ?? 0), 0) : null))),
+      meanToolResultBytes: meanKnown(group.map(resultBytes)),
       savedQuestions,
-      tokensPerQuestion: savedQuestions ? fresh / savedQuestions : null,
+      tokensPerQuestion: savedQuestions && fresh.length === group.length ? fresh.reduce((a, b) => a + b, 0) / savedQuestions : null,
       unknownUsage: group.filter((r) => !r.metrics?.usageReported).length,
     }
   })

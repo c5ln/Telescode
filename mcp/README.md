@@ -253,7 +253,8 @@ error message or file path.
 ### Comparing
 
 ```sh
-npm --prefix mcp run usage:report -- mcp/artifacts/agent-usage.jsonl
+# npm runs the script from mcp/, so paths are from there (or absolute)
+npm --prefix mcp run usage:report -- artifacts/agent-usage.jsonl
 npm --prefix mcp run usage:report -- --before before.jsonl --after after.jsonl
 # or one log with both: --before log --before-scenario baseline-quiz --after log --after-scenario after-quiz
 ```

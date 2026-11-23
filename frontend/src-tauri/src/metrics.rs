@@ -205,9 +205,11 @@ impl RunMetrics {
     }
 
     /// Ends the run: the saved questions are known once every save call has
-    /// its outcome; a run that made no save call saved none.
+    /// its outcome; a run that made no save call saved none. A run with no
+    /// event read (the CLI never started, or printed something else) is not
+    /// known to have saved anything or nothing.
     pub fn finish_run(&mut self) {
-        self.saved_questions = self.count_saved();
+        self.saved_questions = self.first_event_ms.and(self.count_saved());
     }
 }
 
@@ -318,7 +320,9 @@ mod tests {
         // A run that never saved saved nothing; one with no events knows nothing.
         assert_eq!(read(r#"{"type":"result","usage":{}}"#).saved_questions, Some(0));
         let silent = read("");
-        assert_eq!((silent.first_event_ms, silent.ready_ms, silent.model_calls), (None, None, None));
+        assert_eq!((silent.first_event_ms, silent.ready_ms, silent.model_calls, silent.saved_questions), (None, None, None, None));
+        // Output that is not the event stream tells nothing either.
+        assert_eq!(read("Error: unknown option --output-format").saved_questions, None);
     }
 
     #[test]

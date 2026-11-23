@@ -37,9 +37,20 @@ test('what a run did not report stays unknown instead of counting as zero', () =
   assert.equal(s!.unknownUsage, 2)
   // Means are over the runs that reported a value.
   assert.equal(s!.meanModelCalls, 3)
+  // Their zero token counts are not measurements.
+  assert.equal(s!.meanInputTokens, null)
+  const [mixed] = summarize([run({ input: 100 }), run({ input: 0, reported: false })])
+  assert.equal(mixed!.meanInputTokens, 100)
+  assert.equal(mixed!.tokensPerQuestion, null)
   const codex = summarize([run({ provider: 'codex', metrics: { ...run().metrics!, modelCalls: null } })])[0]!
   assert.equal(codex.meanModelCalls, null)
   assert.match(table([codex]), /\| unknown \|/)
+})
+
+test('a run with a tool result of unknown size has no result size total', () => {
+  const cut = run({ metrics: { ...run().metrics!, toolCalls: [{ tool: 'get_quiz_context', resultBytes: 400 }, { tool: 'create_quiz', resultBytes: null }] } })
+  assert.equal(summarize([run(), cut])[0]!.meanToolResultBytes, 420)
+  assert.equal(summarize([cut])[0]!.meanToolResultBytes, null)
 })
 
 test('before and after are compared per work, provider and model whatever their scenario names', () => {

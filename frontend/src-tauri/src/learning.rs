@@ -93,7 +93,7 @@ pub async fn prepare_learning_session<R: tauri::Runtime>(
         } else if job["shouldRun"] == true {
             let prompt = preparation_prompt(job_id);
             let correlation = agent::Correlation { session_id: Some(session_id.clone()), job_id: Some(job_id.to_owned()), ..Default::default() };
-            let result = agent::generate(provider, "learning", agent::Model::Light, correlation, &prompt, PREPARATION_TOOLS, Duration::from_secs(10 * 60), followed);
+            let result = agent::generate(provider, agent::Work::Learning, agent::Model::Light, correlation, &prompt, PREPARATION_TOOLS, Duration::from_secs(10 * 60), followed);
             let error = result.as_ref().err().map(|e| bounded_error(&format!("{e:?}")));
             let completion = match error {
                 Some(error) => json!({"jobId":job_id,"error":error}),
@@ -137,7 +137,7 @@ pub async fn prepare_learning_material<R: tauri::Runtime>(
         if job["shouldRun"] == true {
             let job_id = job["id"].as_str().unwrap_or_default().to_string();
             let correlation = agent::Correlation { session_id: Some(session_id.clone()), job_id: Some(job_id.clone()), ..Default::default() };
-            let result = agent::generate(provider, "learning-material", agent::Model::Light, correlation, &material_prompt(&job_id), MATERIAL_TOOLS, MATERIAL_TIMEOUT, followed);
+            let result = agent::generate(provider, agent::Work::LearningMaterial, agent::Model::Light, correlation, &material_prompt(&job_id), MATERIAL_TOOLS, MATERIAL_TIMEOUT, followed);
             let completion = match result.as_ref().err() {
                 Some(e) => json!({"jobId":job_id,"error":bounded_error(&format!("{e:?}"))}),
                 None => json!({"jobId":job_id}),

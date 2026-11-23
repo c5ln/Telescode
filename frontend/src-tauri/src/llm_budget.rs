@@ -17,6 +17,7 @@
 //! reset. Tokens are new input, cached input and output together.
 use serde_json::json;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, MutexGuard};
 
 use crate::agent::UsageRecord;
@@ -70,17 +71,26 @@ fn from_vars(lookup: impl Fn(&str) -> Option<String>) -> Result<Option<Budget>, 
     }))
 }
 
-/// Runs and tokens the ledger shows used.
-pub fn spent(budget: &Budget) -> (u64, u64) {
-    let text = std::fs::read_to_string(&budget.ledger).unwrap_or_default();
-    text.lines()
-        .filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok())
-        .fold((0, 0), |(runs, tokens), entry| (runs + 1, tokens + entry["tokens"].as_u64().unwrap_or(0)))
+/// Runs and tokens the ledger shows used. A ledger not written yet shows
+/// none; one that cannot be read or holds a line that is not an entry is an
+/// error, never taken as empty.
+pub fn spent(budget: &Budget) -> Result<(u64, u64), String> {
+    let text = match std::fs::read_to_string(&budget.ledger) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok((0, 0)),
+        Err(e) => return Err(format!("Cannot read the real LLM ledger {}: {e}", budget.ledger.display())),
+    };
+    text.lines().filter(|l| !l.trim().is_empty()).try_fold((0, 0), |(runs, tokens), line| {
+        let entry = serde_json::from_str::<serde_json::Value>(line).ok();
+        let used = entry.as_ref().and_then(|e| e["tokens"].as_u64());
+        used.map(|used| (runs + 1, tokens + used))
+            .ok_or_else(|| format!("The real LLM ledger {} has a line that is not an entry: {line}", budget.ledger.display()))
+    })
 }
 
 /// Whether `budget` lets one more run start.
 pub fn check(budget: &Budget) -> Result<(), String> {
-    let (runs, tokens) = spent(budget);
+    let (runs, tokens) = spent(budget)?;
     if runs >= budget.max_runs {
         return Err(format!("Real LLM run budget spent: {runs} of {} runs (ledger {}).", budget.max_runs, budget.ledger.display()));
     }
@@ -91,11 +101,17 @@ pub fn check(budget: &Budget) -> Result<(), String> {
 }
 
 static REAL_RUNS: Mutex<()> = Mutex::new(());
+/// Set once a real run could not be charged: what it used is not in the
+/// ledger, so no further real run starts in this process.
+static UNCHARGED: AtomicBool = AtomicBool::new(false);
 
 /// Lets a run start, or says why it may not.
 pub fn admit() -> Result<Admission, String> {
     let Some(budget) = from_env()? else { return Ok(Admission::Mock) };
     let lock = REAL_RUNS.lock().unwrap_or_else(|e| e.into_inner());
+    if UNCHARGED.load(Ordering::SeqCst) {
+        return Err("An earlier real LLM run could not be written to the ledger, so no further real run starts.".into());
+    }
     check(&budget)?;
     Ok(Admission::Real(budget, lock))
 }
@@ -104,7 +120,7 @@ pub fn admit() -> Result<Admission, String> {
 pub fn charge(budget: &Budget, record: &UsageRecord) -> u64 {
     if !record.metrics.usage_reported {
         // Unknown: charge what was left, so nothing more runs on a guess.
-        let (_, used) = spent(budget);
+        let used = spent(budget).map_or(0, |(_, used)| used);
         return budget.max_tokens.saturating_sub(used).max(1);
     }
     let usage = &record.usage;
@@ -112,27 +128,36 @@ pub fn charge(budget: &Budget, record: &UsageRecord) -> u64 {
 }
 
 impl Admission {
-    /// Writes what a real run used to the ledger.
+    /// Writes what a real run used to the ledger. When that fails, no further
+    /// real run is admitted in this process.
     pub fn settle(self, record: &UsageRecord) -> std::io::Result<()> {
         let Admission::Real(budget, _lock) = self else { return Ok(()) };
-        let tokens = charge(&budget, record);
-        let entry = json!({
-            "atMs": record.at_ms, "runId": record.run_id, "work": record.work, "provider": record.provider,
-            "model": record.model, "ok": record.ok, "usageReported": record.metrics.usage_reported, "tokens": tokens,
-        });
-        if let Some(dir) = budget.ledger.parent() {
-            std::fs::create_dir_all(dir)?;
+        let written = write_entry(&budget, record);
+        if written.is_err() {
+            UNCHARGED.store(true, Ordering::SeqCst);
         }
-        use std::io::Write;
-        let mut file = std::fs::OpenOptions::new().create(true).append(true).open(&budget.ledger)?;
-        writeln!(file, "{entry}")
+        written
     }
+}
+
+fn write_entry(budget: &Budget, record: &UsageRecord) -> std::io::Result<()> {
+    let tokens = charge(budget, record);
+    let entry = json!({
+        "atMs": record.at_ms, "runId": record.run_id, "work": record.work, "provider": record.provider,
+        "model": record.model, "ok": record.ok, "usageReported": record.metrics.usage_reported, "tokens": tokens,
+    });
+    if let Some(dir) = budget.ledger.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    use std::io::Write;
+    let mut file = std::fs::OpenOptions::new().create(true).append(true).open(&budget.ledger)?;
+    writeln!(file, "{entry}")
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agent::{Model, Provider, Usage};
+    use crate::agent::{Model, Provider, Usage, Work};
     use crate::metrics::RunMetrics;
 
     fn budget(name: &str, max_runs: u64, max_tokens: u64) -> Budget {
@@ -149,7 +174,7 @@ mod tests {
         UsageRecord {
             at_ms: 1,
             run_id: "r".into(),
-            work: "quiz",
+            work: Work::Quiz,
             provider: Provider::Claude,
             model: Model::Light,
             duration_ms: 1,
@@ -205,7 +230,7 @@ mod tests {
         check(&b).unwrap();
         // The run that crosses the line is let through; the next is not.
         settle(&b, &record(600, true));
-        assert_eq!(spent(&b), (2, 1200));
+        assert_eq!(spent(&b).unwrap(), (2, 1200));
         assert!(check(&b).unwrap_err().contains("1200 of 1000 tokens"));
         let _ = std::fs::remove_file(&b.ledger);
     }
@@ -215,9 +240,37 @@ mod tests {
         let b = budget("unknown", 10, 1000);
         settle(&b, &record(100, true));
         settle(&b, &record(0, false));
-        assert_eq!(spent(&b), (2, 1000));
+        assert_eq!(spent(&b).unwrap(), (2, 1000));
         assert!(check(&b).is_err());
         let _ = std::fs::remove_file(&b.ledger);
+    }
+
+    #[test]
+    fn a_ledger_that_cannot_be_read_stops_runs_instead_of_reading_as_empty() {
+        let b = budget("unreadable", 10, 1000);
+        assert_eq!(spent(&b).unwrap(), (0, 0), "a ledger not written yet is empty");
+        // A folder where the ledger should be cannot be read as a file.
+        std::fs::create_dir_all(&b.ledger).unwrap();
+        assert!(check(&b).unwrap_err().contains("Cannot read"));
+        std::fs::remove_dir_all(&b.ledger).unwrap();
+        std::fs::write(&b.ledger, "{\"tokens\":10}
+cut off {\"tok
+").unwrap();
+        assert!(check(&b).unwrap_err().contains("not an entry"));
+        let _ = std::fs::remove_file(&b.ledger);
+    }
+
+    #[test]
+    fn a_run_that_could_not_be_charged_is_reported() {
+        // The ledger's folder is a file, so the entry cannot be written.
+        let blocker = std::env::temp_dir().join(format!("telescode-ledger-blocker-{}", std::process::id()));
+        std::fs::write(&blocker, "").unwrap();
+        let b = Budget { max_runs: 10, max_tokens: 1000, ledger: blocker.join("ledger.jsonl") };
+        let lock = REAL_RUNS.lock().unwrap_or_else(|e| e.into_inner());
+        assert!(Admission::Real(b, lock).settle(&record(10, true)).is_err());
+        // From then on no real run is admitted (no other test admits one).
+        assert!(UNCHARGED.swap(false, Ordering::SeqCst));
+        let _ = std::fs::remove_file(&blocker);
     }
 
     #[test]

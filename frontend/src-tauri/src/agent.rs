@@ -165,6 +165,18 @@ impl Usage {
     }
 }
 
+/// What a run writes, as the usage log names it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Work {
+    Tour,
+    Quiz,
+    /// A learning session's first preparation.
+    Learning,
+    /// The questions written while the learner answers.
+    LearningMaterial,
+}
+
 /// What a run was for, so its usage log line can be matched with the tour
 /// step, learning session or job it wrote for. IDs only, never paths.
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
@@ -187,8 +199,7 @@ pub struct UsageRecord {
     pub at_ms: u128,
     /// Tells this run apart from every other, also across app restarts.
     pub run_id: String,
-    /// What was written: "tour", "quiz", "learning" or "learning-material".
-    pub work: &'static str,
+    pub work: Work,
     pub provider: Provider,
     pub model: Model,
     pub duration_ms: u128,
@@ -278,12 +289,11 @@ fn with_model(provider: Provider, mut args: Vec<OsString>, model: Model) -> Vec<
 }
 
 /// Runs the agent once and records what it used in the usage log; `work`
-/// names what it writes there ("tour", "quiz", "learning" or
-/// "learning-material"), and `correlation` what it wrote for.
+/// names what it writes there, and `correlation` what it wrote for.
 #[allow(clippy::too_many_arguments)]
 pub fn generate(
     provider: Provider,
-    work: &'static str,
+    work: Work,
     model: Model,
     correlation: Correlation,
     prompt: &str,
@@ -729,14 +739,14 @@ mod tests {
     fn each_run_is_appended_to_the_usage_log_as_one_json_line() {
         let dir = std::env::temp_dir().join(format!("telescode-usage-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
-        let run = |work: &'static str, ok: bool| UsageRecord {
+        let run = |work: Work, ok: bool| UsageRecord {
             at_ms: 1, run_id: "r1".into(), work, provider: Provider::Claude, model: Model::Light, duration_ms: 4200, ok,
             error_code: None, scenario: None, correlation: Correlation::default(),
             usage: Usage { input_tokens: 10, cached_input_tokens: 20, output_tokens: 30, cost_usd: Some(0.5) },
             metrics: RunMetrics::new(Instant::now()),
         };
-        record_usage(&dir, &run("quiz", true)).unwrap();
-        record_usage(&dir, &run("learning", false)).unwrap();
+        record_usage(&dir, &run(Work::Quiz, true)).unwrap();
+        record_usage(&dir, &run(Work::LearningMaterial, false)).unwrap();
         let text = std::fs::read_to_string(dir.join(USAGE_LOG)).unwrap();
         let lines: Vec<serde_json::Value> = text.lines().map(|l| serde_json::from_str(l).unwrap()).collect();
         assert_eq!(lines.len(), 2);
@@ -746,6 +756,7 @@ mod tests {
         assert_eq!(lines[0]["durationMs"], 4200);
         assert_eq!(lines[0]["usage"]["cachedInputTokens"], 20);
         assert_eq!(lines[1]["ok"], false);
+        assert_eq!(lines[1]["work"], "learning-material");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -789,7 +800,7 @@ mod tests {
 
     fn blank_run(correlation: Correlation) -> UsageRecord {
         UsageRecord {
-            at_ms: 0, run_id: new_run_id(), work: "quiz", provider: Provider::Claude, model: Model::Light, duration_ms: 0, ok: false,
+            at_ms: 0, run_id: new_run_id(), work: Work::Quiz, provider: Provider::Claude, model: Model::Light, duration_ms: 0, ok: false,
             error_code: None, scenario: scenario(Some("baseline-quiz".into())), correlation, usage: Usage::default(),
             metrics: RunMetrics::new(Instant::now()),
         }
@@ -855,7 +866,7 @@ mod tests {
         if std::env::var_os(MOCK_ENV).is_some() || std::env::var_os(REAL_ENV).is_some() {
             return;
         }
-        let error = generate(Provider::Claude, "quiz", Model::Light, Correlation::default(), "x", &[], Duration::from_secs(1), None).unwrap_err();
+        let error = generate(Provider::Claude, Work::Quiz, Model::Light, Correlation::default(), "x", &[], Duration::from_secs(1), None).unwrap_err();
         let BridgeError::TourGenerationFailed { message } = error else { panic!("unexpected error {error:?}") };
         assert!(message.contains(REAL_ENV), "{message}");
     }
