@@ -7,6 +7,9 @@ mod quizzes;
 mod repository;
 mod tours;
 mod learning;
+mod metrics;
+#[cfg(test)]
+mod llm_budget;
 #[cfg(test)]
 mod app_tests;
 

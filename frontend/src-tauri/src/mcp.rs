@@ -74,9 +74,32 @@ pub fn server_command() -> Result<ServerCommand, BridgeError> {
     }
     Ok(ServerCommand {
         program: node(),
-        args: vec!["--import".into(), loader.into_os_string(), dir.join("src/server.ts").into_os_string()],
+        args: vec!["--import".into(), import_specifier(&loader), dir.join("src/server.ts").into_os_string()],
         env,
     })
+}
+
+/// `path` as node's `--import` takes it: on Windows only a `file:` URL, as
+/// node reads `C:` in an absolute path as a URL scheme.
+fn import_specifier(path: &Path) -> OsString {
+    if cfg!(windows) {
+        file_url(path).into()
+    } else {
+        path.as_os_str().to_owned()
+    }
+}
+
+/// The `file:` URL of the absolute Windows path `path`.
+fn file_url(path: &Path) -> String {
+    let path = path.to_string_lossy().replace('\\', "/");
+    let encoded: String = path
+        .bytes()
+        .map(|b| match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' | b'/' | b':' => (b as char).to_string(),
+            _ => format!("%{b:02X}"),
+        })
+        .collect();
+    format!("file:///{}", encoded.trim_start_matches('/'))
 }
 
 /// A running server and the client end of its stdio.
@@ -217,6 +240,21 @@ pub fn call(name: &str, arguments: Value) -> Result<Value, BridgeError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn windows_paths_reach_node_import_as_file_urls() {
+        assert_eq!(
+            file_url(Path::new(r"C:\Users\Rachel MOON\Telescode\mcp\node_modules\tsx\dist\loader.mjs")),
+            "file:///C:/Users/Rachel%20MOON/Telescode/mcp/node_modules/tsx/dist/loader.mjs"
+        );
+        assert_eq!(file_url(Path::new(r"D:\프로젝트\a#b%.mjs")), "file:///D:/%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8/a%23b%25.mjs");
+        let loader = Path::new("/t/mcp/node_modules/tsx/dist/loader.mjs");
+        if cfg!(windows) {
+            assert!(import_specifier(loader).to_string_lossy().starts_with("file:///"));
+        } else {
+            assert_eq!(import_specifier(loader), loader.as_os_str());
+        }
+    }
 
     #[test]
     fn tool_output_is_the_json_in_the_text_item() {

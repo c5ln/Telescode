@@ -1,10 +1,11 @@
 //! Shared CLI lifecycle and the two supported agents.
 use crate::{bridge::BridgeError, claude, codex, mcp};
+use crate::metrics::RunMetrics;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
 use std::io::Read;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -164,18 +165,75 @@ impl Usage {
     }
 }
 
+/// What a run writes, as the usage log names it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Work {
+    Tour,
+    Quiz,
+    /// A learning session's first preparation.
+    Learning,
+    /// The questions written while the learner answers.
+    LearningMaterial,
+}
+
+/// What a run was for, so its usage log line can be matched with the tour
+/// step, learning session or job it wrote for. IDs only, never paths.
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Correlation {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub job_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tour_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stop_index: Option<u32>,
+}
+
 /// One finished run, as the usage log keeps it.
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UsageRecord {
     pub at_ms: u128,
-    /// What was written: "tour", "quiz" or "learning".
-    pub work: &'static str,
+    /// Tells this run apart from every other, also across app restarts.
+    pub run_id: String,
+    pub work: Work,
     pub provider: Provider,
     pub model: Model,
     pub duration_ms: u128,
     pub ok: bool,
+    /// The failure's `BridgeError` code; never its message, which may hold
+    /// CLI output and paths.
+    pub error_code: Option<String>,
+    /// The measuring scenario this run belongs to (`TELESCODE_RUN_SCENARIO`).
+    pub scenario: Option<String>,
+    pub correlation: Correlation,
     pub usage: Usage,
+    pub metrics: RunMetrics,
+}
+
+/// Names the measuring scenario runs belong to, e.g. `baseline-quiz-cold`,
+/// so before-and-after runs can be compared in the usage log.
+pub const SCENARIO_ENV: &str = "TELESCODE_RUN_SCENARIO";
+
+/// `raw` as a scenario name: letters, digits, `.`, `_` and `-`, at most 64.
+/// Anything else is dropped rather than cleaned, so no path gets into the log.
+fn scenario(raw: Option<String>) -> Option<String> {
+    let name = raw?.trim().to_owned();
+    let valid = !name.is_empty() && name.len() <= 64 && name.chars().all(|c| c.is_ascii_alphanumeric() || "._-".contains(c));
+    valid.then_some(name)
+}
+
+/// A new run ID: start time, process and a counter, so IDs never repeat.
+fn new_run_id() -> String {
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    format!("{:x}-{:x}-{}", now_ms(), std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed))
+}
+
+fn now_ms() -> u128 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0)
 }
 
 /// The usage log, one JSON line per run, next to the server's saved tours and quizzes.
@@ -198,8 +256,8 @@ fn output_dir() -> Option<PathBuf> {
 }
 
 /// Handles each event line: its tool calls go to the follower, when there is
-/// one, and what it reports using is added to `usage`.
-fn line_handler(followed: Option<&Followed>, usage: Arc<Mutex<Usage>>) -> OnLine {
+/// one, what it reports using is added to `usage`, and its timing to `metrics`.
+fn line_handler(followed: Option<&Followed>, usage: Arc<Mutex<Usage>>, metrics: Arc<Mutex<RunMetrics>>) -> OnLine {
     let report = followed.map(|f| f.on_tool_call.clone());
     Arc::new(move |line: &str| {
         if let Some(report) = &report {
@@ -208,6 +266,7 @@ fn line_handler(followed: Option<&Followed>, usage: Arc<Mutex<Usage>>) -> OnLine
             }
         }
         usage.lock().unwrap_or_else(|e| e.into_inner()).read(line);
+        metrics.lock().unwrap_or_else(|e| e.into_inner()).read(line);
     })
 }
 
@@ -230,16 +289,21 @@ fn with_model(provider: Provider, mut args: Vec<OsString>, model: Model) -> Vec<
 }
 
 /// Runs the agent once and records what it used in the usage log; `work`
-/// names what it writes there ("tour", "quiz" or "learning").
+/// names what it writes there, and `correlation` what it wrote for.
+#[allow(clippy::too_many_arguments)]
 pub fn generate(
     provider: Provider,
-    work: &'static str,
+    work: Work,
     model: Model,
+    correlation: Correlation,
     prompt: &str,
     tools: &[&str],
     timeout: Duration,
     followed: Option<Followed>,
 ) -> Result<(), BridgeError> {
+    // In tests no real model is called unless asked for, within a budget.
+    #[cfg(test)]
+    let admission = crate::llm_budget::admit().map_err(|message| BridgeError::TourGenerationFailed { message })?;
     let server = mcp::server_command()?;
     let (path, name) = match provider {
         Provider::Claude => (
@@ -250,24 +314,52 @@ pub fn generate(
     };
     let mut cmd = command(&path);
     cmd.args(with_events(provider, with_model(provider, generation_args(provider, prompt, &server, tools), model)));
-    let usage = Arc::new(Mutex::new(Usage::default()));
-    let on_line = line_handler(followed.as_ref(), usage.clone());
-    let started = Instant::now();
-    let result = run_streaming(cmd, timeout, name, Some(on_line), followed.as_ref().map(|f| &*f.cancelled));
+    let run = UsageRecord {
+        at_ms: 0,
+        run_id: new_run_id(),
+        work,
+        provider,
+        model,
+        duration_ms: 0,
+        ok: false,
+        error_code: None,
+        scenario: scenario(std::env::var(SCENARIO_ENV).ok()),
+        correlation,
+        usage: Usage::default(),
+        metrics: RunMetrics::new(Instant::now()),
+    };
+    let (result, record) = run_recorded(cmd, name, timeout, followed, run);
+    #[cfg(test)]
+    admission.settle(&record).map_err(|e| BridgeError::Internal { message: format!("Could not write the real LLM ledger: {e}") })?;
     if let Some(dir) = output_dir() {
-        let record = UsageRecord {
-            at_ms: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0),
-            work,
-            provider,
-            model,
-            duration_ms: started.elapsed().as_millis(),
-            ok: result.is_ok(),
-            usage: usage.lock().unwrap_or_else(|e| e.into_inner()).clone(),
-        };
         // Measuring is best effort; a log that cannot be written never fails the run.
         let _ = record_usage(&dir, &record);
     }
     result
+}
+
+/// Runs `cmd`, an agent printing JSON event lines, and fills in `run` with
+/// what the run took and used.
+fn run_recorded(
+    cmd: Command,
+    what: &str,
+    timeout: Duration,
+    followed: Option<Followed>,
+    mut run: UsageRecord,
+) -> (Result<(), BridgeError>, UsageRecord) {
+    let usage = Arc::new(Mutex::new(Usage::default()));
+    let started = Instant::now();
+    let metrics = Arc::new(Mutex::new(RunMetrics::new(started)));
+    let on_line = line_handler(followed.as_ref(), usage.clone(), metrics.clone());
+    let result = run_streaming(cmd, timeout, what, Some(on_line), followed.as_ref().map(|f| &*f.cancelled));
+    run.at_ms = now_ms();
+    run.duration_ms = started.elapsed().as_millis();
+    run.ok = result.is_ok();
+    run.error_code = result.as_ref().err().and_then(|e| serde_json::to_value(e).ok()).and_then(|v| v["code"].as_str().map(str::to_owned));
+    run.usage = usage.lock().unwrap_or_else(|e| e.into_inner()).clone();
+    run.metrics = metrics.lock().unwrap_or_else(|e| e.into_inner()).clone();
+    run.metrics.finish_run();
+    (result, run)
 }
 
 /// The Telescode tool calls in one line of an agent's JSON event stream:
@@ -647,12 +739,14 @@ mod tests {
     fn each_run_is_appended_to_the_usage_log_as_one_json_line() {
         let dir = std::env::temp_dir().join(format!("telescode-usage-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
-        let run = |work: &'static str, ok: bool| UsageRecord {
-            at_ms: 1, work, provider: Provider::Claude, model: Model::Light, duration_ms: 4200, ok,
+        let run = |work: Work, ok: bool| UsageRecord {
+            at_ms: 1, run_id: "r1".into(), work, provider: Provider::Claude, model: Model::Light, duration_ms: 4200, ok,
+            error_code: None, scenario: None, correlation: Correlation::default(),
             usage: Usage { input_tokens: 10, cached_input_tokens: 20, output_tokens: 30, cost_usd: Some(0.5) },
+            metrics: RunMetrics::new(Instant::now()),
         };
-        record_usage(&dir, &run("quiz", true)).unwrap();
-        record_usage(&dir, &run("learning", false)).unwrap();
+        record_usage(&dir, &run(Work::Quiz, true)).unwrap();
+        record_usage(&dir, &run(Work::LearningMaterial, false)).unwrap();
         let text = std::fs::read_to_string(dir.join(USAGE_LOG)).unwrap();
         let lines: Vec<serde_json::Value> = text.lines().map(|l| serde_json::from_str(l).unwrap()).collect();
         assert_eq!(lines.len(), 2);
@@ -662,6 +756,7 @@ mod tests {
         assert_eq!(lines[0]["durationMs"], 4200);
         assert_eq!(lines[0]["usage"]["cachedInputTokens"], 20);
         assert_eq!(lines[1]["ok"], false);
+        assert_eq!(lines[1]["work"], "learning-material");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -671,15 +766,109 @@ mod tests {
         let seen = calls.clone();
         let tracked = follow("usage-line-test".into(), Arc::new(move |c| seen.lock().unwrap().push(c)));
         let usage = Arc::new(Mutex::new(Usage::default()));
-        let on_line = line_handler(Some(&tracked), usage.clone());
+        let metrics = Arc::new(Mutex::new(RunMetrics::new(Instant::now())));
+        let on_line = line_handler(Some(&tracked), usage.clone(), metrics.clone());
         on_line(r#"{"type":"assistant","message":{"content":[{"type":"tool_use","name":"mcp__telescode__create_quiz","input":{}}]}}"#);
         on_line(r#"{"type":"result","usage":{"input_tokens":5,"output_tokens":7}}"#);
         assert_eq!(calls.lock().unwrap().iter().map(|c| c.tool.clone()).collect::<Vec<_>>(), ["create_quiz"]);
         assert_eq!(usage.lock().unwrap().output_tokens, 7);
+        assert_eq!(metrics.lock().unwrap().tool_calls.len(), 1);
         // Without a follower, usage is still counted.
         let quiet = Arc::new(Mutex::new(Usage::default()));
-        line_handler(None, quiet.clone())(r#"{"type":"result","usage":{"input_tokens":5,"output_tokens":9}}"#);
+        line_handler(None, quiet.clone(), metrics)(r#"{"type":"result","usage":{"input_tokens":5,"output_tokens":9}}"#);
         assert_eq!(quiet.lock().unwrap().output_tokens, 9);
+    }
+
+    /// A stand-in agent that prints `fixture` and exits with `code`.
+    fn fake_agent(fixture: &str, code: i32) -> Command {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures").join(fixture);
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            let mut cmd = Command::new("cmd");
+            // As is: cmd does not read the quoting Rust gives its arguments.
+            cmd.raw_arg(format!("/C type \"{}\" & exit /b {code}", path.display()));
+            cmd
+        }
+        #[cfg(not(windows))]
+        {
+            let mut cmd = Command::new("/bin/sh");
+            cmd.args(["-c", &format!("cat '{}'; exit {code}", path.display())]);
+            cmd
+        }
+    }
+
+    fn blank_run(correlation: Correlation) -> UsageRecord {
+        UsageRecord {
+            at_ms: 0, run_id: new_run_id(), work: Work::Quiz, provider: Provider::Claude, model: Model::Light, duration_ms: 0, ok: false,
+            error_code: None, scenario: scenario(Some("baseline-quiz".into())), correlation, usage: Usage::default(),
+            metrics: RunMetrics::new(Instant::now()),
+        }
+    }
+
+    #[test]
+    fn a_fake_agent_run_is_recorded_with_its_usage_phases_and_tool_calls() {
+        let tracked = follow("record-test".into(), Arc::new(|_| {}));
+        let correlation = Correlation { tour_id: Some("tour-1".into()), stop_index: Some(2), ..Default::default() };
+        let (result, record) = run_recorded(fake_agent("claude-quiz.jsonl", 0), "Claude Code", Duration::from_secs(10), Some(tracked), blank_run(correlation));
+        result.unwrap();
+        assert!(record.ok && record.error_code.is_none());
+        assert_eq!(record.usage, Usage { input_tokens: 2109, cached_input_tokens: 41000, output_tokens: 765, cost_usd: Some(0.021) });
+        assert!(record.metrics.usage_reported);
+        assert_eq!(record.metrics.model_calls, Some(3));
+        assert_eq!(record.metrics.saved_questions, Some(2));
+        assert_eq!(record.metrics.tool_calls.iter().map(|c| c.tool.as_str()).collect::<Vec<_>>(), ["get_quiz_context", "create_quiz"]);
+        assert!(record.metrics.ready_ms.is_some() && record.metrics.first_tool_call_ms >= record.metrics.ready_ms);
+
+        let line: serde_json::Value = serde_json::to_value(&record).unwrap();
+        assert_eq!(line["scenario"], "baseline-quiz");
+        assert_eq!(line["correlation"], serde_json::json!({"tourId":"tour-1","stopIndex":2}));
+        assert_eq!(line["metrics"]["savedQuestions"], 2);
+        assert_eq!(line["metrics"]["toolCalls"][1]["ok"], true);
+        // The fields that were there before stay as they were.
+        for key in ["atMs", "work", "provider", "model", "durationMs", "ok", "usage"] {
+            assert!(line.get(key).is_some(), "{key}");
+        }
+    }
+
+    #[test]
+    fn a_failed_fake_run_keeps_its_error_code_and_what_it_reported() {
+        let (result, record) = run_recorded(fake_agent("codex-material.jsonl", 3), "Codex", Duration::from_secs(10), None, blank_run(Correlation::default()));
+        assert!(result.is_err());
+        assert!(!record.ok);
+        assert_eq!(record.error_code.as_deref(), Some("tour_generation_failed"));
+        assert_eq!(record.usage.output_tokens, 1400);
+        assert_eq!(record.metrics.model_calls, None);
+        // The error message, with the CLI's output in it, stays out of the log.
+        let text = serde_json::to_string(&record).unwrap();
+        assert!(!text.contains("exit") && !text.contains("fixtures"), "{text}");
+    }
+
+    #[test]
+    fn scenario_names_are_kept_only_when_they_cannot_hold_a_path() {
+        assert_eq!(scenario(Some(" baseline-quiz.cold_1 ".into())).as_deref(), Some("baseline-quiz.cold_1"));
+        for bad in ["", "C:\\Users\\me", "/home/me/repo", "a b", &"x".repeat(65)] {
+            assert_eq!(scenario(Some(bad.into())), None, "{bad}");
+        }
+        assert_eq!(scenario(None), None);
+    }
+
+    #[test]
+    fn every_run_gets_its_own_id() {
+        let ids: std::collections::HashSet<_> = (0..100).map(|_| new_run_id()).collect();
+        assert_eq!(ids.len(), 100);
+    }
+
+    #[test]
+    fn tests_cannot_start_a_real_agent_unless_asked() {
+        use crate::llm_budget::{MOCK_ENV, REAL_ENV};
+        // When a developer runs the suite with real runs on, this one has nothing to show.
+        if std::env::var_os(MOCK_ENV).is_some() || std::env::var_os(REAL_ENV).is_some() {
+            return;
+        }
+        let error = generate(Provider::Claude, Work::Quiz, Model::Light, Correlation::default(), "x", &[], Duration::from_secs(1), None).unwrap_err();
+        let BridgeError::TourGenerationFailed { message } = error else { panic!("unexpected error {error:?}") };
+        assert!(message.contains(REAL_ENV), "{message}");
     }
 
     #[test]
