@@ -136,7 +136,13 @@ Comprehension quizzes on a tour stop. The desktop app has Claude Code write them
    reach, plus numbered source excerpts of them: easy covers the node and its children,
    medium adds one hop, hard adds two hops plus the reading order around the node
    (`learning`). Code relations and reading order are kept separate, and metrics and
-   counts are left out so questions are about what the code does.
+   counts are left out so questions are about what the code does. Passing
+   `difficulties` (the app asks for `["easy", "medium"]`) instead returns one context
+   for those levels: their nodes and relations merged, the source sent once within the
+   widest level's budget, and `evidence[level]`, the nodes each level may cite. No
+   source line appears twice; a file too long for the budget keeps its header and the
+   definitions the stop uses or the context names, whole, and the rest are named on
+   `…| lines a–b omitted` lines. Unreadable or missing files are skipped.
 2. `create_quiz(projectId, tourId, tourRevision, stopIndex, nodeId, questions)` saves
    multiple-choice and true/false questions, 1–3 per difficulty. Each question's
    `evidenceNodeIds` must lie in the context for its difficulty and include the stop's
