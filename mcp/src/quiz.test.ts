@@ -8,7 +8,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { TourStore } from './store.ts'
 import { QuizStore, RESPONSES_FILE, sourceReader } from './quiz.ts'
-import { buildQuizContext, buildQuizContexts, classLines, SCOPE, type QuestionInput, type SourceExcerpt } from '../../frontend/src/quiz/model.ts'
+import { buildQuizContext, buildQuizContexts, classLines, longAnswers, SCOPE, type QuestionInput, type SourceExcerpt } from '../../frontend/src/quiz/model.ts'
 
 const fixture = fileURLToPath(new URL('../../frontend/src/graph/fixtures/sherlock.graph.json', import.meta.url))
 const snapshot = { ...JSON.parse(await readFile(fixture, 'utf8')), readingSequence: [] }
@@ -27,7 +27,9 @@ test('quiz context widens with difficulty and keeps members as facts', () => {
   assert.ok(hard.nodes.length > medium.nodes.length)
   assert.ok(hard.nodes.every(n => n.hop <= 2))
   assert.deepEqual(hard.learning, { before: [], after: [] }) // No reading sequence in a graph-only snapshot.
-  assert.throws(() => buildQuizContext(snapshot, 'member:x', 'easy'), /Unsupported quiz node/)
+  assert.throws(() => buildQuizContext(snapshot, 'member:x', 'easy'), /Unsupported quiz node: member:x$/)
+  // A file path without its prefix names the ID it was meant to be, so the writer fixes it in one turn.
+  assert.throws(() => buildQuizContext(snapshot, 'sherlock_project/notify.py', 'easy'), /Did you mean file:sherlock_project\/notify\.py\?/)
   // Questions are about what code does, so sizes, metrics and ranks are not offered.
   const facts = hard.nodes.flatMap(n => n.facts).join('\n')
   assert.doesNotMatch(facts, /complexity|lines|rank|imported by|contains \d+/i)
@@ -267,9 +269,9 @@ test('quizzes are saved per tour stop, refuse ungrounded evidence, and record gr
   await assert.rejects(quizzes.create(project, at, 'en', [{ ...easy, evidenceNodeIds: ['dir:tests'] }]), /must include the step's node/)
   await assert.rejects(quizzes.create(project, at, 'en', [{ ...medium, evidenceNodeIds: ['root'] }]), /at least 2 nodes/)
   await assert.rejects(quizzes.create(project, at, 'en', [{ ...medium, distractors: ['devel', 'Sherlock_Project'] }]), /choices must all differ/)
-  // An answer whose length alone gives it away is refused, with the reason.
+  // An answer whose length alone gives it away is noted, not refused: a refusal would cost the writer another turn.
   const telling = { ...medium, answer: 'sherlock_project, the package that holds the command line entry point and its site checks', distractors: ['devel, the scripts', 'tests, the unit tests'] }
-  await assert.rejects(quizzes.create(project, at, 'en', [telling]), /Question 1: the answer \(\d+ characters\) is much longer than every distractor/)
+  assert.deepEqual(longAnswers([telling, medium]), ['Question 1: answer of 89 characters, longest distractor 21'])
   await assert.rejects(quizzes.create(project, { ...at, stopIndex: 1 }, 'en', [easy]), /is not root/)
   await assert.rejects(quizzes.create(project, { ...at, tourRevision: 2 }, 'en', [easy]), /revision 1/)
 

@@ -4,7 +4,7 @@ import { resolve } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import type { TourStore, Project } from './store.ts'
 import { sourceReader, type QuizStore } from './quiz.ts'
-import { buildQuizContext, checkAnswerLengths, feedbackFor, makeQuestions, DIFFICULTIES, QUESTION_LIMITS, type Difficulty, type QuizQuestion, type SourceExcerpt } from '../../frontend/src/quiz/model.ts'
+import { buildQuizContext, feedbackFor, longAnswers, makeQuestions, DIFFICULTIES, QUESTION_LIMITS, type Difficulty, type QuizQuestion, type SourceExcerpt } from '../../frontend/src/quiz/model.ts'
 import { chooseAction, goalScore, mastery, observe, predict, MODEL_VERSION, PRIOR, validateGoal, type LearningGoal, type Knowledge, type LearningAction } from '../../frontend/src/learning/model.ts'
 import type { Curriculum, LearningAnswer, LearningResult, LearningView, PreparationJob, LearningSession, PreparedItem } from '../../frontend/src/learning/contracts.ts'
 
@@ -612,7 +612,7 @@ export class LearningStore {
       const s = this.load(job.sessionId)
       if (!['active', 'generation-needed'].includes(s.session.status)) throw new Error('The session ended before the material was saved')
       if (!Array.isArray(items) || !items.length || items.length > job.slots.length * 2) throw new Error('Invalid material')
-      for (const item of items) checkAnswerLengths(item.questions)
+      for (const item of items) for (const note of longAnswers(item.questions)) console.error(`Material answer longer than its distractors: ${note}`)
       for (const item of items) if (!job.slots.some(slot => slot.conceptId === item.conceptId && slot.level === item.level)) throw new Error(`Material outside the asked slots: ${item.conceptId} ${item.level}`)
       this.addItems(s, items)
       for (const slot of job.slots) {

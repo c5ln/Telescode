@@ -3,7 +3,7 @@ import { readFileSync, statSync } from 'node:fs'
 import { appendFile, mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises'
 import { resolve, sep } from 'node:path'
 import type { Project, TourStore } from './store.ts'
-import { checkAnswerLengths, feedbackFor, makeQuestions, type QuestionInput, type SourceReader, type QuizFeedback, type QuizResponse, type QuizSet, type TourContext } from '../../frontend/src/quiz/model.ts'
+import { feedbackFor, longAnswers, makeQuestions, type QuestionInput, type SourceReader, type QuizFeedback, type QuizResponse, type QuizSet, type TourContext } from '../../frontend/src/quiz/model.ts'
 
 /** Files larger than this are left out of excerpts: they are rarely hand-written code. */
 const MAX_SOURCE_BYTES = 1024 * 1024
@@ -46,7 +46,7 @@ export class QuizStore {
     if (saved.plan.stops[tour.stopIndex]?.nodeId !== tour.nodeId) throw new Error(`Stop ${tour.stopIndex} of tour ${tour.tourId} is not ${tour.nodeId}`)
     // The tour may predate the current analysis, as the app still plays it then; the
     // questions are checked against the open snapshot, whose hash the quiz records.
-    checkAnswerLengths(questions)
+    for (const note of longAnswers(questions)) console.error(`Quiz answer longer than its distractors: ${note}`)
     const id = randomUUID()
     const set: QuizSet = {
       schemaVersion: 1, id, ...tour, language, snapshotHash: project.hash,

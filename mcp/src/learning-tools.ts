@@ -20,7 +20,7 @@ State why each explanation/code helps the goal. Never invent source behavior; wh
 No evaluation/heldout material belongs in the curriculum. The server supplies provisional model rates; do not invent learning probabilities.
 When asked to write material for a material job, call get_learning_material_context(jobId), then save_learning_material(jobId,items):
 only the asked concepts and levels, one action per asked slot with two new questions grounded in that level's evidence, different from slots[].written.
-Write the answer and distractors about the same length and detail; an answer over 1.25 times the longest distractor is refused, as its length would give it away.
+Write the answer and distractors about the same length and detail, so the answer's length does not give it away.
 Never record an answer, advance a session or mutate mastery. Only save the prepared materials and report the job ID.`
 
 export function registerLearningTools(server: McpServer, tours: TourStore, quizzes: QuizStore) {

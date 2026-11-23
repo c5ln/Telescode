@@ -69,7 +69,10 @@ export function readingTourOrder(snapshot: AnalysisSnapshot) {
 export function inspectNode(snapshot: AnalysisSnapshot, nodeId: string) {
   const model = buildGraphModel(snapshot, 'Repository')
   const node = model.byId.get(nodeId)
-  if (!node || node.kind === 'member') throw new Error(`Unsupported tour node: ${nodeId}`)
+  if (!node || node.kind === 'member') {
+    const hint = !node && model.byId.has(`file:${nodeId}`) ? `. Did you mean file:${nodeId}?` : ''
+    throw new Error(`Unsupported tour node: ${nodeId}${hint}`)
+  }
   const evidence: Evidence[] = []
   const add = (label: string, value: number | null | undefined) => {
     if (value != null && Number.isFinite(value)) evidence.push({ label, value: String(value) })
