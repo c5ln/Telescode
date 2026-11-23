@@ -206,6 +206,67 @@ fn codex_prepares_adaptive_learning_through_app_ipc() {
     std::env::remove_var("TELESCODE_TOUR_OUTPUT");
 }
 
+/// The goal the app builds from `requirements` (learning/goal.ts `requirementsGoal`).
+fn requirements_goal(requirements: &str) -> Value {
+    let script = "const q=process.argv[1].normalize('NFKC').trim().replace(/\\s+/g,' ');\
+        const id=require('node:crypto').createHash('sha256').update(q).digest('hex');\
+        console.log(JSON.stringify({goalId:'requirements:'+id,goalRevision:1,rawQuery:q,retrievalQuery:q,\
+        targetConcepts:['easy','medium','hard'].map(level=>({conceptId:'goal:requirements:'+id,level,weight:1})),budget:12}))";
+    let output = std::process::Command::new(crate::mcp::node()).args(["-e", script, requirements]).output().unwrap();
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    serde_json::from_slice(&output.stdout).unwrap()
+}
+
+/// The #82 baseline: the app's quiz and adaptive learning generation on the
+/// requests example, measured into the usage log. Needs TELESCODE_TEST_DB (the
+/// example scanned at its pinned commit, with its `.source` file), a signed-in
+/// Claude Code and a real LLM budget for its four runs, e.g.
+/// TELESCODE_REAL_LLM=1 TELESCODE_REAL_LLM_MAX_RUNS=4 TELESCODE_REAL_LLM_MAX_TOKENS=800000.
+/// The bundled tour is saved as is, so writing a tour costs nothing here.
+#[test]
+#[ignore = "Uses the signed-in Claude Code account; run alone with --ignored --exact and a TELESCODE_REAL_LLM budget (mcp/README.md, Measuring agent runs)"]
+fn claude_generation_baseline_through_app_ipc() {
+    let db = std::env::var("TELESCODE_TEST_DB").expect("TELESCODE_TEST_DB names the scanned example");
+    let output = std::env::var("TELESCODE_BASELINE_OUTPUT").map(std::path::PathBuf::from).unwrap_or_else(|_| {
+        std::env::temp_dir().join(format!("telescode-baseline-{}", std::process::id()))
+    });
+    // A store of its own: no cached material, and the app's own store is left alone.
+    std::env::set_var("TELESCODE_TOUR_OUTPUT", &output);
+    let scenario = |name: &str| std::env::set_var(crate::agent::SCENARIO_ENV, name);
+    let example: Value = serde_json::from_str(include_str!("../../src/examples/data/requests.json")).unwrap();
+    let (_app, window) = window();
+    assert_eq!(ipc(&window, "agent_status", json!({"provider":"claude"})).unwrap()["signedIn"], true);
+
+    let project = crate::mcp::call("open_project", json!({"path":db})).unwrap();
+    let plan = &example["tour"]["plan"];
+    let stops: Vec<Value> = plan["stops"].as_array().unwrap().iter()
+        .map(|s| json!({"nodeId":s["nodeId"],"caption":s["caption"],"transitionMs":s["transitionMs"],"holdMs":s["holdMs"]})).collect();
+    let tour = crate::mcp::call("create_tour_draft", json!({"projectId":project["projectId"],"title":plan["title"],"language":"en","stops":stops})).unwrap();
+    let index = stops.iter().position(|s| s["nodeId"].as_str().unwrap().starts_with("file:")).unwrap();
+    let target = json!({"dbPath":db,"tourId":tour["plan"]["id"],"tourRevision":tour["plan"]["revision"],"stopIndex":index,"nodeId":stops[index]["nodeId"]});
+    for name in ["baseline-quiz-cold", "baseline-quiz-warm"] {
+        scenario(name);
+        ipc(&window, "generate_quiz", json!({"provider":"claude","target":target})).unwrap();
+    }
+    assert_eq!(ipc(&window, "list_quizzes", json!({})).unwrap().as_array().unwrap().len(), 2);
+
+    let goal = requirements_goal(example["requirements"].as_str().unwrap());
+    let started = ipc(&window, "start_learning_session", json!({"dbPath":db,"goal":goal})).unwrap();
+    let id = started["session"]["id"].clone();
+    scenario("baseline-learning");
+    let ready = ipc(&window, "prepare_learning_session", json!({"sessionId":id,"revision":started["session"]["revision"],"provider":"claude"})).unwrap();
+    assert_eq!(ready["session"]["status"], "active", "{ready}");
+    let answer = json!({"sessionId":id,"revision":ready["session"]["revision"],"stopId":ready["session"]["current"]["id"],
+        "submissionId":"baseline-answer","questionId":ready["question"]["id"],"selectedIndex":0});
+    ipc(&window, "record_learning_response", json!({"answer":answer})).unwrap();
+    scenario("baseline-learning-material");
+    ipc(&window, "prepare_learning_material", json!({"sessionId":id,"provider":"claude"})).unwrap();
+
+    std::env::remove_var(crate::agent::SCENARIO_ENV);
+    std::env::remove_var("TELESCODE_TOUR_OUTPUT");
+    println!("Baseline usage log: {}", output.join(crate::agent::USAGE_LOG).display());
+}
+
 #[test]
 #[ignore = "Uses the saved Codex account and model quota; run alone with --ignored --exact and a TELESCODE_REAL_LLM budget (mcp/README.md, Measuring agent runs)"]
 fn codex_generates_and_grades_through_app_ipc() {
