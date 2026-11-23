@@ -129,6 +129,10 @@ export function classLines(lines: string[], className: string): [number, number]
 
 // A Python def or class header; the core parses Python only.
 const DEF = /^(\s*)(async\s+def|def|class)\s+([A-Za-z_]\w*)/
+/** Most of a context's source budget one related node's excerpt may take. */
+const NEIGHBOUR_SHARE = 0.25
+/** A cut related excerpt of code without definitions shorter than this is dropped. */
+const MIN_NEIGHBOUR_CHARS = 400
 const indentOf = (line: string) => line.length - line.trimStart().length
 
 /** A run of lines in an excerpt's range: a def or class with its decorators and body, or the code between them. */
@@ -200,9 +204,11 @@ function render(lines: string[], parts: Part[], chosen: Set<number>): { text: st
  * Lines [start, end] within `budget` characters. A range that does not fit
  * keeps its header and the definitions that matter most (`weight`), whole,
  * and names the ones left out; code without definitions keeps its first
- * lines. Lines in `covered` are already in another excerpt and left out.
+ * lines. Definitions `weight` gives null, and with `fill` off the code
+ * between definitions, are only sent when the whole range fits. Lines in
+ * `covered` are already in another excerpt and left out.
  */
-function excerptText(lines: string[], start: number, end: number, base: number, budget: number, covered: Set<number>, weight: (name: string) => number) {
+function excerptText(lines: string[], start: number, end: number, base: number, budget: number, covered: Set<number>, weight: (name: string) => number | null, fill: boolean) {
   const free = (p: Part) => {
     for (let n = p.start; n <= p.end; n++) if (covered.has(n)) return false
     return true
@@ -210,18 +216,21 @@ function excerptText(lines: string[], start: number, end: number, base: number, 
   const parts = partsOf(lines, start, end, base)
   const all = new Set(parts.keys())
   const whole = render(lines, parts, all)
-  if (whole.text.length <= budget && parts.every(free)) return { ...whole, truncated: false }
+  const hasDefs = parts.some((p) => p.name)
+  if (whole.text.length <= budget && parts.every(free)) return { ...whole, truncated: false, hasDefs, defs: parts.filter((p) => p.name).length }
 
-  const score = (p: Part, i: number) => (p.name ? weight(p.name) : i === 0 && p.start === start ? Infinity : 0.5)
-  const order = [...parts.keys()].filter((i) => free(parts[i]!)).sort((a, b) => score(parts[b]!, b) - score(parts[a]!, a) || a - b)
+  const score = (p: Part, i: number) => (p.name ? weight(p.name) : i === 0 && p.start === start ? Infinity : fill ? 0.5 : null)
+  const order = [...parts.keys()]
+    .filter((i) => free(parts[i]!) && score(parts[i]!, i) !== null)
+    .sort((a, b) => score(parts[b]!, b)! - score(parts[a]!, a)! || a - b)
   const chosen = new Set<number>()
-  if (parts.some((p) => p.name)) {
+  if (hasDefs) {
     for (const i of order) {
       chosen.add(i)
       if (render(lines, parts, chosen).text.length > budget) chosen.delete(i)
     }
   }
-  if (chosen.size) return { ...render(lines, parts, chosen), truncated: true }
+  if (chosen.size) return { ...render(lines, parts, chosen), truncated: true, hasDefs, defs: [...chosen].filter((i) => parts[i]!.name).length }
   // No definitions to choose from, or none fits: the range's first lines.
   if (!parts.every(free)) return null
   const out: string[] = []
@@ -234,7 +243,7 @@ function excerptText(lines: string[], start: number, end: number, base: number, 
     size += line.length + 1
     last = n
   }
-  return last < start ? null : { text: out.join('\n'), last, truncated: true }
+  return last < start ? null : { text: out.join('\n'), last, truncated: true, hasDefs, defs: 0 }
 }
 
 /**
@@ -277,6 +286,8 @@ function excerptsFor(snapshot: AnalysisSnapshot, model: GraphModel, nodeIds: str
     const used = anchor!
     const inFile = wordsOf(lines.join('\n'))
     const weight = (name: string) => {
+      // Related code that is cut keeps only what the first node uses or the context names.
+      if (!isAnchor && !used.has(name) && !contextNames.has(name)) return null
       // Used elsewhere in its file, named by the context, used by the first node.
       let w = Math.min(5, (inFile.get(name) ?? 1) - 1)
       if (contextNames.has(name)) w += 3
@@ -288,8 +299,12 @@ function excerptsFor(snapshot: AnalysisSnapshot, model: GraphModel, nodeIds: str
       const body = lines.slice(start + 1, end + 1).find((l) => l.trim())
       base = body ? indentOf(body) : indentOf(lines[start]!) + 4
     }
-    const picked = excerptText(lines, start, end, base, budget, seen, weight)
+    // The first node's code may use the whole budget; each related one gets a share, so one long neighbour cannot crowd out the rest.
+    const share = isAnchor ? budget : Math.min(budget, Math.floor(limits.sourceChars * NEIGHBOUR_SHARE))
+    const picked = excerptText(lines, start, end, base, share, seen, weight, isAnchor)
     if (!picked) continue
+    // Related code cut down to none of the definitions it is related by, or, without definitions, to a few lines, is not worth sending.
+    if (!isAnchor && picked.truncated && (picked.hasDefs ? !picked.defs : picked.text.length < MIN_NEIGHBOUR_CHARS)) continue
     const numbers = [...picked.text.matchAll(/^(\d+)\| /gm)].map((m) => Number(m[1]))
     if (!numbers.length) continue
     for (const n of numbers) seen.add(n - 1)
@@ -378,7 +393,7 @@ export function buildQuizContexts(snapshot: AnalysisSnapshot, nodeId: string, di
       if (!seen) nodes.set(n.nodeId, n)
       else if (n.hop < seen.hop) nodes.set(n.nodeId, { ...seen, hop: n.hop })
     }
-    for (const r of part.relations) relations.set(`${r.source} ${r.target} ${r.kind}`, r)
+    for (const r of part.relations) relations.set(`${r.source}\0${r.target}\0${r.kind}`, r)
   }
   const ids = [...nodes.keys()]
   const limits = {

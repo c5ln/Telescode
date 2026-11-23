@@ -159,6 +159,9 @@ test('a file too long for the budget keeps its header and the definitions the st
   const all = excerptLines(both.excerpts, sources)
   assert.equal(new Set(all.map(([f, n]) => `${f}:${n}`)).size, all.length)
   assert.ok(both.excerpts.reduce((n, e) => n + e.text.length, 0) <= SCOPE.medium.sourceChars)
+  // Related code gets a share of the budget, not all that is left, and once cut keeps only what the class uses.
+  for (const e of both.excerpts.slice(1)) assert.ok(e.text.length <= SCOPE.medium.sourceChars / 4, `${e.nodeId} within its share`)
+  assert.doesNotMatch(fileExcerpt.text, /\| def unrelated_/)
 
   // Adaptive candidates choose within their own, smaller share.
   const small = buildQuizContext(snapshot, file, 'easy', read, { sourceChars: 2_000 })
