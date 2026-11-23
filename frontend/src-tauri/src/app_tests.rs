@@ -183,7 +183,7 @@ learning.close();
 }
 
 #[test]
-#[ignore = "Uses the logged-in Codex account and quota; run alone with --ignored --exact and a TELESCODE_REAL_LLM budget (docs/perf/quiz-generation-baseline.md)"]
+#[ignore = "Uses the logged-in Codex account and quota; run alone with --ignored --exact and a TELESCODE_REAL_LLM budget (mcp/README.md, Measuring agent runs)"]
 fn codex_prepares_adaptive_learning_through_app_ipc() {
     let (dir, db) = learning_fixture();
     println!("Learning IPC artifacts: {}", dir.display());
@@ -207,7 +207,7 @@ fn codex_prepares_adaptive_learning_through_app_ipc() {
 }
 
 #[test]
-#[ignore = "Uses the saved Codex account and model quota; run alone with --ignored --exact and a TELESCODE_REAL_LLM budget (docs/perf/quiz-generation-baseline.md)"]
+#[ignore = "Uses the saved Codex account and model quota; run alone with --ignored --exact and a TELESCODE_REAL_LLM budget (mcp/README.md, Measuring agent runs)"]
 fn codex_generates_and_grades_through_app_ipc() {
     use std::time::{SystemTime, UNIX_EPOCH};
     let dir = std::env::temp_dir().join(format!(

@@ -216,3 +216,104 @@ The smoke command makes an 11-second Sherlock fixture tour with repository →
 file → class → repository movement, plus VTT and manifest. It is a developer
 fixture, independent of the real-user approval flow. Linux rendering is tested;
 Windows execution needs verification on a Windows machine.
+
+
+## Measuring agent runs
+
+How to measure quiz and adaptive learning generation before and after a change
+(#82), and how to keep tests from spending real model tokens (#83).
+
+### What every run records
+
+Each agent run appends one JSON line to `agent-usage.jsonl` in the MCP
+server's output folder (`mcp/artifacts/`, or `TELESCODE_TOUR_OUTPUT`). The
+folder is git-ignored. The fields that were there before #83 are unchanged;
+the rest were added.
+
+| Field | Meaning |
+| --- | --- |
+| `atMs`, `work`, `provider`, `model`, `durationMs`, `ok`, `usage` | As before. `work` is `tour`, `quiz`, `learning` (first preparation) or `learning-material` (follow-up questions). `usage.inputTokens` is new input, `usage.cachedInputTokens` input read from the prompt cache. |
+| `runId` | Unique per run. |
+| `errorCode` | The failure's error code (`agent_cancelled`, `tour_generation_failed`, ...). Never its message. |
+| `scenario` | `TELESCODE_RUN_SCENARIO` when the app was started with it. Letters, digits, `.`, `_`, `-` only, at most 64; anything else is dropped. |
+| `correlation` | `tourId` and `stopIndex` for a quiz; `sessionId` and `jobId` for learning. |
+| `metrics.firstEventMs` | From just before the CLI starts to its first event. |
+| `metrics.readyMs` | To the CLI being ready: Claude Code's `system/init` (after its MCP server connected), Codex's `turn.started`. |
+| `metrics.firstModelOutputMs`, `metrics.firstToolCallMs` | To the model's first output and first tool call. |
+| `metrics.modelCalls` | Model requests (distinct assistant messages). Claude Code only; `null` for Codex. |
+| `metrics.apiDurationMs` | Time in the model API, as Claude Code reports it; `null` for Codex. |
+| `metrics.toolCalls[]` | Each tool call: `tool`, `startMs`, `durationMs`, `argsBytes`, `resultBytes`, `ok`. |
+| `metrics.savedQuestions` | Questions in the save calls that succeeded. Exact for quizzes (saved whole or not at all); an upper bound for learning material, from which the server may still drop repeats. |
+| `metrics.usageReported` | Whether the stream reported usage. When `false`, the token counts are not known. |
+
+`null` means the agent's stream did not report it. Nothing is estimated. The
+log holds names, IDs, timings and sizes only: no prompt, source, model reply,
+error message or file path.
+
+### Comparing
+
+```sh
+npm --prefix mcp run usage:report -- mcp/artifacts/agent-usage.jsonl
+npm --prefix mcp run usage:report -- --before before.jsonl --after after.jsonl
+# or one log with both: --before log --before-scenario baseline-quiz --after log --after-scenario after-quiz
+```
+
+The report groups runs by scenario, work, provider and model: runs, successes,
+median duration, mean time to ready, mean new/cached/output tokens, model
+calls, tool calls and tool result bytes, saved questions, and new input plus
+output tokens per saved question. Unknown values are shown as `unknown` and
+left out of means.
+
+### Baseline scenarios
+
+Measure on `main` at `de42183` (PR #81 merged), then on the change, under the
+same conditions.
+
+| | |
+| --- | --- |
+| Repository | `psf/requests` at `3c7baaa05ab4aa49cc819ce3a819d260de19c157`, cloned and opened as a local folder (opening the pinned example URL plays the bundled material and runs no agent) |
+| Quiz | `work=quiz`: the first `file:` stop of a tour of that repository. Write the tour once beforehand with its own scenario name; it is not part of the comparison. |
+| Adaptive learning | `work=learning`: start a session with the example goal for requests ("I'm a backend developer who calls requests every day..."). Then `work=learning-material`: answer the first question and let the follow-up questions be written. |
+| Cold / warm | Cold: the first run after starting the app. Warm: the same scenario again in the same app session. Use separate scenario names, e.g. `baseline-quiz-cold`, `baseline-quiz-warm`. |
+| Repeats | As few as give a stable median; 3 per scenario is suggested. |
+
+Record next to the numbers, outside the repository if it names local paths:
+the commit, OS, `claude --version` or `codex --version`, provider, model
+(`light` is `sonnet` for Claude Code, `gpt-6-luna` at medium effort for Codex),
+and whether anything else was running.
+
+Start the app with the scenario name, e.g.
+`TELESCODE_RUN_SCENARIO=baseline-quiz-cold npm --prefix frontend run desktop`.
+
+### Real model runs in tests
+
+In test builds every agent run goes through `llm_budget::admit`
+(`frontend/src-tauri/src/llm_budget.rs`) first, and is refused unless:
+
+- `TELESCODE_AGENT_MOCK=1`: the agent is a fake (`TELESCODE_CLAUDE`/`TELESCODE_CODEX`
+  set to a stand-in) that calls no model, or
+- `TELESCODE_REAL_LLM=1`, `TELESCODE_REAL_LLM_MAX_RUNS=<n>` and
+  `TELESCODE_REAL_LLM_MAX_TOKENS=<n>` are all set, and the ledger shows fewer
+  runs and tokens used than that.
+
+So `cargo test` runs no real model. The tests that do (`#[ignore]` in
+`app_tests.rs`, and `tours::real_generation` behind `TELESCODE_TEST_CLAUDE`)
+need the budget on top of their own switches.
+
+The CLIs cannot stop at an exact token count, so the budget is checked before a
+run and charged after it, from the usage the run reported. It is written to the
+ledger, `TELESCODE_REAL_LLM_LEDGER` or `frontend/src-tauri/target/real-llm-ledger.jsonl`
+(git-ignored), and the next run reads it. Tokens are new input, cached input and
+output together. This means:
+
+- one run can go past the budget by what that run used;
+- a run whose usage was not reported (a crash, a timeout before the last event)
+  is charged everything that was left, so nothing more runs until the ledger is
+  deleted;
+- parallel test threads take turns, but two test processes sharing a ledger
+  are not coordinated.
+
+`frontend/scripts/build-examples.ts` writes every example's tour, quizzes and
+learning path with real runs. No npm script, test or build runs it
+(`frontend/src/real-llm-guard.test.ts` checks this). Run it by hand, for one
+example at a time, only when that example has to change.
