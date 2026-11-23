@@ -64,7 +64,8 @@ fn claude_args(db: &Path, target: &QuizTarget, server: &mcp::ServerCommand) -> V
 
 fn generate(target: &QuizTarget, provider: agent::Provider, followed: Option<agent::Followed>) -> Result<(), BridgeError> {
     let db = validate_db_path(&target.db_path)?;
-    agent::generate(provider, "quiz", agent::Model::Light, &generation_prompt(&db, target), AGENT_TOOLS, GENERATION_TIMEOUT, followed)
+    let correlation = agent::Correlation { tour_id: Some(target.tour_id.clone()), stop_index: Some(target.stop_index), ..Default::default() };
+    agent::generate(provider, "quiz", agent::Model::Light, correlation, &generation_prompt(&db, target), AGENT_TOOLS, GENERATION_TIMEOUT, followed)
 }
 
 async fn blocking<T: Send + 'static>(f: impl FnOnce() -> Result<T, BridgeError> + Send + 'static) -> Result<T, BridgeError> {

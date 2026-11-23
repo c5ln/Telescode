@@ -57,7 +57,7 @@ fn claude_args(db: &Path, server: &mcp::ServerCommand) -> Vec<OsString> {
 /// Runs the selected agent until it has saved a tour for `db_path`, or fails.
 fn generate(db_path: &str, provider: agent::Provider, followed: Option<agent::Followed>) -> Result<(), BridgeError> {
     let db = validate_db_path(db_path)?;
-    agent::generate(provider, "tour", agent::Model::Default, &generation_prompt(&db), AGENT_TOOLS, GENERATION_TIMEOUT, followed)
+    agent::generate(provider, "tour", agent::Model::Default, agent::Correlation::default(), &generation_prompt(&db), AGENT_TOOLS, GENERATION_TIMEOUT, followed)
 }
 
 /// IPC entry point: `invoke("list_tours")`. Every tour the server has saved;
@@ -123,7 +123,8 @@ mod tests {
     // Has Claude Code write a real tour when TELESCODE_TEST_CLAUDE=1 and
     // TELESCODE_TEST_DB names an analyzed database (plus what the server needs:
     // Node.js and `npm --prefix mcp install`). A no-op otherwise: it uses the
-    // developer's Claude Code sign-in and takes minutes.
+    // developer's Claude Code sign-in and takes minutes. Like every real run in
+    // tests, it also needs a TELESCODE_REAL_LLM budget (see llm_budget.rs).
     #[test]
     fn real_generation() {
         let (Some(_), Some(db)) = (std::env::var_os("TELESCODE_TEST_CLAUDE"), std::env::var_os("TELESCODE_TEST_DB")) else {

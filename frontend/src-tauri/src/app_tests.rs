@@ -159,6 +159,8 @@ learning.close();
     std::fs::write(&fake,format!("#!/bin/sh\nexec '{}' --import='{}' '{}' \"$@\"\n",node.to_string_lossy(),loader.display(),worker.display())).unwrap();
     std::fs::set_permissions(&fake,std::fs::Permissions::from_mode(0o755)).unwrap();
     std::env::set_var("TELESCODE_CODEX",&fake);
+    // A fake that calls no model, so the real-LLM budget does not apply.
+    std::env::set_var(crate::llm_budget::MOCK_ENV,"1");
     let input = json!({"sessionId":started["session"]["id"],"revision":started["session"]["revision"],"provider":"codex"});
     std::thread::scope(|scope| {
         let left = scope.spawn(|| ipc(&first_window,"prepare_learning_session",input.clone()));
@@ -176,11 +178,12 @@ learning.close();
     });
     assert_eq!(std::fs::read_to_string(&log).unwrap().lines().count(),1,"only one CLI process may prepare the joined job");
     std::env::remove_var("TELESCODE_CODEX");
+    std::env::remove_var(crate::llm_budget::MOCK_ENV);
     std::env::remove_var("TELESCODE_TOUR_OUTPUT");
 }
 
 #[test]
-#[ignore = "Uses the logged-in Codex account and quota; run alone with --ignored --exact"]
+#[ignore = "Uses the logged-in Codex account and quota; run alone with --ignored --exact and a TELESCODE_REAL_LLM budget (docs/perf/quiz-generation-baseline.md)"]
 fn codex_prepares_adaptive_learning_through_app_ipc() {
     let (dir, db) = learning_fixture();
     println!("Learning IPC artifacts: {}", dir.display());
@@ -204,7 +207,7 @@ fn codex_prepares_adaptive_learning_through_app_ipc() {
 }
 
 #[test]
-#[ignore = "Uses the saved Codex account and model quota; run alone with --ignored --exact"]
+#[ignore = "Uses the saved Codex account and model quota; run alone with --ignored --exact and a TELESCODE_REAL_LLM budget (docs/perf/quiz-generation-baseline.md)"]
 fn codex_generates_and_grades_through_app_ipc() {
     use std::time::{SystemTime, UNIX_EPOCH};
     let dir = std::env::temp_dir().join(format!(
