@@ -697,9 +697,14 @@ describe('AppShell', () => {
       await userEvent.click(within(panel).getByRole('button', { name: 'Next question' }))
       expect(within(panel).getByText('What does sherlock_project contain?')).toBeTruthy()
       expect(within(panel).getByText('Question 3 of 3 · Packages')).toBeTruthy()
+      await userEvent.click(within(panel).getAllByRole('radio')[0]!)
+      await userEvent.click(within(panel).getByRole('button', { name: 'Check answer' }))
+      await within(panel).findByText(/Correct\.|Not quite\./)
+      // The last question ends the quiz instead of starting it over.
+      expect(within(panel).queryByRole('button', { name: 'Next question' })).toBeNull()
 
       // Back to the tutorial: the same step, paused, with the map on it again.
-      await userEvent.click(within(panel).getByRole('button', { name: 'Back to tour' }))
+      await userEvent.click(within(panel).getByRole('button', { name: 'Finish quiz' }))
       const tutorial = screen.getByRole('region', { name: 'Code tour' })
       expect(within(tutorial).getByText('1 / 3')).toBeTruthy()
       expect(within(tutorial).getByRole('button', { name: 'Play' })).toBeTruthy()

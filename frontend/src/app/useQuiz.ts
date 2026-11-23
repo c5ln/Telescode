@@ -198,8 +198,9 @@ export function useQuiz(
 
   const next = useCallback(() => {
     if (state.status !== 'ready') return
-    const count = questionsOf(state.set).length
-    show({ ...state, index: (state.index + 1) % count, selected: null, answer: { status: 'open' } })
+    // The last question ends the quiz; it does not start over.
+    if (state.index + 1 >= questionsOf(state.set).length) return
+    show({ ...state, index: state.index + 1, selected: null, answer: { status: 'open' } })
   }, [state, show])
 
   const showNode = useCallback(
