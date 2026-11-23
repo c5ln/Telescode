@@ -117,8 +117,8 @@ export function classLines(lines: string[], className: string): [number, number]
   const start = lines.findIndex((l) => header.test(l))
   if (start === -1) return null
   const indent = header.exec(lines[start]!)![1]!.length
-  let end = start
-  for (let i = start + 1; i < lines.length; i++) {
+  let end = headerEnd(lines, start, lines.length - 1)
+  for (let i = end + 1; i < lines.length; i++) {
     const line = lines[i]!
     if (!line.trim()) continue
     if (line.length - line.trimStart().length <= indent) break
@@ -133,7 +133,28 @@ const DEF = /^(\s*)(async\s+def|def|class)\s+([A-Za-z_]\w*)/
 const NEIGHBOUR_SHARE = 0.25
 /** A cut related excerpt of code without definitions shorter than this is dropped. */
 const MIN_NEIGHBOUR_CHARS = 400
+/** At most this part of an excerpt's budget a header may take and still come before the definitions. */
+const HEADER_SHARE = 0.5
 const indentOf = (line: string) => line.length - line.trimStart().length
+
+/**
+ * The last line of the def or class header starting at `i`: a signature
+ * whose brackets span lines ends where they close, so a closing `):` at the
+ * definition's own indent is not taken for the end of its body.
+ */
+function headerEnd(lines: string[], i: number, end: number): number {
+  let depth = 0
+  for (let k = i; k <= end; k++) {
+    // Brackets in strings and comments are rare in signatures; drop them roughly.
+    const code = lines[k]!.replace(/(["'])(?:\\.|(?!\1).)*\1/g, '').replace(/#.*/, '')
+    for (const c of code) {
+      if ('([{'.includes(c)) depth++
+      else if (')]}'.includes(c)) depth--
+    }
+    if (depth <= 0) return k
+  }
+  return i
+}
 
 /** A run of lines in an excerpt's range: a def or class with its decorators and body, or the code between them. */
 interface Part {
@@ -157,8 +178,8 @@ function partsOf(lines: string[], start: number, end: number, base: number): Par
     while (j <= end && indentOf(lines[j]!) === base && lines[j]!.trimStart().startsWith('@')) j++
     const m = j <= end ? DEF.exec(lines[j]!) : null
     if (m && m[1]!.length === base && indentOf(lines[i]!) === base && lines[i]!.trim()) {
-      let last = j
-      for (let k = j + 1; k <= end; k++) {
+      let last = headerEnd(lines, j, end)
+      for (let k = last + 1; k <= end; k++) {
         const line = lines[k]!
         if (!line.trim()) continue
         if (indentOf(line) <= base) break
@@ -219,7 +240,10 @@ function excerptText(lines: string[], start: number, end: number, base: number, 
   const hasDefs = parts.some((p) => p.name)
   if (whole.text.length <= budget && parts.every(free)) return { ...whole, truncated: false, hasDefs, defs: parts.filter((p) => p.name).length }
 
-  const score = (p: Part, i: number) => (p.name ? weight(p.name) : i === 0 && p.start === start ? Infinity : fill ? 0.5 : null)
+  // A short header comes first; a long one only after the definitions, so it cannot take their room.
+  const header = parts[0] && !parts[0].name && parts[0].start === start
+  const headerFirst = header && render(lines, parts, new Set([0])).text.length <= budget * HEADER_SHARE
+  const score = (p: Part, i: number) => (p.name ? weight(p.name) : header && i === 0 ? (headerFirst ? Infinity : 0.25) : fill ? 0.5 : null)
   const order = [...parts.keys()]
     .filter((i) => free(parts[i]!) && score(parts[i]!, i) !== null)
     .sort((a, b) => score(parts[b]!, b)! - score(parts[a]!, a)! || a - b)
@@ -230,8 +254,9 @@ function excerptText(lines: string[], start: number, end: number, base: number, 
       if (render(lines, parts, chosen).text.length > budget) chosen.delete(i)
     }
   }
-  if (chosen.size) return { ...render(lines, parts, chosen), truncated: true, hasDefs, defs: [...chosen].filter((i) => parts[i]!.name).length }
-  // No definitions to choose from, or none fits: the range's first lines.
+  const defs = [...chosen].filter((i) => parts[i]!.name).length
+  if (defs) return { ...render(lines, parts, chosen), truncated: true, hasDefs, defs }
+  // No definitions to choose from, or none fits: the range's first lines, which hold its header and more.
   if (!parts.every(free)) return null
   const out: string[] = []
   let size = 0
@@ -257,6 +282,8 @@ function excerptsFor(snapshot: AnalysisSnapshot, model: GraphModel, nodeIds: str
   const out: SourceExcerpt[] = []
   const files = new Map<string, string[] | null>()
   const covered = new Map<string, Set<number>>()
+  // Characters already given to related excerpts, per file.
+  const spent = new Map<string, number>()
   const linesOf = (fileId: string) => {
     if (!files.has(fileId)) files.set(fileId, read(fileId)?.split(/\r?\n/) ?? null)
     return files.get(fileId)!
@@ -296,11 +323,12 @@ function excerptsFor(snapshot: AnalysisSnapshot, model: GraphModel, nodeIds: str
     }
     let base = 0
     if (cls) {
-      const body = lines.slice(start + 1, end + 1).find((l) => l.trim())
+      const body = lines.slice(headerEnd(lines, start, end) + 1, end + 1).find((l) => l.trim())
       base = body ? indentOf(body) : indentOf(lines[start]!) + 4
     }
-    // The first node's code may use the whole budget; each related one gets a share, so one long neighbour cannot crowd out the rest.
-    const share = isAnchor ? budget : Math.min(budget, Math.floor(limits.sourceChars * NEIGHBOUR_SHARE))
+    // The first node's code may use the whole budget; each related file gets a share, however many of its nodes are in the context.
+    const share = isAnchor ? budget : Math.min(budget, Math.floor(limits.sourceChars * NEIGHBOUR_SHARE) - (spent.get(fileId) ?? 0))
+    if (share <= 0) continue
     const picked = excerptText(lines, start, end, base, share, seen, weight, isAnchor)
     if (!picked) continue
     // Related code cut down to none of the definitions it is related by, or, without definitions, to a few lines, is not worth sending.
@@ -310,6 +338,7 @@ function excerptsFor(snapshot: AnalysisSnapshot, model: GraphModel, nodeIds: str
     for (const n of numbers) seen.add(n - 1)
     covered.set(fileId, seen)
     budget -= picked.text.length
+    if (!isAnchor) spent.set(fileId, (spent.get(fileId) ?? 0) + picked.text.length)
     out.push({ nodeId, fileId, startLine: numbers[0]!, endLine: picked.last + 1, text: picked.text, truncated: picked.truncated })
   }
   return out

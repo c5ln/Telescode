@@ -26,7 +26,7 @@ type Rules = {
 }
 
 /** Sherlock's graph with long source files and a goal-ranked reading order, like a large real repository. */
-async function large() {
+async function large(rawQuery = 'How results reach notifications') {
   const dir = await mkdtemp(join(tmpdir(), 'telescode-learning-context-'))
   const source = join(dir, 'source')
   const tours = new TourStore(join(dir, 'artifacts'))
@@ -39,7 +39,7 @@ async function large() {
   project.snapshot.readingSequence = ranked.map((fileId, i) => ({ entityId: fileId, entityType: 'file', fileId, fileRank: i + 1, localRank: null,
     scores: { pagerank: null, betweenness: null, combined: null } }))
   const store = new LearningStore(tours.outputRoot, tours, new QuizStore(tours.outputRoot, tours))
-  const goal: LearningGoal = { goalId: 'large', goalRevision: 1, rawQuery: 'How results reach notifications', retrievalQuery: 'result notify',
+  const goal: LearningGoal = { goalId: 'large', goalRevision: 1, rawQuery, retrievalQuery: 'result notify',
     repositoryId: source, sourceSnapshotHash: project.hash, targetConcepts: [{ conceptId: 'A', level: 'medium', weight: 1 }], budget: 6 }
   const started = await store.start(project, goal)
   const job = await store.requestPreparation(started.session.id, started.session.revision, 'claude', process.pid)
@@ -56,6 +56,29 @@ test('preparation context stays within its size budget, keeps goal-ranked nodes 
     assert.deepEqual(f.context.contexts.map(c => c.nodeId), ranked.slice(0, f.context.contexts.length).map(id => `file:${id}`))
     assert.ok(f.context.contexts[0]!.excerpts.some(e => e.text.length > 0), 'the most relevant node still comes with its source')
     assert.equal(Object.hasOwn(f.context.job ?? {}, 'sourceEvidence'), false, 'per-file source hashes are internal, not material for the AI')
+  } finally { f.store.close() }
+})
+
+test('a context over budget has its least relevant source chosen again within the smaller share, from real lines', async () => {
+  // A long goal leaves less room for source than the candidates were chosen for.
+  const f = await large('How results reach notifications. '.repeat(400))
+  try {
+    const size = JSON.stringify(f.context).length
+    assert.ok(size <= PREPARATION_CONTEXT_CHARS, `context is ${size} characters, budget ${PREPARATION_CONTEXT_CHARS}`)
+    const source = f.project.sourceRoot!
+    const kept = f.context.contexts.flatMap(c => c.excerpts as { fileId: string; startLine: number; endLine: number; text: string }[])
+    const sizes = f.context.contexts.map(c => c.excerpts.reduce((n, e) => n + e.text.length, 0))
+    assert.ok(sizes[0]! > 4000, 'the most relevant candidate keeps its full share')
+    assert.ok(sizes.some(n => n > 0 && n < 4000), `a less relevant candidate is cut down, not dropped: ${sizes}`)
+    for (const e of kept) {
+      const real = (await readFile(join(source, e.fileId), 'utf8')).split('\n')
+      for (const line of e.text.split('\n')) {
+        const m = /^(\d+)\| (.*)$/.exec(line)
+        if (!m) { assert.match(line, /^…\| lines \d+–\d+ omitted/); continue }
+        assert.equal(m[2], real[Number(m[1]) - 1]!.trimEnd())
+        assert.ok(Number(m[1]) <= e.endLine)
+      }
+    }
   } finally { f.store.close() }
 })
 

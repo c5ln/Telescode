@@ -663,11 +663,16 @@ export class LearningStore {
         return row ? [{ id: row.id as string, name: row.id as string, version: row.version as number, definition: row.definition as string }] : []
       }), nextCurriculumVersion: (s.curriculum?.version ?? 0) + 1, modelAssumptions: MODEL_VERSION }
     // Fit the budget by shortening, then dropping, the least relevant source; evidence lists always stay with their node.
+    // A shortened candidate's source is chosen again within the smaller share, so it keeps its most related definitions.
     const size = () => JSON.stringify(out).length + JOB_SUMMARY_CHARS
+    const read = sourceReader(s.project.sourceRoot)
     for (let i = contexts.length - 1; size() > PREPARATION_CONTEXT_CHARS && i >= 0; i--) {
       const over = size() - PREPARATION_CONTEXT_CHARS
       const own = contexts[i]!.excerpts.reduce((n, e) => n + e.text.length, 0)
-      contexts[i]!.excerpts = contexts[i]!.excerpts.map(e => clip(e, Math.max(0, Math.floor(e.text.length * Math.max(0, own - over) / Math.max(1, own)) - 200))).filter(e => e.text)
+      const chars = Math.max(0, own - over - 200)
+      contexts[i]!.excerpts = chars && read
+        ? buildQuizContext(s.project.snapshot, contexts[i]!.nodeId, 'easy', read, { sourceChars: chars }).excerpts.map(e => clip(e, chars)).filter(e => e.text)
+        : []
     }
     while (size() > PREPARATION_CONTEXT_CHARS && contexts.length > 1) contexts.pop()
     return out

@@ -142,9 +142,13 @@ Comprehension quizzes on a tour stop. The desktop app has Claude Code write them
    widest level's budget, and `evidence[level]`, the nodes each level may cite. No
    source line appears twice; a file too long for the budget keeps its header and the
    definitions the stop uses or the context names, whole, and the rest are named on
-   `…| lines a–b omitted` lines. Each related file gets at most a quarter of the
-   budget; one that has to be cut keeps only the definitions the stop uses or the
-   context names, and is left out when none fit. Unreadable or missing files are skipped.
+   `…| lines a–b omitted` lines. A header (imports) longer than half the budget comes
+   after the definitions. Each related file gets at most a quarter of the budget,
+   however many of its nodes are in the context. A related file with definitions that
+   has to be cut keeps only the ones the stop uses or the context names, and is left out
+   when none of them fit. A related file without definitions (only assignments, say)
+   that has to be cut keeps its first lines, when they come to at least 400 characters.
+   Unreadable or missing files are skipped.
 2. `create_quiz(projectId, tourId, tourRevision, stopIndex, nodeId, questions)` saves
    multiple-choice and true/false questions, 1–3 per difficulty. Each question's
    `evidenceNodeIds` must lie in the context for its difficulty and include the stop's

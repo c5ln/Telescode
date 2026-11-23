@@ -8,7 +8,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { TourStore } from './store.ts'
 import { QuizStore, RESPONSES_FILE, sourceReader } from './quiz.ts'
-import { buildQuizContext, buildQuizContexts, SCOPE, type QuestionInput, type SourceExcerpt } from '../../frontend/src/quiz/model.ts'
+import { buildQuizContext, buildQuizContexts, classLines, SCOPE, type QuestionInput, type SourceExcerpt } from '../../frontend/src/quiz/model.ts'
 
 const fixture = fileURLToPath(new URL('../../frontend/src/graph/fixtures/sherlock.graph.json', import.meta.url))
 const snapshot = { ...JSON.parse(await readFile(fixture, 'utf8')), readingSequence: [] }
@@ -159,8 +159,10 @@ test('a file too long for the budget keeps its header and the definitions the st
   const all = excerptLines(both.excerpts, sources)
   assert.equal(new Set(all.map(([f, n]) => `${f}:${n}`)).size, all.length)
   assert.ok(both.excerpts.reduce((n, e) => n + e.text.length, 0) <= SCOPE.medium.sourceChars)
-  // Related code gets a share of the budget, not all that is left, and once cut keeps only what the class uses.
-  for (const e of both.excerpts.slice(1)) assert.ok(e.text.length <= SCOPE.medium.sourceChars / 4, `${e.nodeId} within its share`)
+  // Related code gets a share of the budget per file, not all that is left, and once cut keeps only what the class uses.
+  const perFile = new Map<string, number>()
+  for (const e of both.excerpts.slice(1)) perFile.set(e.fileId, (perFile.get(e.fileId) ?? 0) + e.text.length)
+  for (const [f, n] of perFile) assert.ok(n <= SCOPE.medium.sourceChars / 4, `${f} within its share`)
   assert.doesNotMatch(fileExcerpt.text, /\| def unrelated_/)
 
   // Adaptive candidates choose within their own, smaller share.
@@ -181,10 +183,62 @@ test('code without definitions keeps its first lines; a missing file is skipped'
   assert.ok(easy.excerpts[0]!.truncated)
   assert.ok(easy.excerpts[0]!.text.length <= SCOPE.easy.sourceChars)
   excerptLines(easy.excerpts, { 'sherlock_project/notify.py': flat })
+  // One definition too long for the budget, and a final newline: its first lines, not an empty line after an omission.
+  const one = `class QueryNotify:\n${Array.from({ length: 2_000 }, (_, i) => `    value_${i} = ${i}`).join('\n')}\n`
+  const single = buildQuizContext(snapshot, 'file:sherlock_project/notify.py', 'easy', () => one)
+  assert.equal(single.excerpts[0]!.text.split('\n')[0], '1| class QueryNotify:')
+  assert.ok(single.excerpts[0]!.text.length > SCOPE.easy.sourceChars / 2)
+  excerptLines(single.excerpts, { 'sherlock_project/notify.py': one })
   // Only some of the context's files exist: the rest is left out, nothing fails.
-  const sparse = buildQuizContexts(snapshot, 'root', ['easy', 'medium'], read)
+  const onlyNotify = (fileId: string) => (fileId === 'sherlock_project/notify.py' ? notify : null)
+  const sparse = buildQuizContexts(snapshot, 'file:sherlock_project/notify.py', ['easy', 'medium'], onlyNotify)
+  assert.ok(sparse.excerpts.some(e => e.nodeId === 'file:sherlock_project/notify.py'), 'the readable file is excerpted')
   assert.ok(sparse.excerpts.every(e => e.fileId === 'sherlock_project/notify.py'))
+  assert.ok(sparse.nodes.some(n => n.nodeId.startsWith('file:') && n.nodeId !== 'file:sherlock_project/notify.py'), 'the context also names unreadable files')
   assert.deepEqual(buildQuizContexts(snapshot, notifyPrint, ['easy', 'medium'], () => null).excerpts, [])
+})
+
+test('a signature over several lines, closing at the definition\'s indent, keeps its body', async () => {
+  const lines = [
+    'class QueryNotifyPrint(',
+    '    QueryNotify,',
+    '):',
+    '    def update(',
+    '        self,',
+    '        result,',
+    '    ) -> None:',
+    '        if claimed(result):',
+    '            print(result.site_name)',
+    '',
+    'def claimed(',
+    '    result,',
+    ') -> bool:',
+    '    return result.status == QueryStatus.CLAIMED',
+  ]
+  assert.deepEqual(classLines(lines, 'QueryNotifyPrint'), [0, 8])
+
+  // A header too long to come first: the class the context names still fits, whole, and the header comes after it.
+  const imports = Array.from({ length: 40 }, (_, i) => `from module_${i} import name_${i}`)
+  const source = [...imports, '', ...lines].join('\n')
+  const read = (fileId: string) => (fileId === 'sherlock_project/notify.py' ? source : null)
+  const sources = { 'sherlock_project/notify.py': source }
+  const file = 'file:sherlock_project/notify.py'
+  const head = imports.map((l, i) => `${i + 1}| ${l}`).join('\n').length
+  const cls = lines.slice(0, 9).map((l, i) => `${i + 42}| ${l}`).join('\n').length
+  const budget = head + cls - 50
+  const small = buildQuizContext(snapshot, file, 'easy', read, { sourceChars: budget })
+  const text = small.excerpts.map(e => e.text).join('\n')
+  assert.ok(text.length <= budget)
+  for (const line of ['class QueryNotifyPrint(', '):', '    def update(', '    ) -> None:', '        if claimed(result):', '            print(result.site_name)']) {
+    assert.ok(text.includes(`| ${line}\n`) || text.endsWith(`| ${line}`), `keeps ${JSON.stringify(line)}`)
+  }
+  excerptLines(small.excerpts, sources)
+
+  // From the class, the multi-line helper it uses comes whole from its file.
+  const both = buildQuizContexts(snapshot, notifyPrint, ['easy', 'medium'], read)
+  const all = both.excerpts.map(e => e.text).join('\n')
+  for (const line of ['def claimed(', ') -> bool:', '    return result.status == QueryStatus.CLAIMED']) assert.ok(all.includes(`| ${line}`), `keeps ${JSON.stringify(line)}`)
+  excerptLines(both.excerpts, sources)
 })
 
 test('a database scanned by the app has its source folder found beside it', async () => {
