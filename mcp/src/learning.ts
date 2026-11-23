@@ -34,8 +34,9 @@ function clip(excerpt: SourceExcerpt, chars: number): SourceExcerpt {
   if (excerpt.text.length <= chars) return excerpt
   const cut = excerpt.text.slice(0, chars)
   const text = cut.slice(0, Math.max(0, cut.lastIndexOf('\n')))
-  const lines = text ? text.split('\n').length : 0
-  return { ...excerpt, text, endLine: excerpt.startLine + lines - 1, truncated: true }
+  // Left-out code is named on lines without a number; the excerpt ends at its last numbered line.
+  const last = [...text.matchAll(/^(\d+)\| /gm)].at(-1)
+  return last ? { ...excerpt, text, endLine: Number(last[1]), truncated: true } : { ...excerpt, text: '', endLine: excerpt.startLine, truncated: true }
 }
 const hash = (text: string) => createHash('sha256').update(text).digest('hex')
 const norm = (text: string) => text.normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase()
@@ -642,7 +643,8 @@ export class LearningStore {
     const ranked = snapshot.readingSequence.filter(r => r.entityType === 'file').map(r => `file:${r.fileId}`)
     const candidates = [...new Set([...ranked, ...snapshot.files.map(f => `file:${f.fileId}`)])].slice(0, PREPARATION_CANDIDATES)
     return candidates.map(nodeId => {
-      const own = buildQuizContext(snapshot, nodeId, 'easy', read)
+      // Chosen within the candidate's share, so a long file keeps the definitions it uses most rather than its first lines.
+      const own = buildQuizContext(snapshot, nodeId, 'easy', read, { sourceChars: CANDIDATE_SOURCE_CHARS })
       const evidence = Object.fromEntries(DIFFICULTIES.map(level => [level, buildQuizContext(snapshot, nodeId, level).nodes.map(n => n.nodeId)]))
       const anchor = own.nodes.find(n => n.nodeId === nodeId)!
       return { nodeId, title: anchor.title, facts: anchor.facts, excerpts: own.excerpts.map(e => clip(e, CANDIDATE_SOURCE_CHARS)), evidence }
