@@ -285,6 +285,18 @@ and whether anything else was running.
 Start the app with the scenario name, e.g.
 `TELESCODE_RUN_SCENARIO=baseline-quiz-cold npm --prefix frontend run desktop`.
 
+Or run all of them on Claude Code in one go, without the app window, through
+the app's IPC (`claude_generation_baseline_through_app_ipc` in
+`frontend/src-tauri/src/app_tests.rs`). It saves the bundled requests tour
+directly, so no tour is written, and needs the scanned example and a budget:
+
+```sh
+TELESCODE_TEST_DB=<requests.db, with its .source file> TELESCODE_BASELINE_OUTPUT=<folder for the usage log> TELESCODE_REAL_LLM=1 TELESCODE_REAL_LLM_MAX_RUNS=4 TELESCODE_REAL_LLM_MAX_TOKENS=800000 cargo test --manifest-path frontend/src-tauri/Cargo.toml --lib -- --ignored --exact app_tests::claude_generation_baseline_through_app_ipc
+```
+
+The follow-up step runs an agent only when the server finds material missing
+for the next question; when it does not, that scenario has no run.
+
 ### Real model runs in tests
 
 In test builds every agent run goes through `llm_budget::admit`
