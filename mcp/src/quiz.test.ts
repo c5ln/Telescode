@@ -8,7 +8,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { TourStore } from './store.ts'
 import { QuizStore, RESPONSES_FILE, sourceReader } from './quiz.ts'
-import { buildQuizContext, type QuestionInput } from '../../frontend/src/quiz/model.ts'
+import { buildQuizContext, buildQuizContexts, SCOPE, type QuestionInput, type SourceExcerpt } from '../../frontend/src/quiz/model.ts'
 
 const fixture = fileURLToPath(new URL('../../frontend/src/graph/fixtures/sherlock.graph.json', import.meta.url))
 const snapshot = { ...JSON.parse(await readFile(fixture, 'utf8')), readingSequence: [] }
@@ -60,7 +60,7 @@ test('quiz context carries numbered source: the class body, then the code it rel
 
   const easy = buildQuizContext(snapshot, notifyPrint, 'easy', read)
   assert.deepEqual(easy.excerpts.map(e => [e.nodeId, e.startLine, e.endLine, e.truncated]), [[notifyPrint, 10, 13, false]])
-  assert.equal(easy.excerpts[0]!.text.split('\n')[0], '   10| class QueryNotifyPrint(QueryNotify):')
+  assert.equal(easy.excerpts[0]!.text.split('\n')[0], '10| class QueryNotifyPrint(QueryNotify):')
   assert.doesNotMatch(easy.excerpts[0]!.text, /def helper/)
 
   const medium = buildQuizContext(snapshot, notifyPrint, 'medium', read)
@@ -71,6 +71,117 @@ test('quiz context carries numbered source: the class body, then the code it rel
   assert.equal(read('../outside.py'), null)
   assert.equal(read('sherlock_project/missing.py'), null)
   assert.deepEqual(buildQuizContext(snapshot, notifyPrint, 'easy').excerpts, [])
+})
+
+/** Every numbered excerpt line, as [fileId, line number, text], checked against the source. */
+function excerptLines(excerpts: SourceExcerpt[], sources: Record<string, string>) {
+  return excerpts.flatMap(e => e.text.split('\n').flatMap(line => {
+    const m = /^(\d+)\| (.*)$/.exec(line)
+    if (!m) { assert.match(line, /^…\| lines \d+–\d+ omitted/); return [] }
+    const n = Number(m[1])
+    assert.equal(m[2], sources[e.fileId]!.split('\n')[n - 1]!.trimEnd(), `${e.fileId}:${n} is the real source line`)
+    assert.ok(n >= e.startLine && n <= e.endLine)
+    return [[e.fileId, n, m[2]] as const]
+  }))
+}
+
+test('one context for easy and medium: the same evidence per level, source sent once and smaller than two contexts', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'telescode-quiz-multi-'))
+  await mkdir(join(root, 'sherlock_project'))
+  await writeFile(join(root, 'sherlock_project/notify.py'), notify)
+  const read = sourceReader(root)!
+  for (const nodeId of [notifyPrint, 'file:sherlock_project/notify.py', 'root']) {
+    const easy = buildQuizContext(snapshot, nodeId, 'easy', read)
+    const medium = buildQuizContext(snapshot, nodeId, 'medium', read)
+    const both = buildQuizContexts(snapshot, nodeId, ['medium', 'easy'], read)
+    assert.deepEqual(both.difficulties, ['easy', 'medium'])
+    // Exactly the nodes the validator accepts per level, and every one of them is described.
+    assert.deepEqual(both.evidence.easy, easy.nodes.map(n => n.nodeId))
+    assert.deepEqual(both.evidence.medium, medium.nodes.map(n => n.nodeId))
+    const described = new Set(both.nodes.map(n => n.nodeId))
+    assert.equal(described.size, both.nodes.length)
+    for (const id of [...both.evidence.easy!, ...both.evidence.medium!]) assert.ok(described.has(id), id)
+    // No source line twice, and every line is the real one.
+    const lines = excerptLines(both.excerpts, { 'sherlock_project/notify.py': notify })
+    assert.equal(new Set(lines.map(([f, n]) => `${f}:${n}`)).size, lines.length)
+    // Baseline: what the agent received before, one context per level.
+    const before = JSON.stringify(easy).length + JSON.stringify(medium).length
+    const after = JSON.stringify(both).length
+    assert.ok(after < before, `${nodeId}: ${after} < ${before}`)
+  }
+  assert.throws(() => buildQuizContexts(snapshot, notifyPrint, []), /Unknown difficulties/)
+})
+
+test('a file too long for the budget keeps its header and the definitions the stop uses, whole, with real line numbers', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'telescode-quiz-long-'))
+  await mkdir(join(root, 'sherlock_project'))
+  const filler = (i: number) => [`def unrelated_${i}(value):`, ...Array.from({ length: 30 }, (_, j) => `    value = value + ${j}  # step ${j} of a long unrelated helper`), '    return value', '']
+  const long = [
+    'import os',
+    'from result import QueryStatus',
+    '',
+    ...Array.from({ length: 40 }, (_, i) => filler(i)).flat(),
+    'def claimed(result):',
+    '    return result.status == QueryStatus.CLAIMED',
+    '',
+    'class QueryNotify:',
+    '    def update(self, result):',
+    '        self.result = result',
+    '',
+    'class QueryNotifyPrint(QueryNotify):',
+    '    def update(self, result):',
+    '        if claimed(result):',
+    '            print(result.site_name)',
+    '',
+  ].join('\n')
+  await writeFile(join(root, 'sherlock_project/notify.py'), long)
+  const read = sourceReader(root)!
+  const sources = { 'sherlock_project/notify.py': long }
+  const file = 'file:sherlock_project/notify.py'
+
+  const easy = buildQuizContext(snapshot, file, 'easy', read)
+  assert.ok(long.length > SCOPE.easy.sourceChars)
+  const text = easy.excerpts.map(e => e.text).join('\n')
+  assert.ok(text.length <= SCOPE.easy.sourceChars)
+  assert.ok(easy.excerpts[0]!.truncated)
+  assert.match(text, /^1\| import os$/m)
+  // The classes the context names are kept whole; unrelated helpers are named, not shown.
+  assert.match(text, /\| class QueryNotifyPrint\(QueryNotify\):\n\d+\|     def update\(self, result\):\n\d+\|         if claimed\(result\):/)
+  assert.match(text, /…\| lines \d+–\d+ omitted: unrelated_\d+\(\)/)
+  const lines = excerptLines(easy.excerpts, sources)
+  assert.equal(new Set(lines.map(([f, n]) => `${f}:${n}`)).size, lines.length)
+
+  // From the class, its file adds what the class uses (`claimed`) before unrelated code, and never repeats the class.
+  const both = buildQuizContexts(snapshot, notifyPrint, ['easy', 'medium'], read)
+  assert.equal(both.excerpts[0]!.nodeId, notifyPrint)
+  const fileExcerpt = both.excerpts.find(e => e.nodeId === file)!
+  assert.match(fileExcerpt.text, /\| def claimed\(result\):/)
+  const all = excerptLines(both.excerpts, sources)
+  assert.equal(new Set(all.map(([f, n]) => `${f}:${n}`)).size, all.length)
+  assert.ok(both.excerpts.reduce((n, e) => n + e.text.length, 0) <= SCOPE.medium.sourceChars)
+
+  // Adaptive candidates choose within their own, smaller share.
+  const small = buildQuizContext(snapshot, file, 'easy', read, { sourceChars: 2_000 })
+  assert.ok(small.excerpts.reduce((n, e) => n + e.text.length, 0) <= 2_000)
+  assert.match(small.excerpts.map(e => e.text).join('\n'), /^1\| import os$/m)
+  excerptLines(small.excerpts, sources)
+})
+
+test('code without definitions keeps its first lines; a missing file is skipped', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'telescode-quiz-flat-'))
+  await mkdir(join(root, 'sherlock_project'))
+  const flat = Array.from({ length: 2_000 }, (_, i) => `VALUE_${i} = ${i}`).join('\n')
+  await writeFile(join(root, 'sherlock_project/notify.py'), flat)
+  const read = sourceReader(root)!
+  const easy = buildQuizContext(snapshot, 'file:sherlock_project/notify.py', 'easy', read)
+  assert.equal(easy.excerpts[0]!.startLine, 1)
+  assert.ok(easy.excerpts[0]!.truncated)
+  assert.ok(easy.excerpts[0]!.text.length <= SCOPE.easy.sourceChars)
+  excerptLines(easy.excerpts, { 'sherlock_project/notify.py': flat })
+  // Only some of the context's files exist: the rest is left out, nothing fails.
+  const sparse = buildQuizContexts(snapshot, 'root', ['easy', 'medium'], read)
+  assert.ok(sparse.excerpts.every(e => e.fileId === 'sherlock_project/notify.py'))
+  assert.deepEqual(buildQuizContexts(snapshot, notifyPrint, ['easy', 'medium'], () => null).excerpts, [])
 })
 
 test('a database scanned by the app has its source folder found beside it', async () => {
@@ -144,6 +255,11 @@ test('MCP protocol: quiz context, saving and answering a quiz', { timeout: 60000
     const draft = await call('create_tour_draft', { projectId, title: 'Quiz tour', language: 'en', stops: [{ nodeId: 'root', caption: 'Overview', transitionMs: 0, holdMs: 2000 }] })
     const context = await call('get_quiz_context', { projectId, nodeId: 'root', difficulty: 'easy' })
     assert.ok(context.nodes.some((n: { nodeId: string }) => n.nodeId === 'dir:tests'))
+    const both = await call('get_quiz_context', { projectId, nodeId: 'root', difficulties: ['easy', 'medium'] })
+    assert.deepEqual(both.evidence.easy, context.nodes.map((n: { nodeId: string }) => n.nodeId))
+    assert.deepEqual(both.difficulties, ['easy', 'medium'])
+    const neither = await client.callTool({ name: 'get_quiz_context', arguments: { projectId, nodeId: 'root' } })
+    assert.ok(neither.isError)
     const saved = await call('create_quiz', { projectId, tourId: draft.plan.id, tourRevision: 1, stopIndex: 0, nodeId: 'root', questions: [easy] })
     const [set] = await call('list_quizzes', {})
     assert.equal(set.id, saved.quizSetId)
