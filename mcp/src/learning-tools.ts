@@ -24,7 +24,8 @@ Each slot lists its candidates in slots[].nodeIds; their source and evidence are
 Write the answer and distractors about the same length and detail, so the answer's length does not give it away.
 Never record an answer, advance a session or mutate mastery. Only save the prepared materials and report the job ID.`
 
-export function registerLearningTools(server: McpServer, tours: TourStore, quizzes: QuizStore) {
+/** `exposes` says which of these tools to register; all of them by default. */
+export function registerLearningTools(server: McpServer, tours: TourStore, quizzes: QuizStore, exposes: (name: string) => boolean = () => true) {
   const learning = new LearningStore(tours.outputRoot, tours, quizzes)
   const level = z.enum(['easy', 'medium', 'hard'])
   const target = z.object({ conceptId: z.string().min(1), level, weight: z.number().min(0) }).strict()
@@ -44,6 +45,7 @@ export function registerLearningTools(server: McpServer, tours: TourStore, quizz
     caption: z.string().min(1).max(L.chars.caption), questions: z.array(question).max(L.questionsPerAction), returnTo: z.string().optional() }).strict()
   const curriculum = z.object({ version: z.number().int().min(1), concepts: z.array(concept).min(1).max(L.concepts), items: z.array(item).min(1).max(L.actions), relations: z.array(relation).max(L.relations) }).strict()
   function tool(name: string, description: string, shape: z.ZodRawShape, readOnly: boolean, handler: (args: any) => unknown | Promise<unknown>) {
+    if (!exposes(name)) return
     server.registerTool(name, { description, inputSchema: shape, annotations: { readOnlyHint: readOnly, destructiveHint: false, openWorldHint: false } }, async args => {
       try { return { content: [{ type: 'text', text: JSON.stringify(await handler(args)) }] } }
       catch (error) { return { isError: true, content: [{ type: 'text', text: String(error) }] } }

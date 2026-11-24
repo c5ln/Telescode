@@ -129,7 +129,18 @@ get a fresh URL from `get_tour_status`.
 
 Comprehension quizzes on a tour stop. The desktop app has Claude Code write them
 (`src-tauri/src/quizzes.rs`) with only the tools below; guidance is in
-[`prompts/quiz.md`](prompts/quiz.md), served with the onboarding instructions.
+[`prompts/quiz.md`](prompts/quiz.md) (the quiz flow) and
+[`prompts/questions.md`](prompts/questions.md) (how to write questions, shared
+with adaptive learning).
+
+The server sends as its instructions only those for the tools it offers. An
+agent's server is started with its run's tools in `TELESCODE_MCP_TOOLS`
+(`src-tauri/src/agent.rs`) and registers only those, so the model gets neither
+the definitions of tools it cannot call nor their instructions: a tour writer
+gets `onboarding.md`; a quiz writer `quiz.md` and `questions.md`; a learning
+writer the learning instructions and `questions.md`. Without the variable, as the
+app's own server and a connected client run it, every tool and instruction is
+served. A name in the variable that is no tool's is reported on stderr.
 
 1. `get_quiz_context(projectId, nodeId, difficulty)` is the GraphRAG retrieval step
    (`frontend/src/quiz/model.ts`). It returns the code-graph nodes and relations within
@@ -342,3 +353,36 @@ output together. This means:
 learning path with real runs. No npm script, test or build runs it
 (`frontend/src/real-llm-guard.test.ts` checks this). Run it by hand, for one
 example at a time, only when that example has to change.
+
+### Measuring context size
+
+`context:size` measures what an agent would receive, without starting one: each
+tour stop's quiz context (easy and medium together), the first adaptive
+learning preparation context, and the follow-up material context after a wrong
+answer to the first of two prepared questions (which asks for both outcomes of
+the next one). It replays an app example (`frontend/src/examples/data/<name>.json`):
+its goal, its first prepared action and its tour. Like `start_learning_session`,
+it ranks the reading order by the goal's query; `--no-rank` keeps the analysis
+order. No model is called.
+
+```sh
+E=frontend/node_modules/.cache/examples/requests@<commit>-<hash>  # written by the app for its examples
+npm --prefix mcp run context:size -- --db $PWD/$E/requests.db --source $PWD/$E/source --example requests --out after.json
+npm --prefix mcp run context:size -- --before before.json --after after.json
+```
+
+The report gives the JSON characters of each context, the source characters in
+them, and source lines sent more than once in one input.
+
+To measure an earlier commit with the same input, check it out beside this one
+and pass `--root`. That checkout's code is measured, and this checkout's example
+is used:
+
+```sh
+git worktree add --detach ../before <commit>
+for d in mcp/node_modules frontend/node_modules build bench/.venv; do ln -s $PWD/$d ../before/$d; done
+npm --prefix mcp run context:size -- --root $PWD/../before --db ... --source ... --example requests --out before.json
+```
+
+The links give that checkout this one's dependencies and headless build, which
+the ranking needs.
