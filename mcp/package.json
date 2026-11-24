@@ -7,9 +7,10 @@
     "start": "tsx src/server.ts",
     "install:browser": "tsx src/install-browser.ts",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "tsx --test src/tour.test.ts src/protocol.test.ts src/ranking.test.ts src/quiz.test.ts src/learning-core.test.ts src/learning-store.test.ts src/learning-protocol.test.ts src/learning-eval.test.ts src/learning-context.test.ts src/learning-ladder.test.ts src/learning-material.test.ts src/learning-material-protocol.test.ts src/server-lifecycle.test.ts src/usage-report.test.ts",
+    "test": "tsx --test src/tour.test.ts src/protocol.test.ts src/ranking.test.ts src/quiz.test.ts src/learning-core.test.ts src/learning-store.test.ts src/learning-protocol.test.ts src/learning-eval.test.ts src/learning-context.test.ts src/learning-ladder.test.ts src/learning-material.test.ts src/learning-material-protocol.test.ts src/server-lifecycle.test.ts src/server-tools.test.ts src/usage-report.test.ts src/context-size.test.ts",
     "eval:learning": "tsx src/learning-eval-cli.ts",
     "usage:report": "tsx src/usage-report-cli.ts",
+    "context:size": "tsx src/context-size-cli.ts",
     "smoke": "tsx src/smoke.ts"
   },
   "dependencies": {

@@ -342,3 +342,36 @@ output together. This means:
 learning path with real runs. No npm script, test or build runs it
 (`frontend/src/real-llm-guard.test.ts` checks this). Run it by hand, for one
 example at a time, only when that example has to change.
+
+### Measuring context size
+
+`context:size` measures what an agent would receive, without starting one: each
+tour stop's quiz context (easy and medium together), the first adaptive
+learning preparation context, and the follow-up material context after a wrong
+answer to the first of two prepared questions (which asks for both outcomes of
+the next one). It replays an app example (`frontend/src/examples/data/<name>.json`):
+its goal, its first prepared action and its tour. Like `start_learning_session`,
+it ranks the reading order by the goal's query; `--no-rank` keeps the analysis
+order. No model is called.
+
+```sh
+E=frontend/node_modules/.cache/examples/requests@<commit>-<hash>  # written by the app for its examples
+npm --prefix mcp run context:size -- --db $PWD/$E/requests.db --source $PWD/$E/source --example requests --out after.json
+npm --prefix mcp run context:size -- --before before.json --after after.json
+```
+
+The report gives the JSON characters of each context, the source characters in
+them, and source lines sent more than once in one input.
+
+To measure an earlier commit with the same input, check it out beside this one
+and pass `--root`. That checkout's code is measured, and this checkout's example
+is used:
+
+```sh
+git worktree add --detach ../before <commit>
+for d in mcp/node_modules frontend/node_modules build bench/.venv; do ln -s $PWD/$d ../before/$d; done
+npm --prefix mcp run context:size -- --root $PWD/../before --db ... --source ... --example requests --out before.json
+```
+
+The links give that checkout this one's dependencies and headless build, which
+the ranking needs.

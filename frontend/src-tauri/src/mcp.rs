@@ -49,6 +49,11 @@ pub fn node() -> OsString {
     std::env::var_os(NODE_ENV).filter(|p| !p.is_empty()).unwrap_or_else(|| "node".into())
 }
 
+/// The tools the server registers, comma-separated, when set: an agent's
+/// server is started with its run's tools, so the definitions of tools the
+/// run cannot call are never sent to the model.
+pub const TOOLS_ENV: &str = "TELESCODE_MCP_TOOLS";
+
 /// How to start the server: the program, its arguments and environment.
 /// Absolute paths only, so it runs from any working directory, as it must
 /// when an agent starts it.

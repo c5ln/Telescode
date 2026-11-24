@@ -280,6 +280,39 @@ fn with_events(provider: Provider, mut args: Vec<OsString>) -> Vec<OsString> {
     args
 }
 
+/// The system prompt of quiz and learning runs, in place of Claude Code's own
+/// coding-agent prompt. What to write and how is in the request and in the
+/// Telescode server's instructions, which Claude Code still adds.
+pub(crate) const LEAN_SYSTEM_PROMPT: &str = "You write source-grounded learning material for Telescode, a code onboarding app, running headless. \
+Follow the request and the telescode server's instructions. Use only the telescode tools you are given and the context they return; \
+never state source behavior that context does not show. Reply with what the request asks for.";
+
+/// `args` for a quiz or learning run, which needs only the Telescode tools:
+/// Claude Code gets none of its built-in tools and a short system prompt.
+/// Their definitions and its prompt were most of each request's input
+/// (measured in #85), and with its built-in tools on it loads the
+/// Telescode tools lazily, through extra `ToolSearch` calls. Tours keep its
+/// defaults, and Codex has its built-in tools turned off already.
+fn with_lean(provider: Provider, work: Work, mut args: Vec<OsString>) -> Vec<OsString> {
+    if provider == Provider::Claude && work != Work::Tour {
+        args.extend(["--tools".into(), "".into(), "--system-prompt".into(), LEAN_SYSTEM_PROMPT.into()]);
+    }
+    args
+}
+
+/// `server` started so that it registers only `tools`.
+fn scoped_server(server: &mcp::ServerCommand, tools: &[&str]) -> mcp::ServerCommand {
+    let mut env: Vec<(String, OsString)> = server.env.iter().filter(|(k, _)| k != mcp::TOOLS_ENV).cloned().collect();
+    env.push((mcp::TOOLS_ENV.to_string(), tools.join(",").into()));
+    mcp::ServerCommand { program: server.program.clone(), args: server.args.clone(), env }
+}
+
+/// Everything a run of `work` passes to the agent.
+fn run_args(provider: Provider, work: Work, model: Model, prompt: &str, server: &mcp::ServerCommand, tools: &[&str]) -> Vec<OsString> {
+    let server = scoped_server(server, tools);
+    with_events(provider, with_model(provider, with_lean(provider, work, generation_args(provider, prompt, &server, tools)), model))
+}
+
 /// `args` with the arguments for `model`, before Codex's trailing prompt
 /// (Claude Code takes options anywhere).
 fn with_model(provider: Provider, mut args: Vec<OsString>, model: Model) -> Vec<OsString> {
@@ -313,7 +346,7 @@ pub fn generate(
         Provider::Codex => (codex::find().ok_or_else(codex::not_installed)?, "Codex"),
     };
     let mut cmd = command(&path);
-    cmd.args(with_events(provider, with_model(provider, generation_args(provider, prompt, &server, tools), model)));
+    cmd.args(run_args(provider, work, model, prompt, &server, tools));
     let run = UsageRecord {
         at_ms: 0,
         run_id: new_run_id(),
@@ -893,6 +926,38 @@ mod tests {
         assert_eq!(&claude[..2], ["-p", "Write a quiz."]);
         assert!(claude.windows(2).any(|w| w[0] == "--model" && w[1] == "sonnet"));
         assert_eq!(with_model(Provider::Codex, generation_args(Provider::Codex, "x", &server, &[]), Model::Default), generation_args(Provider::Codex, "x", &server, &[]));
+    }
+
+    #[test]
+    fn quiz_and_learning_runs_give_claude_no_builtin_tools_and_a_short_system_prompt() {
+        let server = mcp::ServerCommand { program: "node".into(), args: vec!["/t/server.ts".into()], env: vec![] };
+        for work in [Work::Quiz, Work::Learning, Work::LearningMaterial] {
+            let args = run_args(Provider::Claude, work, Model::Light, "x", &server, &["create_quiz"]);
+            assert!(args.windows(2).any(|w| w[0] == "--tools" && w[1].is_empty()), "{work:?}");
+            assert!(args.windows(2).any(|w| w[0] == "--system-prompt" && w[1] == LEAN_SYSTEM_PROMPT), "{work:?}");
+            assert_eq!(&args[..2], ["-p", "x"]);
+        }
+        // Tours keep Claude Code's defaults.
+        let tour = run_args(Provider::Claude, Work::Tour, Model::Default, "x", &server, &["create_tour_draft"]);
+        assert!(!tour.iter().any(|a| a == "--tools" || a == "--system-prompt"));
+        // Codex has neither option; its built-in tools are already turned off.
+        let codex = run_args(Provider::Codex, Work::Quiz, Model::Light, "x", &server, &["create_quiz"]);
+        assert!(!codex.iter().any(|a| a == "--tools" || a == "--system-prompt"));
+        assert_eq!(codex.last().unwrap(), "x");
+    }
+
+    #[test]
+    fn the_agents_server_is_told_which_tools_to_expose() {
+        let server = mcp::ServerCommand { program: "node".into(), args: vec!["/t/server.ts".into()], env: vec![("TELESCODE_TOUR_OUTPUT".into(), "/out".into())] };
+        let scoped = scoped_server(&server, &["get_quiz_context", "create_quiz"]);
+        assert!(scoped.env.contains(&(mcp::TOOLS_ENV.to_string(), "get_quiz_context,create_quiz".into())));
+        assert!(scoped.env.contains(&("TELESCODE_TOUR_OUTPUT".to_string(), "/out".into())));
+        // Both agents pass it to the server they start, for every kind of run.
+        let claude = run_args(Provider::Claude, Work::Tour, Model::Default, "x", &server, &["create_tour_draft"]);
+        let config = &claude[claude.iter().position(|a| a == "--mcp-config").unwrap() + 1];
+        assert!(config.to_string_lossy().contains(&format!(r#""{}":"create_tour_draft""#, mcp::TOOLS_ENV)), "{config:?}");
+        let codex = run_args(Provider::Codex, Work::Quiz, Model::Light, "x", &server, &["create_quiz"]);
+        assert!(codex.iter().any(|a| a.to_string_lossy().contains(mcp::TOOLS_ENV)));
     }
 
     #[cfg(unix)]
