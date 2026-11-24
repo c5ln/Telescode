@@ -267,6 +267,58 @@ fn claude_generation_baseline_through_app_ipc() {
     println!("Baseline usage log: {}", output.join(crate::agent::USAGE_LOG).display());
 }
 
+/// One follow-up material run on the requests example, the step a learner
+/// waits on most often, measured into the usage log under
+/// `TELESCODE_RUN_SCENARIO` (default `material`). The first preparation is the
+/// example's first action, saved as bundled material, so only the follow-up
+/// runs an agent: a wrong answer to the first of its two questions asks for
+/// both outcomes of the second. Needs TELESCODE_TEST_DB as the baseline does,
+/// a signed-in Claude Code and a budget for one run, e.g.
+/// TELESCODE_REAL_LLM=1 TELESCODE_REAL_LLM_MAX_RUNS=1 TELESCODE_REAL_LLM_MAX_TOKENS=300000.
+#[test]
+#[ignore = "Uses the signed-in Claude Code account; run alone with --ignored --exact and a TELESCODE_REAL_LLM budget (mcp/README.md, Measuring agent runs)"]
+fn claude_learning_material_through_app_ipc() {
+    let db = std::env::var("TELESCODE_TEST_DB").expect("TELESCODE_TEST_DB names the scanned example");
+    let output = std::env::var("TELESCODE_BASELINE_OUTPUT").map(std::path::PathBuf::from).unwrap_or_else(|_| {
+        std::env::temp_dir().join(format!("telescode-material-{}", std::process::id()))
+    });
+    // A store of its own: no cached material, and the app's own store is left alone.
+    std::env::set_var("TELESCODE_TOUR_OUTPUT", &output);
+    if std::env::var_os(crate::agent::SCENARIO_ENV).is_none() { std::env::set_var(crate::agent::SCENARIO_ENV, "material"); }
+    let example: Value = serde_json::from_str(include_str!("../../src/examples/data/requests.json")).unwrap();
+    let (_app, window) = window();
+    assert_eq!(ipc(&window, "agent_status", json!({"provider":"claude"})).unwrap()["signedIn"], true);
+
+    let goal = requirements_goal(example["requirements"].as_str().unwrap());
+    let started = ipc(&window, "start_learning_session", json!({"dbPath":db,"goal":goal})).unwrap();
+    let id = started["session"]["id"].clone();
+    let mut first = example["curriculum"].clone();
+    first["items"] = json!([example["curriculum"]["items"][0]]);
+    first["relations"] = json!([]);
+    let ready = ipc(&window, "prepare_learning_session", json!({"sessionId":id,"revision":started["session"]["revision"],"provider":"claude","curriculum":first})).unwrap();
+    assert_eq!(ready["session"]["status"], "active", "{ready}");
+
+    let question = &ready["question"];
+    let answer = example["curriculum"]["items"][0]["questions"].as_array().unwrap().iter()
+        .find(|q| q["question"] == question["question"]).unwrap()["answer"].clone();
+    let choices = question["choices"].as_array().unwrap();
+    let wrong = (choices.iter().position(|c| *c == answer).unwrap() + 1) % choices.len();
+    let response = ipc(&window, "record_learning_response", json!({"answer":{"sessionId":id,"revision":ready["session"]["revision"],
+        "stopId":ready["session"]["current"]["id"],"submissionId":"material-answer","questionId":question["id"],"selectedIndex":wrong}})).unwrap();
+    ipc(&window, "advance_learning_session", json!({"input":{"sessionId":id,"revision":response["view"]["session"]["revision"],
+        "stopId":ready["session"]["current"]["id"],"outcome":"continue"}})).unwrap();
+    ipc(&window, "prepare_learning_material", json!({"sessionId":id,"provider":"claude"})).unwrap();
+
+    let log = std::fs::read_to_string(output.join(crate::agent::USAGE_LOG)).unwrap();
+    let run: Value = serde_json::from_str(log.lines().last().unwrap()).unwrap();
+    assert_eq!(run["work"], "learning-material", "{run}");
+    assert_eq!(run["ok"], true, "{run}");
+    std::env::remove_var(crate::agent::SCENARIO_ENV);
+    std::env::remove_var("TELESCODE_TOUR_OUTPUT");
+    println!("Material run: {run}");
+    println!("Usage log: {}", output.join(crate::agent::USAGE_LOG).display());
+}
+
 #[test]
 #[ignore = "Uses the saved Codex account and model quota; run alone with --ignored --exact and a TELESCODE_REAL_LLM budget (mcp/README.md, Measuring agent runs)"]
 fn codex_generates_and_grades_through_app_ipc() {

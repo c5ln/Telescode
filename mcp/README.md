@@ -129,7 +129,18 @@ get a fresh URL from `get_tour_status`.
 
 Comprehension quizzes on a tour stop. The desktop app has Claude Code write them
 (`src-tauri/src/quizzes.rs`) with only the tools below; guidance is in
-[`prompts/quiz.md`](prompts/quiz.md), served with the onboarding instructions.
+[`prompts/quiz.md`](prompts/quiz.md) (the quiz flow) and
+[`prompts/questions.md`](prompts/questions.md) (how to write questions, shared
+with adaptive learning).
+
+The server sends as its instructions only those for the tools it offers. An
+agent's server is started with its run's tools in `TELESCODE_MCP_TOOLS`
+(`src-tauri/src/agent.rs`) and registers only those, so the model gets neither
+the definitions of tools it cannot call nor their instructions: a tour writer
+gets `onboarding.md`; a quiz writer `quiz.md` and `questions.md`; a learning
+writer the learning instructions and `questions.md`. Without the variable, as the
+app's own server and a connected client run it, every tool and instruction is
+served. A name in the variable that is no tool's is reported on stderr.
 
 1. `get_quiz_context(projectId, nodeId, difficulty)` is the GraphRAG retrieval step
    (`frontend/src/quiz/model.ts`). It returns the code-graph nodes and relations within
