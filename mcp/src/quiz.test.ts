@@ -243,6 +243,20 @@ test('a signature over several lines, closing at the definition\'s indent, keeps
   excerptLines(both.excerpts, sources)
 })
 
+test('a stop whose own source cannot be found gives no related file more than its share', async () => {
+  // The stop's class is missing from its file, so the large class read first is only related code.
+  const methods = Array.from({ length: 60 }, (_, i) => [`    def step_${i}(self, value):`, `        return value + ${i}  # one step of a long related class`, ''])
+  const source = ['class QueryNotify:', ...methods.flat()].join('\n')
+  assert.ok(source.length > SCOPE.medium.sourceChars / 4)
+  const read = (fileId: string) => (fileId === 'sherlock_project/notify.py' ? source : null)
+  for (const context of [buildQuizContext(snapshot, notifyPrint, 'medium', read), buildQuizContexts(snapshot, notifyPrint, ['easy', 'medium'], read)]) {
+    const perFile = new Map<string, number>()
+    for (const e of context.excerpts) perFile.set(e.fileId, (perFile.get(e.fileId) ?? 0) + e.text.length)
+    for (const [f, n] of perFile) assert.ok(n <= SCOPE.medium.sourceChars / 4, `${f}: ${n} within its share`)
+    excerptLines(context.excerpts, { 'sherlock_project/notify.py': source })
+  }
+})
+
 test('a database scanned by the app has its source folder found beside it', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'telescode-quiz-db-'))
   const db = join(dir, 'sherlock.graph.json')

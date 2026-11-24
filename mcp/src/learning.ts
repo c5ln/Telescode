@@ -586,7 +586,11 @@ export class LearningStore {
   private publicJob(job: StoredMaterialJob): MaterialJob {
     return { id: job.id, sessionId: job.sessionId, status: job.status, shouldRun: job.shouldRun, slots: job.slots, ...(job.error ? { error: job.error } : {}) }
   }
-  /** What the agent needs for a material job: the concepts, and per asked level the questions written so far and the source it may cite. */
+  /**
+   * What the agent needs for a material job: the concepts, per asked level the
+   * questions written so far and the candidates it may use, and each candidate's
+   * source once, however many slots list it.
+   */
   async materialContext(jobId: string) {
     const job = this.materialJob(jobId)
     if (job.status !== 'running') throw new Error('Stale material job')
@@ -595,13 +599,18 @@ export class LearningStore {
     const slots = job.slots.map(slot => {
       const own = s.items.filter(i => i.conceptId === slot.conceptId)
       const used = new Set(own.map(i => i.nodeId))
-      const contexts = [...all.filter(c => used.has(c.nodeId)), ...all.filter(c => !used.has(c.nodeId))].slice(0, MATERIAL_CONTEXTS)
-        .map(c => ({ nodeId: c.nodeId, title: c.title, facts: c.facts, excerpts: c.excerpts, evidence: { [slot.level]: c.evidence[slot.level] } }))
-      return { ...slot, written: own.filter(i => i.level === slot.level).flatMap(i => i.questions.map(q => q.question)), contexts,
-        cite: `An action's questions may cite only evidence.${slot.level} of the context whose nodeId is the action's nodeId, and must include that nodeId; nodes seen in other contexts or in excerpts are not citable.` }
+      const nodeIds = [...all.filter(c => used.has(c.nodeId)), ...all.filter(c => !used.has(c.nodeId))].slice(0, MATERIAL_CONTEXTS).map(c => c.nodeId)
+      return { ...slot, written: own.filter(i => i.level === slot.level).flatMap(i => i.questions.map(q => q.question)), nodeIds }
     })
+    // Slots on the same concept list the same candidates; each is sent once, with the evidence of each level whose slot lists it.
+    const contexts = all.filter(c => slots.some(slot => slot.nodeIds.includes(c.nodeId))).map(c => ({
+      nodeId: c.nodeId, title: c.title, facts: c.facts, excerpts: c.excerpts,
+      evidence: Object.fromEntries(DIFFICULTIES.filter(level => slots.some(slot => slot.level === level && slot.nodeIds.includes(c.nodeId))).map(level => [level, c.evidence[level]])),
+    }))
+    // contexts[] holds every slot's candidates, so this narrows rules.evidence, which lets an action take any contexts[].nodeId.
+    const cite = 'An action for a slot of level L takes its nodeId from that slot\'s nodeIds. Its questions may cite only evidence[L] of the context with that nodeId, and must include that nodeId; nodes seen in other contexts or in excerpts are not citable. This rule takes precedence over rules.evidence.'
     const concepts = (s.curriculum?.concepts ?? []).filter(c => job.slots.some(slot => slot.conceptId === c.id))
-    return { job: { id: job.id }, goal: { rawQuery: s.session.goal.rawQuery }, concepts, slots, rules: PREPARATION_RULES }
+    return { job: { id: job.id }, goal: { rawQuery: s.session.goal.rawQuery }, concepts, slots, contexts, cite, rules: PREPARATION_RULES }
   }
   /** Saves an agent's material for its job: one or more items, each for an asked concept and level. */
   async saveMaterial(jobId: string, items: PreparedItem[]): Promise<LearningView> {

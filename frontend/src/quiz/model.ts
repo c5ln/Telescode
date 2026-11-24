@@ -273,11 +273,12 @@ function excerptText(lines: string[], start: number, end: number, base: number, 
 
 /**
  * Source excerpts for the context's file and class nodes, within `limits`.
- * The first node's code comes first; in a range too long to keep whole, the
- * definitions the first node uses or the context names are kept over the
- * rest. No line is given twice.
+ * The stop's own code (`anchorId`) comes first and may use the whole budget;
+ * in a range too long to keep whole, the definitions the stop uses or the
+ * context names are kept over the rest. Every other node gets a share per
+ * file, also when the stop's own source cannot be read. No line is given twice.
  */
-function excerptsFor(snapshot: AnalysisSnapshot, model: GraphModel, nodeIds: string[], limits: ExcerptLimits, read: SourceReader): SourceExcerpt[] {
+function excerptsFor(snapshot: AnalysisSnapshot, model: GraphModel, nodeIds: string[], anchorId: string, limits: ExcerptLimits, read: SourceReader): SourceExcerpt[] {
   let budget = limits.sourceChars
   const out: SourceExcerpt[] = []
   const files = new Map<string, string[] | null>()
@@ -289,7 +290,8 @@ function excerptsFor(snapshot: AnalysisSnapshot, model: GraphModel, nodeIds: str
     return files.get(fileId)!
   }
   const contextNames = new Set(nodeIds.map((id) => model.byId.get(id)?.label ?? ''))
-  let anchor: Map<string, number> | null = null
+  // The names the stop's own code uses; none when its source cannot be read.
+  let used = new Map<string, number>()
   const wordsOf = (text: string) => {
     const words = new Map<string, number>()
     for (const w of text.match(/[A-Za-z_]\w*/g) ?? []) words.set(w, (words.get(w) ?? 0) + 1)
@@ -307,15 +309,14 @@ function excerptsFor(snapshot: AnalysisSnapshot, model: GraphModel, nodeIds: str
     if (!range) continue
     const [start, end] = range
     const seen = covered.get(fileId) ?? new Set<number>()
-    // The first node read sets what counts as related: the names its own code uses.
-    const isAnchor = !anchor
-    if (isAnchor) anchor = wordsOf(lines.slice(start, end + 1).join('\n'))
-    const used = anchor!
+    // The stop's own code sets what counts as related: the names it uses.
+    const isAnchor = nodeId === anchorId
+    if (isAnchor) used = wordsOf(lines.slice(start, end + 1).join('\n'))
     const inFile = wordsOf(lines.join('\n'))
     const weight = (name: string) => {
-      // Related code that is cut keeps only what the first node uses or the context names.
+      // Related code that is cut keeps only what the stop uses or the context names.
       if (!isAnchor && !used.has(name) && !contextNames.has(name)) return null
-      // Used elsewhere in its file, named by the context, used by the first node.
+      // Used elsewhere in its file, named by the context, used by the stop.
       let w = Math.min(5, (inFile.get(name) ?? 1) - 1)
       if (contextNames.has(name)) w += 3
       if (!isAnchor && used.has(name)) w += 4
@@ -326,7 +327,7 @@ function excerptsFor(snapshot: AnalysisSnapshot, model: GraphModel, nodeIds: str
       const body = lines.slice(headerEnd(lines, start, end) + 1, end + 1).find((l) => l.trim())
       base = body ? indentOf(body) : indentOf(lines[start]!) + 4
     }
-    // The first node's code may use the whole budget; each related file gets a share, however many of its nodes are in the context.
+    // The stop's own code may use the whole budget; each related file gets a share, however many of its nodes are in the context.
     const share = isAnchor ? budget : Math.min(budget, Math.floor(limits.sourceChars * NEIGHBOUR_SHARE) - (spent.get(fileId) ?? 0))
     if (share <= 0) continue
     const picked = excerptText(lines, start, end, base, share, seen, weight, isAnchor)
@@ -397,7 +398,7 @@ function codeRelations(snapshot: AnalysisSnapshot, model: GraphModel): ContextRe
 export function buildQuizContext(snapshot: AnalysisSnapshot, nodeId: string, difficulty: Difficulty, read?: SourceReader, limits?: Partial<ExcerptLimits>): QuizContext {
   const model = buildGraphModel(snapshot, 'Repository')
   const { nodes, relations, learning } = retrieve(snapshot, model, nodeId, difficulty)
-  const excerpts = read ? excerptsFor(snapshot, model, nodes.map((n) => n.nodeId), { ...SCOPE[difficulty], ...limits }, read) : []
+  const excerpts = read ? excerptsFor(snapshot, model, nodes.map((n) => n.nodeId), nodeId, { ...SCOPE[difficulty], ...limits }, read) : []
   return { nodeId, difficulty, nodes, relations, excerpts, learning }
 }
 
@@ -434,7 +435,7 @@ export function buildQuizContexts(snapshot: AnalysisSnapshot, nodeId: string, di
     difficulties: levels,
     nodes: ids.map((id) => nodes.get(id)!),
     relations: [...relations.values()],
-    excerpts: read ? excerptsFor(snapshot, model, ids, limits, read) : [],
+    excerpts: read ? excerptsFor(snapshot, model, ids, nodeId, limits, read) : [],
     learning: parts.at(-1)!.learning,
     evidence: Object.fromEntries(levels.map((d, i) => [d, parts[i]!.nodes.map((n) => n.nodeId)])),
   }
