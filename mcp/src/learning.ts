@@ -4,7 +4,7 @@ import { resolve } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import type { TourStore, Project } from './store.ts'
 import { sourceReader, type QuizStore } from './quiz.ts'
-import { buildQuizContext, feedbackFor, makeQuestions, DIFFICULTIES, QUESTION_LIMITS, type Difficulty, type QuizQuestion, type SourceExcerpt } from '../../frontend/src/quiz/model.ts'
+import { buildQuizContext, feedbackFor, longAnswers, makeQuestions, DIFFICULTIES, QUESTION_LIMITS, type Difficulty, type QuizQuestion, type SourceExcerpt } from '../../frontend/src/quiz/model.ts'
 import { chooseAction, goalScore, mastery, observe, predict, MODEL_VERSION, PRIOR, validateGoal, type LearningGoal, type Knowledge, type LearningAction } from '../../frontend/src/learning/model.ts'
 import type { Curriculum, LearningAnswer, LearningResult, LearningView, PreparationJob, LearningSession, PreparedItem } from '../../frontend/src/learning/contracts.ts'
 
@@ -34,8 +34,9 @@ function clip(excerpt: SourceExcerpt, chars: number): SourceExcerpt {
   if (excerpt.text.length <= chars) return excerpt
   const cut = excerpt.text.slice(0, chars)
   const text = cut.slice(0, Math.max(0, cut.lastIndexOf('\n')))
-  const lines = text ? text.split('\n').length : 0
-  return { ...excerpt, text, endLine: excerpt.startLine + lines - 1, truncated: true }
+  // Left-out code is named on lines without a number; the excerpt ends at its last numbered line.
+  const last = [...text.matchAll(/^(\d+)\| /gm)].at(-1)
+  return last ? { ...excerpt, text, endLine: Number(last[1]), truncated: true } : { ...excerpt, text: '', endLine: excerpt.startLine, truncated: true }
 }
 const hash = (text: string) => createHash('sha256').update(text).digest('hex')
 const norm = (text: string) => text.normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase()
@@ -585,7 +586,11 @@ export class LearningStore {
   private publicJob(job: StoredMaterialJob): MaterialJob {
     return { id: job.id, sessionId: job.sessionId, status: job.status, shouldRun: job.shouldRun, slots: job.slots, ...(job.error ? { error: job.error } : {}) }
   }
-  /** What the agent needs for a material job: the concepts, and per asked level the questions written so far and the source it may cite. */
+  /**
+   * What the agent needs for a material job: the concepts, per asked level the
+   * questions written so far and the candidates it may use, and each candidate's
+   * source once, however many slots list it.
+   */
   async materialContext(jobId: string) {
     const job = this.materialJob(jobId)
     if (job.status !== 'running') throw new Error('Stale material job')
@@ -594,13 +599,18 @@ export class LearningStore {
     const slots = job.slots.map(slot => {
       const own = s.items.filter(i => i.conceptId === slot.conceptId)
       const used = new Set(own.map(i => i.nodeId))
-      const contexts = [...all.filter(c => used.has(c.nodeId)), ...all.filter(c => !used.has(c.nodeId))].slice(0, MATERIAL_CONTEXTS)
-        .map(c => ({ nodeId: c.nodeId, title: c.title, facts: c.facts, excerpts: c.excerpts, evidence: { [slot.level]: c.evidence[slot.level] } }))
-      return { ...slot, written: own.filter(i => i.level === slot.level).flatMap(i => i.questions.map(q => q.question)), contexts,
-        cite: `An action's questions may cite only evidence.${slot.level} of the context whose nodeId is the action's nodeId, and must include that nodeId; nodes seen in other contexts or in excerpts are not citable.` }
+      const nodeIds = [...all.filter(c => used.has(c.nodeId)), ...all.filter(c => !used.has(c.nodeId))].slice(0, MATERIAL_CONTEXTS).map(c => c.nodeId)
+      return { ...slot, written: own.filter(i => i.level === slot.level).flatMap(i => i.questions.map(q => q.question)), nodeIds }
     })
+    // Slots on the same concept list the same candidates; each is sent once, with the evidence of each level whose slot lists it.
+    const contexts = all.filter(c => slots.some(slot => slot.nodeIds.includes(c.nodeId))).map(c => ({
+      nodeId: c.nodeId, title: c.title, facts: c.facts, excerpts: c.excerpts,
+      evidence: Object.fromEntries(DIFFICULTIES.filter(level => slots.some(slot => slot.level === level && slot.nodeIds.includes(c.nodeId))).map(level => [level, c.evidence[level]])),
+    }))
+    // contexts[] holds every slot's candidates, so this narrows rules.evidence, which lets an action take any contexts[].nodeId.
+    const cite = 'An action for a slot of level L takes its nodeId from that slot\'s nodeIds. Its questions may cite only evidence[L] of the context with that nodeId, and must include that nodeId; nodes seen in other contexts or in excerpts are not citable. This rule takes precedence over rules.evidence.'
     const concepts = (s.curriculum?.concepts ?? []).filter(c => job.slots.some(slot => slot.conceptId === c.id))
-    return { job: { id: job.id }, goal: { rawQuery: s.session.goal.rawQuery }, concepts, slots, rules: PREPARATION_RULES }
+    return { job: { id: job.id }, goal: { rawQuery: s.session.goal.rawQuery }, concepts, slots, contexts, cite, rules: PREPARATION_RULES }
   }
   /** Saves an agent's material for its job: one or more items, each for an asked concept and level. */
   async saveMaterial(jobId: string, items: PreparedItem[]): Promise<LearningView> {
@@ -611,6 +621,7 @@ export class LearningStore {
       const s = this.load(job.sessionId)
       if (!['active', 'generation-needed'].includes(s.session.status)) throw new Error('The session ended before the material was saved')
       if (!Array.isArray(items) || !items.length || items.length > job.slots.length * 2) throw new Error('Invalid material')
+      for (const item of items) for (const note of longAnswers(item.questions)) console.error(`Material answer longer than its distractors: ${note}`)
       for (const item of items) if (!job.slots.some(slot => slot.conceptId === item.conceptId && slot.level === item.level)) throw new Error(`Material outside the asked slots: ${item.conceptId} ${item.level}`)
       this.addItems(s, items)
       for (const slot of job.slots) {
@@ -642,7 +653,8 @@ export class LearningStore {
     const ranked = snapshot.readingSequence.filter(r => r.entityType === 'file').map(r => `file:${r.fileId}`)
     const candidates = [...new Set([...ranked, ...snapshot.files.map(f => `file:${f.fileId}`)])].slice(0, PREPARATION_CANDIDATES)
     return candidates.map(nodeId => {
-      const own = buildQuizContext(snapshot, nodeId, 'easy', read)
+      // Chosen within the candidate's share, so a long file keeps the definitions it uses most rather than its first lines.
+      const own = buildQuizContext(snapshot, nodeId, 'easy', read, { sourceChars: CANDIDATE_SOURCE_CHARS })
       const evidence = Object.fromEntries(DIFFICULTIES.map(level => [level, buildQuizContext(snapshot, nodeId, level).nodes.map(n => n.nodeId)]))
       const anchor = own.nodes.find(n => n.nodeId === nodeId)!
       return { nodeId, title: anchor.title, facts: anchor.facts, excerpts: own.excerpts.map(e => clip(e, CANDIDATE_SOURCE_CHARS)), evidence }
@@ -661,11 +673,16 @@ export class LearningStore {
         return row ? [{ id: row.id as string, name: row.id as string, version: row.version as number, definition: row.definition as string }] : []
       }), nextCurriculumVersion: (s.curriculum?.version ?? 0) + 1, modelAssumptions: MODEL_VERSION }
     // Fit the budget by shortening, then dropping, the least relevant source; evidence lists always stay with their node.
+    // A shortened candidate's source is chosen again within the smaller share, so it keeps its most related definitions.
     const size = () => JSON.stringify(out).length + JOB_SUMMARY_CHARS
+    const read = sourceReader(s.project.sourceRoot)
     for (let i = contexts.length - 1; size() > PREPARATION_CONTEXT_CHARS && i >= 0; i--) {
       const over = size() - PREPARATION_CONTEXT_CHARS
       const own = contexts[i]!.excerpts.reduce((n, e) => n + e.text.length, 0)
-      contexts[i]!.excerpts = contexts[i]!.excerpts.map(e => clip(e, Math.max(0, Math.floor(e.text.length * Math.max(0, own - over) / Math.max(1, own)) - 200))).filter(e => e.text)
+      const chars = Math.max(0, own - over - 200)
+      contexts[i]!.excerpts = chars && read
+        ? buildQuizContext(s.project.snapshot, contexts[i]!.nodeId, 'easy', read, { sourceChars: chars }).excerpts.map(e => clip(e, chars)).filter(e => e.text)
+        : []
     }
     while (size() > PREPARATION_CONTEXT_CHARS && contexts.length > 1) contexts.pop()
     return out

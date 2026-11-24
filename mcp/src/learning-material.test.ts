@@ -14,7 +14,7 @@ import { LearningStore } from './learning.ts'
 import { LEARNING_INSTRUCTIONS } from './learning-tools.ts'
 import type { LearningGoal } from '../../frontend/src/learning/model.ts'
 import type { Curriculum, LearningView, PreparedItem } from '../../frontend/src/learning/contracts.ts'
-import type { Difficulty } from '../../frontend/src/quiz/model.ts'
+import { buildQuizContext, type Difficulty } from '../../frontend/src/quiz/model.ts'
 
 const fixturePath = fileURLToPath(new URL('../../frontend/src/graph/fixtures/sherlock.graph.json', import.meta.url))
 const nodeA = 'file:sherlock_project/notify.py'
@@ -187,11 +187,41 @@ test('the material context covers only the asked levels and lists the questions 
     assert.deepEqual(context.slots.map(s => s.level), ['medium', 'easy'])
     const easy = context.slots.find(s => s.level === 'easy')!
     assert.deepEqual(easy.written.sort(), ['(easy) Why preserve the result before notifying? first', '(easy) Why preserve the result before notifying? second'])
-    for (const slot of context.slots) {
-      assert.ok(slot.contexts.length > 0)
-      for (const c of slot.contexts) assert.deepEqual(Object.keys(c.evidence), [slot.level])
-    }
+    for (const slot of context.slots) assert.ok(slot.nodeIds.length > 0)
+    // Evidence only for the asked levels.
+    for (const c of context.contexts) assert.deepEqual(Object.keys(c.evidence).sort(), ['easy', 'medium'])
     assert.equal(context.concepts[0]!.id, 'A')
+  } finally { store.close() }
+})
+
+test('slots on the same concept share their source: each candidate is sent once, with the evidence of each level that lists it', async () => {
+  const { store, learner, project } = await setup()
+  try {
+    const view = await answer(store, await learner(), false)
+    const job = await store.requestMaterial(view.session.id, 'claude', pid)
+    const context = await store.materialContext(job.id)
+    assert.equal(context.slots.length, 2)
+    const ids = context.contexts.map(c => c.nodeId)
+    assert.equal(new Set(ids).size, ids.length, 'each candidate once')
+    for (const slot of context.slots) {
+      assert.equal(Object.hasOwn(slot, 'contexts'), false, 'slots name their candidates, they do not carry them')
+      assert.ok(slot.nodeIds.length <= 3)
+      assert.equal(slot.nodeIds[0], nodeA, "the concept's own node first")
+      for (const id of slot.nodeIds) {
+        const c = context.contexts.find(c => c.nodeId === id)
+        assert.ok(c, `${id} is described`)
+        // Exactly the nodes the validator accepts for that level.
+        assert.deepEqual(c.evidence[slot.level], buildQuizContext(project.snapshot, id, slot.level).nodes.map(n => n.nodeId))
+      }
+    }
+    // A level's evidence is given only on the candidates its slot lists.
+    for (const c of context.contexts) for (const level of Object.keys(c.evidence)) {
+      assert.ok(context.slots.some(s => s.level === level && s.nodeIds.includes(c.nodeId)), `${c.nodeId} ${level}`)
+    }
+    // No source line twice in the job's input.
+    const lines = context.contexts.flatMap(c => c.excerpts.flatMap(e => e.text.split('\n').flatMap(l => /^(\d+)\| /.exec(l) ? [`${e.fileId}:${/^(\d+)/.exec(l)![1]}`] : [])))
+    assert.ok(lines.length > 0)
+    assert.equal(new Set(lines).size, lines.length)
   } finally { store.close() }
 })
 
@@ -246,6 +276,11 @@ test('the material context says which evidence an action may cite', async () => 
     const view = await answer(store, await learner(), false)
     const job = await store.requestMaterial(view.session.id, 'claude', pid)
     const context = await store.materialContext(job.id)
-    for (const slot of context.slots) assert.match(slot.cite, /nodeId/)
+    // Said once for the job: the slot's candidates and that level's evidence.
+    assert.match(context.cite, /from that slot's nodeIds/)
+    assert.match(context.cite, /evidence\[/)
+    // contexts[] holds every slot's candidates, so the looser first-preparation rule must give way.
+    assert.match(context.cite, /over rules\.evidence/)
+    for (const slot of context.slots) assert.equal(Object.hasOwn(slot, 'cite'), false)
   } finally { store.close() }
 })

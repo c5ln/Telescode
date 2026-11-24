@@ -143,9 +143,13 @@ export function QuizCard({ quiz, stepTitle, provider = 'claude', onSwitchAgent }
             {feedback ? (
               <>
                 {!feedback.correct && <Button onClick={quiz.retry}>Try again</Button>}
-                {questions.length > 1 && (
+                {state.index < questions.length - 1 ? (
                   <Button variant="primary" onClick={quiz.next}>
                     Next question
+                  </Button>
+                ) : (
+                  <Button variant="primary" onClick={quiz.close}>
+                    Finish quiz
                   </Button>
                 )}
               </>

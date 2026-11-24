@@ -40,8 +40,9 @@ fn generation_prompt(db: &Path, target: &QuizTarget) -> String {
     format!(
         "Create Telescode comprehension quiz questions for stop {stop} (node {node}) of tour {tour} \
          revision {revision}, for the repository analyzed in the database {db}.\n\
-         Use the telescode MCP tools: open_project with exactly that path, then get_quiz_context for \
-         the node at the easy and the medium difficulty only, and save with create_quiz. Write \
+         Use the telescode MCP tools: open_project with exactly that path, then get_quiz_context once \
+         for the node with difficulties [\"easy\", \"medium\"] (the easy and the medium difficulty \
+         only), and save with create_quiz. Write \
          exactly two interview-style questions: one easy at a newbie level and one medium at a \
          junior level, about what the code does and why, never counts or metrics. Do not write \
          hard questions. Follow the server's quiz instructions on question style and grounding, \
@@ -145,6 +146,8 @@ mod tests {
         // Two questions, easy and medium, so a step's quiz is quick to write.
         assert!(args[1].contains("exactly two") && args[1].contains("easy and the medium difficulty only"));
         assert!(!args[1].contains("each difficulty"));
+        // One retrieval for both levels, so the step's source is sent once.
+        assert!(args[1].contains("get_quiz_context once") && args[1].contains(r#"difficulties ["easy", "medium"]"#));
     }
 
     #[test]

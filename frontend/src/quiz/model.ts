@@ -92,8 +92,20 @@ export interface QuizContext {
 const MAX_MEMBER_FACTS = 20
 const MAX_RELATIONS = 120
 
-const numbered = (lines: string[], start: number) =>
-  lines.map((line, i) => `${String(start + i).padStart(5)}| ${line}`).join('\n')
+/** How many excerpts, and how many characters of them, a context carries. */
+export interface ExcerptLimits {
+  excerpts: number
+  sourceChars: number
+}
+
+/** A combined context for several difficulties at once: shared nodes and source, and what each difficulty may cite. */
+export interface MultiQuizContext extends Omit<QuizContext, 'difficulty'> {
+  difficulties: Difficulty[]
+  /** Per difficulty, the nodes a question of that difficulty may cite: exactly its own context's nodes. */
+  evidence: Partial<Record<Difficulty, string[]>>
+}
+
+const numberedLine = (line: string, n: number) => `${n}| ${line.trimEnd()}`
 
 /**
  * The lines of a Python class: from its `class` line to the last line indented
@@ -105,8 +117,8 @@ export function classLines(lines: string[], className: string): [number, number]
   const start = lines.findIndex((l) => header.test(l))
   if (start === -1) return null
   const indent = header.exec(lines[start]!)![1]!.length
-  let end = start
-  for (let i = start + 1; i < lines.length; i++) {
+  let end = headerEnd(lines, start, lines.length - 1)
+  for (let i = end + 1; i < lines.length; i++) {
     const line = lines[i]!
     if (!line.trim()) continue
     if (line.length - line.trimStart().length <= indent) break
@@ -115,42 +127,220 @@ export function classLines(lines: string[], className: string): [number, number]
   return [start, end]
 }
 
-/** Source excerpts for the context's file and class nodes, within the difficulty's budget. */
-function excerptsFor(snapshot: AnalysisSnapshot, model: GraphModel, nodeIds: string[], difficulty: Difficulty, read: SourceReader): SourceExcerpt[] {
-  const { excerpts: max, sourceChars } = SCOPE[difficulty]
-  let budget = sourceChars
+// A Python def or class header; the core parses Python only.
+const DEF = /^(\s*)(async\s+def|def|class)\s+([A-Za-z_]\w*)/
+/** Most of a context's source budget one related node's excerpt may take. */
+const NEIGHBOUR_SHARE = 0.25
+/** A cut related excerpt of code without definitions shorter than this is dropped. */
+const MIN_NEIGHBOUR_CHARS = 400
+/** At most this part of an excerpt's budget a header may take and still come before the definitions. */
+const HEADER_SHARE = 0.5
+const indentOf = (line: string) => line.length - line.trimStart().length
+
+/**
+ * The last line of the def or class header starting at `i`: a signature
+ * whose brackets span lines ends where they close, so a closing `):` at the
+ * definition's own indent is not taken for the end of its body.
+ */
+function headerEnd(lines: string[], i: number, end: number): number {
+  let depth = 0
+  for (let k = i; k <= end; k++) {
+    // Brackets in strings and comments are rare in signatures; drop them roughly.
+    const code = lines[k]!.replace(/(["'])(?:\\.|(?!\1).)*\1/g, '').replace(/#.*/, '')
+    for (const c of code) {
+      if ('([{'.includes(c)) depth++
+      else if (')]}'.includes(c)) depth--
+    }
+    if (depth <= 0) return k
+  }
+  return i
+}
+
+/** A run of lines in an excerpt's range: a def or class with its decorators and body, or the code between them. */
+interface Part {
+  start: number
+  end: number
+  /** "class Foo" or "foo()"; none for the code between definitions. */
+  label?: string
+  name?: string
+}
+
+/** Splits lines [start, end] into the definitions at indent `base` and the runs of code between them. */
+function partsOf(lines: string[], start: number, end: number, base: number): Part[] {
+  const out: Part[] = []
+  let gap = -1
+  const close = (to: number) => {
+    if (gap !== -1 && gap <= to) out.push({ start: gap, end: to })
+    gap = -1
+  }
+  for (let i = start; i <= end; ) {
+    let j = i
+    while (j <= end && indentOf(lines[j]!) === base && lines[j]!.trimStart().startsWith('@')) j++
+    const m = j <= end ? DEF.exec(lines[j]!) : null
+    if (m && m[1]!.length === base && indentOf(lines[i]!) === base && lines[i]!.trim()) {
+      let last = headerEnd(lines, j, end)
+      for (let k = last + 1; k <= end; k++) {
+        const line = lines[k]!
+        if (!line.trim()) continue
+        if (indentOf(line) <= base) break
+        last = k
+      }
+      close(i - 1)
+      out.push({ start: i, end: last, name: m[3]!, label: m[2] === 'class' ? `class ${m[3]}` : `${m[3]}()` })
+      i = last + 1
+      continue
+    }
+    if (gap === -1) gap = i
+    i++
+  }
+  close(end)
+  return out
+}
+
+/** The chosen parts, numbered; each run of left-out code becomes one line naming what it holds. */
+function render(lines: string[], parts: Part[], chosen: Set<number>): { text: string; last: number } {
+  const out: string[] = []
+  let last = -1
+  let skipped: Part[] = []
+  const flush = () => {
+    const shown = skipped.filter((p) => lines.slice(p.start, p.end + 1).some((l) => l.trim()))
+    if (shown.length) {
+      const labels = shown.flatMap((p) => (p.label ? [p.label] : []))
+      const names = labels.length > 8 ? [...labels.slice(0, 8), '…'] : labels
+      out.push(`…| lines ${shown[0]!.start + 1}–${shown.at(-1)!.end + 1} omitted${names.length ? `: ${names.join(', ')}` : ''}`)
+    }
+    skipped = []
+  }
+  parts.forEach((p, i) => {
+    if (!chosen.has(i)) return void skipped.push(p)
+    flush()
+    for (let n = p.start; n <= p.end; n++) out.push(numberedLine(lines[n]!, n + 1))
+    last = p.end
+  })
+  flush()
+  return { text: out.join('\n'), last }
+}
+
+/**
+ * Lines [start, end] within `budget` characters. A range that does not fit
+ * keeps its header and the definitions that matter most (`weight`), whole,
+ * and names the ones left out; code without definitions keeps its first
+ * lines. Definitions `weight` gives null, and with `fill` off the code
+ * between definitions, are only sent when the whole range fits. Lines in
+ * `covered` are already in another excerpt and left out.
+ */
+function excerptText(lines: string[], start: number, end: number, base: number, budget: number, covered: Set<number>, weight: (name: string) => number | null, fill: boolean) {
+  const free = (p: Part) => {
+    for (let n = p.start; n <= p.end; n++) if (covered.has(n)) return false
+    return true
+  }
+  const parts = partsOf(lines, start, end, base)
+  const all = new Set(parts.keys())
+  const whole = render(lines, parts, all)
+  const hasDefs = parts.some((p) => p.name)
+  if (whole.text.length <= budget && parts.every(free)) return { ...whole, truncated: false, hasDefs, defs: parts.filter((p) => p.name).length }
+
+  // A short header comes first; a long one only after the definitions, so it cannot take their room.
+  const header = parts[0] && !parts[0].name && parts[0].start === start
+  const headerFirst = header && render(lines, parts, new Set([0])).text.length <= budget * HEADER_SHARE
+  const score = (p: Part, i: number) => (p.name ? weight(p.name) : header && i === 0 ? (headerFirst ? Infinity : 0.25) : fill ? 0.5 : null)
+  const order = [...parts.keys()]
+    .filter((i) => free(parts[i]!) && score(parts[i]!, i) !== null)
+    .sort((a, b) => score(parts[b]!, b)! - score(parts[a]!, a)! || a - b)
+  const chosen = new Set<number>()
+  if (hasDefs) {
+    for (const i of order) {
+      chosen.add(i)
+      if (render(lines, parts, chosen).text.length > budget) chosen.delete(i)
+    }
+  }
+  const defs = [...chosen].filter((i) => parts[i]!.name).length
+  if (defs) return { ...render(lines, parts, chosen), truncated: true, hasDefs, defs }
+  // No definitions to choose from, or none fits: the range's first lines, which hold its header and more.
+  if (!parts.every(free)) return null
+  const out: string[] = []
+  let size = 0
+  let last = -1
+  for (let n = start; n <= end; n++) {
+    const line = numberedLine(lines[n]!, n + 1)
+    if (size + line.length + 1 > budget) break
+    out.push(line)
+    size += line.length + 1
+    last = n
+  }
+  return last < start ? null : { text: out.join('\n'), last, truncated: true, hasDefs, defs: 0 }
+}
+
+/**
+ * Source excerpts for the context's file and class nodes, within `limits`.
+ * The stop's own code (`anchorId`) comes first and may use the whole budget;
+ * in a range too long to keep whole, the definitions the stop uses or the
+ * context names are kept over the rest. Every other node gets a share per
+ * file, also when the stop's own source cannot be read. No line is given twice.
+ */
+function excerptsFor(snapshot: AnalysisSnapshot, model: GraphModel, nodeIds: string[], anchorId: string, limits: ExcerptLimits, read: SourceReader): SourceExcerpt[] {
+  let budget = limits.sourceChars
   const out: SourceExcerpt[] = []
-  const whole = new Set<string>()
   const files = new Map<string, string[] | null>()
+  const covered = new Map<string, Set<number>>()
+  // Characters already given to related excerpts, per file.
+  const spent = new Map<string, number>()
   const linesOf = (fileId: string) => {
     if (!files.has(fileId)) files.set(fileId, read(fileId)?.split(/\r?\n/) ?? null)
     return files.get(fileId)!
   }
+  const contextNames = new Set(nodeIds.map((id) => model.byId.get(id)?.label ?? ''))
+  // The names the stop's own code uses; none when its source cannot be read.
+  let used = new Map<string, number>()
+  const wordsOf = (text: string) => {
+    const words = new Map<string, number>()
+    for (const w of text.match(/[A-Za-z_]\w*/g) ?? []) words.set(w, (words.get(w) ?? 0) + 1)
+    return words
+  }
   for (const nodeId of nodeIds) {
-    if (out.length >= max || budget <= 0) break
+    if (out.length >= limits.excerpts || budget <= 0) break
     const node = model.byId.get(nodeId)
     if (node?.kind !== 'file' && node?.kind !== 'class') continue
     const cls = node.kind === 'class' ? snapshot.classes.find((c) => `class:${c.classId}` === nodeId) : undefined
     const fileId = cls?.fileId ?? nodeId.slice('file:'.length)
-    if (whole.has(fileId)) continue
     const lines = linesOf(fileId)
     if (!lines) continue
     const range = cls ? classLines(lines, cls.className) : ([0, lines.length - 1] as [number, number])
     if (!range) continue
-    let [start, end] = range
-    // Keep whole lines within the budget.
-    let size = 0
-    let last = start - 1
-    for (let i = start; i <= end && size + lines[i]!.length + 8 <= budget; i++) {
-      size += lines[i]!.length + 8
-      last = i
+    const [start, end] = range
+    const seen = covered.get(fileId) ?? new Set<number>()
+    // The stop's own code sets what counts as related: the names it uses.
+    const isAnchor = nodeId === anchorId
+    if (isAnchor) used = wordsOf(lines.slice(start, end + 1).join('\n'))
+    const inFile = wordsOf(lines.join('\n'))
+    const weight = (name: string) => {
+      // Related code that is cut keeps only what the stop uses or the context names.
+      if (!isAnchor && !used.has(name) && !contextNames.has(name)) return null
+      // Used elsewhere in its file, named by the context, used by the stop.
+      let w = Math.min(5, (inFile.get(name) ?? 1) - 1)
+      if (contextNames.has(name)) w += 3
+      if (!isAnchor && used.has(name)) w += 4
+      return w
     }
-    if (last < start) break
-    const truncated = last < end
-    end = last
-    budget -= size
-    if (!cls && !truncated) whole.add(fileId)
-    out.push({ nodeId, fileId, startLine: start + 1, endLine: end + 1, text: numbered(lines.slice(start, end + 1), start + 1), truncated })
+    let base = 0
+    if (cls) {
+      const body = lines.slice(headerEnd(lines, start, end) + 1, end + 1).find((l) => l.trim())
+      base = body ? indentOf(body) : indentOf(lines[start]!) + 4
+    }
+    // The stop's own code may use the whole budget; each related file gets a share, however many of its nodes are in the context.
+    const share = isAnchor ? budget : Math.min(budget, Math.floor(limits.sourceChars * NEIGHBOUR_SHARE) - (spent.get(fileId) ?? 0))
+    if (share <= 0) continue
+    const picked = excerptText(lines, start, end, base, share, seen, weight, isAnchor)
+    if (!picked) continue
+    // Related code cut down to none of the definitions it is related by, or, without definitions, to a few lines, is not worth sending.
+    if (!isAnchor && picked.truncated && (picked.hasDefs ? !picked.defs : picked.text.length < MIN_NEIGHBOUR_CHARS)) continue
+    const numbers = [...picked.text.matchAll(/^(\d+)\| /gm)].map((m) => Number(m[1]))
+    if (!numbers.length) continue
+    for (const n of numbers) seen.add(n - 1)
+    covered.set(fileId, seen)
+    budget -= picked.text.length
+    if (!isAnchor) spent.set(fileId, (spent.get(fileId) ?? 0) + picked.text.length)
+    out.push({ nodeId, fileId, startLine: numbers[0]!, endLine: picked.last + 1, text: picked.text, truncated: picked.truncated })
   }
   return out
 }
@@ -205,12 +395,61 @@ function codeRelations(snapshot: AnalysisSnapshot, model: GraphModel): ContextRe
  * The context a question of `difficulty` about `nodeId` may draw on: the
  * nodes within reach, nearest first, and the relations among them.
  */
-export function buildQuizContext(snapshot: AnalysisSnapshot, nodeId: string, difficulty: Difficulty, read?: SourceReader): QuizContext {
+export function buildQuizContext(snapshot: AnalysisSnapshot, nodeId: string, difficulty: Difficulty, read?: SourceReader, limits?: Partial<ExcerptLimits>): QuizContext {
+  const model = buildGraphModel(snapshot, 'Repository')
+  const { nodes, relations, learning } = retrieve(snapshot, model, nodeId, difficulty)
+  const excerpts = read ? excerptsFor(snapshot, model, nodes.map((n) => n.nodeId), nodeId, { ...SCOPE[difficulty], ...limits }, read) : []
+  return { nodeId, difficulty, nodes, relations, excerpts, learning }
+}
+
+/**
+ * One context for questions of several difficulties about `nodeId`, so the
+ * code they share is sent once: the union of their nodes and relations, the
+ * source within the widest difficulty's budget, and per difficulty the nodes
+ * its questions may cite (`evidence`), the same nodes `buildQuizContext`
+ * gives and the quiz validator accepts.
+ */
+export function buildQuizContexts(snapshot: AnalysisSnapshot, nodeId: string, difficulties: Difficulty[], read?: SourceReader): MultiQuizContext {
+  const levels = DIFFICULTIES.filter((d) => difficulties.includes(d))
+  if (!levels.length || difficulties.some((d) => !SCOPE[d])) throw new Error(`Unknown difficulties: ${String(difficulties)}`)
+  const model = buildGraphModel(snapshot, 'Repository')
+  const parts = levels.map((d) => retrieve(snapshot, model, nodeId, d))
+  const nodes = new Map<string, ContextNode>()
+  const relations = new Map<string, ContextRelation>()
+  // The widest context orders the nodes; the narrower ones only add what it cut.
+  for (const part of [...parts].reverse()) {
+    for (const n of part.nodes) {
+      const seen = nodes.get(n.nodeId)
+      if (!seen) nodes.set(n.nodeId, n)
+      else if (n.hop < seen.hop) nodes.set(n.nodeId, { ...seen, hop: n.hop })
+    }
+    for (const r of part.relations) relations.set(`${r.source}\0${r.target}\0${r.kind}`, r)
+  }
+  const ids = [...nodes.keys()]
+  const limits = {
+    excerpts: Math.max(...levels.map((d) => SCOPE[d].excerpts)),
+    sourceChars: Math.max(...levels.map((d) => SCOPE[d].sourceChars)),
+  }
+  return {
+    nodeId,
+    difficulties: levels,
+    nodes: ids.map((id) => nodes.get(id)!),
+    relations: [...relations.values()],
+    excerpts: read ? excerptsFor(snapshot, model, ids, nodeId, limits, read) : [],
+    learning: parts.at(-1)!.learning,
+    evidence: Object.fromEntries(levels.map((d, i) => [d, parts[i]!.nodes.map((n) => n.nodeId)])),
+  }
+}
+
+function retrieve(snapshot: AnalysisSnapshot, model: GraphModel, nodeId: string, difficulty: Difficulty) {
   const scope = SCOPE[difficulty]
   if (!scope) throw new Error(`Unknown difficulty: ${String(difficulty)}`)
-  const model = buildGraphModel(snapshot, 'Repository')
   const anchor = model.byId.get(nodeId)
-  if (!anchor || anchor.kind === 'member') throw new Error(`Unsupported quiz node: ${nodeId}`)
+  if (!anchor || anchor.kind === 'member') {
+    // A file path without its `file:` prefix is a common slip; naming the right ID saves the writer a search.
+    const hint = !anchor && model.byId.has(`file:${nodeId}`) ? `. Did you mean file:${nodeId}?` : ''
+    throw new Error(`Unsupported quiz node: ${nodeId}${hint}`)
+  }
 
   const all = codeRelations(snapshot, model)
   const neighbours = new Map<string, ContextRelation[]>()
@@ -278,8 +517,7 @@ export function buildQuizContext(snapshot: AnalysisSnapshot, nodeId: string, dif
     learning.before = path.slice(0, at).filter((id) => linked.has(id) && inScope.has(id))
     learning.after = path.slice(at + 1, at + 4)
   }
-  const excerpts = read ? excerptsFor(snapshot, model, kept, difficulty, read) : []
-  return { nodeId, difficulty, nodes, relations, excerpts, learning }
+  return { nodes, relations, learning }
 }
 
 /** What the agent submits for one question. */
@@ -341,6 +579,28 @@ export const QUESTION_LIMITS = {
   trueFalseAnswers: TRUE_FALSE,
   chars: { concept: 80, question: 500, answer: 300, distractor: 300, explanation: 900 },
 } as const
+
+/** How much longer than its longest distractor a multiple-choice answer may be before its length gives it away. */
+export const ANSWER_LENGTH_RATIO = 1.25
+
+/**
+ * The multiple-choice questions whose answer is much longer than every
+ * distractor, so its length alone would give it away. Reported, not refused:
+ * a refusal would cost the writer another turn, so this only measures how
+ * often it happens.
+ */
+export function longAnswers(inputs: QuestionInput[]): string[] {
+  if (!Array.isArray(inputs)) return []
+  return inputs.flatMap((q, i) => {
+    if (q?.type !== 'multiple_choice' || typeof q.answer !== 'string' || !Array.isArray(q.distractors) || !q.distractors.length) return []
+    const answer = q.answer.trim().length
+    const longest = Math.max(...q.distractors.map((d) => (typeof d === 'string' ? d.trim().length : 0)))
+    // Short answers such as identifiers may differ by a few characters without giving anything away.
+    return answer > longest * ANSWER_LENGTH_RATIO && answer - longest > 20
+      ? [`Question ${i + 1}: answer of ${answer} characters, longest distractor ${longest}`]
+      : []
+  })
+}
 
 function text(value: unknown, what: string, max: number): string {
   if (typeof value !== 'string' || !value.trim() || value.length > max || [...value].some((c) => c.charCodeAt(0) < 9)) {

@@ -20,6 +20,8 @@ State why each explanation/code helps the goal. Never invent source behavior; wh
 No evaluation/heldout material belongs in the curriculum. The server supplies provisional model rates; do not invent learning probabilities.
 When asked to write material for a material job, call get_learning_material_context(jobId), then save_learning_material(jobId,items):
 only the asked concepts and levels, one action per asked slot with two new questions grounded in that level's evidence, different from slots[].written.
+Each slot lists its candidates in slots[].nodeIds; their source and evidence are in contexts[], once each. Follow the context's cite rule.
+Write the answer and distractors about the same length and detail, so the answer's length does not give it away.
 Never record an answer, advance a session or mutate mastery. Only save the prepared materials and report the job ID.`
 
 export function registerLearningTools(server: McpServer, tours: TourStore, quizzes: QuizStore) {
@@ -75,7 +77,7 @@ export function registerLearningTools(server: McpServer, tours: TourStore, quizz
     sessionId: z.string(), provider: z.enum(['codex', 'claude']),
     ownerPid: z.number().int().positive().describe('PID of the app process that runs the CLI when shouldRun is true'),
   }, false, ({ sessionId, provider, ownerPid }) => learning.requestMaterial(sessionId, provider, ownerPid))
-  tool('get_learning_material_context', 'For the material-writing agent: the concepts, and for each asked concept and level the questions already written and the source it may cite. Never answer for the learner.', { jobId: z.string() }, true, ({ jobId }) => learning.materialContext(jobId))
+  tool('get_learning_material_context', 'For the material-writing agent: the concepts; for each asked concept and level the questions already written and the candidate nodes it may use (slots[].nodeIds); and each candidate\'s source and per-level evidence once (contexts[]). Never answer for the learner.', { jobId: z.string() }, true, ({ jobId }) => learning.materialContext(jobId))
   tool('save_learning_material', 'For the material-writing agent: save actions only for the asked concepts and levels, each with new questions grounded in that level\'s evidence. Costs and learning effects are assigned by the server.', {
     jobId: z.string(), items: z.array(item).min(1).max(8),
   }, false, ({ jobId, items }) => learning.saveMaterial(jobId, items.map((action: z.infer<typeof item>) => {

@@ -9,8 +9,9 @@ export interface StopInput {
 }
 export interface Evidence { label: string; value: string }
 export function formatEvidenceValue(evidence: Evidence) {
+  // Scores such as the complexity and LambdaRank scores are shown to two decimals; counts and ranks as they are.
   const value = Number(evidence.value)
-  return evidence.label === 'Complexity score' && evidence.value.trim() && Number.isFinite(value)
+  return evidence.value.trim() && Number.isFinite(value) && !Number.isInteger(value)
     ? value.toFixed(2)
     : evidence.value
 }
@@ -68,7 +69,10 @@ export function readingTourOrder(snapshot: AnalysisSnapshot) {
 export function inspectNode(snapshot: AnalysisSnapshot, nodeId: string) {
   const model = buildGraphModel(snapshot, 'Repository')
   const node = model.byId.get(nodeId)
-  if (!node || node.kind === 'member') throw new Error(`Unsupported tour node: ${nodeId}`)
+  if (!node || node.kind === 'member') {
+    const hint = !node && model.byId.has(`file:${nodeId}`) ? `. Did you mean file:${nodeId}?` : ''
+    throw new Error(`Unsupported tour node: ${nodeId}${hint}`)
+  }
   const evidence: Evidence[] = []
   const add = (label: string, value: number | null | undefined) => {
     if (value != null && Number.isFinite(value)) evidence.push({ label, value: String(value) })
