@@ -13,12 +13,12 @@ const MATERIAL_TIMEOUT: Duration = Duration::from_secs(5 * 60);
 /// start, as the context's `rules.start` sets it. Higher levels are written
 /// later, while the learner answers.
 fn preparation_prompt(job_id: &str) -> String {
-    format!("Prepare Telescode adaptive learning job {job_id}. Call get_learning_preparation_context with exactly this job ID, inspect its grounded code excerpts and immutable goal, then save_learning_curriculum with the same job ID. Start small, as the context's rules.start says: a concept map of at most rules.start.maxConcepts concepts with their relations, and actions at the rules.start.levels only, with two questions in all, both about the goal concepts in rules.start.concepts. The higher levels are written later, while the learner answers. Follow the server's adaptive learning instructions. Use the existing concept definitions exactly. Save only material; never answer or advance a learner session. Reply with the job ID.")
+    format!("Prepare Telescode adaptive learning job {job_id}. Call get_learning_preparation_context with exactly this job ID, inspect its grounded code excerpts and immutable goal, then save_learning_curriculum with the same job ID. Start small, as the context's rules.start says: a concept map of at most rules.start.maxConcepts concepts with their relations, and actions at the rules.start.levels only, with two questions in all, both about the goal concepts in rules.start.concepts. The higher levels are written later, while the learner answers. Follow the server's adaptive learning instructions. Use the existing concept definitions exactly. Write the concepts, captions and questions in English. Save only material; never answer or advance a learner session. Reply with the job ID.")
 }
 
 /// What the material agent is asked to do for one job.
 fn material_prompt(job_id: &str) -> String {
-    format!("Write Telescode learning material for job {job_id}. Call get_learning_material_context with exactly this job ID, then save_learning_material with the same job ID: one action for each asked concept and level, with two new questions each where the source supports them, grounded in that level's evidence and different from the questions already written. Write only the asked levels. Save only material; never answer or advance a learner session. Reply with the job ID.")
+    format!("Write Telescode learning material for job {job_id}. Call get_learning_material_context with exactly this job ID, then save_learning_material with the same job ID: one action for each asked concept and level, with two new questions each where the source supports them, grounded in that level's evidence and different from the questions already written. Write only the asked levels, and write the captions and questions in English. Save only material; never answer or advance a learner session. Reply with the job ID.")
 }
 static PREPARATION: std::sync::Mutex<()> = std::sync::Mutex::new(());
 /** `finish_learning_preparation` accepts at most 2000 characters (JS UTF-16 units). */
@@ -166,6 +166,8 @@ mod tests {
         assert!(prompt.contains("rules.start.concepts"));
         // The rest is written while the learner answers, not up front.
         assert!(!prompt.contains("at least two independent scenario questions per target"));
+        // The app's material is in English, as its tours and quizzes are.
+        assert!(prompt.contains("in English"));
     }
 
     #[test]
@@ -174,6 +176,7 @@ mod tests {
         assert!(prompt.contains("job-7"));
         assert!(prompt.contains("get_learning_material_context") && prompt.contains("save_learning_material"));
         assert!(prompt.contains("only the asked"));
+        assert!(prompt.contains("in English"));
         assert_eq!(MATERIAL_TOOLS, ["get_learning_material_context", "save_learning_material"]);
     }
 

@@ -233,6 +233,11 @@ fn claude_generation_baseline_through_app_ipc() {
     // A store of its own: no cached material, and the app's own store is left alone.
     std::env::set_var("TELESCODE_TOUR_OUTPUT", &output);
     let scenario = |name: &str| std::env::set_var(crate::agent::SCENARIO_ENV, name);
+    // TELESCODE_BASELINE_STEPS runs only some steps (quiz-cold, quiz-warm,
+    // learning, learning-material; all by default), to check one flow within
+    // a smaller budget. learning-material needs learning.
+    let steps = std::env::var("TELESCODE_BASELINE_STEPS").ok();
+    let runs = |step: &str| steps.as_deref().is_none_or(|s| s.split(',').any(|x| x.trim() == step));
     let example: Value = serde_json::from_str(include_str!("../../src/examples/data/requests.json")).unwrap();
     let (_app, window) = window();
     assert_eq!(ipc(&window, "agent_status", json!({"provider":"claude"})).unwrap()["signedIn"], true);
@@ -244,11 +249,18 @@ fn claude_generation_baseline_through_app_ipc() {
     let tour = crate::mcp::call("create_tour_draft", json!({"projectId":project["projectId"],"title":plan["title"],"language":"en","stops":stops})).unwrap();
     let index = stops.iter().position(|s| s["nodeId"].as_str().unwrap().starts_with("file:")).unwrap();
     let target = json!({"dbPath":db,"tourId":tour["plan"]["id"],"tourRevision":tour["plan"]["revision"],"stopIndex":index,"nodeId":stops[index]["nodeId"]});
-    for name in ["baseline-quiz-cold", "baseline-quiz-warm"] {
-        scenario(name);
+    let quizzes = ["quiz-cold", "quiz-warm"].into_iter().filter(|step| runs(step)).count();
+    for step in ["quiz-cold", "quiz-warm"].into_iter().filter(|step| runs(step)) {
+        scenario(&format!("baseline-{step}"));
         ipc(&window, "generate_quiz", json!({"provider":"claude","target":target})).unwrap();
     }
-    assert_eq!(ipc(&window, "list_quizzes", json!({})).unwrap().as_array().unwrap().len(), 2);
+    assert_eq!(ipc(&window, "list_quizzes", json!({})).unwrap().as_array().unwrap().len(), quizzes);
+    if !runs("learning") {
+        std::env::remove_var(crate::agent::SCENARIO_ENV);
+        std::env::remove_var("TELESCODE_TOUR_OUTPUT");
+        println!("Baseline usage log: {}", output.join(crate::agent::USAGE_LOG).display());
+        return;
+    }
 
     let goal = requirements_goal(example["requirements"].as_str().unwrap());
     let started = ipc(&window, "start_learning_session", json!({"dbPath":db,"goal":goal})).unwrap();
@@ -259,8 +271,10 @@ fn claude_generation_baseline_through_app_ipc() {
     let answer = json!({"sessionId":id,"revision":ready["session"]["revision"],"stopId":ready["session"]["current"]["id"],
         "submissionId":"baseline-answer","questionId":ready["question"]["id"],"selectedIndex":0});
     ipc(&window, "record_learning_response", json!({"answer":answer})).unwrap();
-    scenario("baseline-learning-material");
-    ipc(&window, "prepare_learning_material", json!({"sessionId":id,"provider":"claude"})).unwrap();
+    if runs("learning-material") {
+        scenario("baseline-learning-material");
+        ipc(&window, "prepare_learning_material", json!({"sessionId":id,"provider":"claude"})).unwrap();
+    }
 
     std::env::remove_var(crate::agent::SCENARIO_ENV);
     std::env::remove_var("TELESCODE_TOUR_OUTPUT");
