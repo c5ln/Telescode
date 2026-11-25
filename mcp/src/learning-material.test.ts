@@ -66,13 +66,36 @@ async function answer(store: LearningStore, view: LearningView, right: boolean) 
   return store.advance(view.session.id, result.view.session.revision, view.session.current!.id, 'continue')
 }
 
-test('no material is needed while the prepared questions can follow either answer', async () => {
+test('material is asked for a question ahead: on the first of the last two questions, what the next one leads to is written', async () => {
+  const { store, learner } = await setup()
+  try {
+    // Two easy questions are prepared and the first is shown. After the next one, the learner needs the level above or more easy
+    // questions; asking now lets the agent write them while the learner answers both, not only the last.
+    const view = await learner()
+    const job = await store.requestMaterial(view.session.id, 'claude', pid)
+    assert.equal(job.shouldRun, true)
+    // The likely path, right now and then either way, needs the level above. More easy questions are needed only after
+    // a wrong answer now, which is unlikely, so they are not written yet.
+    assert.deepEqual(job.slots, [{ branch: 'correct', conceptId: 'A', level: 'medium' }])
+    await store.saveMaterial(job.id, [item('medium-A', 'medium', ['first', 'second'])])
+    // A right answer: the prepared questions can follow either answer of the last one, so nothing more is asked for.
+    const right = await answer(store, view, true)
+    const none = await store.requestMaterial(right.session.id, 'claude', pid)
+    assert.equal(none.shouldRun, false)
+    assert.deepEqual(none.slots, [])
+  } finally { store.close() }
+})
+
+test('after a wrong answer, the same level is asked for on the last question, as it was before material was written ahead', async () => {
   const { store, learner } = await setup()
   try {
     const view = await learner()
-    const job = await store.requestMaterial(view.session.id, 'claude', pid)
-    assert.equal(job.shouldRun, false)
-    assert.deepEqual(job.slots, [])
+    const ahead = await store.requestMaterial(view.session.id, 'claude', pid)
+    await store.saveMaterial(ahead.id, [item('medium-A', 'medium', ['first', 'second'])])
+    const wrong = await answer(store, view, false)
+    const job = await store.requestMaterial(wrong.session.id, 'claude', pid)
+    assert.equal(job.shouldRun, true)
+    assert.deepEqual(job.slots.map(s => s.level), ['easy'])
   } finally { store.close() }
 })
 

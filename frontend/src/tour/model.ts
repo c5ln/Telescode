@@ -51,11 +51,20 @@ export function tourFrameState(timeline: ReturnType<typeof tourTimeline>, ms: nu
   return { index, progress, holding: progress === 1 }
 }
 
-export function readingTourOrder(snapshot: AnalysisSnapshot) {
+/**
+ * How many ranked files the reading order an agent reads covers. A tour has
+ * at most 8 stops along this path, and a large repository's whole order
+ * (thousands of files and classes) is too long for an agent to read.
+ */
+export const READING_ORDER_FILES = 20
+
+/** The onboarding path: files by fileRank, each with its classes by localRank; only the first `files` files when given. */
+export function readingTourOrder(snapshot: AnalysisSnapshot, files?: number) {
   const model = buildGraphModel(snapshot, 'Repository')
-  const files = snapshot.readingSequence.filter(s => s.entityType === 'file' && s.fileRank != null && s.fileRank > 0)
+  const ranked = snapshot.readingSequence.filter(s => s.entityType === 'file' && s.fileRank != null && s.fileRank > 0)
     .sort((a, b) => a.fileRank! - b.fileRank! || a.fileId.localeCompare(b.fileId))
-  return files.flatMap(file => {
+  const head = files === undefined ? ranked : ranked.slice(0, files)
+  return head.flatMap(file => {
     const fileNode = model.byId.get(`file:${file.fileId}`)
     if (!fileNode) return []
     const classes = fileNode.children.map(node => {

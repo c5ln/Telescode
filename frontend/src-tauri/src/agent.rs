@@ -287,15 +287,22 @@ pub(crate) const LEAN_SYSTEM_PROMPT: &str = "You write source-grounded learning 
 Follow the request and the telescode server's instructions. Use only the telescode tools you are given and the context they return; \
 never state source behavior that context does not show. Reply with what the request asks for.";
 
-/// `args` for a quiz or learning run, which needs only the Telescode tools:
-/// Claude Code gets none of its built-in tools and a short system prompt.
-/// Their definitions and its prompt were most of each request's input
-/// (measured in #85), and with its built-in tools on it loads the
-/// Telescode tools lazily, through extra `ToolSearch` calls. Tours keep its
-/// defaults, and Codex has its built-in tools turned off already.
+/// The system prompt of tour runs, for the same reason. How to choose the
+/// stops and write their captions is in the server's onboarding instructions.
+pub(crate) const TOUR_SYSTEM_PROMPT: &str = "You write onboarding tours of a repository for Telescode, a code onboarding app, running headless. \
+Follow the request and the telescode server's instructions. Use only the telescode tools you are given and what they return; \
+never state code behavior they do not show. Reply with what the request asks for.";
+
+/// `args` for a run, which needs only the Telescode tools: Claude Code gets
+/// none of its built-in tools and a short system prompt for its work. Their
+/// definitions and its prompt were most of each request's input (measured
+/// in #85 and #91), and with its built-in tools on it loads the Telescode
+/// tools lazily, through extra `ToolSearch` calls, and a tour agent could
+/// run shell commands. Codex has its built-in tools turned off already.
 fn with_lean(provider: Provider, work: Work, mut args: Vec<OsString>) -> Vec<OsString> {
-    if provider == Provider::Claude && work != Work::Tour {
-        args.extend(["--tools".into(), "".into(), "--system-prompt".into(), LEAN_SYSTEM_PROMPT.into()]);
+    if provider == Provider::Claude {
+        let prompt = if work == Work::Tour { TOUR_SYSTEM_PROMPT } else { LEAN_SYSTEM_PROMPT };
+        args.extend(["--tools".into(), "".into(), "--system-prompt".into(), prompt.into()]);
     }
     args
 }
@@ -929,17 +936,23 @@ mod tests {
     }
 
     #[test]
-    fn quiz_and_learning_runs_give_claude_no_builtin_tools_and_a_short_system_prompt() {
+    fn every_run_gives_claude_no_builtin_tools_and_a_short_system_prompt_for_its_work() {
         let server = mcp::ServerCommand { program: "node".into(), args: vec!["/t/server.ts".into()], env: vec![] };
+        let system_prompt = |args: &[OsString]| args.windows(2).find(|w| w[0] == "--system-prompt").map(|w| w[1].clone());
         for work in [Work::Quiz, Work::Learning, Work::LearningMaterial] {
             let args = run_args(Provider::Claude, work, Model::Light, "x", &server, &["create_quiz"]);
             assert!(args.windows(2).any(|w| w[0] == "--tools" && w[1].is_empty()), "{work:?}");
-            assert!(args.windows(2).any(|w| w[0] == "--system-prompt" && w[1] == LEAN_SYSTEM_PROMPT), "{work:?}");
+            assert_eq!(system_prompt(&args).as_deref(), Some(LEAN_SYSTEM_PROMPT.as_ref()), "{work:?}");
             assert_eq!(&args[..2], ["-p", "x"]);
         }
-        // Tours keep Claude Code's defaults.
+        // Tours too: without built-in tools no shell command runs, and the Telescode tools load up front, with no ToolSearch.
         let tour = run_args(Provider::Claude, Work::Tour, Model::Default, "x", &server, &["create_tour_draft"]);
-        assert!(!tour.iter().any(|a| a == "--tools" || a == "--system-prompt"));
+        assert!(tour.windows(2).any(|w| w[0] == "--tools" && w[1].is_empty()));
+        // Their own prompt: the learning one is about writing questions.
+        assert_eq!(system_prompt(&tour).as_deref(), Some(TOUR_SYSTEM_PROMPT.as_ref()));
+        assert!(TOUR_SYSTEM_PROMPT.contains("tour") && !TOUR_SYSTEM_PROMPT.contains("learning material"));
+        // A tour keeps the user's default model.
+        assert!(!tour.iter().any(|a| a == "--model"));
         // Codex has neither option; its built-in tools are already turned off.
         let codex = run_args(Provider::Codex, Work::Quiz, Model::Light, "x", &server, &["create_quiz"]);
         assert!(!codex.iter().any(|a| a == "--tools" || a == "--system-prompt"));
