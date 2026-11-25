@@ -13,7 +13,7 @@ import { startHttp } from './http.ts'
 import { renderTour } from './render.ts'
 import { chromium } from './browser.ts'
 import { buildGraphModel } from '../../frontend/src/graph/model.ts'
-import { inspectNode, durationMs, readingTourOrder } from '../../frontend/src/tour/model.ts'
+import { inspectNode, durationMs, readingTourOrder, READING_ORDER_FILES } from '../../frontend/src/tour/model.ts'
 import { buildQuizContext, buildQuizContexts, DIFFICULTIES, MAX_QUESTIONS_PER_DIFFICULTY } from '../../frontend/src/quiz/model.ts'
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
@@ -48,13 +48,13 @@ tool('open_project', 'Open a DB with LambdaRank onboarding order, or an existing
 })
 tool('get_project_overview', 'Read repository totals, directories, and file reading ranks. Missing ranking data is reported explicitly.', { projectId: z.string() }, true, ({ projectId }) => {
   const p = store.project(projectId)
-  return { totals: p.snapshot.totals, ranking: p.ranking, directories: buildGraphModel(p.snapshot, 'Repository').nodes.filter(n => n.kind === 'dir').map(n => ({ nodeId: n.id, title: n.label, files: n.fileCount, classes: n.classCount })), readingSequence: p.snapshot.readingSequence.filter(s => s.entityType === 'file').slice(0, 20), hasReadingSequence: p.snapshot.readingSequence.length > 0 }
+  return { totals: p.snapshot.totals, ranking: p.ranking, directories: buildGraphModel(p.snapshot, 'Repository').nodes.filter(n => n.kind === 'dir').map(n => ({ nodeId: n.id, title: n.label, files: n.fileCount, classes: n.classCount })), readingSequence: p.snapshot.readingSequence.filter(s => s.entityType === 'file').slice(0, 20).map(s => ({ nodeId: `file:${s.fileId}`, ...s })), hasReadingSequence: p.snapshot.readingSequence.length > 0 }
 })
 tool('search_nodes', 'Find repository, directory, file and class IDs by case-insensitive text; use these IDs in tour stops.', { projectId: z.string(), query: z.string(), limit: z.number().int().min(1).max(100).default(30) }, true, ({ projectId, query, limit }) => {
   const model = buildGraphModel(store.project(projectId).snapshot, 'Repository')
   return model.nodes.filter(n => n.kind !== 'member' && `${n.id} ${n.label}`.toLowerCase().includes(query.toLowerCase())).slice(0, limit).map(n => ({ nodeId: n.id, kind: n.kind, title: n.label }))
 })
-tool('get_reading_tour_order', 'Read the onboarding path ordered by fileRank and class localRank. Maintain this relative order in tour stops.', { projectId: z.string() }, true, ({ projectId }) => readingTourOrder(store.project(projectId).snapshot))
+tool('get_reading_tour_order', `Read the head of the onboarding path: the first files by fileRank (${READING_ORDER_FILES} unless files says otherwise), each with its classes by localRank. Maintain this relative order in tour stops.`, { projectId: z.string(), files: z.number().int().min(1).max(200).default(READING_ORDER_FILES) }, true, ({ projectId, files }) => readingTourOrder(store.project(projectId).snapshot, files))
 tool('inspect_node', 'Read a node, its children, direct relationships and computed evidence. Class metrics do not inherit file scores silently.', { projectId: z.string(), nodeId: z.string() }, true, ({ projectId, nodeId }) => inspectNode(store.project(projectId).snapshot, nodeId))
 tool('create_tour_draft', 'Save an onboarding tour (1–8 stops, at most 60 seconds) in reading sequence order; return the full plan and user review URL.', { projectId: z.string(), title: z.string(), language: z.enum(['ko', 'en']).default('ko'), stops: z.array(stop).min(1).max(8) }, false, async ({ projectId, title, language, stops }) => {
   const draft = await store.create(projectId, title, language, stops)

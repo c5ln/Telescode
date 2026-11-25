@@ -124,3 +124,5 @@ __pycache__
 # markdown
 *.md
 !README.md
+# The MCP server reads its instructions from these at startup.
+!mcp/prompts/*.md

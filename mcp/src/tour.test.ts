@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { TourStore } from './store.ts'
 import { startHttp } from './http.ts'
-import { makeStops, toVtt, inspectNode, readingTourOrder, tourTimeline, tourFrameState, FPS, durationMs } from '../../frontend/src/tour/model.ts'
+import { makeStops, toVtt, inspectNode, readingTourOrder, READING_ORDER_FILES, tourTimeline, tourFrameState, FPS, durationMs } from '../../frontend/src/tour/model.ts'
 import { tourFrames } from './frames.ts'
 import { chromium } from './browser.ts'
 import { resolve } from 'node:path'
@@ -115,6 +115,10 @@ test('onboarding uses file ranks and class local ranks, not snapshot row order',
   }
   assert.deepEqual(readingTourOrder(classRanked).slice(0, 3).map(n => n.nodeId), [`file:${second}`, 'class:ranked-b', 'class:ranked-a'])
   assert.throws(() => makeStops(classRanked, [{ ...stops[0], nodeId: 'class:ranked-a' }, { ...stops[0], nodeId: 'class:ranked-b' }]), /reading sequence order/)
+  // What an agent reads is the head of the path: the first files, each with its classes in order.
+  assert.deepEqual(readingTourOrder(classRanked, 1).map(n => n.nodeId), [`file:${second}`, 'class:ranked-b', 'class:ranked-a'])
+  assert.deepEqual(readingTourOrder(classRanked, READING_ORDER_FILES), readingTourOrder(classRanked))
+  assert.equal(READING_ORDER_FILES, 20)
 })
 test('evidence uses actual data and captions begin after movement', () => {
   const info = inspectNode(snapshot, 'root')

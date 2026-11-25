@@ -177,7 +177,12 @@ test('MCP DB workflow exposes native order and saves only tours following that o
     const overview = await call('get_project_overview', { projectId: opened.projectId })
     assert.equal(overview.ranking.query, opened.ranking.query)
     assert.ok(overview.readingSequence.every((s: any) => Number.isFinite(s.scores.lambdarank)))
+    // Each file in the overview's reading order names its node, so it is passed to inspect_node as is.
+    assert.ok(overview.readingSequence.every((s: any) => s.nodeId === `file:${s.fileId}`))
     const fullOrder = await call('get_reading_tour_order', { projectId: opened.projectId })
+    // The head of the path only: a large repository's whole order is too long for an agent to read.
+    const head = await call('get_reading_tour_order', { projectId: opened.projectId, files: 1 })
+    assert.deepEqual(head.map((n: any) => n.nodeId), fullOrder.filter((n: any) => n.fileRank === fullOrder[0].fileRank).map((n: any) => n.nodeId))
     const order = fullOrder.filter((n: any) => n.localRank === null)
     assert.deepEqual(order.map((n: any) => n.title), overview.readingSequence.map((s: any) => s.fileId))
     const stops = order.map((n: any) => ({ nodeId: n.nodeId, caption: 'Verified component.', transitionMs: 0, holdMs: 2000 }))
