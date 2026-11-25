@@ -521,10 +521,29 @@ export class LearningStore {
     else if (s.session.status === 'active' && s.session.current) {
       if (s.responseId) add('now', this.gap(this.outcome(s, true)))
       else {
-        // The chance of a right answer, as the planner models it: the estimate after this step, with guessing and slips.
+        // What the learner may need, and how likely: after this question, or, when one prepared question is left
+        // after it, after that one too. Writing a question ahead gives the agent the time of both answers, not
+        // only the last. Each level is asked for once the paths that need it together reach the threshold.
+        const needed: { branch: MaterialSlot['branch']; gap: NonNullable<ReturnType<LearningStore['gap']>>; chance: number }[] = []
+        const need = (branch: MaterialSlot['branch'], gap: ReturnType<LearningStore['gap']>, chance: number) => {
+          if (!gap) return
+          const seen = needed.find(n => n.gap.conceptId === gap.conceptId && n.gap.level === gap.level)
+          if (seen) seen.chance += chance
+          else needed.push({ branch, gap, chance })
+        }
         const right = this.chanceRight(s)
-        if (right >= MATERIAL_MIN_OUTCOME) add('correct', this.gap(this.outcome(s, true)))
-        if (1 - right >= MATERIAL_MIN_OUTCOME) add('incorrect', this.gap(this.outcome(s, false)))
+        for (const [branch, correct, chance] of [['correct', true, right], ['incorrect', false, 1 - right]] as const) {
+          const after = this.outcome(s, correct)
+          const gap = this.gap(after)
+          if (gap) { need(branch, gap, chance); continue }
+          // A question is left after this one: what either outcome of it leads to.
+          this.move(after)
+          if (after.session.status !== 'active' || !after.session.current) continue
+          const next = this.chanceRight(after)
+          need(branch, this.gap(this.outcome(after, true)), chance * next)
+          need(branch, this.gap(this.outcome(after, false)), chance * (1 - next))
+        }
+        for (const n of needed) if (n.chance >= MATERIAL_MIN_OUTCOME) add(n.branch, n.gap)
       }
     }
     return found
